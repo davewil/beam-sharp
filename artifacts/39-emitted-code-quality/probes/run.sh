@@ -18,6 +18,9 @@
 #  P6 +no_type_opt strips every {tr} and makes the hot loop slower IF this OTP 25 JIT consumes the Type chunk.
 #     I predict a slowdown of ~5-25%. If ~0, then the OTP-25 JIT does not exploit these annotations and the
 #     ticket's mechanism cannot be reproduced here (it says nothing about OTP 28).
+#  P8 (written before v_remote was first run) erlang:'rem'/2 remote-call spelling (what B# FFI emits) gives the
+#     same annotations and time as the operator form. P9 (written before ctl was first run) POSITIVE CONTROL:
+#     exploratory; +no_type_opt may or may not slow a tuple-match or binary-match loop.
 #  P7 EXPORTALL (any-typed) runs slower than private base, by less than or about equal to the no_type_opt gap.
 set -e
 cd "$(dirname "$0")"
@@ -52,6 +55,8 @@ v v_remote_nt -DREMOTE +no_type_opt
 # positive control (see ctl.erl)
 mkdir -p $B/src; for n in ctl ctl_nt; do cp ctl.erl $B/src/$n.erl; done
 erlc -DMOD=ctl -o $B $B/src/ctl.erl; erlc -DMOD=ctl_nt +no_type_opt -o $B $B/src/ctl_nt.erl
+for k in TUP BIN; do l=$(echo $k | tr A-Z a-z); for n in ctl_${l} ctl_${l}_nt; do cp ctl.erl $B/src/$n.erl; done
+  erlc -DMOD=ctl_${l} -D$k -o $B $B/src/ctl_${l}.erl; erlc -DMOD=ctl_${l}_nt -D$k +no_type_opt -o $B $B/src/ctl_${l}_nt.erl; done
 # the bsc build path: forms -> ~p .abstr with line 0 -> compile:file(from_abstr, debug_info)  (bsc.erl:843)
 erlc -o $B mkabstr.erl
 erl -noshell -pa $B -run mkabstr main loop.erl v_abstr $B BSSHAPE SPEC_WIDE BSATOMS
@@ -103,8 +108,10 @@ for core in 1 3; do
 done
 
 # --- 6. positive control ---
-{ echo "control (ctl.erl): tuple loop + binary-match loop, with vs without +no_type_opt; 100 rounds"
-  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT 100 ctl ctl_nt
+{ echo "control (ctl.erl): with vs without +no_type_opt; 100 rounds each pair (a pair must return equal answers)"
+  for pair in "ctl ctl_nt" "ctl_tup ctl_tup_nt" "ctl_bin ctl_bin_nt"; do
+    echo "--- $pair ---"; taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT 100 $pair
+  done
 } > control.out 2>&1
 { echo "Type-chunk bytes (control):"; for m in ctl ctl_nt; do erl -noshell -pa $B -eval "{ok,_,C}=beam_lib:all_chunks(\"$B/$m.beam\"),io:format(\"$m type_chunk=~p~n\",[byte_size(element(2,lists:keyfind(\"Type\",1,C)))]),halt()."; done; } >> control.out 2>&1
 echo done

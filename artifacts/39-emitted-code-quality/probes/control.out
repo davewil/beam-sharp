@@ -1,8 +1,19 @@
-control (ctl.erl): tuple loop + binary-match loop, with vs without +no_type_opt; 100 rounds
+control (ctl.erl): with vs without +no_type_opt; 100 rounds each pair (a pair must return equal answers)
+--- ctl ctl_nt ---
 answer {36000000,9000000} (all 2 variants agree)
 variant                 n      min      p10   median      p90      max   stdev  med_rel
-ctl                   100   13.946   14.161   14.718   16.272   25.849   1.867   1.000x
-ctl_nt                100   18.041   18.227   18.853   20.852   33.111   3.123   1.281x
+ctl                   100   13.736   13.875   14.606   20.294   27.912   2.988   1.000x
+ctl_nt                100   18.224   18.452   19.504   27.284   31.850   3.675   1.335x
+--- ctl_tup ctl_tup_nt ---
+answer 36000000 (all 2 variants agree)
+variant                 n      min      p10   median      p90      max   stdev  med_rel
+ctl_tup               100    6.905    7.074    7.387    8.150   13.995   0.859   1.000x
+ctl_tup_nt            100    9.846    9.943   10.406   13.639   20.275   1.813   1.409x
+--- ctl_bin ctl_bin_nt ---
+answer 9000000 (all 2 variants agree)
+variant                 n      min      p10   median      p90      max   stdev  med_rel
+ctl_bin               100    6.330    6.518    6.977   11.312   11.833   1.784   1.000x
+ctl_bin_nt            100    6.501    6.609    7.200   11.874   18.103   2.308   1.032x
 Type-chunk bytes (control):
 ctl type_chunk=62
 ctl_nt type_chunk=26
