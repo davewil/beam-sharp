@@ -187,6 +187,6 @@ specifiers somewhere to go.
   time. The name is .NET's `IFormattable` without the `I`, as `Enumerable` was derived. It is the
   interface a C# hole consults, and it carries the format argument if format specifiers are ever
   decided. The operation is called `Formattable.ToString(v)` anywhere (99's `Shape.Area(c)`).
-  Amends 99 Q5: the compiler ships `Enumerable` and `Formattable`. Unbuilt: the feature issue,
-  behind ENG-562 and ENG-458.
+  Amends 99 Q5: the compiler ships `Enumerable` and `Formattable`. Unbuilt:
+  [ENG-565](https://linear.app/davewil/issue/ENG-565), behind ENG-562 and ENG-458.
 ```
