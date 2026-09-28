@@ -19,6 +19,8 @@
 %%%       So widening the tag test to private functions costs bytes that BEAM cannot take back.
 %%%       A map literal built in the caller with 'Kind' => 'Order' is my second guess for "still kept".
 %%%   P4. Exported function: guard always kept, whatever the caller proves.
+%%%   P5. (added before the first run of the range rows) a local function whose caller ran the SAME 0..255
+%%%       range test loses the whole kind+range guard (the type lattice tracks integer ranges).
 %%%
 %%% Run: erl -noshell -pa . -eval 'p01_shapes:go(), halt().'   (run.sh does this)
 -module(p01_shapes).
@@ -71,11 +73,18 @@ section_b(Dir) ->
                         true  -> "p(O) when erlang:is_integer(O) -> O + 1.";
                         false -> "p(O) -> O + 1."
                     end end,
+    Rng = fun(G) -> case G of
+                        true  -> "p(O) when erlang:is_integer(O) andalso O >= 0 andalso O =< 255 -> O + 1.";
+                        false -> "p(O) -> O + 1."
+                    end end,
     Cases =
         [%% name,         guard kind, p builder, exported c/1 (the caller), test-to-look-for
          {"int / caller unknown",         int, Int, "c(X) -> p(X).",                                         "is_integer"},
          {"int / caller proved integer",  int, Int, "c(X) when erlang:is_integer(X) -> p(X).",               "is_integer"},
          {"int / caller passes literal",  int, Int, "c(_) -> p(41).",                                         "is_integer"},
+         {"range0..255 / caller unknown", rng, Rng, "c(X) -> p(X).",                                         "is_integer"},
+         {"range0..255 / caller ran SAME range test", rng, Rng,
+          "c(X) when erlang:is_integer(X) andalso X >= 0 andalso X =< 255 -> p(X).",                          "is_integer"},
          {"tag / caller unknown",         tag, Tag, "c(X) -> p(X).",                                         "map_get"},
          {"tag / caller ran SAME tag test", tag, Tag, "c(O) when " ?TAG " -> p(O).",                          "map_get"},
          {"tag / caller built the literal", tag, Tag, "c(T) -> p(#{'Kind' => 'Order', total => T}).",         "map_get"},

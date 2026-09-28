@@ -31,3 +31,5 @@ N = 100000
   subtree prefix test, one root (in)             0.1850 us/check  (200 reps)
   subtree prefix test, one root (out)            0.1200 us/check  (200 reps)
   subtree vs N roots (naive scan, miss)      16436.0000 us/check  (2 reps)
+  whole-world sweep: 100000 edges, one map lookup + one prefix test each: 53864 us total (0.539 us/edge)
+reference: erlc compile:file of the 10-line shop_orders fixture: 4079 us

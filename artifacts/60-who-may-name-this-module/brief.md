@@ -33,7 +33,7 @@ question to David is (e), alone, as a program (see Recommendation). The others t
 | `-export` is all-or-nothing: an unrelated module called exported `shop_orders:recompute_total/1` (result 30) | MEASURED | probes/erl_caller_restriction.out line 1 |
 | `-nifs([f/0])` on a non-NIF, `-on_load`, `-compile({inline,..})` restrict no caller; `nif_like/0` still returned to anyone | MEASURED | erl_caller_restriction.out 2b-2d |
 | OTP xref reports callers after compile, including the unrelated `outsider`; enforces nothing | MEASURED | erl_caller_restriction.out 3c |
-| xref cost, checked-in `.out`: 3.1 ms load + 8.9 ms first query on 3 modules; 51.4 ms load + 2.4 ms query on 301 modules. Timings vary run to run (the first query varied about 2x on a verifier re-run). In the 301-module set `m0` was skipped by xref ("no debug information") yet the query still found m1 -> m0 | MEASURED | erl_caller_restriction.out 3, 4 |
+| xref cost, across the runs captured (final `.out` and the run before it): 2.9-3.1 ms load and 6.0-8.9 ms first query on 3 modules; 33.6-51.4 ms load and 2.4-2.9 ms query on 301 modules. Timings vary run to run (the first query about 2x, the 301-module load about 1.5x). In the 301-module set `m0` was skipped by xref ("no debug information") yet the query still found m1 -> m0 | MEASURED | erl_caller_restriction.out 3, 4 |
 | Elixir `@doc false` fn is callable from an unrelated module (30); `@moduledoc false` module has no docs but is callable | MEASURED | probes/ex_probe.out 1, 1b |
 | Elixir `defp` from another module: compile succeeds with a *warning* "undefined or private", then `UndefinedFunctionError` at run | MEASURED | ex_probe.out 2a, 2b |
 | Elixir nested `defmodule Shop.Orders.Internal` is callable by any module (no nesting privacy) | MEASURED | ex_probe.out 4 |
@@ -58,8 +58,8 @@ question to David is (e), alone, as a program (see Recommendation). The others t
 | Under F12, an unmarked signature is private and a cross-module call to it is refused | RECORDED | compiler/features/F12 AMENDED + F12.4; not re-run (bsc unbuildable) |
 | Ticket 24 §2's "every function in an aggregate is exported today" predates F12 (24 resolved 08-13, F12 08-17) | RECORDED | wayfinder/issues/24 lines 218-220; F12 header |
 | A string prefix with no dot boundary admits `Shop.ReportsV2` into subtree `Shop.Reports`; a dot-boundary test refuses it. Definitional (`naive/2` has no boundary and the caller list was chosen to contain `ReportsV2`): it illustrates a trap, it does not test a proposed rule. The directory-path form was NOT exercised (`dirp/2` splits the same atom, no path involved), and the probe's `children/2` is a hand re-typing of bs_check.erl:573-575 | MEASURED (illustration only) | probes/prefix_rule.out |
-| Per-check cost (OTP 25 JIT, this box): map `is_key` 0.014-0.035 us flat from N=10 to 100k (loop and closure overhead dominate these nanoseconds; the flat shape is the finding); one subtree prefix test 0.12-0.26 us flat; `lists:member` miss 0.019 / 2.1 / 204 us at N=10/1k/100k; naive "under any of N roots" 27.5 ms at N=100k; whole-world sweep 0.2-0.6 us/edge (one edge per module, synthetic Erlang loop, not bsc). Figures move 5-15% between runs | MEASURED | probes/cost.out |
-| Reference: one `compile:file` of a 10-line module took 3.9 ms (varies; includes warm-up) | MEASURED | cost.out last line |
+| Per-check cost (OTP 25 JIT, this box): map `is_key` 0.014-0.055 us flat from N=10 to 100k (loop and closure overhead dominate these nanoseconds; the flat shape is the finding); one subtree prefix test 0.12-0.26 us flat; `lists:member` miss 0.019-0.022 / 1.9-2.1 / 202-204 us at N=10/1k/100k; naive "under any of N roots" 16-28 ms at N=100k; whole-world sweep 0.2-0.6 us/edge (one edge per module, synthetic Erlang loop, not bsc). Figures move up to about 2x between runs (the 100k naive scan most), so only shapes are relied on | MEASURED | probes/cost.out |
+| Reference: one `compile:file` of a 10-line module took 3.9-4.1 ms (varies; includes warm-up) | MEASURED | cost.out last line |
 
 ## Option 1: callee declares a subtree (`within`), in `index.bs`
 
@@ -148,7 +148,7 @@ declaration is large) instead of a prefix test; item 5 becomes "every named frie
 (`maps:is_key`, no namespace semantics, so no edge cases from `ReportsV2`). No prefix probe is needed, and the edge cases
 of prefix_rule.out do not arise.
 
-**Measured cost:** `is_key` 0.014-0.035 us flat in N. `lists:member` is 0.019 us at N=10, 204 us at N=100k, but a friend list
+**Measured cost:** `is_key` 0.014-0.055 us flat in N. `lists:member` is 0.019-0.022 us at N=10, 202-204 us at N=100k, but a friend list
 of 100k names is not a real program; a friend list is 1-10 names.
 
 **Strongest counterargument.** Adding a caller means editing the *callee's* `index.bs`, so a new consumer of `Shop.Orders`
