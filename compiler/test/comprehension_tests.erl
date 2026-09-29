@@ -353,6 +353,81 @@ a_nested_relational_pattern_is_refused_test() ->
     bad_rc(Arm),
     tagged(Arm, "relational_pattern_nested").
 
+%% F65.22 — a `when` narrows the generator before it, as an arm's guard narrows
+%% its pattern, so the result is the refined list its signature declares.
+a_guard_narrows_its_generator_test() ->
+    Got = run([{"Keep.bs",
+                "module Keep\n"
+                "type NonNegative = int where value >= 0\n"
+                "public list<NonNegative> Kept(list<int> xs)\n"
+                "Kept(xs) -> [n for int n in xs when n >= 0]\n"
+                "public list<NonNegative> Demo()\n"
+                "Demo() -> Kept([-1, 0, 3])\n"}],
+              "Demo"),
+    ok_rc(Got),
+    has(Got, "[0, 3]").
+
+%% F65.23 — each `when` narrows what the ones before it left, and a later
+%% generator keeps an earlier generator's narrowing.
+guards_narrow_in_turn_test() ->
+    Chained = run([{"Dg.bs",
+                    "module Dg\n"
+                    "type Digit = int where value >= 0 and value <= 9\n"
+                    "public list<Digit> Digits(list<int> xs)\n"
+                    "Digits(xs) -> [n for int n in xs when n >= 0 when n <= 9]\n"
+                    "public list<Digit> Demo()\n"
+                    "Demo() -> Digits([-1, 0, 3, 9, 10])\n"}],
+                  "Demo"),
+    ok_rc(Chained),
+    has(Chained, "[0, 3, 9]"),
+    Each = run([{"Gr.bs",
+                 "module Gr\n"
+                 "type NonNegative = int where value >= 0\n"
+                 "type Small = int where value <= 9\n"
+                 "public list<(NonNegative, Small)> Grid(list<int> xs, list<int> ys)\n"
+                 "Grid(xs, ys) -> [(n, m) for int n in xs when n >= 0"
+                 " for int m in ys when m <= 9]\n"
+                 "public list<(NonNegative, Small)> Demo()\n"
+                 "Demo() -> Grid([-1, 2], [5, 10])\n"}],
+               "Demo"),
+    ok_rc(Each),
+    has(Each, "[(2, 5)]").
+
+%% F65.24 — a guard that narrows nothing still compiles and filters.
+a_guard_that_narrows_nothing_compiles_test() ->
+    Got = run([{"Rs.bs",
+                "module Rs\n"
+                "public list<(int, int)> Rising(list<int> xs, list<int> ys)\n"
+                "Rising(xs, ys) -> [(x, y) for int x in xs for int y in ys when x < y]\n"
+                "public list<(int, int)> Demo()\n"
+                "Demo() -> Rising([1, 3], [2])\n"}],
+              "Demo"),
+    ok_rc(Got),
+    has(Got, "[(1, 2)]").
+
+%% F65.25 — a guard reading two generators' binders narrows neither: either
+%% side of an `or` may admit the pair, so `y` is not narrowed by `y >= 0`.
+a_guard_across_generators_does_not_narrow_test() ->
+    Refused = diagnose([{"Ei.bs",
+                         "module Ei\n"
+                         "type NonNegative = int where value >= 0\n"
+                         "public list<(int, NonNegative)> Either(list<int> xs, list<int> ys)\n"
+                         "Either(xs, ys) -> [(x, y) for int x in xs for int y in ys"
+                         " when x >= 0 or y >= 0]\n"}]),
+    bad_rc(Refused),
+    tagged(Refused, "return_not_declared"),
+    %% The refusal is the truth: the pair with a negative `y` is kept.
+    Got = run([{"Eo.bs",
+                "module Eo\n"
+                "public list<(int, int)> Either(list<int> xs, list<int> ys)\n"
+                "Either(xs, ys) -> [(x, y) for int x in xs for int y in ys"
+                " when x >= 0 or y >= 0]\n"
+                "public list<(int, int)> Demo()\n"
+                "Demo() -> Either([0], [-5])\n"}],
+              "Demo"),
+    ok_rc(Got),
+    has(Got, "[(0, -5)]").
+
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 
 walk(T) when is_tuple(T) -> [T | walk(tuple_to_list(T))];

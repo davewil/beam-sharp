@@ -1955,6 +1955,17 @@ Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
 ```
 <!-- decided by ticket 114, overruling ticket 17's "no comprehension syntax"; built as F65 -->
 
+A `when` narrows the generator before it, as an arm's guard narrows its pattern, so the list
+below is the refined one its signature declares:
+
+```csharp
+type NonNegative = int where value >= 0
+
+public list<NonNegative> Kept(list<int> xs)
+Kept(xs) -> [n for int n in xs when n >= 0]
+```
+<!-- amended by David reviewing F65, recorded in ticket 114; built by ENG-572 -->
+
 Each lowers to one Erlang comprehension. Written without one, `Settled` is a fold with a `switch`
 inside it, where the arm `Receipt r` narrows:
 

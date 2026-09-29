@@ -7,7 +7,15 @@
                 `diagnoses: vacuous_generator` block in LANGUAGE.md §8, the first seen PROMOTED
                 from `not-yet` and the second seen red. yecc 6 shift/reduce and 0 reduce/reduce
                 before and after; tree-sitter parses a scratch file of five comprehensions with
-                no ERROR node
+                no ERROR node.
+                **Amended 2026-09-29** ([ENG-572](https://linear.app/davewil/issue/ENG-572)): a
+                `when` narrows the generator before it, as an arm's guard narrows its pattern —
+                F65.22–25, 25 tests in `comprehension_tests`, 1253 in the suite. F65.22–23
+                and §8's `Kept` block seen red before the build; F65.23 red with each `when`
+                narrowing from the generator's first domain, F65.25 red with `apply_guard/3`
+                dropping the alternatives that read another generator's binder. The emitted
+                `.abstr` is byte-identical to `9f2ace2`'s over the examples corpus and four
+                guarded comprehensions
 **Implements**  [ticket 114](../../wayfinder/issues/114-comprehensions-revisited.md), A1–A7.
                 Decides nothing
 **Closes**      [ENG-571](https://linear.app/davewil/issue/ENG-571)
@@ -18,13 +26,10 @@
                 path, which cannot tell a head parameter from a subject's tuple element (the
                 trap F53 met for the part prefix). `child_type/3` now refuses it structurally,
                 for an arm and a generator alike (F65.21)
-**Leaves**      map, binary and `Enumerable<T>` comprehensions (ticket 114 A7, fog on the map); a
-                `when` narrowing its generator's binders, as a head's and an arm's guard do, so
-                `[n for int n in xs when n >= 0]` is `list<int>` today
-                ([ENG-572](https://linear.app/davewil/issue/ENG-572)); advice naming `== x` for
-                `(x, x)` in a generator, which today says "rename the second one"
-                ([ENG-573](https://linear.app/davewil/issue/ENG-573)); an expected arrow for a
-                lambda written in a comprehension's head
+**Leaves**      map, binary and `Enumerable<T>` comprehensions (ticket 114 A7, fog on the map);
+                advice naming `== x` for `(x, x)` in a generator, which today says "rename the
+                second one" ([ENG-573](https://linear.app/davewil/issue/ENG-573)); an expected
+                arrow for a lambda written in a comprehension's head
 
 ## The program
 
@@ -54,8 +59,13 @@ Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
   (`float f`) is legal there. Its binders are narrowed to the list's element type intersected
   with the pattern's type. An element the pattern refuses is skipped. A pattern that no element
   can match is a warning (`vacuous_generator`), as a vacuous `switch` arm is.
-- A guard is checked as a clause guard is, and not typed further: a call to a user function is
-  refused (`call_in_guard`), and the guard-level operator refusals (`mixed_operands`) reach it.
+- A guard is checked as a clause guard is: a call to a user function is refused
+  (`call_in_guard`), and the guard-level operator refusals (`mixed_operands`) reach it.
+- A guard narrows the binders of the generator before it, as an arm's guard narrows its pattern,
+  so `[n for int n in xs when n >= 0]` is a `list<NonNegative>`. It is checked before it narrows, and
+  each `when` narrows what the ones before it left. A guard that reads a name its generator did
+  not bind, an outer one or another generator's, narrows nothing, as an arm's guard reading an
+  outer name does.
 - A later generator and every guard see the bindings before them. Nothing bound inside a
   comprehension is visible after it, and a generator may not rebind a name already bound
   (`rebinding`), as a switch arm and a lambda parameter may not, nor bind one name twice in
@@ -103,3 +113,7 @@ ENG-571, with the nested-relational fix under **Fixes**, and it is recorded in
 | F65.19 | a relational pattern in each of two generators, `[1 for >= 0 in xs for >= 0 in ys]` | `[1]`, and no erlc warning: each generator's lowered variables are unique across the module |
 | F65.20 | `[x for (x, x) in ps]` | refused, `rebinding`, as a lambda's repeated parameter is |
 | F65.21 | `[n for (>= 0, n) in ps]`, and the switch arm `(>= 0, n) =>` | refused, `relational_pattern_nested`, as a clause head refuses it; both crashed `bs_emit:pattern/2` with a stack trace, the arm since F2 |
+| F65.22 | `Kept`, `[n for int n in xs when n >= 0]` declared `list<NonNegative>` | compiles, and returns `[0, 3]` from `[-1, 0, 3]`; refused as `[int >= 0, ..] \| [int <= -1, ..]` before ENG-572 |
+| F65.23 | `when n >= 0 when n <= 9` declared `list<Digit>`; and `when n >= 0 for int m in ys when m <= 9` declared `list<(NonNegative, Small)>` | both compile: each `when` narrows what the ones before it left, and a later generator keeps an earlier one's narrowing; `[0, 3, 9]` and `[(2, 5)]` |
+| F65.24 | `[(x, y) for int x in xs for int y in ys when x < y]` declared `list<(int, int)>` | a guard that narrows nothing still compiles, and returns `[(1, 2)]` |
+| F65.25 | `when x >= 0 or y >= 0`, across two generators, declared `list<(int, NonNegative)>` | refused, `return_not_declared`: either side of the `or` may admit the pair, so neither binder narrows; undeclared, it keeps `(0, -5)` |
