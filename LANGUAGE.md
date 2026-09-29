@@ -824,8 +824,9 @@ Line(o) -> $"Order {o.Id} for {o.Customer}: {o.Total} pence, {o.Status}"
 
 `Line` returns `"Order 42 for Ada: 1250 pence, placed"`. Any other hole is refused at compile time:
 a tuple, a list, a map, `term`, or a union spanning two of the four parts, which has no one
-printing. A record will fill a hole once its module implements `Formattable` (ticket 113); that is
-not built (ENG-565), so a record hole is refused today and the refusal says so.
+printing. A record will fill a hole once its module implements `Formattable`; that is not built
+yet, so a record hole is refused today and the refusal says so.
+<!-- decided by ticket 113; built by ENG-565 -->
 
 <!-- diagnoses: interp_hole -->
 ```csharp

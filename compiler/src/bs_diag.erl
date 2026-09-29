@@ -1049,16 +1049,17 @@ message(#{tag := generator_not_list, file := P, line := L, column := C, function
      "  or establish one from an outside value with `ValidateAs<list<T>>`.~n",
      [P, L, C, Fn, Ty]};
 %% A hole prints by a fixed table read from its type (ticket 112 A3). A record
-%% will print through `Formattable` (ticket 113), and the message says that is
-%% not built rather than that a record never prints; it recommends nothing that
-%% does not compile. The repair for a union of two parts is a switch.
+%% will print through `Formattable` (ticket 113, ENG-565), and the message says
+%% that is not built rather than that a record never prints; it recommends
+%% nothing that does not compile, and names no ticket, since its reader may be
+%% the clean-room one. The repair for a union of two parts is a switch.
 message(#{tag := interp_hole, file := P, line := L, column := C, function := Fn,
           type := Ty, record := _}) ->
     {"~s:~p:~p: error: a hole in ~s's template holds ~s~n"
-     "  a record will fill a hole through `Formattable` (ticket 113),~n"
-     "  which is not built yet (ENG-565). Until it is, put one of its~n"
-     "  string, int, float or atom fields in the hole, taking a union~n"
-     "  of records apart with a switch first.~n",
+     "  a record will fill a hole through `Formattable`, which is~n"
+     "  not built yet. Until it is, put one of its string, int, float~n"
+     "  or atom fields in the hole, taking a union of records apart~n"
+     "  with a switch first.~n",
      [P, L, C, Fn, Ty]};
 message(#{tag := interp_hole, file := P, line := L, column := C, function := Fn,
           type := Ty}) ->
