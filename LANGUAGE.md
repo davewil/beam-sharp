@@ -852,9 +852,23 @@ A template whose holes are all `string` is a legal guard, since a guard may buil
 other hole is printed by a BIF the BEAM will not run in a guard, so it is refused there
 (`interp_in_guard`). **shipped** — F66.
 
-This compiler also limits a hole to one line, with braces nested at most two deep inside it, which
-is enough for a `switch` or a record construction. Those are limits of its lexer, not rules of the
-language, and a template past them is refused as malformed.
+A hole may span lines, as C#'s may, so a `switch` inside one reads as it does anywhere else:
+
+```csharp
+record Order { Id: int, Total: int, Status: :placed | :paid | :refunded }
+
+public string Summary(Order o)
+Summary(o) -> $"Order {o.Id}: {o.Status switch {
+    :placed   => "awaiting payment",
+    :paid     => $"paid, {o.Total} pence",
+    :refunded => "refunded"
+}}"
+```
+<!-- decided by ticket 112 A5; built by F66, ENG-562 -->
+
+This compiler limits the braces nested inside a hole to two deep, which is enough for a `switch` or
+a record construction. That is a limit of its lexer, not a rule of the language, and a template
+past it is refused as malformed.
 
 ### Arithmetic on `int`
 

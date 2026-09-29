@@ -383,6 +383,10 @@ Route(path, id) -> (path == $"/orders/{id}") switch {
 ➡️ **Recommended: yes**, keep the tag. It is the same rule A3 named, "any call the BEAM will not
 run there", and a refusal should speak about what the author wrote.
 
+**A5 and A6 (David, 2026-09-29):** *yes* and *yes*, both as recommended. A hole may span lines,
+as C# 11's may; braces stay two deep inside a hole, a limit of the lexer. A non-`string` hole in a
+guard is refused under its own tag, `interp_in_guard`. Built on F66 (ENG-562).
+
 ## The compiler delta, as decided
 
 Two builds. The refusal's advice names the template, so the refusal lands after the template or
@@ -402,7 +406,8 @@ exists to prevent.
    `atom_to_binary` are not guard BIFs (erlc: *"illegal guard expression"*, measured). So a
    template with any other hole is refused in a guard, by the same rule that refuses any call
    the BEAM will not run there.
-   *The F66 build's readings went to David as Round 4 (Q5, Q6), 2026-09-29.*
+   *The F66 build's readings went to David as Round 4: a hole may span lines (A5), and the
+   guard refusal is its own tag, `interp_in_guard` (A6).*
 2. **The refusal** (Q4), [ENG-551](https://linear.app/davewil/issue/ENG-551). `non_numeric_operand`
    in `op_result/5`, asked at both guard sites (`walk/6`, `arms/10`), with the round 1 delta
    above. A string operand's advice names the template. [25](25-exemplar-programs.md) finding 5
@@ -441,6 +446,8 @@ iodata builder (25e's `Iodata`).
   [33](issues/33-body-check-site.md) §2's *"no sixth site"* no longer describe the operator, which
   [80](issues/80-does-an-int-flow-where-a-float-is-expected.md) and
   [83](issues/83-a-union-operand-at-an-operator.md) had already started checking. Not decided:
-  a template in a pattern, format specifiers, an iodata builder. Unbuilt:
+  a template in a pattern, format specifiers, an iodata builder. Round 4 (2026-09-29, from the
+  F66 build): a hole may span lines, as C# 11's may, and a guard refuses a non-`string` hole as
+  `interp_in_guard`. Unbuilt:
   [ENG-562](https://linear.app/davewil/issue/ENG-562), then [ENG-551](https://linear.app/davewil/issue/ENG-551).
 ```

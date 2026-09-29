@@ -364,6 +364,43 @@ an_uninhabited_hole_adds_nothing_test() ->
     ?assertEqual(nomatch, string:find(Got, "interp_hole")),
     has(Got, "boom").
 
+%% F66.20 — a hole may span lines, as C# 11's may (ticket 112 A5): a
+%% `switch` over the status reads as one, arm per line.
+a_hole_spans_lines_test() ->
+    Src = {"Receipts.bs",
+           "module Receipts\n"
+           "record Order { Id: int, Total: int, Status: :placed | :paid | :refunded }\n"
+           "public string Summary(Order o)\n"
+           "Summary(o) -> $\"Order {o.Id}: {o.Status switch {\n"
+           "    :placed   => \"awaiting payment\",\n"
+           "    :paid     => $\"paid, {o.Total} pence\",\n"
+           "    :refunded => \"refunded\"\n"
+           "}}\"\n"
+           "public string Demo()\n"
+           "Demo() -> Summary(Order { Id = 42, Total = 1250, Status = :paid })\n"},
+    Got = run([Src], "Demo"),
+    ok_rc(Got),
+    has(Got, "\"Order 42: paid, 1250 pence\"").
+
+%% F66.21 — a hole's own lines keep their positions: a refused hole nested on
+%% the third line of an outer hole is reported there, and the line after the
+%% template is still counted right.
+a_multi_line_holes_positions_hold_test() ->
+    Got = diagnose([{"Pos.bs",
+                     "module Pos\n"
+                     "record Money { Pence: int }\n"
+                     "public string F(Money m, int n)\n"
+                     "F(m, n) -> $\"a {n switch {\n"
+                     "    0 => \"none\",\n"
+                     "    _ => $\"<{m}>\"\n"
+                     "}}\"\n"
+                     "public string G(Money m)\n"
+                     "G(m) -> $\"{m}\"\n"}]),
+    bad_rc(Got),
+    has(Got, "line => 6"),
+    has(Got, "column => 13"),
+    has(Got, "line => 9").
+
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 
 walk(T) when is_tuple(T) -> [T | walk(tuple_to_list(T))];

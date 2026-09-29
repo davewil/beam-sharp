@@ -19,12 +19,13 @@ WS         = [\s\t\r\n]
 %% A template string, `$"Order {o.Id}"` (ticket 112, F66). The rule has to
 %% match the whole template exactly: a leex action may push characters back,
 %% but the line and column have already been advanced past them, so every
-%% position after an over-long match would be wrong (F35). A hole is one line.
-%% It skips string literals and balances braces two deep, which a `switch` or a
-%% record construction in a hole needs. A hole's first character is never `{`,
-%% so `{{` is always a literal brace, as it is in C#.
-HSTR       = "(\\.|[^"\\\n])*"
-HCH        = [^{}"\n]
+%% position after an over-long match would be wrong (F35). A hole may span
+%% lines, as C# 11's may (ticket 112 A5). It skips string literals and balances
+%% braces two deep, which a `switch` or a record construction in a hole needs;
+%% the depth is this lexer's limit, not the language's. A hole's first
+%% character is never `{`, so `{{` is always a literal brace, as it is in C#.
+HSTR       = "(\\.|[^"\\])*"
+HCH        = [^{}"]
 HNEST1     = \{({HCH}|{HSTR})*\}
 HNEST2     = \{({HCH}|{HSTR}|{HNEST1})*\}
 HOLE       = \{({HCH}|{HSTR})({HCH}|{HSTR}|{HNEST2})*\}
@@ -116,8 +117,8 @@ false                   : {token, {atom_lit, TokenLoc, false}}.
 %% template to the first rule; anything the first cannot match falls to the
 %% second, which names what a template may hold instead of reporting `$`.
 \$"({TTEXT}|{HOLE})*"   : interp_token(TokenLoc, TokenChars).
-\$"                     : {error, "a template string closes with `\"`, a hole is `{expr}` "
-                                  "on one line, and a literal brace is `{{` or `}}`"}.
+\$"                     : {error, "a template string closes with `\"`, a hole is `{expr}`, "
+                                  "and a literal brace is `{{` or `}}`"}.
 
 %% `:name` is an atom. The universe is open: nothing declares an atom and the
 %% lexer interns what it sees (ticket 10).
