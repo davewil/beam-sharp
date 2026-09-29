@@ -1,16 +1,22 @@
 # F65 — list comprehensions: `[r for Receipt r in cs]`
 
-**Status**      **in progress** — 17 tests in `comprehension_tests`, 1245 in the suite; F65.1–16 seen
-                red before the build (`syntax error before: for`), F65.17 red on the first cut's
-                wording; a must-compile block and a `diagnoses: vacuous_generator` block in
-                LANGUAGE.md §8, the first seen PROMOTED from `not-yet` and the second seen red;
-                yecc 6 shift/reduce and 0 reduce/reduce before and after; tree-sitter parses a
-                scratch file of five comprehensions with no ERROR node
+**Status**      **in progress** — 21 tests in `comprehension_tests`, 1249 in the suite. F65.1–16
+                seen red before the build (`syntax error before: for`), F65.17 red on the first
+                cut's wording, F65.18–21 red on the first cut where the review measured them. A
+                must-compile block and a `diagnoses: vacuous_generator` block in LANGUAGE.md §8,
+                the first seen PROMOTED from `not-yet` and the second seen red. yecc 6
+                shift/reduce and 0 reduce/reduce before and after; tree-sitter parses a scratch
+                file of five comprehensions with no ERROR node
 **Implements**  [ticket 114](../../wayfinder/issues/114-comprehensions-revisited.md), A1–A7.
                 Decides nothing
 **Closes**      [ENG-571](https://linear.app/davewil/issue/ENG-571)
 **Depends on**  F53 (the part prefix, legal at a generator's top), F41 (guard rules, which a
                 filter keeps), F51 (the guard-level operator refusals, which reach a filter)
+**Fixes**       a relational pattern nested in a switch arm's tuple, `(>= 0, n) =>`, crashed
+                `bs_emit:pattern/2` with a stack trace since F2: `argument_position/2` reads the
+                path, which cannot tell a head parameter from a subject's tuple element (the
+                trap F53 met for the part prefix). `child_type/3` now refuses it structurally,
+                for an arm and a generator alike (F65.21)
 **Leaves**      map, binary and `Enumerable<T>` comprehensions (ticket 114 A7, fog on the map); a
                 filter narrowing its binders, so `[n for int n in xs when n >= 0]` is `list<int>`,
                 not a refinement; an expected arrow for a lambda written in a comprehension's head
@@ -43,22 +49,27 @@ Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
   (`float f`) is legal there. Its binders are narrowed to the list's element type intersected
   with the pattern's type. An element the pattern refuses is skipped. A pattern that no element
   can match is a warning (`vacuous_generator`), as a vacuous `switch` arm is.
-- A guard keeps guard rules: a call to a user function is refused (`call_in_guard`), and the
-  guard-level operator refusals (`mixed_operands`) reach it.
+- A guard is checked as a clause guard is, and not typed further: a call to a user function is
+  refused (`call_in_guard`), and the guard-level operator refusals (`mixed_operands`) reach it.
 - A later generator and every guard see the bindings before them. Nothing bound inside a
   comprehension is visible after it, and a generator may not rebind a name already bound
-  (`rebinding`), as a switch arm and a lambda parameter may not.
+  (`rebinding`), as a switch arm and a lambda parameter may not, nor bind one name twice in
+  its pattern, as a lambda may not.
 - A comprehension in a guard is refused (`comprehension_in_guard`), as a `switch` is: the BEAM
   has no comprehension in a guard.
 - It lowers to one Erlang list comprehension with `<-` generators, which skip. A pattern's kind
   and relational tests become filters directly after its generator, and each `when` becomes one
-  filter.
+  filter. An Erlang generator binds its pattern's names fresh, so `== n` lowers to a fresh name
+  and an `=:=` filter, and each generator's lowered names are unique in the module.
 
 What the build read that no ticket spelled, for David to overrule:
 
-- `in` is now a keyword.
 - `generator_not_list` and `comprehension_in_guard` refuse what ticket 114 did not list; both
   would otherwise compile and crash (`bad_generator`, or an Erlang compile error).
+- A generator may not rebind an outer name or bind one name twice (`rebinding`), following the
+  switch arm and the lambda, where 114 said only that names are local.
+- A map pattern over `map<K, V>` elements is refused at site `generator`, with the deferred form
+  as its reason, since a generator owes no exhaustiveness.
 
 ## Scenarios
 
@@ -73,11 +84,15 @@ What the build read that no ticket spelled, for David to overrule:
 | F65.7 | a comprehension's head calling another module's function, after `using Shop.Tax` | `[100, 2500]` |
 | F65.8 | `[r for Refund r in cs]` over `list<Charge>` | compiles with the `vacuous_generator` warning, and returns `[]` |
 | F65.9 | a `when` calling a private function | refused, `call_in_guard` |
-| F65.10 | `[f for float f in xs when f > 0]` | refused, `mixed_operands` |
+| F65.10 | `[f for f in xs when f > 0]` over `list<float>` | refused, `mixed_operands` |
 | F65.11 | a generator's binder named after the `]` | refused, `unbound_variable` |
 | F65.12 | a generator binding a parameter's name | refused, `rebinding` |
 | F65.13 | a source of type `int`, and one of type `term` | refused, `generator_not_list`, both |
-| F65.14 | a comprehension inside a clause guard | refused, `comprehension_in_guard` |
+| F65.14 | a comprehension inside a clause guard, and inside a switch arm's guard | refused, `comprehension_in_guard`, both |
 | F65.15 | `Settled`, emitted | one `lc` with a `generate` over `Cs`, no `case` |
 | F65.16 | the three new diagnostics on the term channel, in `--batch` and standalone | byte-identical (ENG-349) |
 | F65.17 | `[v for { "a": v } in ms]` over `list<map<string, int>>` | refused, `map_pattern_deferred` at site `generator`, whose reason is the deferred form rather than exhaustiveness, since a generator skips |
+| F65.18 | `[1 for == n in xs]`, and `[(x, x) for x in xs for == x in ys]` | `== n` matches the bound `n`: `[1]` and `[(2, 2)]`; the first cut emitted `N <- Xs`, which an Erlang generator binds fresh, and returned `[1, 1, 1]` with erlc's shadowing warning |
+| F65.19 | a relational pattern in each of two generators, `[1 for >= 0 in xs for >= 0 in ys]` | `[1]`, and no erlc warning: each generator's lowered variables are unique across the module |
+| F65.20 | `[x for (x, x) in ps]` | refused, `rebinding`, as a lambda's repeated parameter is |
+| F65.21 | `[n for (>= 0, n) in ps]`, and the switch arm `(>= 0, n) =>` | refused, `relational_pattern_nested`, as a clause head refuses it; both crashed `bs_emit:pattern/2` with a stack trace, the arm since F2 |

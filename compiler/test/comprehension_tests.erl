@@ -147,7 +147,8 @@ a_vacuous_generator_warns_test() ->
     tagged(Diag, "vacuous_generator"),
     Got = run([refunds()], "Demo"),
     ok_rc(Got),
-    has(Got, "[]").
+    %% The result's own line: the warning's text says "always []" too.
+    has(Got, "\n[]\nrc:0").
 
 %% F65.9 — a guard keeps guard rules: it cannot call a user function.
 a_guard_cannot_call_test() ->
@@ -204,7 +205,17 @@ a_comprehension_in_a_guard_is_refused_test() ->
                      "Empty(xs) when [x for x in xs] == [] -> 0\n"
                      "Empty(xs) -> 1\n"}]),
     bad_rc(Got),
-    tagged(Got, "comprehension_in_guard").
+    tagged(Got, "comprehension_in_guard"),
+    %% A switch arm's guard is checked by `arms/10`, not the clause walk.
+    Arm = diagnose([{"Ga.bs",
+                     "module Ga\n"
+                     "public int Size(list<int> xs)\n"
+                     "Size(xs) -> xs switch {\n"
+                     "    ys when [y for y in ys] == [] => 0,\n"
+                     "    _ => 1\n"
+                     "}\n"}]),
+    bad_rc(Arm),
+    tagged(Arm, "comprehension_in_guard").
 
 %% F65.15 — one Erlang comprehension, generating from the parameter.
 it_lowers_to_one_comprehension_test() ->
@@ -266,6 +277,81 @@ a_map_pattern_is_deferred_in_a_generator_test() ->
     Human = bs_test_support:run_cli("--src-root " ++ Root ++ " " ++ Main),
     has(Human, "matching one in a generator is not built"),
     ?assertEqual(nomatch, string:find(Human, "cannot be proved exhaustive")).
+
+%% F65.18 — `== n` in a generator matches the bound value. An Erlang
+%% generator binds its pattern's names fresh, so the emitter must not write the
+%% outer name there.
+an_equality_pattern_matches_the_bound_value_test() ->
+    Src = {"Eq.bs",
+           "module Eq\n"
+           "public list<int> Hits(int n, list<int> xs)\n"
+           "Hits(n, xs) -> [1 for == n in xs]\n"
+           "public list<(int, int)> Pairs(list<int> xs, list<int> ys)\n"
+           "Pairs(xs, ys) -> [(x, x) for x in xs for == x in ys]\n"
+           "public list<int> One()\n"
+           "One() -> Hits(2, [1, 2, 3])\n"
+           "public list<(int, int)> Two()\n"
+           "Two() -> Pairs([1, 2, 3], [2, 4])\n"},
+    One = run([Src], "One"),
+    ok_rc(One),
+    has(One, "[1]"),
+    ?assertEqual(nomatch, string:find(One, "[1, 1")),
+    ?assertEqual(nomatch, string:find(One, "shadowed")),
+    Two = run([Src], "Two"),
+    ok_rc(Two),
+    has(Two, "[(2, 2)]"),
+    %% Nested in a tuple, as the review measured it.
+    Nested = run([{"Nm.bs",
+                   "module Nm\n"
+                   "public list<string> Named(int id, list<(int, string)> ps)\n"
+                   "Named(id, ps) -> [s for (== id, s) in ps]\n"
+                   "public list<string> Demo()\n"
+                   "Demo() -> Named(1, [(1, \"a\"), (2, \"b\"), (1, \"c\")])\n"}],
+                 "Demo"),
+    ok_rc(Nested),
+    has(Nested, "[\"a\", \"c\"]").
+
+%% F65.19 — two generators' lowered variables do not collide.
+two_relational_generators_test() ->
+    Got = run([{"Rel.bs",
+                "module Rel\n"
+                "public list<int> Both(list<int> xs, list<int> ys)\n"
+                "Both(xs, ys) -> [1 for >= 0 in xs for >= 0 in ys]\n"
+                "public list<int> Demo()\n"
+                "Demo() -> Both([1, -1], [2])\n"}],
+              "Demo"),
+    ok_rc(Got),
+    has(Got, "[1]"),
+    ?assertEqual(nomatch, string:find(Got, "shadowed")).
+
+%% F65.20 — a generator's pattern may not bind one name twice.
+a_generator_binds_a_name_once_test() ->
+    Got = diagnose([{"Dup.bs",
+                     "module Dup\n"
+                     "public list<int> Same(list<(int, int)> ps)\n"
+                     "Same(ps) -> [x for (x, x) in ps]\n"}]),
+    bad_rc(Got),
+    tagged(Got, "rebinding").
+
+%% F65.21 — a relational pattern nested in a generator's or an arm's tuple is
+%% refused as a head's is. A path cannot tell a head parameter from a subject's
+%% tuple element, so the refusal is structural, as the part prefix's is.
+a_nested_relational_pattern_is_refused_test() ->
+    Gen = diagnose([{"Ng.bs",
+                     "module Ng\n"
+                     "public list<int> Kept(list<(int, int)> ps)\n"
+                     "Kept(ps) -> [n for (>= 0, n) in ps]\n"}]),
+    bad_rc(Gen),
+    tagged(Gen, "relational_pattern_nested"),
+    Arm = diagnose([{"Na.bs",
+                     "module Na\n"
+                     "public int Kept((int, int) p)\n"
+                     "Kept(p) -> p switch {\n"
+                     "    (>= 0, n) => n,\n"
+                     "    _ => 0\n"
+                     "}\n"}]),
+    bad_rc(Arm),
+    tagged(Arm, "relational_pattern_nested").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 

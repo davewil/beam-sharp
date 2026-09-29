@@ -2493,10 +2493,14 @@ rebinds({e_comp, _, Head, Quals}, Bound, Name) ->
         lists:foldl(
           fun({gen, Line, P, Src}, {B, Acc}) ->
                   Vars = pattern_vars(P),
+                  %% A name repeated in one pattern is refused as a lambda's
+                  %% repeated parameter is.
+                  Dups = Vars -- lists:usort(Vars),
                   {B ++ Vars,
                    Acc ++ rebinds(Src, B, Name)
                        ++ [{error, Line, Name, {rebinding, V}}
-                           || V <- lists:usort(Vars), lists:member(V, B)]
+                           || V <- lists:usort(Vars),
+                              lists:member(V, B) orelse lists:member(V, Dups)]
                        ++ [{error, Line, Name, {unbound_variable, V}}
                            || V <- lists:usort(pattern_matched_vars(P)),
                               not lists:member(V, B ++ Vars)]};
@@ -3749,11 +3753,13 @@ comp_quals([{gen, L, P, Src} | Rest], S, C, Diags) ->
     D2 = case map_arm_deferred(P, Elem) of
              true ->
                  [{error, L, C#ctx.fname, {map_pattern_deferred, generator, Elem}}];
-             %% An empty source has no element to match, so nothing is vacuous.
+             %% `redundancy/4`'s membership test, with no guard and nothing
+             %% subtracted: a generator skips, so only `vacuous` can apply. An
+             %% empty source has no element to match, so nothing is vacuous.
              false ->
-                 case bs_types:is_none(Domain) andalso not bs_types:is_none(Elem) of
-                     true  -> [{warning, L, C#ctx.fname, {vacuous_generator, Elem}}];
-                     false -> []
+                 case bs_types:is_none(Elem) orelse redundancy(PTy, PTy, Elem, Elem) of
+                     vacuous -> [{warning, L, C#ctx.fname, {vacuous_generator, Elem}}];
+                     _       -> []
                  end
          end,
     Scope = maps:merge(S, maps:from_list([{V, at_path(Domain, Path)}
@@ -4646,6 +4652,10 @@ argument_position(Line, _Path) ->
 %% parameter from a tuple element of a switch subject: both can be `[I]`.
 child_type({p_type, Line, _TypeExpr, _V}, _Path, _Env) ->
     erlang:error({type_prefix_nested, Line});
+%% A relational pattern likewise: `argument_position/2` reads the path, which
+%% admitted `(>= 0, n)` in an arm and a generator and crashed the emitter (F65).
+child_type({Rel, Line, _, _}, _Path, _Env) when Rel =:= p_rel; Rel =:= p_and; Rel =:= p_or ->
+    erlang:error({relational_pattern_nested, Line});
 child_type(P, Path, Env) ->
     pattern_type(P, Path, Env).
 

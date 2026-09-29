@@ -607,7 +607,12 @@ tag_test(Var, Tag, Line) ->
 %% No kind test is conjoined, unlike a relational pattern's: `is_float/1` is
 %% the kind test. `with_kind/4` exists because an ordering comparison proves
 %% ordering and not kind; this proves kind and nothing else.
-strip_rels(Patterns, IntOnly) ->
+strip_rels(Patterns, IntOnly) -> strip_rels(Patterns, IntOnly, "bs@r").
+
+%% `Prefix` names the lowered variables. A head or an arm is its own scope, so
+%% one prefix serves every one of them; a comprehension's generators share a
+%% scope, so each takes its own (F65).
+strip_rels(Patterns, IntOnly, Prefix) ->
     {Ps, Tests, _N} =
         lists:foldl(
           fun({{p_test, L, Bif, V}, _Known}, {Acc, Ts, N}) ->
@@ -617,7 +622,7 @@ strip_rels(Patterns, IntOnly) ->
                       false -> {Acc ++ [P], Ts, N};
                       true  ->
                           L = element(2, P),
-                          V = list_to_atom("bs@r" ++ integer_to_list(N)),
+                          V = list_to_atom(Prefix ++ integer_to_list(N)),
                           {Acc ++ [{p_var, L, V}],
                            Ts ++ [with_kind(rel_expr(P, V), V, L, Known)],
                            N + 1}
@@ -758,7 +763,8 @@ used_vars({e_lambda, _, _, Body}, Acc) -> used_vars(Body, Acc);
 %% A comprehension reads the clause's names in its head, sources and guards;
 %% its generators' names in the set are harmless for the lambda's reason.
 used_vars({e_comp, _, Head, Quals}, Acc) ->
-    lists:foldl(fun({gen, _, _, Src}, A) -> used_vars(Src, A);
+    lists:foldl(fun({gen, _, P, Src}, A) ->
+                        used_vars(Src, lists:foldl(fun sets:add_element/2, A, eq_reads(P)));
                    ({filter, _, G}, A)    -> used_vars(G, A)
                 end, used_vars(Head, Acc), Quals);
 used_vars({e_apply, _, V, As}, Acc) ->
@@ -1133,16 +1139,36 @@ expr(E = {e_comp, L, Head, Quals}, C) ->
     Used = used_vars(E, sets:new([{version, 2}])),
     {lc, L, expr(Head, C), lists:append([qual(Q, Used, C) || Q <- Quals])}.
 
+%% An Erlang generator binds every name in its pattern fresh, where a `case`
+%% pattern matches a bound one. So `== n` becomes a fresh name and an `=:=`
+%% filter, and each generator's lowered names are unique in the module, as
+%% the foreign wrapper's are: generators share one scope.
 qual({gen, L, P, Src}, Used, C) ->
-    {[P1], RelTests} = strip_rels([desugar(P, C)], [false]),
-    Tests = conjoin(RelTests, none, L),
-    Gen = {generate, L, pattern(P1, sets:union(Used, guard_vars(Tests))), expr(Src, C)},
+    Prefix = "bs@g" ++ integer_to_list(next_generator()),
+    %% `[false]` as for an arm: an element has no declared type, so a
+    %% relational pattern always carries its integer kind test.
+    {[P1], RelTests} = strip_rels([desugar(P, C)], [false], Prefix ++ "r"),
+    {P2, {EqTests, _}} = fresh_eqvars(P1, {[], Prefix ++ "e"}),
+    Tests = conjoin(RelTests ++ EqTests, none, L),
+    Gen = {generate, L, pattern(P2, sets:union(Used, guard_vars(Tests))), expr(Src, C)},
     [Gen | filters(Tests, C)];
 qual({filter, _, G}, _Used, C) ->
     filters(kind_tested({guard, G}, #{}), C).
 
 filters(none, _C)          -> [];
 filters({guard, Expr}, C)  -> [expr(Expr, C#{in_guard => true})].
+
+fresh_eqvars({p_eqvar, L, V}, {Tests, Prefix}) ->
+    Fresh = list_to_atom(Prefix ++ integer_to_list(length(Tests) + 1)),
+    {{p_var, L, Fresh},
+     {Tests ++ [{e_op, L, '==', {e_var, L, Fresh}, {e_var, L, V}}], Prefix}};
+fresh_eqvars(T, Acc) when is_tuple(T) ->
+    {Es, Acc1} = fresh_eqvars(tuple_to_list(T), Acc),
+    {list_to_tuple(Es), Acc1};
+fresh_eqvars(Xs, Acc) when is_list(Xs) ->
+    lists:mapfoldl(fun fresh_eqvars/2, Acc, Xs);
+fresh_eqvars(X, Acc) ->
+    {X, Acc}.
 
 %%% --- The foreign wrapper ---
 %%%
@@ -1153,8 +1179,22 @@ filters({guard, Expr}, C)  -> [expr(Expr, C#{in_guard => true})].
 %%% Rationale: compiler/features/F19-foreign-try-wrapper.md.
 
 -define(WRAPPER_SEQ, {bs_emit, foreign_wrapper_seq}).
+%% F65: a comprehension's generators share one Erlang scope, so the names each
+%% one's pattern lowers to are numbered per module, reset with the wrappers'.
+-define(GENERATOR_SEQ, {bs_emit, generator_seq}).
 
-reset_foreign_wrappers() -> put(?WRAPPER_SEQ, 0), ok.
+reset_foreign_wrappers() -> put(?WRAPPER_SEQ, 0), put(?GENERATOR_SEQ, 0), ok.
+
+next_generator() ->
+    N = case get(?GENERATOR_SEQ) of undefined -> 0; Seq -> Seq end,
+    put(?GENERATOR_SEQ, N + 1),
+    N.
+
+%% The names `== name` reads, anywhere in a written pattern.
+eq_reads({p_eqvar, _, V})       -> [V];
+eq_reads(T) when is_tuple(T)    -> eq_reads(tuple_to_list(T));
+eq_reads(Xs) when is_list(Xs)   -> lists:append([eq_reads(X) || X <- Xs]);
+eq_reads(_)                     -> [].
 
 next_foreign_wrapper() ->
     N = case get(?WRAPPER_SEQ) of undefined -> 0; Seq -> Seq end,
