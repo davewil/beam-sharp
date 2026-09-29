@@ -156,7 +156,9 @@ declaration with its cases inside reads as what it is, one method.
 ## Not decided here
 
 - A trailing comma after the last clause. Neither the block nor `switch` takes one today, and
-  changing that is one question for both.
+  changing that is one question for both. *2026-09-29:* it is one question for every comma list,
+  since B# refuses a trailing comma in all of them, and it is now
+  [115](115-a-trailing-comma.md) ([ENG-574](https://linear.app/davewil/issue/ENG-574)).
 - Whether the block should become the preferred spelling. The corpus stays in the named form.
 
 ## Decisions entry
@@ -176,4 +178,11 @@ declaration with its cases inside reads as what it is, one method.
   block is the whole of its function, so a named clause beside it is refused. Its diagnostics print
   arms, `(Stop s) -> ...`. It is sugar, so BEAM, exhaustiveness and the public API are unchanged. Not
   decided: a trailing comma (for `switch` too), and whether the block becomes preferred.
+  **Amended 2026-09-29 by David, reviewing F63 ([ENG-550](https://linear.app/davewil/issue/ENG-550),
+  built at `e1c5137`):** a named clause beside a block is refused at the stray clause's own line,
+  with a message that names the function and does not print the clause. This replaces A1's
+  "naming the stray clause", which the F63 review had already rewritten to match what the message
+  prints; accepted here, it is a decision rather than a drift. The trailing comma is
+  [115](issues/115-a-trailing-comma.md) ([ENG-574](https://linear.app/davewil/issue/ENG-574)), widened
+  to every list in braces or brackets. Whether the block becomes preferred stays open.
 ```

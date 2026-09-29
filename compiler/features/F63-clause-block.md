@@ -1,18 +1,25 @@
 # F63 — The clause block: a function's clauses in braces after its signature
 
-**Status**      **in progress** — 13 tests in `clause_block_tests`, seen red first (the
-                three routed-diagnostic tests shown to discriminate by narrowing
-                the routing); `check-language.sh` gained a must-compile block and
-                a `diagnoses: clause_outside_block` block in §2, both seen red
+**Status**      **done 2026-09-29** · [ENG-550](https://linear.app/davewil/issue/ENG-550) — 13
+                tests in `clause_block_tests`, seen red first (the three
+                routed-diagnostic tests shown to discriminate by narrowing the
+                routing); `check-language.sh` gained a must-compile block and a
+                `diagnoses: clause_outside_block` block in §2, both seen red
                 first; the tree-sitter grammar takes the block; one new example,
-                `examples/Signalbox/signalbox.bs`, and its roster and tour rows
+                `examples/Signalbox/signalbox.bs`, and its roster and tour rows.
+                David, closing it, accepted the mixing refusal as reported at the
+                stray clause's own line (ticket 110's amendment), the twin
+                measured on position-free forms, and F63.7's paste in place of
+                the residual gate
 **Implements**  [ticket 110](../../wayfinder/issues/110-an-optional-clause-block.md), resolved
                 2026-09-28. Decides nothing
 **Closes**      [ENG-550](https://linear.app/davewil/issue/ENG-550)
 **Depends on**  F46 (a function as a value, whose call of a bound name is why the clauses
                 need a comma between them)
-**Leaves**      a trailing comma after the last clause, and whether the block becomes the
-                preferred spelling (both not decided by ticket 110)
+**Leaves**      a trailing comma after the last clause, now [ticket 115](../../wayfinder/issues/115-a-trailing-comma.md)
+                ([ENG-574](https://linear.app/davewil/issue/ENG-574)) for every list in braces
+                or brackets, and whether the block becomes the preferred spelling (not decided
+                by ticket 110)
 
 ## The program
 
