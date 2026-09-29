@@ -241,6 +241,13 @@ specified*, to be ticketed when a program needs one.
 
 Recommended: yes.
 
+**A2 (David, 2026-09-29):** *"yes"*: a generator skips, and a pattern no element can match is
+reported as a vacuous arm is.
+**A5 (David, 2026-09-29):** *"yes"*: a filter is `when` and a guard, under guard rules.
+**A6 (David, 2026-09-29):** *"yes"*: several generators, and a `when` after any of them.
+**A7 (David, 2026-09-29):** *"yes"*: lists in, a list out; map, binary and `Enumerable<T>`
+comprehensions go to the fog.
+
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips
 or crashes on an element its pattern refuses, which Erlang offers both ways; the spelling, where
 `for … in` is Python's order and Elixir writes `for r <- cs, do: r`, while LINQ's
