@@ -257,8 +257,13 @@ built(Path, {Sev, Line, Fn, {generator_not_list, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => generator_not_list, type => bs_types:to_string(Ty)};
 %% F66: a template's refusals reuse `type`, a key other tags already carry,
 %% so the term channel's key order is unchanged (ENG-349).
-built(Path, {Sev, Line, Fn, {interp_hole, Ty}}) ->
+%% A record hole is printed by the names the author wrote, and carries
+%% `record`, also an existing key; any other hole prints its type.
+built(Path, {Sev, Line, Fn, {interp_hole, Ty, none}}) ->
     (at(Sev, Path, Line, Fn))#{tag => interp_hole, type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, {interp_hole, _Ty, Records}}) ->
+    Named = lists:flatten(lists:join(" | ", [atom_to_list(R) || R <- Records])),
+    (at(Sev, Path, Line, Fn))#{tag => interp_hole, type => Named, record => Named};
 built(Path, {Sev, Line, Fn, {interp_in_guard, Part}}) ->
     (at(Sev, Path, Line, Fn))#{tag => interp_in_guard, type => atom_to_list(Part)};
 built(Path, {Sev, Line, Fn, raise_in_guard}) ->
@@ -1043,16 +1048,24 @@ message(#{tag := generator_not_list, file := P, line := L, column := C, function
      "  a comprehension takes lists and builds a list. Pass a list,~n"
      "  or establish one from an outside value with `ValidateAs<list<T>>`.~n",
      [P, L, C, Fn, Ty]};
-%% A hole prints by a fixed table read from its type (ticket 112 A3). The
-%% repair for a union of two parts is a switch, which compiles today; nothing
-%% here names a conversion row or a protocol that is not built.
+%% A hole prints by a fixed table read from its type (ticket 112 A3). A record
+%% will print through `Formattable` (ticket 113), and the message says that is
+%% not built rather than that a record never prints; it recommends nothing that
+%% does not compile. The repair for a union of two parts is a switch.
+message(#{tag := interp_hole, file := P, line := L, column := C, function := Fn,
+          type := Ty, record := _}) ->
+    {"~s:~p:~p: error: a hole in ~s's template holds ~s~n"
+     "  a record will fill a hole through `Formattable` (ticket 113),~n"
+     "  which is not built yet (ENG-565). Until it is, put one of its~n"
+     "  string, int, float or atom fields in the hole, taking a union~n"
+     "  of records apart with a switch first.~n",
+     [P, L, C, Fn, Ty]};
 message(#{tag := interp_hole, file := P, line := L, column := C, function := Fn,
           type := Ty}) ->
     {"~s:~p:~p: error: a hole in ~s's template holds ~s~n"
      "  a hole takes a string, an int, a float or an atom type, each~n"
-     "  printed as it stands; nothing else prints one obvious way. A~n"
-     "  union of two of those is taken apart with a switch, one~n"
-     "  template per arm.~n",
+     "  printed as it stands. A union of two of those has no one~n"
+     "  printing: take it apart with a switch, one template per arm.~n",
      [P, L, C, Fn, Ty]};
 %% A `string` hole is a binary segment, which a guard may build; the other
 %% parts are printed by BIFs the BEAM refuses in a guard.

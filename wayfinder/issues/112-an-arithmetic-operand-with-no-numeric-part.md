@@ -273,6 +273,12 @@ exists to prevent.
    `atom_to_binary` are not guard BIFs (erlc: *"illegal guard expression"*, measured). So a
    template with any other hole is refused in a guard, by the same rule that refuses any call
    the BEAM will not run there.
+   *Read 2026-09-29 by the F66 build, for David to overrule (none is a language rule):* the guard
+   refusal is its own tag, `interp_in_guard`, because `foreign_call_in_guard` would name
+   `erlang.integer_to_binary`, a call the author never wrote. The compiler limits a hole to one
+   line and to braces nested two deep, which are limits of its lexer (one leex rule has to match
+   the whole template), and a template past them is refused as malformed. A record hole's refusal
+   says `Formattable` is not built (ticket 113, ENG-565) rather than that a record never prints.
 2. **The refusal** (Q4), [ENG-551](https://linear.app/davewil/issue/ENG-551). `non_numeric_operand`
    in `op_result/5`, asked at both guard sites (`walk/6`, `arms/10`), with the round 1 delta
    above. A string operand's advice names the template. [25](25-exemplar-programs.md) finding 5

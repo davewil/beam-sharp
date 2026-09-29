@@ -134,8 +134,9 @@ text_takes_a_strings_escapes_test() ->
     ok_rc(Got),
     has(Got, "yes").
 
-%% F66.7 — a record prints no one obvious way, so its hole is refused at the
-%% hole's own column, not the template's.
+%% F66.7 — a record hole waits on `Formattable` (ticket 113, ENG-565), so it
+%% is refused at the hole's own column, not the template's, and the refusal
+%% says it is not built rather than that a record can never print.
 a_record_hole_is_refused_test() ->
     Got = diagnose([{"Bad.bs",
                      "module Bad\n"
@@ -152,7 +153,24 @@ a_record_hole_is_refused_test() ->
                       "public string Show(Money m)\n"
                       "Show(m) -> $\"total {m}\"\n"}]),
     has(Prose, "Bad.bs:4:20: error:"),
-    has(Prose, "Money").
+    has(Prose, "Money"),
+    has(Prose, "Formattable"),
+    has(Prose, "not built").
+
+%% F66.8's union is not told about `Formattable`: nothing will print it.
+a_union_hole_is_not_told_about_formattable_test() ->
+    Got = compile([{"Un.bs",
+                    "module Un
+"
+                    "type Num = int | float
+"
+                    "public string Show(Num n)
+"
+                    "Show(n) -> $\"{n}\"
+"}]),
+    bad_rc(Got),
+    has(Got, "switch"),
+    ?assertEqual(nomatch, string:find(Got, "Formattable")).
 
 %% F66.8 — a union spanning two parts has no one lowering, so `int | float`
 %% is refused; so are a list and `term`.
@@ -223,6 +241,9 @@ a_hole_is_an_expression_test() ->
                        "F(n) -> $\"{n +}\"\n"}]),
     bad_rc(Syntax),
     has(Syntax, "syntax error"),
+    %% The hole's tokens run out before its expression does, which yecc would
+    %% print as "before: " and nothing; the message says where it stopped.
+    has(Syntax, "the hole ends before its expression does"),
     Unbound = diagnose([{"Hu.bs",
                          "module Hu\n"
                          "public string F(int n)\n"
@@ -296,6 +317,52 @@ a_plain_string_keeps_its_braces_test() ->
               "Demo"),
     ok_rc(Got),
     has(Got, "\"{n}\"").
+
+%% F66.17 — a module is a directory, so two files may hold a hole at the same
+%% line and column; each keeps its own part. Keyed by position alone, the
+%% `string` hole's note overwrote the `int` hole's and `A` crashed `badarg`.
+sibling_files_keep_their_own_holes_test() ->
+    Got = run([{"a.bs",
+                "module Two\n"
+                "public string A(int n)\n"
+                "A(n) -> $\"{n}\"\n"
+                "public string Demo()\n"
+                "Demo() -> A(7)\n"},
+               {"b.bs",
+                "module Two\n"
+                "public string B(string n)\n"
+                "B(n) -> $\"{n}\"\n"}],
+              "Demo"),
+    ok_rc(Got),
+    has(Got, "\"7\"").
+
+%% F66.18 — what a hole's own source gets wrong is refused where the template
+%% is lexed: a character no token spells, an unknown escape, and text after
+%% the last hole that is not UTF-8.
+a_holes_lex_error_is_refused_test() ->
+    [begin
+         Got = compile([{"Lx.bs",
+                         "module Lx\n"
+                         "public string F(int n)\n"
+                         "F(n) -> " ++ T ++ "\n"}]),
+         bad_rc(Got),
+         has(Got, Says)
+     end || {T, Says} <- [{"$\"{n # 1}\"", "in a template's hole"},
+                          {"$\"a\\q{n}\"", "unknown escape"},
+                          {"$\"{n}b" ++ [255] ++ "\"", "not valid UTF-8"}]].
+
+%% F66.19 — a hole whose type is uninhabited adds no refusal of its own: it
+%% never prints, and `raise` has already said why.
+an_uninhabited_hole_adds_nothing_test() ->
+    Got = run([{"Rz.bs",
+                "module Rz\n"
+                "public string F(int n)\n"
+                "F(n) -> $\"n is {raise :boom}\"\n"
+                "public string Demo()\n"
+                "Demo() -> F(1)\n"}],
+              "Demo"),
+    ?assertEqual(nomatch, string:find(Got, "interp_hole")),
+    has(Got, "boom").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 

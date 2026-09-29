@@ -823,8 +823,9 @@ Line(o) -> $"Order {o.Id} for {o.Customer}: {o.Total} pence, {o.Status}"
 ```
 
 `Line` returns `"Order 42 for Ada: 1250 pence, placed"`. Any other hole is refused at compile time:
-a record, a tuple, a list, a map, `term`, or a union spanning two of the four parts, which has no
-one printing:
+a tuple, a list, a map, `term`, or a union spanning two of the four parts, which has no one
+printing. A record will fill a hole once its module implements `Formattable` (ticket 113); that is
+not built (ENG-565), so a record hole is refused today and the refusal says so.
 
 <!-- diagnoses: interp_hole -->
 ```csharp
@@ -848,8 +849,11 @@ Show(a) -> a switch {
 
 A template whose holes are all `string` is a legal guard, since a guard may build a binary. Any
 other hole is printed by a BIF the BEAM will not run in a guard, so it is refused there
-(`interp_in_guard`). A hole is one line, and it may nest braces two deep, which is enough for a
-`switch` or a record construction inside it. **shipped** — F66.
+(`interp_in_guard`). **shipped** — F66.
+
+This compiler also limits a hole to one line, with braces nested at most two deep inside it, which
+is enough for a `switch` or a record construction. Those are limits of its lexer, not rules of the
+language, and a template past them is refused as malformed.
 
 ### Arithmetic on `int`
 

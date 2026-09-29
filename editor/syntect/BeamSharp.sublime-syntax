@@ -32,9 +32,9 @@ file_extensions:
 scope: source.beam-sharp
 
 contexts:
-  # One flat context. The language has no construct that changes lexical state:
-  # there is no block comment, no string interpolation and no here-doc, so
-  # nothing below ever pushes.
+  # One flat context. No string is coloured here, plain or template (F66), so
+  # nothing below ever pushes: a template's holes would be the one construct
+  # that changes lexical state, and there is no block comment and no here-doc.
   main:
     # A `//` line may contain any token at all, so nothing may be matched
     # inside one.

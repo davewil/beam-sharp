@@ -123,8 +123,9 @@ check_dir1(Sources0, World, Expect) ->
     Vprojs = maps:from_list([{Loc, Pos} || {_, {vproj, Loc, Pos}} <- Notes]),
     %% F64: each protocol call's targets, `[{Tag, Module, Function}]`.
     Pcalls = maps:from_list([{Loc, Ts} || {_, {pcall, Loc, Ts}} <- Notes]),
-    %% F66: each template hole's part, keyed by the hole's `{`.
-    Iholes = maps:from_list([{Loc, P} || {_, {ihole, Loc, P}} <- Notes]),
+    %% F66: each template hole's part, keyed by the hole's file and its `{`: a
+    %% module is a directory, so two files may hold a hole at one position.
+    Iholes = maps:from_list([{{Path, Loc}, P} || {Path, {ihole, Loc, P}} <- Notes]),
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
@@ -2671,7 +2672,7 @@ keep_from_guard({vproj, _, _}) -> true;
 %% here, the one place a guard's holes are typed. A `string` hole is a binary
 %% segment, which a guard may build, so its note goes on to the emitter.
 keep_from_guard({ihole, _, _}) -> true;
-keep_from_guard({error, _, _, {interp_hole, _}}) -> true;
+keep_from_guard({error, _, _, {interp_hole, _, _}}) -> true;
 keep_from_guard(D)            -> mixed_pair(D).
 
 mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
@@ -3867,20 +3868,31 @@ prune_valves(X, _) -> X.
 %% A hole prints one way per part, chosen here from its static type and handed
 %% to the emitter as an `ihole` note keyed by the hole's `{`. Any other type is
 %% refused, a union spanning two parts included: there is no one lowering for
-%% it. An uninhabited hole was reported where it was made, so it adds nothing.
+%% it. An uninhabited hole never prints and was reported where it was made, so
+%% it is emitted as a `string` and refused for nothing.
 hole_diags(L, E, S, C) ->
     {Ty, D} = type_of(E, S, C),
     D ++ case hole_part(Ty) of
-             none   -> [];
-             refused -> [{error, L, C#ctx.fname, {interp_hole, Ty}}];
+             refused -> [{error, L, C#ctx.fname, {interp_hole, Ty, hole_records(Ty)}}];
              Part    -> [{ihole, L, Part}]
          end.
+
+%% A record fills a hole once its module implements `Formattable` (ticket 113,
+%% ENG-565, not built), and a union when every member is such a record; the
+%% refusal names them so it can say which wait on that and not claim a record
+%% never prints. `none` for anything else.
+hole_records(Ty) ->
+    Names = [record_name(M) || M <- bs_types:constituents(Ty)],
+    case Names =/= [] andalso not lists:member(unknown, Names) of
+        true  -> Names;
+        false -> none
+    end.
 
 hole_part(Ty) ->
     Parts = [{string, bs_types:string()}, {int, bs_types:int()},
              {float, bs_types:float_top()}, {atom, bs_types:atom_top()}],
     case bs_types:is_none(Ty) of
-        true  -> none;
+        true  -> string;
         false ->
             case [P || {P, Top} <- Parts, bs_types:is_subtype(Ty, Top)] of
                 [P | _] -> P;

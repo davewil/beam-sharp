@@ -27,7 +27,7 @@ Nonterminals
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
-  uident lident atom_lit integer float string_lit interp interp_hole '_'
+  uident lident atom_lit integer float string_lit interp hole_root '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
@@ -73,9 +73,9 @@ Nonassoc 700 'switch'.
 %% as a list and is spliced in here.
 program -> decls : lists:append([if is_list(D) -> D; true -> [D] end || D <- '$1']).
 %% A template's hole is parsed by a second entry to this grammar: the lexer
-%% hands each hole's tokens over whole, and `interp_hole` is a token no source
+%% hands each hole's tokens over whole, and `hole_root` is a token no source
 %% can spell, so this alternative adds no conflict (F66).
-program -> interp_hole expr : {hole_expr, '$2'}.
+program -> hole_root expr : {hole_expr, '$2'}.
 
 decls -> decl       : ['$1'].
 decls -> decl decls : ['$1' | '$2'].
@@ -822,10 +822,17 @@ interp_parts(Parts) -> [interp_part(P) || P <- Parts].
 
 interp_part({text, Bytes}) -> {text, Bytes};
 interp_part({hole, L, Toks}) ->
-    case parse([{interp_hole, L} | Toks]) of
-        {ok, {hole_expr, E}} -> {hole, L, E};
-        {ok, _}              -> return_error(L, "a template's hole is one expression");
-        {error, {EL, _, Msg}} -> return_error(EL, lists:flatten(format_error(Msg)))
+    case parse([{hole_root, L} | Toks]) of
+        {ok, {hole_expr, E}}  -> {hole, L, E};
+        {error, {EL, _, Msg}} ->
+            case lists:flatten(format_error(Msg)) of
+                %% yecc names the token it stopped before, and at the hole's
+                %% end there is none, so it would print "before: " and nothing.
+                "syntax error before: " ->
+                    return_error(L, "syntax error: the hole ends before its "
+                                    "expression does");
+                Text -> return_error(EL, Text)
+            end
     end.
 
 %% Ticket 110: a block's arms become the clauses the named form would have

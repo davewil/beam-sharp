@@ -61,7 +61,7 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             vprojs => maps:get(vprojs, Module, #{}),
             %% F64: each protocol call's implementations, by the call's position.
             pcalls => maps:get(pcalls, Module, #{}),
-            %% F66: each template hole's part, by the hole's `{`.
+            %% F66: each template hole's part, by the hole's file and `{`.
             iholes => maps:get(iholes, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
@@ -93,9 +93,13 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
 
 %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
 %% have no path to attribute to; no attribute is emitted for them.
-file_group(undefined, Fns, Env, Behaviours, Ctx) ->
+%% The context names the file being emitted: a position is unique only within
+%% one file, and a note keyed by position alone would reach a sibling's node.
+file_group(undefined, Fns, Env, Behaviours, Ctx0) ->
+    Ctx = Ctx0#{file => undefined},
     lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] || F <- Fns]);
-file_group(Path, Fns, Env, Behaviours, Ctx) ->
+file_group(Path, Fns, Env, Behaviours, Ctx0) ->
+    Ctx = Ctx0#{file => Path},
     [{attribute, ?A, file, {Path, 1}}
      | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
                      || F <- Fns])].
@@ -911,8 +915,7 @@ expr({e_str, L, Bytes}, _C)   ->
     {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]};
 %% F66: a template is one binary construction. Text is raw bytes, as above,
 %% and each hole is a `/binary` segment, converted first by the part the
-%% checker read from its type. A hole with no note is a `string`: a guard's
-%% notes reach here only for `string` holes, the others being refused there.
+%% checker read from its type and noted by the hole's file and position.
 expr({e_interp, L, Parts}, C) ->
     Parts1 = [interp_segment(P, L, C) || P <- Parts],
     {bin, L, case Parts1 of [] -> [text_segment(L, [])]; _ -> Parts1 end};
@@ -1350,7 +1353,9 @@ interp_segment({text, Bytes}, L, _C) ->
     text_segment(L, Bytes);
 interp_segment({hole, L, E}, _L, C) ->
     V = expr(E, C),
-    Printed = case maps:get(L, maps:get(iholes, C, #{}), string) of
+    %% Every hole the checker passed has a note; a missing one is a compiler
+    %% fault, and printing it as a `string` would build a `badarg` crash.
+    Printed = case maps:get({maps:get(file, C), L}, maps:get(iholes, C)) of
                   string -> V;
                   int    -> bif(integer_to_binary, [V], L);
                   float  -> bif(float_to_binary, [V, {cons, L, {atom, L, short}, {nil, L}}], L);
