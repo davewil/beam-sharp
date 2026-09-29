@@ -9,7 +9,7 @@
                 as `lex_error`); yecc 6 shift/reduce and 0 reduce/reduce before and after;
                 tree-sitter parses a scratch file of six templates, one nested in another's hole,
                 with no ERROR node; the `.abstr` of all 27 example modules is byte-identical
-                before and after
+                before and after; `verify.sh` 47/47 twice from clean clones at `fed3391`
 **Implements**  [ticket 112](../../wayfinder/issues/112-an-arithmetic-operand-with-no-numeric-part.md),
                 A2 and A3, *The compiler delta, as decided*, item 1. Decides nothing
 **Closes**      [ENG-562](https://linear.app/davewil/issue/ENG-562)
