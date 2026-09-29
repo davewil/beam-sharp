@@ -1,12 +1,13 @@
 # F65 — list comprehensions: `[r for Receipt r in cs]`
 
-**Status**      **in progress** — 21 tests in `comprehension_tests`, 1249 in the suite. F65.1–16
-                seen red before the build (`syntax error before: for`), F65.17 red on the first
-                cut's wording, F65.18–21 red on the first cut where the review measured them. A
-                must-compile block and a `diagnoses: vacuous_generator` block in LANGUAGE.md §8,
-                the first seen PROMOTED from `not-yet` and the second seen red. yecc 6
-                shift/reduce and 0 reduce/reduce before and after; tree-sitter parses a scratch
-                file of five comprehensions with no ERROR node
+**Status**      **done 2026-09-29** · [ENG-571](https://linear.app/davewil/issue/ENG-571) — 21 tests
+                in `comprehension_tests`, 1249 in the suite. F65.1–16 seen red before the build
+                (`syntax error before: for`), F65.17 red on the first cut's wording, F65.18–21
+                red on the first cut where the review measured them. A must-compile block and a
+                `diagnoses: vacuous_generator` block in LANGUAGE.md §8, the first seen PROMOTED
+                from `not-yet` and the second seen red. yecc 6 shift/reduce and 0 reduce/reduce
+                before and after; tree-sitter parses a scratch file of five comprehensions with
+                no ERROR node
 **Implements**  [ticket 114](../../wayfinder/issues/114-comprehensions-revisited.md), A1–A7.
                 Decides nothing
 **Closes**      [ENG-571](https://linear.app/davewil/issue/ENG-571)
