@@ -1,6 +1,7 @@
 # F67 — an arithmetic operand with no numeric part is refused
 
-**Status**      **in progress** — 25 tests in `non_numeric_operand_tests`, 1303 in the suite; F67.1–10
+**Status**      **done 2026-09-30** · [ENG-551](https://linear.app/davewil/issue/ENG-551), closed by David —
+                25 tests in `non_numeric_operand_tests`, 1303 in the suite; F67.1–10
                 seen red before the build (14 of 18 red, the four controls green), F67.3's record name
                 and F67.6's type variable red on the first cut, F67.1's one-refusal count red on the
                 first cut (the chain printed two), F67.11 green on its first run, there being no key
