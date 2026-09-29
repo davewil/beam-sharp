@@ -11,7 +11,8 @@
                 red on five stubs and green on the correct template, the gate red against `747fff6`'s
                 compiler on T1, T2 and T3; a `diagnoses: non_numeric_operand` block in LANGUAGE.md §4,
                 `WRONG DIAG` as `return_not_declared` against the base compiler; the `.abstr` and
-                compile log of all 74 example files are byte-identical before and after
+                compile log of all 74 example files are byte-identical before and after;
+                `verify.sh` 47/47 twice from a clean clone at `4374d21`
 **Implements**  [ticket 112](../../wayfinder/issues/112-an-arithmetic-operand-with-no-numeric-part.md),
                 A4, *The compiler delta, as decided*, item 2. Decides nothing
 **Closes**      [ENG-551](https://linear.app/davewil/issue/ENG-551)
