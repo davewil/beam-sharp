@@ -119,8 +119,8 @@ exhaustiveness is only well-posed against a declared input type.
 _Avoid_: spec, type annotation, prototype, header
 
 **Guard**:
-A `when` condition refining a clause head. A **named guard** is one declared with the `guard`
-modifier for reuse.
+A `when` condition refining a clause head, a `switch` arm or a comprehension's generator. A
+**named guard** is one declared with the `guard` modifier for reuse.
 _Avoid_: predicate, filter, constraint, precondition
 
 **Boundary clause**:
@@ -137,7 +137,7 @@ _Avoid_: throw, panic, crash, abort, fail
 `|>`, the single chaining form. `x |> F(a)` rewrites to `F(x, a)`; the name is always **qualified**,
 so nothing is resolved by the type of `x`. The right operand is a **call**, never a bare name — the
 pipe rewrites a call, so `x |> F` is a syntax error and `x |> F()` is the spelling. There is no
-dot-call and no comprehension syntax.
+dot-call.
 _Avoid_: chain, fluent call, method call, forward operator
 
 **Arrow**:
@@ -166,6 +166,18 @@ applies to the **narrowed** value, so a stage is declared over the type left aft
 subtracted. A valve over a type carrying neither member is an error. Named for what it is: a valve
 stops flow in a pipe.
 _Avoid_: bind, andThen, try operator, safe pipe, monadic pipe
+
+**Comprehension**:
+`[expr for pattern in list …]`, a list built from lists. One or more **generators**, any of them
+followed by a `when` **guard**; the result holds `expr` once for each combination of elements that
+every generator's pattern and every guard admit, in order. The names it binds exist only inside it.
+_Avoid_: query, query expression, for-loop, for expression, list builder
+
+**Generator**:
+`for pattern in list` inside a comprehension. Its pattern is anything a clause-head parameter
+accepts, and its binders are narrowed to the list's element type intersected with the pattern's.
+An element the pattern refuses is skipped, never a crash.
+_Avoid_: iterator, range variable, loop variable, `from` clause
 
 **switch**:
 The only branching construct, written postfix — `subject switch { pattern => expr, … }`. The clause

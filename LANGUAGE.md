@@ -1936,8 +1936,34 @@ operations that take one wait with it:
 xs |> List.Map(f) |> List.Filter(g)
 ```
 
-There is **no comprehension syntax**. The compiler inlines its own collection operations, which
-recovers precise emitted types that a call to a generic function loses.
+The compiler inlines its own collection operations, which recovers precise emitted types that a
+call to a generic function loses. A **comprehension** builds a list from lists. A generator's
+pattern narrows the element type, which `List.Filter` cannot do, because a predicate answers only
+`bool`. An element the pattern refuses is skipped. The form is decided and not built yet
+([ENG-571](https://linear.app/davewil/issue/ENG-571)):
+
+```csharp not-yet
+record Receipt { OrderId: int, Pence: int }
+type Charge = Receipt | (:error, string)
+
+public list<Receipt> Settled(list<Charge> cs)
+Settled(cs) -> [r for Receipt r in cs]
+```
+<!-- decided by ticket 114, overruling ticket 17's "no comprehension syntax" -->
+
+Until then, the same function is a fold with a `switch` inside it, where the arm `Receipt r`
+narrows:
+
+```csharp
+record Receipt { OrderId: int, Pence: int }
+type Charge = Receipt | (:error, string)
+
+public list<Receipt> Settled(list<Charge> cs)
+Settled(cs) -> cs |> List.Fold([], (acc, c) => c switch {
+    Receipt r   => [r, ..acc],
+    (:error, _) => acc
+}) |> List.Reverse()
+```
 
 **decided**
 
@@ -3222,7 +3248,6 @@ something else already covers it, not because it was disliked.
 | `try` | a compiler-written wrapper and `monitor`/`receive` cover it, checked |
 | method-call syntax (`xs.Map(f)`) | needs type-directed resolution of an unqualified name |
 | LINQ query syntax | same reason — its translation emits unqualified names |
-| comprehensions | inlining recovers better emitted types |
 | type classes | a record's own module implements a protocol instead (§6), dispatched by the tag the term carries |
 | bounded type variables | both routes to discharging a bound are closed |
 | nominal types | structural throughout; records tag the *term*, not the type |

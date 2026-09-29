@@ -1,8 +1,9 @@
 # 114 — Comprehensions revisited: may B# write `[r for Receipt r in cs]`?
 
 Type: grilling
-Status: claimed — [ENG-570](https://linear.app/davewil/issue/ENG-570). Raised 2026-09-28 by David,
-reviewing [F64](../../compiler/features/F64-implements.md)'s `for` keyword
+Status: resolved 2026-09-29 — [ENG-570](https://linear.app/davewil/issue/ENG-570). Raised 2026-09-28
+by David, reviewing [F64](../../compiler/features/F64-implements.md)'s `for` keyword; answered in
+three rounds, seven questions
 Blocked by: —
 
 ## Why this is raised
@@ -247,6 +248,62 @@ reported as a vacuous arm is.
 **A6 (David, 2026-09-29):** *"yes"*: several generators, and a `when` after any of them.
 **A7 (David, 2026-09-29):** *"yes"*: lists in, a list out; map, binary and `Enumerable<T>`
 comprehensions go to the fog.
+
+David confirmed the summary on 2026-09-29, with these consequences stated in it: names bound
+inside a comprehension are local to it; ticket 17 is overruled on its comprehension sentence
+alone; `in` becomes a keyword; the build is a feature of its own.
+
+## The compiler delta, as decided
+
+- The lexer makes `in` a keyword.
+- The parser takes `'[' expr 'for' pattern 'in' expr quals ']'`, where `quals` is any mix of
+  `for pattern in expr` and `when guard_expr`. yecc is 6 shift/reduce and 0 reduce/reduce before
+  and after (measured on a scratch copy of `bs_parser.yrl`).
+- The checker checks a generator's pattern as a top, as a switch subject is, so the part prefix is
+  legal there. It intersects the pattern with the list's element type, types each guard and the
+  head expression under the bindings so far, and runs `redundancy/4`'s membership test for the
+  vacuous warning. A guard keeps guard rules.
+- The emitter writes one Erlang `lc` with `<-` generators, so an element the pattern refuses is
+  skipped.
+- The tree-sitter grammar and the regex grammars learn the form.
+- The tests go through the CLI: `Settled`, `Declines`, `Large`, `Fractional` and `Skus` run; a
+  pattern outside the element type warns; a guard calling a private function is refused; a
+  generator's binding is unbound after the comprehension. The build is
+  [ENG-571](https://linear.app/davewil/issue/ENG-571).
+
+## Not decided here
+
+- Map, binary and `Enumerable<T>` comprehensions (A7), which wait on ENG-323, ticket 90 and
+  ENG-566 and are fog on the map.
+- Laziness. A comprehension builds a list, and 17 §5 keeps collections strict; `stream<T>` is
+  [ENG-283](https://linear.app/davewil/issue/ENG-283).
+- A record pattern nested in a list element that does not narrow is a defect,
+  [ENG-569](https://linear.app/davewil/issue/ENG-569), and does not block the build: a
+  generator's pattern is checked at the top.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Comprehensions revisited](issues/114-comprehensions-revisited.md) — **B# has list
+  comprehensions, `[r for Receipt r in cs]`. A generator's pattern is anything a clause-head
+  parameter accepts, and narrows the element type; an element it refuses is skipped, never a
+  crash; a `when` guard may follow any generator; lists go in and a list comes out.** Raised by
+  David on 2026-09-28 while reviewing F64's `for` keyword (*"not sure why I ruled them out"*), and
+  resolved on 2026-09-29 in three rounds of seven questions. It overrules
+  [17](issues/17-pipeline-and-comprehension.md)'s *"There is no comprehension syntax"* and nothing
+  else in 17. That ticket argued about the precision of the emitted code, which inlining keeps under
+  either answer. It never weighed the construct as something an author writes, though its own §2
+  recorded that `List.Filter` "can only say `list<T>`", and a generator's pattern keeps exactly that
+  fact. Measured: yecc stays at 6 shift/reduce before and after; no example or document code block
+  uses `in` as a name; OTP 28's strict `<:-` crashes where `<-` skips. B# takes only the skipping
+  form, since the checker already proves where a pattern covers, and a pattern no element can match
+  gets the vacuous-arm warning. Two borrowings were refused on facts. C#'s LINQ
+  `from Receipt r in cs` would be `Cast<T>()`, which throws. Elixir's `<-` already lexes as
+  `< -` in B#. A `when` keeps guard rules, so it cannot call a user function. Map, binary and
+  `Enumerable<T>` comprehensions are fog. Unbuilt: [ENG-571](https://linear.app/davewil/issue/ENG-571).
+```
 
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips
 or crashes on an element its pattern refuses, which Erlang offers both ways; the spelling, where

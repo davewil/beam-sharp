@@ -565,4 +565,7 @@ before a keyword is paid for it. Adding `cond` later is purely additive.
   deferred, not refused** (David), and cheap to add *because* names are qualified. Bonus finding:
   **Gleam's inexhaustive-`case` error prints the missing pattern**, which is 04's residual observed
   live (→ 23).
+  **Overruled 2026-09-29 by [114](issues/114-comprehensions-revisited.md) on one sentence:** B# has
+  list comprehensions, `[r for Receipt r in cs]`. The precision argument above stands, and so do
+  `|>`, the refusal of dot-calls and LINQ, and the removal of `if` and `else`.
 ```
