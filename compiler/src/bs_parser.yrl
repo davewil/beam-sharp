@@ -27,7 +27,7 @@ Nonterminals
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
-  uident lident atom_lit integer float string_lit '_'
+  uident lident atom_lit integer float string_lit interp interp_hole '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
   .
@@ -72,6 +72,10 @@ Nonassoc 700 'switch'.
 %% A clause block is the one declaration that stands for several, so it arrives
 %% as a list and is spliced in here.
 program -> decls : lists:append([if is_list(D) -> D; true -> [D] end || D <- '$1']).
+%% A template's hole is parsed by a second entry to this grammar: the lexer
+%% hands each hole's tokens over whole, and `interp_hole` is a token no source
+%% can spell, so this alternative adds no conflict (F66).
+program -> interp_hole expr : {hole_expr, '$2'}.
 
 decls -> decl       : ['$1'].
 decls -> decl decls : ['$1' | '$2'].
@@ -585,6 +589,9 @@ expr_low -> float    : {e_float, line('$1'), value('$1')}.
 expr_low -> '-' expr_low : negate(line('$1'), '$2').
 expr_low -> atom_lit : {e_atom, line('$1'), value('$1')}.
 expr_low -> string_lit : {e_str, line('$1'), value('$1')}.
+%% `$"Order {o.Id}"` builds a string (ticket 112, F66): text parts stay bytes
+%% and each hole becomes the expression its tokens parse to.
+expr_low -> interp   : {e_interp, line('$1'), interp_parts(value('$1'))}.
 expr_low -> lident   : {e_var, line('$1'), value('$1')}.
 %% `_` is an expression only so that `(a, _) = pair` parses, the left of a
 %% bare `=` being an expression. Used as a value it is rejected by `bs_check`.
@@ -808,6 +815,18 @@ expr_list -> expr ',' expr_list : ['$1' | '$3'].
 Erlang code.
 
 line(T) -> element(2, T).
+
+%% Each hole's tokens are parsed as an expression through the second root, and
+%% a hole that does not parse is this template's syntax error, at the hole.
+interp_parts(Parts) -> [interp_part(P) || P <- Parts].
+
+interp_part({text, Bytes}) -> {text, Bytes};
+interp_part({hole, L, Toks}) ->
+    case parse([{interp_hole, L} | Toks]) of
+        {ok, {hole_expr, E}} -> {hole, L, E};
+        {ok, _}              -> return_error(L, "a template's hole is one expression");
+        {error, {EL, _, Msg}} -> return_error(EL, lists:flatten(format_error(Msg)))
+    end.
 
 %% Ticket 110: a block's arms become the clauses the named form would have
 %% written, carrying the signature's name, then a marker naming the block.

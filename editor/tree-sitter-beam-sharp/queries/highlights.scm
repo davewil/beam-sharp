@@ -58,6 +58,16 @@
 ; has a colour for a symbol and almost none has one for an atom.
 (atom) @string.special.symbol
 
+; A template's text is a string and its holes are code (F66, ticket 112). The
+; hole's braces are captured apart so a theme can show where the code starts;
+; a doubled brace is text, written as an escape is.
+(string) @string
+(template_text) @string
+[ "$\"" "\"" ] @string
+(escape_sequence) @string.escape
+(template_brace) @string.escape
+(template_hole [ "{" "}" ] @punctuation.special)
+
 (integer) @number
 (float) @number
 

@@ -60,7 +60,9 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             %% F60: projections onto a view's tuple position.
             vprojs => maps:get(vprojs, Module, #{}),
             %% F64: each protocol call's implementations, by the call's position.
-            pcalls => maps:get(pcalls, Module, #{})},
+            pcalls => maps:get(pcalls, Module, #{}),
+            %% F66: each template hole's part, by the hole's `{`.
+            iholes => maps:get(iholes, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
     %% repeated `{attribute, _, file, {Name, Line}}` re-points every form
@@ -769,6 +771,9 @@ used_vars({e_comp, _, Head, Quals}, Acc) ->
                 end, used_vars(Head, Acc), Quals);
 used_vars({e_apply, _, V, As}, Acc) ->
     lists:foldl(fun used_vars/2, sets:add_element(V, Acc), As);
+%% A template reads the names in its holes, and nothing in its text.
+used_vars({e_interp, _, Parts}, Acc) ->
+    lists:foldl(fun used_vars/2, Acc, [E || {hole, _, E} <- Parts]);
 used_vars({e_list, _, Items, Rest}, Acc) ->
     R = case Rest of nil -> Acc; _ -> used_vars(Rest, Acc) end,
     lists:foldl(fun used_vars/2, R, Items);
@@ -904,6 +909,13 @@ expr({e_atom, L, A}, _C)      -> {atom, L, A};
 %% non-ASCII character.
 expr({e_str, L, Bytes}, _C)   ->
     {bin, L, [{bin_element, L, {string, L, Bytes}, default, default}]};
+%% F66: a template is one binary construction. Text is raw bytes, as above,
+%% and each hole is a `/binary` segment, converted first by the part the
+%% checker read from its type. A hole with no note is a `string`: a guard's
+%% notes reach here only for `string` holes, the others being refused there.
+expr({e_interp, L, Parts}, C) ->
+    Parts1 = [interp_segment(P, L, C) || P <- Parts],
+    {bin, L, case Parts1 of [] -> [text_segment(L, [])]; _ -> Parts1 end};
 expr({e_var, L, V}, _C)       -> {var, L, var_name(V)};
 expr({e_tuple, L, Es}, C)     -> {tuple, L, [expr(E, C) || E <- Es]};
 %% A local call takes the same emitted name as the export list and the
@@ -1332,6 +1344,21 @@ is_term(T)              -> bs_types:is_subtype(bs_types:term(), T).
 
 %% Remote guard BIF calls cannot be shadowed by local functions.
 bif(F, Args, L) -> {call, L, {remote, L, {atom, L, erlang}, {atom, L, F}}, Args}.
+
+%% F66: one segment of a template's binary.
+interp_segment({text, Bytes}, L, _C) ->
+    text_segment(L, Bytes);
+interp_segment({hole, L, E}, _L, C) ->
+    V = expr(E, C),
+    Printed = case maps:get(L, maps:get(iholes, C, #{}), string) of
+                  string -> V;
+                  int    -> bif(integer_to_binary, [V], L);
+                  float  -> bif(float_to_binary, [V, {cons, L, {atom, L, short}, {nil, L}}], L);
+                  atom   -> bif(atom_to_binary, [V], L)
+              end,
+    {bin_element, L, Printed, default, [binary]}.
+
+text_segment(L, Bytes) -> {bin_element, L, {string, L, Bytes}, default, default}.
 
 %% F58: a field key is an atom for a name and a binary for a string key, and
 %% the abstract format spells the two differently.

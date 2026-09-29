@@ -724,8 +724,8 @@ The other direction has no spelling, and that is the honest edge of what shipped
 is the sixth of the compiler's standing codegen obligations — so a **foreign declaration may not
 return `string`**,
 and says so with the fix in the message. `binary` is admissible there, because the whole
-`<<_:M, _:_*N>>` grammar reduces to `byte_size` and `bit_size rem N`, both O(1) guard BIFs. Not
-built: any string **operation**, which waits on the module system. **Binary patterns** and string
+`<<_:M, _:_*N>>` grammar reduces to `byte_size` and `bit_size rem N`, both O(1) guard BIFs. The
+one string **operation** built is the template, below (F66). **Binary patterns** and string
 literals in **pattern** position shipped with F13 and are below.
 
 The check looks inside the declared type, so a `string` anywhere in a foreign return is refused:
@@ -793,6 +793,63 @@ says `string`*. **shipped** — ENG-351; and since ENG-354 (F40) the `string` ch
 the whole of §11's rule, under one diagnostic: a foreign `list<int>` or `map<binary, int>` is
 refused the same way.
 
+### Building a string: the template
+<!-- decided by ticket 112 A2 and A3; built by F66, ENG-562 -->
+
+`$"…{expr}…"` builds a `string`, in C#'s own spelling. It lowers to one binary construction, and
+joining valid UTF-8 gives valid UTF-8, so the result is a `string` with no check at run time:
+
+```csharp
+module Evidence
+
+record ModelIdentity { Lab: string, Model: string, Harness: string }
+
+public string ModelKey(ModelIdentity id)
+ModelKey(id) -> $"{id.Lab}/{id.Model}/{id.Harness}"
+```
+
+A hole takes a `string`, an `int`, a `float` or an atom type as it stands. Each is printed one
+obvious way, chosen at compile time from the hole's type: `-5` is `"-5"`, `0.1` is `"0.1"`, `2.0`
+is `"2.0"` and `:placed` is `"placed"`. `{{` and `}}` write a literal brace, and the text takes a
+plain string's escapes:
+
+```csharp
+module Receipts
+
+record Order { Id: int, Customer: string, Total: int, Status: :placed | :paid }
+
+public string Line(Order o)
+Line(o) -> $"Order {o.Id} for {o.Customer}: {o.Total} pence, {o.Status}"
+```
+
+`Line` returns `"Order 42 for Ada: 1250 pence, placed"`. Any other hole is refused at compile time:
+a record, a tuple, a list, a map, `term`, or a union spanning two of the four parts, which has no
+one printing:
+
+<!-- diagnoses: interp_hole -->
+```csharp
+type Amount = int | float
+
+public string Show(Amount a)
+Show(a) -> $"{a} pence"
+```
+
+Such a union is taken apart with a `switch`, one template per arm:
+
+```csharp
+type Amount = int | float
+
+public string Show(Amount a)
+Show(a) -> a switch {
+    int i   => $"{i} pence",
+    float f => $"{f} pence"
+}
+```
+
+A template whose holes are all `string` is a legal guard, since a guard may build a binary. Any
+other hole is printed by a BIF the BEAM will not run in a guard, so it is refused there
+(`interp_in_guard`). A hole is one line, and it may nest braces two deep, which is enough for a
+`switch` or a record construction inside it. **shipped** — F66.
 
 ### Arithmetic on `int`
 
@@ -3362,6 +3419,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `string` and `binary` as values — the literal, the refinement, the boundary rule | **shipped** — F9 |
 | binary patterns `<<...>>`, string literals in pattern position, hex literals | **shipped** — F13 |
 | a `string` pattern's tail after string-literal segments is a `string` | **shipped** — F56 |
+| the template string, `$"Order {o.Id} for {o.Customer}"` — `string`, `int`, `float` and atom holes | **shipped** — F66 |
 | a spelling for a **sized binary type** | not coming — a width refines the value it binds, so no type form arises |
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | **shipped** — F14 |

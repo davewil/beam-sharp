@@ -119,8 +119,9 @@ format(Desc) ->
 at(Sev, Path, Line, Fn) ->
     #{severity => Sev, file => Path, line => Line, function => Fn}.
 
-article("int") -> "an";
-article(_)     -> "a".
+article("int")  -> "an";
+article("atom") -> "an";
+article(_)      -> "a".
 
 %% Checker-supplied positions preserve all parameters and their source names.
 %% `none` means no parameter carries the union, so no head can be offered.
@@ -254,6 +255,12 @@ built(Path, {Sev, Line, Fn, {vacuous_generator, Elem}}) ->
     (at(Sev, Path, Line, Fn))#{tag => vacuous_generator, domain => residual(Elem)};
 built(Path, {Sev, Line, Fn, {generator_not_list, Ty}}) ->
     (at(Sev, Path, Line, Fn))#{tag => generator_not_list, type => bs_types:to_string(Ty)};
+%% F66: a template's refusals reuse `type`, a key other tags already carry,
+%% so the term channel's key order is unchanged (ENG-349).
+built(Path, {Sev, Line, Fn, {interp_hole, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => interp_hole, type => bs_types:to_string(Ty)};
+built(Path, {Sev, Line, Fn, {interp_in_guard, Part}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => interp_in_guard, type => atom_to_list(Part)};
 built(Path, {Sev, Line, Fn, raise_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => raise_in_guard};
 %% `callee` keeps the author's spelling, not Erlang's name/arity notation.
@@ -1036,6 +1043,27 @@ message(#{tag := generator_not_list, file := P, line := L, column := C, function
      "  a comprehension takes lists and builds a list. Pass a list,~n"
      "  or establish one from an outside value with `ValidateAs<list<T>>`.~n",
      [P, L, C, Fn, Ty]};
+%% A hole prints by a fixed table read from its type (ticket 112 A3). The
+%% repair for a union of two parts is a switch, which compiles today; nothing
+%% here names a conversion row or a protocol that is not built.
+message(#{tag := interp_hole, file := P, line := L, column := C, function := Fn,
+          type := Ty}) ->
+    {"~s:~p:~p: error: a hole in ~s's template holds ~s~n"
+     "  a hole takes a string, an int, a float or an atom type, each~n"
+     "  printed as it stands; nothing else prints one obvious way. A~n"
+     "  union of two of those is taken apart with a switch, one~n"
+     "  template per arm.~n",
+     [P, L, C, Fn, Ty]};
+%% A `string` hole is a binary segment, which a guard may build; the other
+%% parts are printed by BIFs the BEAM refuses in a guard.
+message(#{tag := interp_in_guard, file := P, line := L, column := C, function := Fn,
+          type := Part}) ->
+    {"~s:~p:~p: error: a template in a guard in ~s has ~s ~s hole~n"
+     "  a guard builds a template of string holes only: printing any~n"
+     "  other part calls a BIF the BEAM will not run in a guard.~n"
+     "  Compare the value itself in the guard, or build the string~n"
+     "  in the body.~n",
+     [P, L, C, Fn, article(Part), Part]};
 %% Same reason as the switch above: a guard shares the whole expression
 %% grammar, so a raise parses inside one and is refused here rather than in the
 %% grammar. The repair names the body because that is where a crash belongs.

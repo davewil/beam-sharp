@@ -16,6 +16,20 @@ LOWER      = [a-z]
 ALNUM      = [a-zA-Z0-9_]
 WS         = [\s\t\r\n]
 
+%% A template string, `$"Order {o.Id}"` (ticket 112, F66). The rule has to
+%% match the whole template exactly: a leex action may push characters back,
+%% but the line and column have already been advanced past them, so every
+%% position after an over-long match would be wrong (F35). A hole is one line.
+%% It skips string literals and balances braces two deep, which a `switch` or a
+%% record construction in a hole needs. A hole's first character is never `{`,
+%% so `{{` is always a literal brace, as it is in C#.
+HSTR       = "(\\.|[^"\\\n])*"
+HCH        = [^{}"\n]
+HNEST1     = \{({HCH}|{HSTR})*\}
+HNEST2     = \{({HCH}|{HSTR}|{HNEST1})*\}
+HOLE       = \{({HCH}|{HSTR})({HCH}|{HSTR}|{HNEST2})*\}
+TTEXT      = \\.|[^"\\{}]|\{\{|\}\}
+
 Rules.
 
 {WS}+                   : skip_token.
@@ -97,6 +111,13 @@ false                   : {token, {atom_lit, TokenLoc, false}}.
 %% `\\.` is one backslash then any character; written doubled it would match
 %% two backslashes and no escape would ever lex.
 "(\\.|[^"\\])*"         : str_token(TokenLoc, TokenChars).
+
+%% `$"…{expr}…"` builds a string (ticket 112 A2). Longest-match gives a whole
+%% template to the first rule; anything the first cannot match falls to the
+%% second, which names what a template may hold instead of reporting `$`.
+\$"({TTEXT}|{HOLE})*"   : interp_token(TokenLoc, TokenChars).
+\$"                     : {error, "a template string closes with `\"`, a hole is `{expr}` "
+                                  "on one line, and a literal brace is `{{` or `}}`"}.
 
 %% `:name` is an atom. The universe is open: nothing declares an atom and the
 %% lexer interns what it sees (ticket 10).
@@ -206,6 +227,81 @@ str_token(Line, Chars) ->
                     {error, "string literal is not valid UTF-8"}
             end
     end.
+
+%% A template becomes one token, `{interp, Loc, Parts}`, each part `{text,
+%% Bytes}` or `{hole, Loc, Tokens}`. The rule's regex has already proved the
+%% shape, so this scan only splits it: in the text, `{{` and `}}` are a brace
+%% and `{` opens a hole; in a hole, braces nest and a string literal is skipped
+%% whole. A hole is lexed from its own position, so a diagnostic inside it
+%% points at the hole and not at the `$`. Text is unescaped and checked for
+%% UTF-8 exactly as a plain literal is.
+interp_token({L, C}, [$$, $" | Chars]) ->
+    Body = lists:droplast(Chars),
+    case interp_parts(Body, advance("$\"", {L, C}), [], []) of
+        {ok, Parts}    -> {token, {interp, {L, C}, Parts}};
+        {error, _} = E -> E
+    end.
+
+interp_parts([], _Pos, Text, Parts) ->
+    interp_done(Text, Parts);
+interp_parts([$\\, X | T], Pos, Text, Parts) ->
+    interp_parts(T, advance([$\\, X], Pos), [X, $\\ | Text], Parts);
+interp_parts([${, ${ | T], Pos, Text, Parts) ->
+    interp_parts(T, advance("{{", Pos), [${ | Text], Parts);
+interp_parts([$}, $} | T], Pos, Text, Parts) ->
+    interp_parts(T, advance("}}", Pos), [$} | Text], Parts);
+interp_parts([${ | T], Pos, Text, Parts0) ->
+    {Src, Rest} = hole_source(T, 1, []),
+    Start = advance("{", Pos),
+    case text_part(Text) of
+        {error, _} = E -> E;
+        TextPart ->
+            case string(Src, Start) of
+                {ok, Toks, _} ->
+                    Parts = [{hole, Pos, Toks} | TextPart ++ Parts0],
+                    interp_parts(Rest, advance(Src ++ "}", Start), [], Parts);
+                {error, {_, _, Info}, _} ->
+                    {error, "in a template's hole: " ++ lists:flatten(format_error(Info))}
+            end
+    end;
+interp_parts([X | T], Pos, Text, Parts) ->
+    interp_parts(T, advance([X], Pos), [X | Text], Parts).
+
+interp_done(Text, Parts) ->
+    case text_part(Text) of
+        {error, _} = E -> E;
+        TextPart       -> {ok, lists:reverse(TextPart ++ Parts)}
+    end.
+
+%% Text is gathered reversed, raw, so an escape is read once, here.
+text_part([]) -> [];
+text_part(Rev) ->
+    case unescape(lists:reverse(Rev), []) of
+        {error, _} = E -> E;
+        {ok, Bytes} ->
+            case utf8_ok(Bytes) of
+                true  -> [{text, Bytes}];
+                false -> {error, "template string text is not valid UTF-8"}
+            end
+    end.
+
+%% The hole's source up to its closing brace, and what follows that brace.
+hole_source([$} | T], 1, Acc) -> {lists:reverse(Acc), T};
+hole_source([$} | T], D, Acc) -> hole_source(T, D - 1, [$} | Acc]);
+hole_source([${ | T], D, Acc) -> hole_source(T, D + 1, [${ | Acc]);
+hole_source([$" | T], D, Acc) ->
+    {Str, Rest} = string_source(T, [$"]),
+    hole_source(Rest, D, lists:reverse(Str) ++ Acc);
+hole_source([X | T], D, Acc) -> hole_source(T, D, [X | Acc]).
+
+string_source([$\\, X | T], Acc) -> string_source(T, [X, $\\ | Acc]);
+string_source([$" | T], Acc)     -> {lists:reverse([$" | Acc]), T};
+string_source([X | T], Acc)      -> string_source(T, [X | Acc]).
+
+%% Positions advance as leex's own do, so a hole's tokens carry the columns a
+%% plain lex of the same line would give them.
+advance(Chars, {L, C}) ->
+    {L + length([X || X <- Chars, X =:= $\n]), adjust_col(Chars, length(Chars), C)}.
 
 %% Deliberately a closed set. An unknown escape is an error rather than the
 %% character itself, so that adding `\u` later cannot change the meaning of a

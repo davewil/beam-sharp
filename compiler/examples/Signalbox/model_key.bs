@@ -1,0 +1,18 @@
+// F66 / ticket 112 — the template string. `$"…{expr}…"` builds a `string` as
+// one binary construction. A hole takes a `string`, an `int`, a `float` or an
+// atom type as it stands, each printed one obvious way; anything else is
+// refused at compile time. `{{` and `}}` write a literal brace.
+//
+//   bsc examples/Signalbox/model_key.bs ModelKey '#{'Kind' => 'Signalbox.ModelIdentity', 'Lab' => <<"-">>, 'Model' => <<"glm-5.2">>, 'Harness' => <<"opencode">>}'
+//
+module Signalbox
+
+record ModelIdentity { Lab: string, Model: string, Harness: string }
+
+// Every hole is a `string`, so this is Signalbox's key with nothing converted.
+public string ModelKey(ModelIdentity id)
+ModelKey(id) -> $"{id.Lab}/{id.Model}/{id.Harness}"
+
+// An `int` and an atom print as they stand, and a doubled brace is a brace.
+public string Tally(atom lane, int passed, int total)
+Tally(lane, passed, total) -> $"{{{lane}}} {passed}/{total}"

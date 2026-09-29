@@ -508,6 +508,7 @@ module.exports = grammar({
       $.foreign_call,
       $.qualified_call,
       $.string,
+      $.template_string,
       $.tuple,
       $.function_value,
       $.record_construction,
@@ -774,6 +775,27 @@ module.exports = grammar({
     // refusing source the compiler accepts, which is the one thing that gate
     // exists to catch. The gate is not in CI, which is why it could rot.
     string: _ => token(seq('"', repeat(choice(/[^"\\]/, seq('\\', /./))), '"')),
+
+    // F66 (ticket 112): `$"Order {o.Id}"`. No external scanner: as
+    // tree-sitter-go lexes a string, the text is `token.immediate` with `prec(1)`,
+    // so inside a template it wins over whitespace and comments, and the lexer
+    // offers it only where a template's text may stand. `{{` beats `{` by
+    // longest match, so a doubled brace is text and a single one opens a hole,
+    // whose expression is lexed as any other.
+    template_string: $ => seq(
+      '$"',
+      repeat(choice(
+        $.template_text,
+        $.template_brace,
+        $.escape_sequence,
+        $.template_hole,
+      )),
+      token.immediate('"'),
+    ),
+    template_text: _ => token.immediate(prec(1, /[^"\\{}]+/)),
+    template_brace: _ => token.immediate(choice('{{', '}}')),
+    escape_sequence: _ => token.immediate(seq('\\', /./)),
+    template_hole: $ => seq(token.immediate('{'), $._expression, '}'),
 
     uident: _ => /[A-Z][a-zA-Z0-9_]*/,
     lident: _ => /[a-z][a-zA-Z0-9_]*/,

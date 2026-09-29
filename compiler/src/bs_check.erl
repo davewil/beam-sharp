@@ -123,6 +123,8 @@ check_dir1(Sources0, World, Expect) ->
     Vprojs = maps:from_list([{Loc, Pos} || {_, {vproj, Loc, Pos}} <- Notes]),
     %% F64: each protocol call's targets, `[{Tag, Module, Function}]`.
     Pcalls = maps:from_list([{Loc, Ts} || {_, {pcall, Loc, Ts}} <- Notes]),
+    %% F66: each template hole's part, keyed by the hole's `{`.
+    Iholes = maps:from_list([{Loc, P} || {_, {ihole, Loc, P}} <- Notes]),
     Fns1 = prune_valves(Fns, Prunes),
     PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
@@ -154,7 +156,8 @@ check_dir1(Sources0, World, Expect) ->
                          fnames => Fnames,
                          fdivs => Fdivs,
                          vprojs => Vprojs,
-                         pcalls => Pcalls}, Tagged};
+                         pcalls => Pcalls,
+                         iholes => Iholes}, Tagged};
         _Fatal -> {error, Tagged}
     end.
 
@@ -1629,7 +1632,7 @@ map_parts(T) ->
     {Maps, bs_types:subtract(T, (bs_types:none())#{maps => Maps})}.
 
 %% Checker notes travel through the diagnostic channel to the emitter.
-is_note(D) -> lists:member(element(1, D), [prune, fname, fdiv, vproj, pcall]).
+is_note(D) -> lists:member(element(1, D), [prune, fname, fdiv, vproj, pcall, ihole]).
 
 %% F64: a diagnostic names an implementation by its operation, never by its
 %% export. Notes keep the export, which the emitter calls.
@@ -2594,6 +2597,7 @@ expr_vars({e_lambda, _, Params, Body}) ->
 expr_vars({e_apply, _, V, As})         -> [V | lists:append([expr_vars(A) || A <- As])];
 %% A generator's names are local to what follows it in the comprehension.
 expr_vars({e_comp, _, Head, Quals})    -> comp_free_vars(Quals, Head);
+expr_vars({e_interp, _, Parts})        -> lists:append([expr_vars(E) || {hole, _, E} <- Parts]);
 expr_vars(_)                           -> [].
 
 comp_free_vars([], Head) ->
@@ -2651,14 +2655,23 @@ mixed_guard_diags({guard, Expr}, Scope, Ctx) ->
     %% `guard_diags/2` owns illegal-call errors. Typing such calls can raise,
     %% including on inaccessible qualified modules; suppress those raises.
     try type_of(Expr, Scope, Ctx) of
-        {_, Diags} -> [D || D <- Diags, keep_from_guard(D)]
+        {_, Diags} -> [in_guard(D, Ctx) || D <- Diags, keep_from_guard(D)]
     catch
         _:_ -> []
     end.
 
+in_guard({ihole, L, Part}, Ctx) when Part =/= string ->
+    {error, L, Ctx#ctx.fname, {interp_in_guard, Part}};
+in_guard(D, _Ctx) -> D.
+
 %% Preserve float-division sites for the emitter, including inside guards.
 keep_from_guard({fdiv, _, _}) -> true;
 keep_from_guard({vproj, _, _}) -> true;
+%% F66: a hole the BEAM prints only through a BIF no guard may call is refused
+%% here, the one place a guard's holes are typed. A `string` hole is a binary
+%% segment, which a guard may build, so its note goes on to the emitter.
+keep_from_guard({ihole, _, _}) -> true;
+keep_from_guard({error, _, _, {interp_hole, _}}) -> true;
 keep_from_guard(D)            -> mixed_pair(D).
 
 mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
@@ -2853,6 +2866,10 @@ type_of({e_neg, _, E}, S, C) ->
 type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
 %% The lexer guarantees UTF-8 for string literals; downstream passes trust it.
 type_of({e_str, _, _}, _S, _C) -> {bs_types:string(), []};
+%% F66: a template is a `string`, since joining valid UTF-8 gives valid UTF-8,
+%% and each hole's part is read from its type (ticket 112 A3).
+type_of({e_interp, _, Parts}, S, C) ->
+    {bs_types:string(), lists:append([hole_diags(L, E, S, C) || {hole, L, E} <- Parts])};
 type_of({e_var, _, V}, S, _C)   -> {maps:get(V, S, bs_types:term()), []};
 %% `_` parses as an expression for destructuring, but erlc forbids it as a
 %% value.
@@ -3846,6 +3863,30 @@ prune_valves(T, Prunes) when is_tuple(T) ->
 prune_valves([H | T], Prunes) ->
     [prune_valves(H, Prunes) | prune_valves(T, Prunes)];
 prune_valves(X, _) -> X.
+
+%% A hole prints one way per part, chosen here from its static type and handed
+%% to the emitter as an `ihole` note keyed by the hole's `{`. Any other type is
+%% refused, a union spanning two parts included: there is no one lowering for
+%% it. An uninhabited hole was reported where it was made, so it adds nothing.
+hole_diags(L, E, S, C) ->
+    {Ty, D} = type_of(E, S, C),
+    D ++ case hole_part(Ty) of
+             none   -> [];
+             refused -> [{error, L, C#ctx.fname, {interp_hole, Ty}}];
+             Part    -> [{ihole, L, Part}]
+         end.
+
+hole_part(Ty) ->
+    Parts = [{string, bs_types:string()}, {int, bs_types:int()},
+             {float, bs_types:float_top()}, {atom, bs_types:atom_top()}],
+    case bs_types:is_none(Ty) of
+        true  -> none;
+        false ->
+            case [P || {P, Top} <- Parts, bs_types:is_subtype(Ty, Top)] of
+                [P | _] -> P;
+                []      -> refused
+            end
+    end.
 
 %% The emitter has no types; the `fdiv` note selects BEAM float division.
 %% Reject mixed numeric parts instead of BEAM's implicit promotion. Both
