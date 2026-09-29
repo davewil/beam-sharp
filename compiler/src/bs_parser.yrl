@@ -9,6 +9,7 @@
 
 Nonterminals
   program decls decl
+  comp_quals comp_qual
   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
   behaviour_decl record_decl field_decls field_decl open_field_decls
   type_expr type_union_members type_prim type_list type_params
@@ -25,7 +26,7 @@ Nonterminals
 
 Terminals
   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for'
+  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
   uident lident atom_lit integer float string_lit '_'
   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
@@ -767,8 +768,18 @@ switch_arm -> pattern guard '=>' expr :
     {arm, line('$3'), '$1', '$2', '$4'}.
 
 expr_low -> '[' ']'          : {e_nil, line('$1')}.
+%% A comprehension, `[r for Receipt r in cs when r.Pence > 0]` (ticket 114). Its
+%% first generator is written, then any mix of generators and `when` guards,
+%% each carrying its own line. `guard_expr`, not `guard`: `guard` may be empty.
+expr_low -> '[' expr 'for' pattern 'in' expr comp_quals ']' :
+    {e_comp, line('$1'), '$2', [{gen, line('$3'), '$4', '$6'} | '$7']}.
 expr_low -> '[' elist_items ']' :
     begin {Items, Rest} = '$2', {e_list, line('$1'), Items, Rest} end.
+
+comp_quals -> '$empty'              : [].
+comp_quals -> comp_qual comp_quals  : ['$1' | '$2'].
+comp_qual -> 'for' pattern 'in' expr : {gen, line('$1'), '$2', '$4'}.
+comp_qual -> 'when' guard_expr       : {filter, line('$1'), '$2'}.
 
 elist_items -> expr                 : {['$1'], nil}.
 elist_items -> '..' expr            : {[], '$2'}.

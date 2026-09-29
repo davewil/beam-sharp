@@ -1938,21 +1938,25 @@ xs |> List.Map(f) |> List.Filter(g)
 
 The compiler inlines its own collection operations, which recovers precise emitted types that a
 call to a generic function loses. A **comprehension** builds a list from lists. A generator's
-pattern narrows the element type, which `List.Filter` cannot do, because a predicate answers only
-`bool`. An element the pattern refuses is skipped. The form is decided and not built yet
-([ENG-571](https://linear.app/davewil/issue/ENG-571)):
+pattern is anything a clause-head parameter accepts, and it narrows the element type, which
+`List.Filter` cannot do, because a predicate answers only `bool`. An element the pattern refuses is
+skipped. A `when` guard may follow any generator, under guard rules, and a later generator sees the
+names bound before it:
 
-```csharp not-yet
+```csharp
 record Receipt { OrderId: int, Pence: int }
 type Charge = Receipt | (:error, string)
 
 public list<Receipt> Settled(list<Charge> cs)
 Settled(cs) -> [r for Receipt r in cs]
-```
-<!-- decided by ticket 114, overruling ticket 17's "no comprehension syntax" -->
 
-Until then, the same function is a fold with a `switch` inside it, where the arm `Receipt r`
-narrows:
+public list<Receipt> Large(list<Charge> cs)
+Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
+```
+<!-- decided by ticket 114, overruling ticket 17's "no comprehension syntax"; built as F65 -->
+
+Each lowers to one Erlang comprehension. Written without one, `Settled` is a fold with a `switch`
+inside it, where the arm `Receipt r` narrows:
 
 ```csharp
 record Receipt { OrderId: int, Pence: int }
@@ -1963,6 +1967,19 @@ Settled(cs) -> cs |> List.Fold([], (acc, c) => c switch {
     Receipt r   => [r, ..acc],
     (:error, _) => acc
 }) |> List.Reverse()
+```
+
+A generator whose pattern no element can match is a warning, as a vacuous `switch` arm is. A
+`Refund` is not a `Charge`, so this comprehension is always empty:
+
+<!-- diagnoses: vacuous_generator -->
+```csharp
+record Receipt { OrderId: int, Pence: int }
+record Refund { OrderId: int, Pence: int }
+type Charge = Receipt | (:error, string)
+
+public list<Refund> Refunds(list<Charge> cs)
+Refunds(cs) -> [r for Refund r in cs]
 ```
 
 **decided**
@@ -3337,6 +3354,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | a spelling for a **sized binary type** | not coming — a width refines the value it binds, so no type form arises |
 | the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
 | pipe and valve | **shipped** — F14 |
+| list comprehensions, `[r for Receipt r in cs when …]` — generators, guards, a pattern that narrows and skips | **shipped** — F65 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |
 | polymorphic function signatures — `Prepend<T, E>`, instantiated at the call by matching | **shipped** — F45 |
 | the arrow `fn(T) -> U`, the lambda, a name in value position — `Map<T, U>`, `List.Map`, `List.Filter`, `List.Fold` | **shipped** — F46 |

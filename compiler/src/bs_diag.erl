@@ -246,6 +246,14 @@ built(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
     (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_arm_guard, arm_number => N};
 built(Path, {Sev, Line, Fn, switch_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => switch_in_guard};
+%% F65: a comprehension's own refusals reuse `domain` and `type`, keys other
+%% tags already carry, so the term channel's key order is unchanged (ENG-349).
+built(Path, {Sev, Line, Fn, comprehension_in_guard}) ->
+    (at(Sev, Path, Line, Fn))#{tag => comprehension_in_guard};
+built(Path, {Sev, Line, Fn, {vacuous_generator, Elem}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => vacuous_generator, domain => residual(Elem)};
+built(Path, {Sev, Line, Fn, {generator_not_list, Ty}}) ->
+    (at(Sev, Path, Line, Fn))#{tag => generator_not_list, type => bs_types:to_string(Ty)};
 built(Path, {Sev, Line, Fn, raise_in_guard}) ->
     (at(Sev, Path, Line, Fn))#{tag => raise_in_guard};
 %% `callee` keeps the author's spelling, not Erlang's name/arity notation.
@@ -1004,6 +1012,30 @@ message(#{tag := switch_in_guard, file := P, line := L, column := C, function :=
      "  a guard asks a question about the values a clause already~n"
      "  matched; it cannot branch. Move the switch into the body.~n",
      [P, L, C, Fn]};
+%% The BEAM has no comprehension in a guard, as it has no `case` in one.
+message(#{tag := comprehension_in_guard, file := P, line := L, column := C, function := Fn}) ->
+    {"~s:~p:~p: error: ~s has a comprehension in a guard~n"
+     "  a guard asks a question about the values a clause already~n"
+     "  matched; it cannot build a list. Move the comprehension into~n"
+     "  the body and switch on its answer.~n",
+     [P, L, C, Fn]};
+%% F65: the generator's pattern is outside the list's element type, so the
+%% comprehension skips every element. A warning, as `vacuous_arm` is.
+message(#{tag := vacuous_generator, file := P, line := L, column := C, function := Fn,
+          domain := Dom}) ->
+    {"~s:~p:~p: warning: a generator in ~s matches no element~n"
+     "  the list's element type is ~s, and the generator's pattern~n"
+     "  is not a member of it, so every element is skipped and the~n"
+     "  comprehension is always [].~n",
+     [P, L, C, Fn, Dom]};
+%% `term` is refused too: `ValidateAs<T>` is where an outside value becomes a
+%% list, and a generator over anything else crashes with `bad_generator`.
+message(#{tag := generator_not_list, file := P, line := L, column := C, function := Fn,
+          type := Ty}) ->
+    {"~s:~p:~p: error: a generator in ~s draws from ~s, which is not a list~n"
+     "  a comprehension takes lists and builds a list. Pass a list,~n"
+     "  or establish one from an outside value with `ValidateAs<list<T>>`.~n",
+     [P, L, C, Fn, Ty]};
 %% Same reason as the switch above: a guard shares the whole expression
 %% grammar, so a raise parses inside one and is refused here rather than in the
 %% grammar. The repair names the body because that is where a crash belongs.
@@ -1454,18 +1486,20 @@ message(#{tag := map_pattern_deferred, file := P, line := L, column := C, functi
           site := Site, type := Ty}) ->
     %% The same refusal, not the same sentence: an arm's subject is not a
     %% parameter, and "a clause head" would send a `switch` author to the
-    %% wrong line.
-    {Where, Subject} =
+    %% wrong line. A generator skips, so exhaustiveness is not its reason
+    %% (F65); the pattern form is simply not built (48 Q2, ENG-323).
+    {Where, Subject, Why} =
         case Site of
-            head -> {"a clause head", "the parameter's type is"};
-            arm  -> {"a switch arm",  "the subject's type is"}
+            head      -> {"a clause head", "the parameter's type is", unbounded_why()};
+            arm       -> {"a switch arm",  "the subject's type is", unbounded_why()};
+            generator -> {"a generator",   "the list's element type is",
+                          " The pattern~n"
+                          "  form is deferred, in a generator as in a head.~n"}
         end,
     {"~s:~p:~p: error: ~s destructures a map whose keys are not a fixed list~n"
      "  ~s: ~s~n"
      "  `map<K, V>` ships as a type — declare it, pass it, store it,~n"
-     "  return it — but matching one in ~s is not built. A pattern~n"
-     "  over an unbounded key set cannot be proved exhaustive, which is~n"
-     "  the guarantee every other head in this language keeps.~n"
+     "  return it — but matching one in ~s is not built." ++ Why ++
      "  Bind the whole map and read it, or declare a record if the keys~n"
      "  are known.~n",
      [P, L, C, Fn, Subject, Ty, Where]};
@@ -2220,3 +2254,11 @@ field_list(Label, Fields) ->
 
 plural(1) -> "";
 plural(_) -> "s".
+
+%% `map_pattern_deferred`'s reason at a head or an arm, where exhaustiveness is
+%% owed. It continues the sentence's line, so the wording is byte-identical to
+%% the one clause it was before a generator needed a different reason (F65).
+unbounded_why() ->
+    " A pattern~n"
+    "  over an unbounded key set cannot be proved exhaustive, which is~n"
+    "  the guarantee every other head in this language keeps.~n".

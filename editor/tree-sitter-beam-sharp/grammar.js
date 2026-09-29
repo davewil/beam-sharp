@@ -515,6 +515,7 @@ module.exports = grammar({
       $.record_update,
       $.projection,
       $.list,
+      $.comprehension,
       $.binary_expression,
       $.pipe_expression,
       $.switch_expression,
@@ -640,6 +641,24 @@ module.exports = grammar({
       )),
       optional($.rest_expression),
       ']',
+    ),
+
+    // F65 / ticket 114 — `[r for Receipt r in cs when r.Pence > 0]`. The head
+    // is an expression; the first generator is written, then any mix of
+    // generators and guards. `for` after the head is what tells it from a list.
+    comprehension: $ => seq(
+      '[',
+      field('head', $._expression),
+      $.generator,
+      repeat(choice($.generator, $.guard)),
+      ']',
+    ),
+
+    generator: $ => seq(
+      'for',
+      field('pattern', $.pattern),
+      'in',
+      field('source', $._expression),
     ),
 
     // `raise` deliberately crashes (ticket 12 §5). `prec.right` because the

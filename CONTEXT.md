@@ -293,8 +293,8 @@ signature's own shape moved into a clause head. It names one of two things and m
 different mechanism for each: a **record**, whose minted tag the pattern tests, or a **part**,
 which one BEAM test decides (`int`, `float`, `atom`, `binary`, `bool`). A type no single test
 decides cannot wear it. It is a *pattern*, so a clause set using it is credited for
-exhaustiveness, and it goes where a whole argument goes: a clause-head parameter or a switch
-arm, never nested inside another pattern.
+exhaustiveness, and it goes where a whole argument goes: a clause-head parameter, a switch
+arm or a comprehension's generator, never nested inside another pattern.
 _Avoid_: type pattern, type test, cast, type annotation, designation
 
 **Projection**:

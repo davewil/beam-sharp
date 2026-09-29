@@ -2486,6 +2486,24 @@ rebinds({e_lambda, Line, Params, Body}, Bound, Name) ->
     [{error, Line, Name, {rebinding, V}}
      || V <- lists:usort(Vars ++ Dups), lists:member(V, Bound) orelse lists:member(V, Dups)]
         ++ rebinds(Body, Bound ++ Vars, Name);
+%% A generator's names, like an arm's, may not rebind an outer name, and each
+%% generator and guard sees only the names bound before it (F65).
+rebinds({e_comp, _, Head, Quals}, Bound, Name) ->
+    {Inner, Diags} =
+        lists:foldl(
+          fun({gen, Line, P, Src}, {B, Acc}) ->
+                  Vars = pattern_vars(P),
+                  {B ++ Vars,
+                   Acc ++ rebinds(Src, B, Name)
+                       ++ [{error, Line, Name, {rebinding, V}}
+                           || V <- lists:usort(Vars), lists:member(V, B)]
+                       ++ [{error, Line, Name, {unbound_variable, V}}
+                           || V <- lists:usort(pattern_matched_vars(P)),
+                              not lists:member(V, B ++ Vars)]};
+             ({filter, _, G}, {B, Acc}) ->
+                  {B, Acc ++ rebinds(G, B, Name)}
+          end, {Bound, []}, Quals),
+    Diags ++ rebinds(Head, Inner, Name);
 rebinds(T, Bound, Name) when is_tuple(T) -> rebinds(tuple_to_list(T), Bound, Name);
 rebinds(L, Bound, Name) when is_list(L) ->
     lists:append([rebinds(E, Bound, Name) || E <- L]);
@@ -2565,7 +2583,17 @@ expr_vars({e_lambda, _, Params, Body}) ->
     Bound = lists:append([pattern_vars(P) || P <- Params]),
     [V || V <- expr_vars(Body), not lists:member(V, Bound)];
 expr_vars({e_apply, _, V, As})         -> [V | lists:append([expr_vars(A) || A <- As])];
+%% A generator's names are local to what follows it in the comprehension.
+expr_vars({e_comp, _, Head, Quals})    -> comp_free_vars(Quals, Head);
 expr_vars(_)                           -> [].
+
+comp_free_vars([], Head) ->
+    expr_vars(Head);
+comp_free_vars([{gen, _, P, Src} | Rest], Head) ->
+    Bound = pattern_vars(P),
+    expr_vars(Src) ++ [V || V <- comp_free_vars(Rest, Head), not lists:member(V, Bound)];
+comp_free_vars([{filter, _, G} | Rest], Head) ->
+    expr_vars(G) ++ comp_free_vars(Rest, Head).
 
 arm_free_vars({arm, _, P, Guard, Body}) ->
     Bound = pattern_vars(P),
@@ -2698,14 +2726,17 @@ guard_diags({guard, Expr}, C) ->
     [{error, L, C#ctx.fname, wildcard_as_value} || L <- nodes_of(e_wild, Expr)]
         ++ [{error, L, C#ctx.fname, switch_in_guard} || L <- nodes_of(e_switch, Expr)]
         ++ [{error, L, C#ctx.fname, raise_in_guard} || L <- nodes_of(e_raise, Expr)]
+        ++ [{error, L, C#ctx.fname, comprehension_in_guard} || L <- nodes_of(e_comp, Expr)]
         ++ [{error, L, C#ctx.fname, R}
             || Call <- subtrees_of([e_call, e_qcall, e_inst, e_foreign_call,
-                                    e_apply, e_lambda, e_switch, e_raise], Expr),
+                                    e_apply, e_lambda, e_switch, e_raise, e_comp], Expr),
                {L, R} <- guard_call(Call)].
 
 %% Diagnostics preserve authored callee spelling, before import resolution.
-%% Stop at switches and raises: their own errors cover nested calls.
+%% Stop at switches, raises and comprehensions: their own errors cover nested
+%% calls.
 guard_call({e_switch, _, _, _}) -> [];
+guard_call({e_comp, _, _, _}) -> [];
 guard_call({e_raise, _, _}) -> [];
 guard_call({e_call, L, Name, _Args}) ->
     [{L, {call_in_guard, Name}}];
@@ -2873,6 +2904,14 @@ type_of({e_with, L, Base, Fields}, S, C) ->
         none ->
             update(L, T, Fields, D1, S, C)
     end;
+%% A comprehension types each generator's pattern against its list's element
+%% type, as an arm against its subject, and skips what the pattern refuses, so
+%% no residual is owed. Its type is a list of its head's.
+%% Rationale: compiler/features/F65-comprehensions.md.
+type_of({e_comp, _L, Head, Quals}, S, C) ->
+    {Scope, D0} = comp_quals(Quals, S, C, []),
+    {HeadTy, D1} = type_of(Head, Scope, C),
+    {bs_types:list(HeadTy), D0 ++ D1};
 %% A switch uses the clause walk over one synthesised column, sharing pattern
 %% and guard refinement, certainty and residuals. Its type unions arm results.
 type_of({e_switch, L, Subject, Arms}, S, C) ->
@@ -3684,6 +3723,45 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
            end,
     arms(Rest, bs_types:subtract(Residual, Certain), Declared, S, C, N + 1,
          Tys1, Diags ++ D1b ++ D1g ++ guard_diags(Guard, C) ++ D2, Origin, Expect).
+
+%%% --- A comprehension's qualifiers ---
+%%%
+%%% A generator is an arm whose leftover elements are skipped. Its pattern is
+%%% typed at the top, as a switch subject's is, so the part prefix is legal
+%%% there; it narrows the list's element type and is reported only when no
+%%% element can match it. A guard keeps guard rules, and the guard-level
+%%% operator refusals reach it as they reach an arm's.
+%%% Rationale: compiler/features/F65-comprehensions.md.
+
+comp_quals([], S, _C, Diags) ->
+    {S, Diags};
+comp_quals([{gen, L, P, Src} | Rest], S, C, Diags) ->
+    {SrcTy, D0} = type_of(Src, S, C),
+    {PTy, Binds, _Exact} = pattern_type(P, [], C#ctx.types),
+    %% `list_elem/1` answers `none` for `int` and `term` for `term`, so a
+    %% source that is no list is refused before its element type is read.
+    {Elem, D1} =
+        case bs_types:is_subtype(SrcTy, bs_types:list(bs_types:term())) of
+            true  -> {bs_types:list_elem(SrcTy), []};
+            false -> {reported(), [{error, L, C#ctx.fname, {generator_not_list, SrcTy}}]}
+        end,
+    Domain = bs_types:intersect(Elem, PTy),
+    D2 = case map_arm_deferred(P, Elem) of
+             true ->
+                 [{error, L, C#ctx.fname, {map_pattern_deferred, generator, Elem}}];
+             %% An empty source has no element to match, so nothing is vacuous.
+             false ->
+                 case bs_types:is_none(Domain) andalso not bs_types:is_none(Elem) of
+                     true  -> [{warning, L, C#ctx.fname, {vacuous_generator, Elem}}];
+                     false -> []
+                 end
+         end,
+    Scope = maps:merge(S, maps:from_list([{V, at_path(Domain, Path)}
+                                          || {V, Path} <- maps:to_list(Binds)])),
+    comp_quals(Rest, Scope, C, Diags ++ D0 ++ D1 ++ D2);
+comp_quals([{filter, _, G} | Rest], S, C, Diags) ->
+    comp_quals(Rest, S, C,
+               Diags ++ guard_diags({guard, G}, C) ++ mixed_guard_diags({guard, G}, S, C)).
 
 %%% --- Pruning the valve's dead stop arms ---
 

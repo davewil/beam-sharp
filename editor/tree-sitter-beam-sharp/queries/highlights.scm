@@ -42,6 +42,12 @@
   "when"
 ] @keyword.conditional
 
+; A comprehension's generator, `for pattern in list` (ticket 114).
+[
+  "for"
+  "in"
+] @keyword.repeat
+
 ; --- literals ----------------------------------------------------------------
 ; The two keyword atoms. Captured as booleans rather than as identifiers because
 ; that is what they ARE -- an identifier here would be a variable, and a variable

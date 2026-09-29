@@ -35,6 +35,8 @@ behavior                : {token, {'behaviour', TokenLoc}}.
 %% a protocol (tickets 99 and 91 Q2).
 implements              : {token, {'implements', TokenLoc}}.
 for                     : {token, {'for', TokenLoc}}.
+%% `[r for Receipt r in cs]`: a comprehension's generator (ticket 114).
+in                      : {token, {'in', TokenLoc}}.
 %% Visibility is written on the signature, in C#'s words: `public` exports a
 %% function and there is no separate export list (F12, ticket 40 §3).
 public                  : {token, {'public',  TokenLoc}}.

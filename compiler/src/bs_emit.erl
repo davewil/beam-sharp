@@ -755,6 +755,12 @@ used_vars({e_raise, _, Reason}, Acc) -> used_vars(Reason, Acc);
 %% one must not be underscored in the head; its own parameters in the set are
 %% harmless, since a lambda may not rebind a name in scope.
 used_vars({e_lambda, _, _, Body}, Acc) -> used_vars(Body, Acc);
+%% A comprehension reads the clause's names in its head, sources and guards;
+%% its generators' names in the set are harmless for the lambda's reason.
+used_vars({e_comp, _, Head, Quals}, Acc) ->
+    lists:foldl(fun({gen, _, _, Src}, A) -> used_vars(Src, A);
+                   ({filter, _, G}, A)    -> used_vars(G, A)
+                end, used_vars(Head, Acc), Quals);
 used_vars({e_apply, _, V, As}, Acc) ->
     lists:foldl(fun used_vars/2, sets:add_element(V, Acc), As);
 used_vars({e_list, _, Items, Rest}, Acc) ->
@@ -1116,7 +1122,27 @@ expr({e_switch, L, Subject, Arms}, C) ->
     {'case', L, expr(Subject, C), [arm(A, C) || A <- Arms]};
 %% The valve marker keeps checker warnings off arms chosen by `bs_lower`.
 expr({e_valve, _, Switch}, C) ->
-    expr(Switch, C).
+    expr(Switch, C);
+%% One Erlang comprehension. A generator's `<-` skips an element its pattern
+%% refuses, which is ticket 114 A2. The pattern lowers as an arm's does, and
+%% its kind and relational tests become a filter straight after it, so they
+%% skip too; each `when` is one filter, emitted as a guard is, so a guard BIF
+%% stays bare and an `or` is not split into two filters.
+%% Rationale: compiler/features/F65-comprehensions.md.
+expr(E = {e_comp, L, Head, Quals}, C) ->
+    Used = used_vars(E, sets:new([{version, 2}])),
+    {lc, L, expr(Head, C), lists:append([qual(Q, Used, C) || Q <- Quals])}.
+
+qual({gen, L, P, Src}, Used, C) ->
+    {[P1], RelTests} = strip_rels([desugar(P, C)], [false]),
+    Tests = conjoin(RelTests, none, L),
+    Gen = {generate, L, pattern(P1, sets:union(Used, guard_vars(Tests))), expr(Src, C)},
+    [Gen | filters(Tests, C)];
+qual({filter, _, G}, _Used, C) ->
+    filters(kind_tested({guard, G}, #{}), C).
+
+filters(none, _C)          -> [];
+filters({guard, Expr}, C)  -> [expr(Expr, C#{in_guard => true})].
 
 %%% --- The foreign wrapper ---
 %%%
