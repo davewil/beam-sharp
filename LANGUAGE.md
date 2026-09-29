@@ -884,8 +884,9 @@ Net(gross, tax) -> gross + 1 - tax * 2
 
 **An operand with no numeric part is refused at the operator.** `+`, `-`, `*`, `/` and `%` take
 an `int` or a `float` on each side, and unary `-` takes one, so a `string`, an atom, a record or a
-list as an operand is refused at compile time, in a guard as in a body. `+` does not join strings; a template does, and
-where the operands are a chain the template can print, the refusal prints it:
+list as an operand is refused at compile time, in a guard as in a body. `+` does not join
+strings; a template does, and where the operands are a chain the template can print, the refusal
+prints it:
 
 <!-- diagnoses: non_numeric_operand -->
 ```csharp

@@ -420,9 +420,11 @@ built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty, Heads}}) ->
                                side => Side,
                                type => bs_types:to_string(Ty),
                                heads => union_heads(Fn, Heads)};
-%% `repair` is `none` for an operand no template joins, `template` for a
+%% `template` is `none` for an operand no template joins, `unwritten` for a
 %% string the checker could not print a chain for, or the template's text. A
 %% record operand is printed by the names the author wrote, as a hole's is.
+%% The key was `repair` until the batch-parity test went red on it in 2 runs of
+%% 8, printed before `op` in one VM and after it in the other (ENG-349).
 built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Repair}}) ->
     Text = case Records of
                none -> bs_types:to_string(Ty);
@@ -432,7 +434,7 @@ built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Repair}
                                op => Op,
                                side => Side,
                                type => Text,
-                               repair => Repair};
+                               template => Repair};
 %% Nested prefixes are refused by position regardless of their type.
 %% Undecidable prefixes carry the checker's reason for type-specific advice.
 built(Path, {type_prefix_nested, Line}) ->
@@ -1505,18 +1507,24 @@ message(#{tag := numeric_union_operand, file := P, line := L, column := C,
 %% format text: a `~` in a literal would otherwise be read as a directive. It
 %% is characters, `~ts`, since a literal's `é` is one.
 message(#{tag := non_numeric_operand, file := P, line := L, column := C,
-          function := Fn, op := Op, side := Side, type := Ty, repair := Repair}) ->
+          function := Fn, op := Op, side := Side, type := Ty, template := Repair}) ->
     {Advice, Args} =
         case Repair of
-            none     -> {"", []};
-            template -> {"  Build a string with a template, `$\"...{expr}...\"`: a hole takes a~n"
-                         "  string, an int, a float or an atom type as it stands.~n", []};
-            Text     -> {"  Build a string with a template:~n    ~ts~n", [Text]}
+            none      -> {"", []};
+            unwritten -> {"  Build a string with a template, `$\"...{expr}...\"`: a hole takes a~n"
+                          "  string, an int, a float or an atom type as it stands.~n", []};
+            Text      -> {"  Build a string with a template:~n    ~ts~n", [Text]}
         end,
-    {"~s:~p:~p: error: `~s` in ~s has `~s` on its ~s~n"
-     "  `~s` takes an int or a float on each side; this operand has neither part.~n"
+    %% Unary `-` has one operand and no sides.
+    {Where, Takes} = case Side of
+                         operand -> {"as its operand", "an int or a float"};
+                         _       -> {"on its " ++ atom_to_list(Side),
+                                     "an int or a float on each side"}
+                     end,
+    {"~s:~p:~p: error: `~s` in ~s has `~s` ~s~n"
+     "  `~s` takes ~s; this operand has neither part.~n"
      ++ Advice,
-     [P, L, C, Op, Fn, Ty, Side, Op | Args]};
+     [P, L, C, Op, Fn, Ty, Where, Op, Takes | Args]};
 %% Says which test is true of more values than the type holds, rather than
 %% claiming in general that none decides it — `term` is decided by every test
 %% and `list<int>` by none, and one sentence for both would be false of one.

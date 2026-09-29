@@ -2861,13 +2861,15 @@ type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
 type_of({e_float, _, F}, _S, _C) -> {bs_types:float_lit(F), []};
 %% Unary minus preserves int/float kind; rewriting it as `0 - e` would
 %% introduce mixed operands for floats. Other operand types yield `int`.
-%% F67: unary `-` refuses an operand with no numeric part, as binary `-` does.
+%% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+%% and over an uninhabited operand is uninhabited: `none` is a subtype of
+%% `float`, so it answered `float` and the return check refused that.
 type_of({e_neg, L, E}, S, C) ->
     {Ty, D} = type_of(E, S, C),
-    case not bs_types:is_none(Ty) andalso lacks_number(Ty, C) of
-        true ->
-            {reported(), D ++ [non_numeric_operand('-', right, Ty, L, C)]};
-        false ->
+    case operand_verdict(Ty, C) of
+        uninhabited -> {reported(), D};
+        lacks       -> {reported(), D ++ [non_numeric_operand('-', operand, Ty, L, C)]};
+        numeric ->
             case in_part(Ty, float) of
                 true  -> {bs_types:float_top(), D};
                 false -> {bs_types:int(), D}
@@ -3960,47 +3962,55 @@ op_result(Op, ATy, BTy, L, C) ->
 %% arrives, whether it raised or was refused below. It answered `int` before,
 %% and then `a + "/" + b` refused its second `+` over the first one's `int`
 %% and the return check refused the `int` the chain never made.
-%%
 non_numeric(Op, ATy, BTy, C) when Op =:= '+'; Op =:= '-'; Op =:= '*'; Op =:= '/';
                                   Op =:= '%' ->
-    Lacks = fun(T) -> lacks_number(T, C) end,
-    case bs_types:is_none(ATy) orelse bs_types:is_none(BTy) of
-        true -> uninhabited;
-        false ->
-            case {Lacks(ATy), Lacks(BTy)} of
-                {true, _} -> {left, ATy};
-                {_, true} -> {right, BTy};
-                _         -> none
-            end
+    case {operand_verdict(ATy, C), operand_verdict(BTy, C)} of
+        {uninhabited, _} -> uninhabited;
+        {_, uninhabited} -> uninhabited;
+        {lacks, _}       -> {left, ATy};
+        {_, lacks}       -> {right, BTy};
+        _                -> none
     end;
 non_numeric(_Op, _ATy, _BTy, _C) ->
     none.
 
+%% One operand of an arithmetic operator, binary or unary: `uninhabited`,
+%% `lacks` a numeric part, or `numeric` enough to pass.
+%%
 %% A type variable is not refused: `F<T>(T a) -> a + 1` compiled before F67,
 %% and whether ticket 27's opacity refuses it is not decided (F67's Leaves).
 %% The body sees a variable as an opaque atom (`opaque_env/2`), so a type
 %% holding that atom is the variable, unless it holds every atom: `atom` holds
 %% `:T` too, and is no variable.
-lacks_number(Ty, C) ->
+operand_verdict(Ty, C) ->
     Numeric = bs_types:union(bs_types:int(), bs_types:float_top()),
-    Variable = lists:any(fun(V) -> bs_types:is_subtype(bs_types:atom_lit(V), Ty) end,
-                         C#ctx.tvars)
-        andalso not bs_types:is_subtype(bs_types:atom_top(), Ty),
-    bs_types:is_none(bs_types:intersect(Ty, Numeric)) andalso not Variable.
+    Variable = fun() ->
+                       lists:any(fun(V) -> bs_types:is_subtype(bs_types:atom_lit(V), Ty) end,
+                                 C#ctx.tvars)
+                           andalso not bs_types:is_subtype(bs_types:atom_top(), Ty)
+               end,
+    case bs_types:is_none(Ty) of
+        true -> uninhabited;
+        false ->
+            case bs_types:is_none(bs_types:intersect(Ty, Numeric)) andalso not Variable() of
+                true  -> lacks;
+                false -> numeric
+            end
+    end.
 
 %% A `string` under `+` is a join, which a template spells; the chain's own
-%% rendering replaces `template` when there is one (`with_repair/2`). Under
+%% rendering replaces `unwritten` when there is one (`with_repair/2`). Under
 %% any other operator a string is no join, and nothing is offered. A record
 %% is named as the author wrote it, as `interp_hole` names one.
 non_numeric_operand(Op, Side, Ty, L, C) ->
     Repair = case Op =:= '+' andalso bs_types:is_subtype(Ty, bs_types:string()) of
-                 true  -> template;
+                 true  -> unwritten;
                  false -> none
              end,
     {error, L, C#ctx.fname,
      {non_numeric_operand, Op, Side, Ty, hole_records(Ty), Repair}}.
 
-with_repair({error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, template}}, Text)
+with_repair({error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, unwritten}}, Text)
   when Text =/= none ->
     {error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, Text}};
 with_repair(D, _Text) ->

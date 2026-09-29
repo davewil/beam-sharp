@@ -98,7 +98,7 @@ two_strings_are_refused_test() ->
 an_atom_operand_is_refused_test() ->
     Got = refused([{"Bump.bs", "module Bump\npublic int Bump(atom a)\nBump(a) -> a + 1\n"}]),
     has(Got, "type => \"atom\""),
-    has(Got, "repair => none").
+    has(Got, "template => none").
 
 %% The record is named as the author wrote it, as a template's hole names one,
 %% not printed as the map it lowers to.
@@ -217,7 +217,7 @@ no_template_is_printed_where_none_is_the_meaning_test() ->
      end || {M, Src} <- Cases].
 
 %% F67.11 — the diagnostic prints the same term in one VM or many (ENG-349):
-%% `repair` is a key no other descriptor has, and it is printed with a
+%% `template` is a key no other descriptor has, and it is printed with a
 %% rendered template and with `none`.
 the_term_channel_is_the_same_in_a_batch_test_() ->
     {timeout, 120, fun the_term_channel_is_the_same_in_a_batch/0}.
@@ -283,7 +283,8 @@ a_non_ascii_literal_is_advised_as_written_test() ->
     Json = bs_test_support:run_cli("--diagnostics json --src-root " ++ Root ++ " -o "
                                    ++ Root ++ "/out " ++ Main),
     has(Json, "non_numeric_operand"),
-    has(Json, "\"repair\""),
+    %% The value as JSON text, `"$\"€{s}\""`, not an array of codepoints.
+    has(Json, utf8("\"$\\\"€{s}\\\"\"")),
     hasnt(Json, "json_list_unrostered").
 
 %% F67.15 — unary `-` is the same operator over one operand, and refuses one
@@ -291,8 +292,24 @@ a_non_ascii_literal_is_advised_as_written_test() ->
 a_negated_string_is_refused_test() ->
     Got = refused([{"Neg.bs", "module Neg\npublic int F(string s)\nF(s) -> -s\n"}]),
     has(Got, "op => '-'"),
-    has(Got, "side => right"),
+    has(Got, "side => operand"),
+    Prose = compile([{"Neg.bs", "module Neg\npublic int F(string s)\nF(s) -> -s\n"}]),
+    has(Prose, "`-` in F has `string` as its operand"),
+    hasnt(Prose, "each side"),
+    refused([{"NegG.bs", "module NegG\npublic atom F(string s)\n"
+                         "F(s) when -s > 0 -> :pos\nF(s) -> :other\n"}]),
     ok_rc(compile([{"NegOk.bs", "module NegOk\npublic int F(int | :none n)\nF(n) -> -n\n"}])).
+
+%% F67.16 — unary `-` over an operand refused below it is uninhabited, as the
+%% binary operators are: the first cut answered `float`, and the return check
+%% offered `int | float` beside the real refusal.
+a_negated_refusal_is_not_reported_again_test() ->
+    [begin
+         Got = refused([{"Nr.bs", "module Nr\npublic int F(string s, int n)\n"
+                                  "F(s, n) -> " ++ Body ++ "\n"}]),
+         ?assertEqual(2, length(string:split(Got, "tag => non_numeric_operand", all))),
+         hasnt(Got, "return_not_declared")
+     end || Body <- ["-(\"a\" + s)", "-(-s)", "-(n + \"a\")"]].
 
 %% F67.12 — arithmetic over an uninhabited operand is uninhabited, whatever
 %% refused it: after `mixed_operands` the outer `+` answered `int`, and the
