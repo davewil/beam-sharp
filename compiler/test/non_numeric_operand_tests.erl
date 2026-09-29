@@ -246,6 +246,54 @@ the_term_channel_is_the_same_in_a_batch() ->
          ?assertEqual({Id, Out}, {Id, binary_to_list(Batch)})
      end || {Id, Args} <- Entries].
 
+%% F67.13 — a type variable's exemption is the variable's alone: an `atom`
+%% or a union of atom literals beside it in a generic function is refused as
+%% it is anywhere else. The first cut met `atom` against the variable's own
+%% atom, and `F(1, :z)` crashed with `badarith`.
+an_atom_beside_a_type_variable_is_refused_test() ->
+    Got = refused([{"GenAtom.bs", "module GenAtom\npublic int F<T>(T x, atom a)\n"
+                                  "F(x, a) -> a + 1\n"}]),
+    has(Got, "type => \"atom\""),
+    refused([{"GenLit.bs", "module GenLit\npublic int F<T>(T x, :ok | :err a)\n"
+                           "F(x, a) -> a + 1\n"}]).
+
+%% F67.14 — a literal's text is characters, not bytes: the advice prints `é`
+%% as the author wrote it, the pasted template builds the string the literal
+%% would, and the JSON channel carries the text. The first cut printed
+%% `cafÃ©`, which compiled into a different string, and the JSON channel
+%% crashed on `€`.
+utf8(S) -> binary_to_list(unicode:characters_to_binary(S)).
+
+a_non_ascii_literal_is_advised_as_written_test() ->
+    %% `Body` is bytes: the advice is read back from `bsc`'s output as written.
+    Src = fun(Body) -> {"Cafe.bs", "module Cafe\npublic string F(string s)\n"
+                                    "F(s) -> " ++ Body ++ "\n"
+                                    "public string Demo()\nDemo() -> F(\"x\")\n"
+                                    "public string Want()\nWant() -> "
+                                    ++ utf8("\"café/x\"") ++ "\n"} end,
+    Prose = compile([Src(utf8("\"café/\" + s"))]),
+    Advice = advised(Prose),
+    ?assertEqual(utf8("$\"café/{s}\""), Advice),
+    Pasted = run([Src(Advice)], "Demo"),
+    ok_rc(Pasted),
+    Want = run([Src(Advice)], "Want"),
+    ?assertEqual(Want, Pasted),
+    {Root, Main} = in_dir([{"Euro.bs", utf8("module Euro\npublic string F(string s)\n"
+                                            "F(s) -> \"€\" + s\n")}]),
+    Json = bs_test_support:run_cli("--diagnostics json --src-root " ++ Root ++ " -o "
+                                   ++ Root ++ "/out " ++ Main),
+    has(Json, "non_numeric_operand"),
+    has(Json, "\"repair\""),
+    hasnt(Json, "json_list_unrostered").
+
+%% F67.15 — unary `-` is the same operator over one operand, and refuses one
+%% with no numeric part as the binary form does.
+a_negated_string_is_refused_test() ->
+    Got = refused([{"Neg.bs", "module Neg\npublic int F(string s)\nF(s) -> -s\n"}]),
+    has(Got, "op => '-'"),
+    has(Got, "side => right"),
+    ok_rc(compile([{"NegOk.bs", "module NegOk\npublic int F(int | :none n)\nF(n) -> -n\n"}])).
+
 %% F67.12 — arithmetic over an uninhabited operand is uninhabited, whatever
 %% refused it: after `mixed_operands` the outer `+` answered `int`, and the
 %% return check refused an `int` the function never made.

@@ -2861,11 +2861,17 @@ type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
 type_of({e_float, _, F}, _S, _C) -> {bs_types:float_lit(F), []};
 %% Unary minus preserves int/float kind; rewriting it as `0 - e` would
 %% introduce mixed operands for floats. Other operand types yield `int`.
-type_of({e_neg, _, E}, S, C) ->
+%% F67: unary `-` refuses an operand with no numeric part, as binary `-` does.
+type_of({e_neg, L, E}, S, C) ->
     {Ty, D} = type_of(E, S, C),
-    case in_part(Ty, float) of
-        true  -> {bs_types:float_top(), D};
-        false -> {bs_types:int(), D}
+    case not bs_types:is_none(Ty) andalso lacks_number(Ty, C) of
+        true ->
+            {reported(), D ++ [non_numeric_operand('-', right, Ty, L, C)]};
+        false ->
+            case in_part(Ty, float) of
+                true  -> {bs_types:float_top(), D};
+                false -> {bs_types:int(), D}
+            end
     end;
 type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
 %% The lexer guarantees UTF-8 for string literals; downstream passes trust it.
@@ -3955,14 +3961,9 @@ op_result(Op, ATy, BTy, L, C) ->
 %% and then `a + "/" + b` refused its second `+` over the first one's `int`
 %% and the return check refused the `int` the chain never made.
 %%
-%% A type variable meets `int`, since it may be one. The body sees it as an
-%% opaque atom (`opaque_env/2`), so it joins the numeric side of the meet here
-%% rather than being read as the atom it is spelled with.
 non_numeric(Op, ATy, BTy, C) when Op =:= '+'; Op =:= '-'; Op =:= '*'; Op =:= '/';
                                   Op =:= '%' ->
-    Numeric = bs_types:union([bs_types:int(), bs_types:float_top()
-                              | [bs_types:atom_lit(V) || V <- C#ctx.tvars]]),
-    Lacks = fun(T) -> bs_types:is_none(bs_types:intersect(T, Numeric)) end,
+    Lacks = fun(T) -> lacks_number(T, C) end,
     case bs_types:is_none(ATy) orelse bs_types:is_none(BTy) of
         true -> uninhabited;
         false ->
@@ -3974,6 +3975,16 @@ non_numeric(Op, ATy, BTy, C) when Op =:= '+'; Op =:= '-'; Op =:= '*'; Op =:= '/'
     end;
 non_numeric(_Op, _ATy, _BTy, _C) ->
     none.
+
+%% A type variable meets `int`, since it may be one. The body sees it as an
+%% opaque atom (`opaque_env/2`), so a type holding that atom is the variable,
+%% unless it holds every atom: `atom` holds `:T` too, and is no variable.
+lacks_number(Ty, C) ->
+    Numeric = bs_types:union(bs_types:int(), bs_types:float_top()),
+    Variable = lists:any(fun(V) -> bs_types:is_subtype(bs_types:atom_lit(V), Ty) end,
+                         C#ctx.tvars)
+        andalso not bs_types:is_subtype(bs_types:atom_top(), Ty),
+    bs_types:is_none(bs_types:intersect(Ty, Numeric)) andalso not Variable.
 
 %% A `string` under `+` is a join, which a template spells; the chain's own
 %% rendering replaces `template` when there is one (`with_repair/2`). Under
@@ -4019,8 +4030,14 @@ chain_template(Chain, Tys) ->
 
 template_piece({e_var, _, V})         -> "{" ++ atom_to_list(V) ++ "}";
 template_piece({e_proj, _, V, Field}) -> "{" ++ atom_to_list(V) ++ "." ++ atom_to_list(Field) ++ "}";
-template_piece({e_str, _, Bytes})     -> template_text(Bytes, []);
-template_piece(_)                     -> none.
+%% A literal is UTF-8 bytes (the lexer checked them), and the advice is text:
+%% copied as bytes, `é` printed as `Ã©` and built a different string.
+template_piece({e_str, _, Bytes}) ->
+    case template_text(Bytes, []) of
+        none -> none;
+        Text -> unicode:characters_to_list(list_to_binary(Text))
+    end;
+template_piece(_) -> none.
 
 %% A literal's bytes as template text: a brace doubles, as a template writes
 %% one. A byte that needs an escape to be written is not re-escaped here.

@@ -262,7 +262,7 @@ built(Path, {Sev, Line, Fn, {generator_not_list, Ty}}) ->
 built(Path, {Sev, Line, Fn, {interp_hole, Ty, none}}) ->
     (at(Sev, Path, Line, Fn))#{tag => interp_hole, type => bs_types:to_string(Ty)};
 built(Path, {Sev, Line, Fn, {interp_hole, _Ty, Records}}) ->
-    Named = lists:flatten(lists:join(" | ", [atom_to_list(R) || R <- Records])),
+    Named = join([atom_to_list(R) || R <- Records], infinity),
     (at(Sev, Path, Line, Fn))#{tag => interp_hole, type => Named, record => Named};
 built(Path, {Sev, Line, Fn, {interp_in_guard, Part}}) ->
     (at(Sev, Path, Line, Fn))#{tag => interp_in_guard, type => atom_to_list(Part)};
@@ -426,7 +426,7 @@ built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty, Heads}}) ->
 built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Repair}}) ->
     Text = case Records of
                none -> bs_types:to_string(Ty);
-               _    -> lists:flatten(lists:join(" | ", [atom_to_list(R) || R <- Records]))
+               _    -> join([atom_to_list(R) || R <- Records], infinity)
            end,
     (at(Sev, Path, Line, Fn))#{tag => non_numeric_operand,
                                op => Op,
@@ -1502,15 +1502,16 @@ message(#{tag := numeric_union_operand, file := P, line := L, column := C,
 %% F67 (ticket 112 A4). The template goes on a line of its own, as a clause
 %% head does in the message above, because it is the text an author pastes
 %% and what `check-advice-compiles.sh` lifts and runs. It is an argument, not
-%% format text: a `~` in a literal would otherwise be read as a directive.
+%% format text: a `~` in a literal would otherwise be read as a directive. It
+%% is characters, `~ts`, since a literal's `é` is one.
 message(#{tag := non_numeric_operand, file := P, line := L, column := C,
           function := Fn, op := Op, side := Side, type := Ty, repair := Repair}) ->
     {Advice, Args} =
         case Repair of
             none     -> {"", []};
-            template -> {"  Build a string with a template, `$\"…{expr}…\"`: a hole takes a~n"
+            template -> {"  Build a string with a template, `$\"...{expr}...\"`: a hole takes a~n"
                          "  string, an int, a float or an atom type as it stands.~n", []};
-            Text     -> {"  Build a string with a template:~n    ~s~n", [Text]}
+            Text     -> {"  Build a string with a template:~n    ~ts~n", [Text]}
         end,
     {"~s:~p:~p: error: `~s` in ~s has `~s` on its ~s~n"
      "  `~s` takes an int or a float on each side; this operand has neither part.~n"
