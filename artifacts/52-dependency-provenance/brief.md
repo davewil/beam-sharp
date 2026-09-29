@@ -125,7 +125,7 @@ drift; and the repeat is exactly the write-cost the ticket flags. It is also one
 
 ```csharp
 module Fetch
-requires :req, :jason;                      // spelling illustrative; a module-level list
+requires :req, :jason                       // spelling illustrative; a module-level list
 
 using :'Elixir.Req' {
     term new(list<(atom, term)> opts)

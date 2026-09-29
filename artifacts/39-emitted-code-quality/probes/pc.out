@@ -1,0 +1,5 @@
+pc control: typed (pc_a) vs +no_type_opt (pc_b), identical instruction streams; 100 rounds
+answer 2749184 (all 2 variants agree)
+variant                 n      min      p10   median      p90      max   stdev  med_rel
+pc_a                  100   24.634   25.024   25.702   30.555   47.600   3.686   1.000x
+pc_b                  100   48.463   48.919   50.180   56.478   80.298   4.946   1.952x

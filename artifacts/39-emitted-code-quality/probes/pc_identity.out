@@ -1,0 +1,2 @@
+instrs typed=18 nt=18 identical_after_tr_erasure=true
+{tr,..} operands typed=25 nt=0

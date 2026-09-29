@@ -24,6 +24,8 @@
 #  P10 (before v_wrap first run) hoisting the guard into an exported wrapper with a private guard-free worker
 #     removes most of v_exp_rng's cost (guard runs once per spin call, not once per click): predicted within 1% of v_base.
 #  P7 EXPORTALL (any-typed) runs slower than private base, by less than or about equal to the no_type_opt gap.
+# POST-VERIFICATION NOTE: honest rescoring of P1-P10 (P1, P3 partial misses; P6, P7, P10 wrong) is in ../brief.md 'Probe index'.
+# Section 7 (pc.erl control) was added after independent verification.
 set -e
 cd "$(dirname "$0")"
 ROUNDS=${1:-300}
@@ -118,4 +120,13 @@ done
   done
 } > control.out 2>&1
 { echo "Type-chunk bytes (control):"; for m in ctl ctl_nt; do erl -noshell -pa $B -eval "{ok,_,C}=beam_lib:all_chunks(\"$B/$m.beam\"),io:format(\"$m type_chunk=~p~n\",[byte_size(element(2,lists:keyfind(\"Type\",1,C)))]),halt()."; done; } >> control.out 2>&1
+
+# --- 7. identical-instruction-stream control (added after verification; pc.erl by the verifier) ---
+mkdir -p $B/src; cp pc.erl $B/src/pc_a.erl; cp pc.erl $B/src/pc_b.erl
+erlc -DMOD=pc_a -o $B $B/src/pc_a.erl; erlc -DMOD=pc_a +to_asm -o $B $B/src/pc_a.erl
+erlc -DMOD=pc_b +no_type_opt -o $B $B/src/pc_b.erl; erlc -DMOD=pc_b +no_type_opt +to_asm -o $B $B/src/pc_b.erl
+erlc -o $B pcid.erl
+erl -noshell -pa $B -run pcid main > pc_identity.out 2>&1
+{ echo "pc control: typed (pc_a) vs +no_type_opt (pc_b), identical instruction streams; 100 rounds"
+  taskset -c 2 erl -noshell +S 1:1 -pa $B -run timing main $INPUT 100 pc_a pc_b; } > pc.out 2>&1
 echo done
