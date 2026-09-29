@@ -254,6 +254,135 @@ questions. A hole takes a `string`, an `int`, a `float` or an atom type as it st
 by the table under Q3, and any other type is refused. An operand of `+ - * / %` with no `int` or
 `float` part is refused, and for a string operand the refusal names a template.
 
+## Round 4 (asked 2026-09-29, from the F66 build)
+
+F66 (ENG-562) built the template. It read two things no answer above spelled, and each is asked
+here. Two other readings needed no answer. **tree-sitter needed no external scanner.** The delta
+above expected one, but with the text as `token.immediate` (as tree-sitter-go lexes a string), a
+hole is already a node holding the expression, `(template_string (template_hole (projection …))
+(template_text) …)`, which is the shape the scanner was for. **The regex grammars colour no string
+at all**, plain or template, so `"https://example.com"` shows `//example.com"` as a comment in
+Syntect. That is a defect, not a question: [ENG-577](https://linear.app/davewil/issue/ENG-577).
+
+Q5 and Q6 are independent, so they are asked together.
+
+**Q5. May a hole span lines, as C# 11's may?**
+
+A receipt line whose status reads better as a `switch` than as a lookup:
+
+```csharp
+module Receipts
+
+record Order { Id: int, Total: int, Status: :placed | :paid | :refunded }
+
+public string Summary(Order o)
+Summary(o) -> $"Order {o.Id}: {o.Status switch {
+    :placed   => "awaiting payment",
+    :paid     => $"paid, {o.Total} pence",
+    :refunded => "refunded"
+}}"
+```
+
+Under **no**, as built, a hole is one line and this is refused:
+
+```
+Receipts/Receipts.bs:6:17: error: a template string closes with `"`, a hole is `{expr}` on one line, and a literal brace is `{{` or `}}`
+```
+
+The `switch` moves into a `var` above the template, or the arms go on one line.
+
+Under **yes**, it compiles, and returns `"Order 42: awaiting payment"`, `"Order 42: paid, 1250
+pence"` and `"Order 42: refunded"` (measured on a prototype). C# 11 allows a newline inside an
+interpolation hole, so this is the borrow heuristic's first source. The template's text may already
+span lines, as a plain string's may.
+
+**The compiler delta under *yes*.** Two characters in `bs_lexer.xrl`: `\n` leaves the excluded set
+of `HSTR` and `HCH`, the macros a hole is matched with. `advance/2` already counts a hole's
+newlines, so positions inside it stay right. On the prototype, all 20 of `template_tests` pass
+unchanged, and tree-sitter already parses the program with no ERROR node. LANGUAGE.md §4 loses "one
+line" from the lexer's stated limits, and the malformed-template message loses "on one line".
+Braces stay two deep inside a hole either way; a third level is one more regex macro if a program
+ever wants it.
+
+**The cost under *yes*** is only in how a *broken* template is reported, measured on the
+prototype. The one-line limit's job was to stop a malformed hole scanning on through the file:
+
+```csharp
+Title(o) -> $"Order {o.Id"        // the hole never closes
+
+public string Unit()
+Unit() -> "pence"
+
+public string Close()
+Close() -> "}"
+```
+
+```
+no, as built   6:15: error: a template string closes with `"`, a hole is `{expr}` on one line, …
+yes            6:26: error: syntax error before: "\n\npublic string Unit()\nUnit() -> "
+```
+
+Under *yes*, the later `"}"` closes the broken hole, so the hole's source runs to it. The position
+is still the stray `"`, but the message quotes the code it swallowed. Without a later `}` the error
+is the malformed-template message, on the right line, at leex's column.
+
+➡️ **Recommended: yes.** It is C#'s rule, a `switch` in a hole is the case a template is most
+likely to want more than one line for, and the delta is two characters. The cost is a worse
+message for a template that is already broken, and only when a later `}` happens to close it.
+
+**Q6. Is a non-`string` hole in a guard refused under its own tag, `interp_in_guard`?**
+
+A router that matches the path in the guard:
+
+```csharp
+module Routes
+
+public atom Route(string path, int id)
+Route(path, id) when path == $"/orders/{id}" -> :order
+Route(path, id) -> :other
+```
+
+It is refused under both answers: printing an `int` calls `integer_to_binary`, which the BEAM will
+not run in a guard (A3's consequence). The question is what the author reads, and which tag the
+clean-room specification carries.
+
+Under **yes**, as built:
+
+```
+Routes/Routes.bs:3:40: error: a template in a guard in Route has an int hole
+  a guard builds a template of string holes only: printing any
+  other part calls a BIF the BEAM will not run in a guard.
+  Compare the value itself in the guard, or build the string
+  in the body.
+```
+
+Under **no**, the hole reports as the call it lowers to, `foreign_call_in_guard`, which prints
+(measured, on the same guard written as the call):
+
+```
+Routes2/Routes2.bs:3:30: error: Route calls :erlang.integer_to_binary in a guard
+  only the BEAM's own guard functions may run in a guard, and
+  `:erlang.integer_to_binary` is not one of them. Move the call into the
+  body and switch on its answer.
+```
+
+and names a call the author never wrote. The repair is the same under both, and compiles
+(measured: `:order` for `"/orders/42"`, `:other` for `"/orders/7"`):
+
+```csharp
+Route(path, id) -> (path == $"/orders/{id}") switch {
+    true  => :order,
+    false => :other
+}
+```
+
+**The compiler delta under *no*.** `in_guard/2` emits `{foreign_call_in_guard, "erlang.integer_to_binary"}`
+(or `float_to_binary`, `atom_to_binary`) in place of `interp_in_guard`; the tag, its `built/2` and
+`message/1` clauses and F66.10's and F66.15's assertions go.
+
+➡️ **Recommended: yes**, keep the tag. It is the same rule A3 named, "any call the BEAM will not
+run there", and a refusal should speak about what the author wrote.
+
 ## The compiler delta, as decided
 
 Two builds. The refusal's advice names the template, so the refusal lands after the template or
@@ -273,12 +402,7 @@ exists to prevent.
    `atom_to_binary` are not guard BIFs (erlc: *"illegal guard expression"*, measured). So a
    template with any other hole is refused in a guard, by the same rule that refuses any call
    the BEAM will not run there.
-   *Read 2026-09-29 by the F66 build, for David to overrule (none is a language rule):* the guard
-   refusal is its own tag, `interp_in_guard`, because `foreign_call_in_guard` would name
-   `erlang.integer_to_binary`, a call the author never wrote. The compiler limits a hole to one
-   line and to braces nested two deep, which are limits of its lexer (one leex rule has to match
-   the whole template), and a template past them is refused as malformed. A record hole's refusal
-   says `Formattable` is not built (ticket 113, ENG-565) rather than that a record never prints.
+   *The F66 build's readings went to David as Round 4 (Q5, Q6), 2026-09-29.*
 2. **The refusal** (Q4), [ENG-551](https://linear.app/davewil/issue/ENG-551). `non_numeric_operand`
    in `op_result/5`, asked at both guard sites (`walk/6`, `arms/10`), with the round 1 delta
    above. A string operand's advice names the template. [25](25-exemplar-programs.md) finding 5
