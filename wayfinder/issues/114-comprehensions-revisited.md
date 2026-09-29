@@ -285,6 +285,50 @@ in the arm's body would be, and `Fresh` compiles with `v` an `int` at `v >= 0`. 
 generator bound, and narrows by each `when` alone; F65.26's first case and F65.28's chained forms
 flip to compiling.
 
+**Prior art** (measured 2026-09-29, at David's request). Erlang and Elixir both answer yes: the
+guard that narrows is the generator pattern's own, as a clause head's is, and neither lets one test
+narrow the next. Gleam has no comprehension.
+
+- **Erlang.** The reference manual treats filters as tests in a row: a guard filter that fails is
+  `false`, and any other filter raises `{bad_filter, Val}` on a non-boolean. The compiler goes
+  further. In OTP 28.5, `v3_core:preprocess_quals/5` takes the run of guard-test filters directly
+  after a generator and folds it into that generator's clause guard ("fold them together and join
+  to a preceding generators"). `[V || {S, V} <- Xs, S =:= ok, is_integer(V), V >= 0]` compiles to
+  one Core Erlang clause, `<[{S,V}|_]> when … S =:= ok … is_integer(V) …`. A B# `when` keeps
+  guard rules, so every `when` B# emits is a guard test. `when s == :ok when v >= 0` therefore
+  reaches the BEAM as one clause head: the pattern and both tests. *Yes* is the shape the BEAM
+  already compiles it to.
+- **Elixir** spells the two readings differently, and on 1.20.1 its type checker narrows through
+  only one of them. Each row uses `v` as a binary, so a warning means `v` was narrowed to an integer:
+
+  | Elixir 1.20.1 | warning on `v <> "!"` |
+  |---|---|
+  | `case` clause `{s, v} when s == :ok and is_integer(v) ->` | yes |
+  | generator guard `for {s, v} when s == :ok and is_integer(v) <- samples` | yes |
+  | two filters `for {s, v} <- samples, s == :ok, is_integer(v)` | none |
+  | one filter `for {s, v} <- samples, s == :ok and is_integer(v)` | none |
+
+  Narrowing lives only in the guard written on the pattern, left of `<-`; a filter is a truthy
+  test the checker learns nothing from. A B# `when` after a generator corresponds to Elixir's
+  generator guard, not to its filters. Nothing in Elixir supports *no*: a test read in light of
+  the one before it needs a nested `for` or `case` there.
+- **Gleam** has no comprehension. Its tour points to `list.filter_map`, where the function holds a
+  `case`. A guard "must evaluate to `True` for the pattern to match" and cannot call functions.
+  Gleam has no union of built-in types for a guard to split (an inference, not a documented
+  rule). So the Gleam counterpart of `Fresh` is the arm itself, with the variant chosen by its
+  pattern.
+- **For ENG-575.** Elixir 1.20.1 prints "this guard will never succeed" in the same words for a
+  generator guard and a `case` clause, one message at both sites. It catches only kind
+  contradictions (`is_integer(v) and is_atom(v)`), not `v > 5 and v < 3`, since its types have no
+  integer ranges. `erlc` warns about neither.
+
+Sources: [Erlang expressions](https://www.erlang.org/doc/system/expressions.html),
+[Erlang list comprehensions](https://www.erlang.org/doc/system/list_comprehensions.html), OTP 28.5
+`lib/compiler/src/v3_core.erl`, [Elixir `for/1`](https://elixir.hexdocs.pm/Kernel.SpecialForms.html),
+[Elixir's gradual set-theoretic types](https://elixir.hexdocs.pm/gradual-set-theoretic-types.html),
+[Gleam guards](https://tour.gleam.run/flow-control/guards/),
+[Gleam's list module](https://tour.gleam.run/standard-library/list-module/).
+
 Recommended: yes. It is the arm's reading, the pattern already has a spelling for it, and a
 `when` then reads the same in a head, an arm and a comprehension.
 
