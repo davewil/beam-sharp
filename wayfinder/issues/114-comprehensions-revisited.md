@@ -253,6 +253,41 @@ David confirmed the summary on 2026-09-29, with these consequences stated in it:
 inside a comprehension are local to it; ticket 17 is overruled on its comprehension sentence
 alone; `in` becomes a keyword; the build is a feature of its own.
 
+## Round 4 (asked 2026-09-29, from the ENG-572 build)
+
+ENG-572 built the amendment "a `when` narrows the binders of the generator before it, as an arm's
+guard narrows its pattern" by reading the generator as the arm's pattern, its `when`s joined by
+`and` as the arm's guard, and the rest of the comprehension as the arm's body. One question
+decides whether that reading stands; what a later generator sees follows from it.
+
+**Q8. A generator's `when`s are one guard, checked as written, as an arm's `when … and …` is.**
+
+```csharp
+type Sample = (:ok, int) | (:stale, float)
+
+public list<int> Fresh(list<Sample> samples)
+Fresh(samples) -> [v for (s, v) in samples when s == :ok when v >= 0]
+```
+
+Under **yes**, as built, this is refused, as the arm `(s, v) when s == :ok and v >= 0 =>` is:
+
+```
+error: `>=` in Fresh has `int | float` on its left
+```
+
+The pattern says it instead: `[v for (:ok, v) in samples when v >= 0]` compiles, and returns `[3]`
+from `[(:ok, 3), (:stale, 1.5), (:ok, -1)]`. `when a when b` narrows exactly as
+`when (a) and (b)`, so the two spellings never differ.
+
+Under **no**, each `when` is checked, and narrows, after the ones before it, as a `switch` nested
+in the arm's body would be, and `Fresh` compiles with `v` an `int` at `v >= 0`. The delta:
+`comp_quals/5` checks a `when` in the scope the `when`s before it narrowed rather than the one its
+generator bound, and narrows by each `when` alone; F65.26's first case and F65.28's chained forms
+flip to compiling.
+
+Recommended: yes. It is the arm's reading, the pattern already has a spelling for it, and a
+`when` then reads the same in a head, an arm and a comprehension.
+
 ## The compiler delta, as decided
 
 - The lexer makes `in` a keyword.
@@ -314,8 +349,9 @@ alone; `in` becomes a keyword; the build is a feature of its own.
   generator may not rebind an outer name or bind one name twice, as an arm and a lambda may not; a
   map pattern in a generator stays deferred with 48 Q2 ([ENG-323](https://linear.app/davewil/issue/ENG-323));
   and a `when` narrows the binders of the generator before it, as an arm's guard narrows its
-  pattern ([ENG-572](https://linear.app/davewil/issue/ENG-572), built into F65 2026-09-29;
-  follow-up [ENG-575](https://linear.app/davewil/issue/ENG-575)).
+  pattern ([ENG-572](https://linear.app/davewil/issue/ENG-572), built into F65 2026-09-29, its
+  reading asked as Q8; a warning for a guard that admits nothing is
+  [ENG-575](https://linear.app/davewil/issue/ENG-575)).
 ```
 
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips

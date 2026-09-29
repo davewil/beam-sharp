@@ -19,7 +19,7 @@
                 with a guard that admits nothing narrowing to `none`, F65.28 red with each
                 `when` narrowing alone. The build reads the decision's "as an arm's guard
                 narrows its pattern" as the mapping in the rule below (pattern, guard joined by
-                `and`, body), which David is asked to confirm. The emitted
+                `and`, body); whether that reading stands is ticket 114's Q8. The emitted
                 `.abstr` is byte-identical to `9f2ace2`'s over the examples corpus and four
                 guarded comprehensions
 **Implements**  [ticket 114](../../wayfinder/issues/114-comprehensions-revisited.md), A1–A7.
@@ -74,7 +74,7 @@ Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
   pattern, its `when`s joined by `and` are the arm's guard, and what follows them is the arm's
   body. So a generator's `when`s are checked with its binders as the generator bound them, as an
   arm's guard is checked against its pattern's domain; `when a when b` narrows exactly as
-  `when a and b`; and the head and every later generator, its source and its `when`s included,
+  `when (a) and (b)`; and the head and every later generator, its source and its `when`s included,
   see that narrowing, as an arm's body does. A guard that reads a name its generator did not
   bind, an outer one or another generator's, narrows nothing, as an arm's guard reading an
   outer name does. A guard that admits nothing narrows nothing, so what follows it keeps its
@@ -133,4 +133,4 @@ ENG-571, with the nested-relational fix under **Fixes**, and it is recorded in
 | F65.25 | `when x >= 0 or y >= 0`, across two generators, declared `list<(int, NonNegative)>` | refused, `return_not_declared`: the guard reads `x`, which the generator before it did not bind, so it narrows nothing; nor could it soundly, since either side of the `or` may admit the pair: undeclared, it keeps `(0, -5)` |
 | F65.26 | over `list<(int, int) \| (:x, float)>`, `when a > 0 when b > 0`; `when a > 0 for c in ys when b > 0`; and over `list<(int, list<int>) \| (:x, float)>`, `when a > 0 for c in b when c == 1.0` | each as its arm, which the test compiles beside it — `(a, b) when a > 0 and b > 0 =>`, with each later generator in the body: the first refused, `numeric_union_operand`, since the generator's own `when` reads `b` as bound, `int \| float`; the second compiles and returns `[7]`, since a later generator sees `a > 0` drop the `(:x, float)` product; the third refused, `mixed_operands`, `b` being a list there |
 | F65.27 | `[n == 1.0 for int n in xs when n > 5 and n < 3]`, and `when n == 1.0` after a later generator | both refused, `mixed_operands`: a `when` that admits nothing narrows nothing, so what follows it reads `n` as an `int`, not `none` ([ENG-575](https://linear.app/davewil/issue/ENG-575)) |
-| F65.28 | declared `list<Big>`, `when p >= 10000 when p <= 500` beside `when p >= 10000 and p <= 500`; declared `list<NonNegative>`, `when k > 0 when n >= 0` beside `when k > 0 and n >= 0` and the arm `n when k > 0 and n >= 0 =>` | all refused, `return_not_declared`: a generator's `when`s narrow as one guard, so the two spellings agree with each other and with the arm. The third cut narrowed by each `when` alone and compiled both chained forms |
+| F65.28 | declared `list<Big>`, `when p >= 10000 when p <= 500` beside `when p >= 10000 and p <= 500`; declared `list<NonNegative>`, `when k > 0 when n >= 0` beside `when k > 0 and n >= 0` and the arm `n when k > 0 and n >= 0 =>` | all refused, `return_not_declared`: a generator's `when`s narrow as one guard, `when (a) and (b)`, so the two spellings agree with each other and with the arm. The third cut narrowed by each `when` alone and compiled both chained forms |

@@ -367,8 +367,8 @@ a_guard_narrows_its_generator_test() ->
     ok_rc(Got),
     has(Got, "[0, 3]").
 
-%% F65.23 — each `when` narrows what the ones before it left, and a later
-%% generator keeps an earlier generator's narrowing.
+%% F65.23 — a generator's two `when`s narrow as `n >= 0 and n <= 9`, and a
+%% later generator keeps an earlier generator's narrowing.
 guards_narrow_in_turn_test() ->
     Chained = run([{"Dg.bs",
                     "module Dg\n"
@@ -431,9 +431,9 @@ a_guard_across_generators_does_not_narrow_test() ->
 
 %% F65.26 — a generator is an arm's pattern, its `when`s the arm's guard and
 %% what follows the arm's body, and each comprehension here agrees with that
-%% arm. `a > 0` keeps only the `(int, int)` product. The generator's own next
-%% `when` reads `b` as bound, `int | float`; a later generator reads `b` as an
-%% `int` in the first pair of programs, and as a list in the second.
+%% arm. `a > 0` keeps only the `(int, int)` product. In the first pair the
+%% generator's own next `when` reads `b` as bound, `int | float`; in the second
+%% a later generator reads `b` as an `int`, and in the third as a list.
 guards_are_checked_as_an_arms_guard_is_test() ->
     Sibling = diagnose([{"Sb.bs",
                          "module Sb\n"
@@ -456,14 +456,18 @@ guards_are_checked_as_an_arms_guard_is_test() ->
                 "Demo"),
     ok_rc(Later),
     has(Later, "[7]"),
-    LaterArm = diagnose([{"La.bs",
-                          "module La\n"
-                          "public list<int> Kept((int, int) | (:x, float) p, list<int> ys)\n"
-                          "Kept(p, ys) -> p switch {\n"
-                          "    (a, b) when a > 0 => [c for c in ys when b > 0],\n"
-                          "    _ => []\n"
-                          "}\n"}]),
+    LaterArm = run([{"La.bs",
+                     "module La\n"
+                     "public list<int> Kept((int, int) | (:x, float) p, list<int> ys)\n"
+                     "Kept(p, ys) -> p switch {\n"
+                     "    (a, b) when a > 0 => [c for c in ys when b > 0],\n"
+                     "    _ => []\n"
+                     "}\n"
+                     "public list<int> Demo()\n"
+                     "Demo() -> Kept((1, 2), [7])\n"}],
+                   "Demo"),
     ok_rc(LaterArm),
+    has(LaterArm, "[7]"),
     Source = diagnose([{"Sl.bs",
                         "module Sl\n"
                         "public list<int> Kept(list<(int, list<int>) | (:x, float)> ps)\n"
