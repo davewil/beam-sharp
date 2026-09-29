@@ -263,6 +263,10 @@ alone; `in` becomes a keyword; the build is a feature of its own.
   legal there. It intersects the pattern with the list's element type, types each guard and the
   head expression under the bindings so far, and runs `redundancy/4`'s membership test for the
   vacuous warning. A guard keeps guard rules.
+  *Corrected 2026-09-29 by the F65 build: a guard is checked as a clause guard is (guard rules and
+  the guard-level operator refusals), not typed further; a clause guard is not typed either.
+  The build also found that an Erlang generator binds its pattern fresh, so `== n` lowers to a
+  fresh name and an `=:=` filter (F65.18).*
 - The emitter writes one Erlang `lc` with `<-` generators, so an element the pattern refuses is
   skipped.
 - The tree-sitter grammar and the regex grammars learn the form.
