@@ -430,10 +430,10 @@ a_guard_across_generators_does_not_narrow_test() ->
     has(Got, "[(0, -5)]").
 
 %% F65.26 — a generator is an arm's pattern, its `when`s the arm's guard and
-%% what follows the arm's body. `a > 0` keeps only the `(int, int)` product.
-%% The generator's next `when` is checked with `b` as bound, `int | float`, as
-%% `a > 0 and b > 0` is in an arm; a later generator sees `b` an `int`, and `b`
-%% a list, as the arm's body does.
+%% what follows the arm's body, and each comprehension here agrees with that
+%% arm. `a > 0` keeps only the `(int, int)` product. The generator's own next
+%% `when` reads `b` as bound, `int | float`; a later generator reads `b` as an
+%% `int` in the first pair of programs, and as a list in the second.
 guards_are_checked_as_an_arms_guard_is_test() ->
     Sibling = diagnose([{"Sb.bs",
                          "module Sb\n"
@@ -441,6 +441,12 @@ guards_are_checked_as_an_arms_guard_is_test() ->
                          "Kept(ps) -> [b for (a, b) in ps when a > 0 when b > 0]\n"}]),
     bad_rc(Sibling),
     tagged(Sibling, "numeric_union_operand"),
+    SiblingArm = diagnose([{"Sa.bs",
+                            "module Sa\n"
+                            "public list<int | float> Kept((int, int) | (:x, float) p)\n"
+                            "Kept(p) -> p switch { (a, b) when a > 0 and b > 0 => [b], _ => [] }\n"}]),
+    bad_rc(SiblingArm),
+    tagged(SiblingArm, "numeric_union_operand"),
     Later = run([{"Lt.bs",
                   "module Lt\n"
                   "public list<int> Kept(list<(int, int) | (:x, float)> ps, list<int> ys)\n"
@@ -450,12 +456,29 @@ guards_are_checked_as_an_arms_guard_is_test() ->
                 "Demo"),
     ok_rc(Later),
     has(Later, "[7]"),
+    LaterArm = diagnose([{"La.bs",
+                          "module La\n"
+                          "public list<int> Kept((int, int) | (:x, float) p, list<int> ys)\n"
+                          "Kept(p, ys) -> p switch {\n"
+                          "    (a, b) when a > 0 => [c for c in ys when b > 0],\n"
+                          "    _ => []\n"
+                          "}\n"}]),
+    ok_rc(LaterArm),
     Source = diagnose([{"Sl.bs",
                         "module Sl\n"
                         "public list<int> Kept(list<(int, list<int>) | (:x, float)> ps)\n"
                         "Kept(ps) -> [c for (a, b) in ps when a > 0 for c in b when c == 1.0]\n"}]),
     bad_rc(Source),
-    tagged(Source, "mixed_operands").
+    tagged(Source, "mixed_operands"),
+    SourceArm = diagnose([{"Sr.bs",
+                           "module Sr\n"
+                           "public list<int> Kept((int, list<int>) | (:x, float) p)\n"
+                           "Kept(p) -> p switch {\n"
+                           "    (a, b) when a > 0 => [c for c in b when c == 1.0],\n"
+                           "    _ => []\n"
+                           "}\n"}]),
+    bad_rc(SourceArm),
+    tagged(SourceArm, "mixed_operands").
 
 %% F65.27 — a `when` that admits nothing narrows nothing, so what follows it
 %% is typed with `n` an `int`, not `none`, and keeps its diagnostics (ENG-575).
@@ -473,6 +496,29 @@ a_guard_admitting_nothing_leaves_what_follows_checked_test() ->
                        " for int m in ys when n == 1.0]\n"}]),
     bad_rc(Later),
     tagged(Later, "mixed_operands").
+
+%% F65.28 — a generator's `when`s narrow together, so `when a when b` narrows
+%% exactly as `when a and b` and as the arm's guard: a `when` reading an outer
+%% name, or a pair that admits nothing, narrows nothing in any spelling.
+consecutive_guards_narrow_as_one_test() ->
+    Refused = fun(Mod, Body) ->
+                      Got = diagnose([{Mod ++ ".bs",
+                                       "module " ++ Mod ++ "\n"
+                                       "type NonNegative = int where value >= 0\n"
+                                       "type Big = int where value >= 10000\n" ++ Body}]),
+                      bad_rc(Got),
+                      tagged(Got, "return_not_declared")
+              end,
+    Refused("Rw", "public list<Big> Mid(list<int> pence)\n"
+                  "Mid(pence) -> [p for int p in pence when p >= 10000 when p <= 500]\n"),
+    Refused("Ra", "public list<Big> Mid(list<int> pence)\n"
+                  "Mid(pence) -> [p for int p in pence when p >= 10000 and p <= 500]\n"),
+    Refused("Ow", "public list<NonNegative> Kept(int k, list<int> xs)\n"
+                  "Kept(k, xs) -> [n for int n in xs when k > 0 when n >= 0]\n"),
+    Refused("Oa", "public list<NonNegative> Kept(int k, list<int> xs)\n"
+                  "Kept(k, xs) -> [n for int n in xs when k > 0 and n >= 0]\n"),
+    Refused("Om", "public list<NonNegative> Kept(int k, int x)\n"
+                  "Kept(k, x) -> x switch { n when k > 0 and n >= 0 => [n], _ => [] }\n").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 

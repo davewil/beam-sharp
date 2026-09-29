@@ -57,6 +57,11 @@
               %% imported module (`local_impls/3`).
               impls = #{}}).
 
+%% A comprehension's generator while its `when`s are read (F65): its pattern's
+%% type and binders, the domain it bound, the scope its `when`s are checked in,
+%% and their conjunction so far.
+-record(gen, {pty, binds, domain, guard_scope, guard = none}).
+
 %%% Entry point
 
 %% Returns {ok, Module, [Diagnostic]} | {error, [Diagnostic]}.
@@ -3738,10 +3743,11 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
 %%% operator refusals reach it as they reach an arm's.
 %%%
 %%% A guard narrows the generator before it, as an arm's guard narrows its
-%%% pattern: the generator is the pattern, its `when`s are the guard, and what
-%%% follows them is the body. So its `when`s are checked in the scope the
-%%% generator bound, as `arms/10` checks a guard against its pattern's domain,
-%%% and the head and every later generator see their narrowing.
+%%% pattern: the generator is the pattern, its `when`s joined by `and` are the
+%%% guard, and what follows them is the body. So its `when`s are checked in the
+%%% scope the generator bound, as `arms/10` checks a guard against its
+%%% pattern's domain, `when a when b` narrows exactly as `when a and b`, and the
+%%% head and every later generator see that narrowing.
 %%% Rationale: compiler/features/F65-comprehensions.md.
 
 comp_quals([], S, _C, _Gen, Diags) ->
@@ -3770,21 +3776,29 @@ comp_quals([{gen, L, P, Src} | Rest], S, C, _Gen, Diags) ->
                  end
          end,
     Scope = bind_at(S, Domain, Binds),
-    comp_quals(Rest, Scope, C, {PTy, Binds, Domain, Scope}, Diags ++ D0 ++ D1 ++ D2);
-%% A guard reading a name the generator did not bind gets its pattern back from
-%% `apply_guard/3`, which narrows nothing. A `when` that admits nothing narrows
-%% nothing either, so what follows it keeps its diagnostics; an arm's narrows
-%% and warns, which a generator's awaits (ENG-575).
-comp_quals([{filter, _, G} | Rest], S, C, {PTy, Binds, Domain, GuardScope}, Diags) ->
-    D = guard_diags({guard, G}, C) ++ mixed_guard_diags({guard, G}, GuardScope, C),
-    {_Certain, Possible} = apply_guard(PTy, Binds, {guard, G}),
+    comp_quals(Rest, Scope, C,
+               #gen{pty = PTy, binds = Binds, domain = Domain, guard_scope = Scope},
+               Diags ++ D0 ++ D1 ++ D2);
+%% Each `when` joins the generator's guard with `and`, and the binders are
+%% narrowed afresh from the domain the generator bound. A guard reading a name
+%% the generator did not bind gets its pattern back from `apply_guard/3`, which
+%% narrows nothing. A guard that admits nothing narrows nothing either, so what
+%% follows it keeps its diagnostics; an arm's narrows and warns, which a
+%% generator's awaits (ENG-575).
+comp_quals([{filter, L, G} | Rest], S, C, Gen = #gen{guard = Prior}, Diags) ->
+    D = guard_diags({guard, G}, C) ++ mixed_guard_diags({guard, G}, Gen#gen.guard_scope, C),
+    Guard = case Prior of
+                none -> G;
+                _    -> {e_op, L, 'and', Prior, G}
+            end,
+    #gen{pty = PTy, binds = Binds, domain = Domain} = Gen,
+    {_Certain, Possible} = apply_guard(PTy, Binds, {guard, Guard}),
     Admitted = bs_types:intersect(Domain, Possible),
     Narrowed = case bs_types:is_none(Admitted) of
                    true  -> Domain;
                    false -> Admitted
                end,
-    comp_quals(Rest, bind_at(S, Narrowed, Binds), C, {PTy, Binds, Narrowed, GuardScope},
-               Diags ++ D).
+    comp_quals(Rest, bind_at(S, Narrowed, Binds), C, Gen#gen{guard = Guard}, Diags ++ D).
 
 %% Bind each of a pattern's names to its path's part of `Domain`, over `S`.
 bind_at(S, Domain, Binds) ->

@@ -314,8 +314,8 @@ alone; `in` becomes a keyword; the build is a feature of its own.
   generator may not rebind an outer name or bind one name twice, as an arm and a lambda may not; a
   map pattern in a generator stays deferred with 48 Q2 ([ENG-323](https://linear.app/davewil/issue/ENG-323));
   and a `when` narrows the binders of the generator before it, as an arm's guard narrows its
-  pattern ([ENG-572](https://linear.app/davewil/issue/ENG-572), built into F65 2026-09-29; a
-  `when` that admits nothing narrows nothing until [ENG-575](https://linear.app/davewil/issue/ENG-575)).
+  pattern ([ENG-572](https://linear.app/davewil/issue/ENG-572), built into F65 2026-09-29;
+  follow-up [ENG-575](https://linear.app/davewil/issue/ENG-575)).
 ```
 
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips
