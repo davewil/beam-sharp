@@ -430,9 +430,22 @@ a_guard_across_generators_does_not_narrow_test() ->
     has(Got, "[(0, -5)]").
 
 %% F65.26 — every `when` is checked against the binders before any `when`
-%% narrowed them, as a clause guard is, so an earlier guard that admits nothing
-%% cannot hide a later one's mixed operands, for its own generator or another.
+%% narrowed them, as a clause guard is. `a > 0` keeps only the `(int, int)`
+%% product, which would make `b` an `int`; checked as written, `b` is still
+%% `int | float`, for its own generator and through a later one's source.
 a_guard_is_checked_before_any_narrowing_test() ->
+    Sibling = diagnose([{"Sb.bs",
+                         "module Sb\n"
+                         "public list<int | float> Kept(list<(int, int) | (:x, float)> ps)\n"
+                         "Kept(ps) -> [b for (a, b) in ps when a > 0 when b > 0]\n"}]),
+    bad_rc(Sibling),
+    tagged(Sibling, "numeric_union_operand"),
+    Source = diagnose([{"Ss.bs",
+                        "module Ss\n"
+                        "public list<int | float> Kept(list<(int, int) | (:x, float)> ps)\n"
+                        "Kept(ps) -> [c for (a, b) in ps when a > 0 for c in [b] when c > 0]\n"}]),
+    bad_rc(Source),
+    tagged(Source, "numeric_union_operand"),
     Own = diagnose([{"Mo.bs",
                      "module Mo\n"
                      "public list<int> Kept(list<int> xs)\n"
@@ -446,6 +459,16 @@ a_guard_is_checked_before_any_narrowing_test() ->
                        " for int m in ys when n == 1.0]\n"}]),
     bad_rc(Later),
     tagged(Later, "mixed_operands").
+
+%% F65.27 — a `when` that admits nothing narrows nothing, so the head keeps
+%% its diagnostics rather than being typed with `n` at `none` (ENG-575).
+a_guard_that_admits_nothing_narrows_nothing_test() ->
+    Got = diagnose([{"Dn.bs",
+                     "module Dn\n"
+                     "public list<bool> Ones(list<int> xs)\n"
+                     "Ones(xs) -> [n == 1.0 for int n in xs when n > 5 and n < 3]\n"}]),
+    bad_rc(Got),
+    tagged(Got, "mixed_operands").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 
