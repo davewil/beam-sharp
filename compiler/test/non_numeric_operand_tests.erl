@@ -309,7 +309,18 @@ a_negated_refusal_is_not_reported_again_test() ->
                                   "F(s, n) -> " ++ Body ++ "\n"}]),
          ?assertEqual(2, length(string:split(Got, "tag => non_numeric_operand", all))),
          hasnt(Got, "return_not_declared")
-     end || Body <- ["-(\"a\" + s)", "-(-s)", "-(n + \"a\")"]].
+     end || Body <- ["-(\"a\" + s)", "-(-s)", "-(n + \"a\")"]],
+    %% The same in a clause's guard and a switch arm's.
+    [begin
+         Got = refused([{"Ng.bs", "module Ng\npublic atom F(string s)\n" ++ Src}]),
+         ?assertEqual(2, length(string:split(Got, "tag => non_numeric_operand", all)))
+     end || Src <- ["F(s) when -(-s) > 0 -> :pos\nF(s) -> :other\n",
+                    "F(s) -> s switch {\n    x when -(\"a\" + x) > 0 => :pos,\n"
+                    "    _ => :other\n}\n"]],
+    %% A raise never arrives, so its negation is uninhabited and satisfies an
+    %% `int` return as it does a `float` one.
+    ok_rc(compile([{"Nx.bs", "module Nx\npublic int F()\nF() -> -(raise :x)\n"
+                             "public float G()\nG() -> -(raise :x)\n"}])).
 
 %% F67.12 — arithmetic over an uninhabited operand is uninhabited, whatever
 %% refused it: after `mixed_operands` the outer `+` answered `int`, and the

@@ -425,7 +425,10 @@ built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty, Heads}}) ->
 %% record operand is printed by the names the author wrote, as a hole's is.
 %% The key was `repair` until the batch-parity test went red on it in 2 runs of
 %% 8, printed before `op` in one VM and after it in the other (ENG-349).
-built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Repair}}) ->
+%% `template` holds its place because `bs_check:template/4` creates the atom
+%% before this module creates `op`, in both VMs: rename that function and
+%% F67.11 is the test that says so.
+built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Template}}) ->
     Text = case Records of
                none -> bs_types:to_string(Ty);
                _    -> join([atom_to_list(R) || R <- Records], infinity)
@@ -434,7 +437,7 @@ built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Repair}
                                op => Op,
                                side => Side,
                                type => Text,
-                               template => Repair};
+                               template => Template};
 %% Nested prefixes are refused by position regardless of their type.
 %% Undecidable prefixes carry the checker's reason for type-specific advice.
 built(Path, {type_prefix_nested, Line}) ->
@@ -1507,9 +1510,9 @@ message(#{tag := numeric_union_operand, file := P, line := L, column := C,
 %% format text: a `~` in a literal would otherwise be read as a directive. It
 %% is characters, `~ts`, since a literal's `é` is one.
 message(#{tag := non_numeric_operand, file := P, line := L, column := C,
-          function := Fn, op := Op, side := Side, type := Ty, template := Repair}) ->
+          function := Fn, op := Op, side := Side, type := Ty, template := Template}) ->
     {Advice, Args} =
-        case Repair of
+        case Template of
             none      -> {"", []};
             unwritten -> {"  Build a string with a template, `$\"...{expr}...\"`: a hole takes a~n"
                           "  string, an int, a float or an atom type as it stands.~n", []};

@@ -25,27 +25,26 @@ neither names this case:
 
 ## The question
 
+A ledger total, written generic because the amounts arrive as whatever the caller holds:
+
 ```csharp
-module Scale
+module Ledger
 
-public int Bump<T>(T a)
-Bump(a) -> a + 1
-
-public int Demo()
-Demo() -> Bump("x")
+public int Total<T>(list<T> amounts)
+Total([]) -> 0
+Total([a, ..rest]) -> a + Total(rest)
 ```
 
-Today, and after F67, this compiles: `Bump(4)` is `5`, and `Bump("x")` is
-`crashed: error:badarith`.
+Today, and after F67, this compiles: `Total([250, 1200])` is `1450`, and
+`Total(["250", "1200"])`, amounts read off a form and never parsed, is
+`crashed: error:badarith` (measured).
 
-Under **refuse**, `Bump` is refused at its `+` as `non_numeric_operand`, naming the variable `T`
-rather than `:'T'`, the atom the body sees. `Bump(4)` stops compiling. The delta: drop the
+Under **refuse**, `Total` is refused at its `+` as `non_numeric_operand`, naming the variable `T`
+rather than `:'T'`, the atom the body sees, and the author writes `list<int>`.
+`Total([250, 1200])` compiles again once they do. The delta: drop the
 variable's exemption in `bs_check:operand_verdict/2`, and print a variable by its name in the
 refusal's `type`.
 
 Under **keep**, nothing changes, and F67's *Leaves* line records the exemption as decided.
+<!-- the `:'T'` literal that collides with a variable's opaque atom is F67's Leaves line, not this question -->
 
-**Also here, whichever the answer:** an atom literal spelled like a variable in scope, `:'T'` in a
-function generic over `T`, is the same atom the checker uses for the variable, so under *keep* it
-escapes the refusal and raises `badarith`. Separating the two needs F45's representation of a
-variable to change, not F67's check.

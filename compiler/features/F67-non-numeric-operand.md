@@ -99,6 +99,10 @@ What the build read that no ticket spelled, none of which needed a call:
   from a domain the pattern does not cover, so `(acc, (:ok, n)) => acc + n` over a `result` gave
   `n` the error's `string`, and F67 refused `acc + n` beside the `lambda_param_refuted` that names
   the real fault. `function_value_tests`' own test went red on it, and is green again.
+- **Only `+` offers a template.** Ticket 112 says a string operand's refusal names the template,
+  and every example it gives is a `+`. Under `-`, `*`, `/`, `%` or unary `-`, a string is not a
+  join (`s * 2` is no string C# would build), so no template is named there (F67.10); the refusal
+  says only that the operand has no numeric part.
 - **The message follows F53's**, "`+` in ModelKey has `string` on its left", rather than ticket
   112's proposed "ModelKey applies + to a string", so the two operator refusals read alike. The
   template goes on a line of its own, as a head does in F53's advice, because it is what the author
@@ -140,4 +144,4 @@ key was renamed from `repair` to `template`, and F67.11 was then green in 16 of 
 | F67.13 | `a + 1` over an `atom`, and over `:ok \| :err`, in a function generic over `T` | refused, each: the variable's exemption does not reach `atom` or another literal beside it (the literal `:'T'` is a *Leaves* line) |
 | F67.14 | `"café/" + s`, the advice pasted back; `"€" + s` on the JSON channel | `$"café/{s}"`, which builds what `"café/x"` is; the JSON carries the template as text, `"$\"€{s}\""`, and does not crash |
 | F67.15 | `-s` over a `string`; `-n` over `int \| :none` | refused, `op => '-'`, `side => operand`, "as its operand" and no "each side"; the union compiles |
-| F67.16 | `-("a" + s)`, `-(-s)` and `-(n + "a")` in a function returning `int` | one `non_numeric_operand` each, and no `return_not_declared` offering `int \| float` |
+| F67.16 | `-("a" + s)`, `-(-s)` and `-(n + "a")` in a function returning `int`; `-(-s)` in a clause guard and `-("a" + x)` in a switch arm's; `-(raise :x)` returning `int` and `float` | one `non_numeric_operand` each, and no `return_not_declared` offering `int \| float`; the raise compiles under both |

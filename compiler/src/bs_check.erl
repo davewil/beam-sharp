@@ -2860,7 +2860,7 @@ union_of(Ts) -> bs_types:union(Ts).
 type_of({e_int, _, N}, _S, _C)  -> {bs_types:range(N, N), []};
 type_of({e_float, _, F}, _S, _C) -> {bs_types:float_lit(F), []};
 %% Unary minus preserves int/float kind; rewriting it as `0 - e` would
-%% introduce mixed operands for floats. Other operand types yield `int`.
+%% introduce mixed operands for floats.
 %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
 %% and over an uninhabited operand is uninhabited: `none` is a subtype of
 %% `float`, so it answered `float` and the return check refused that.
@@ -2901,11 +2901,11 @@ type_of({e_tuple, _, Es}, S, C) ->
 type_of({e_op, _, '+', _, _} = E, S, C) ->
     Chain = plus_chain(E),
     Typed = [{L, type_of(X, S, C)} || {L, X} <- Chain],
-    Repair = chain_template(Chain, [T || {_, {T, _}} <- Typed]),
+    Template = chain_template(Chain, [T || {_, {T, _}} <- Typed]),
     [{_, {T0, D0}} | Rest] = Typed,
     lists:foldl(fun({L, {BTy, DB}}, {ATy, D}) ->
                         {Ty, DOp} = op_result('+', ATy, BTy, L, C),
-                        {Ty, D ++ DB ++ [with_repair(X, Repair) || X <- DOp]}
+                        {Ty, D ++ DB ++ [with_template(X, Template) || X <- DOp]}
                 end, {T0, D0}, Rest);
 %% Arithmetic synthesises numeric types, not exact result intervals.
 type_of({e_op, L, Op, A, B}, S, C) ->
@@ -3999,21 +3999,21 @@ operand_verdict(Ty, C) ->
     end.
 
 %% A `string` under `+` is a join, which a template spells; the chain's own
-%% rendering replaces `unwritten` when there is one (`with_repair/2`). Under
+%% rendering replaces `unwritten` when there is one (`with_template/2`). Under
 %% any other operator a string is no join, and nothing is offered. A record
 %% is named as the author wrote it, as `interp_hole` names one.
 non_numeric_operand(Op, Side, Ty, L, C) ->
-    Repair = case Op =:= '+' andalso bs_types:is_subtype(Ty, bs_types:string()) of
+    Template = case Op =:= '+' andalso bs_types:is_subtype(Ty, bs_types:string()) of
                  true  -> unwritten;
                  false -> none
              end,
     {error, L, C#ctx.fname,
-     {non_numeric_operand, Op, Side, Ty, hole_records(Ty), Repair}}.
+     {non_numeric_operand, Op, Side, Ty, hole_records(Ty), Template}}.
 
-with_repair({error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, unwritten}}, Text)
+with_template({error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, unwritten}}, Text)
   when Text =/= none ->
     {error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, Text}};
-with_repair(D, _Text) ->
+with_template(D, _Text) ->
     D.
 
 %% The parser nests `+` to the left, so the chain is the left spine; a
