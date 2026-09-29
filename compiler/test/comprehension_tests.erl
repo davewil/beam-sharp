@@ -405,8 +405,9 @@ a_guard_that_narrows_nothing_compiles_test() ->
     ok_rc(Got),
     has(Got, "[(1, 2)]").
 
-%% F65.25 — a guard reading two generators' binders narrows neither: either
-%% side of an `or` may admit the pair, so `y` is not narrowed by `y >= 0`.
+%% F65.25 — a guard reading a name its generator did not bind narrows nothing.
+%% Here that is also the only sound answer: either side of the `or` may admit
+%% the pair, so `y >= 0` does not hold of every `y` kept.
 a_guard_across_generators_does_not_narrow_test() ->
     Refused = diagnose([{"Ei.bs",
                          "module Ei\n"
@@ -427,6 +428,24 @@ a_guard_across_generators_does_not_narrow_test() ->
               "Demo"),
     ok_rc(Got),
     has(Got, "[(0, -5)]").
+
+%% F65.26 — every `when` is checked against the binders before any `when`
+%% narrowed them, as a clause guard is, so an earlier guard that admits nothing
+%% cannot hide a later one's mixed operands, for its own generator or another.
+a_guard_is_checked_before_any_narrowing_test() ->
+    Own = diagnose([{"Mo.bs",
+                     "module Mo\n"
+                     "public list<int> Kept(list<int> xs)\n"
+                     "Kept(xs) -> [n for int n in xs when n > 5 and n < 3 when n == 1.0]\n"}]),
+    bad_rc(Own),
+    tagged(Own, "mixed_operands"),
+    Later = diagnose([{"Ml.bs",
+                       "module Ml\n"
+                       "public list<(int, int)> Kept(list<int> xs, list<int> ys)\n"
+                       "Kept(xs, ys) -> [(n, m) for int n in xs when n > 5 and n < 3"
+                       " for int m in ys when n == 1.0]\n"}]),
+    bad_rc(Later),
+    tagged(Later, "mixed_operands").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 

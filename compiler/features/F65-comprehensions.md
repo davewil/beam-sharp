@@ -10,10 +10,12 @@
                 no ERROR node.
                 **Amended 2026-09-29** ([ENG-572](https://linear.app/davewil/issue/ENG-572)): a
                 `when` narrows the generator before it, as an arm's guard narrows its pattern —
-                F65.22–25, 25 tests in `comprehension_tests`, 1253 in the suite. F65.22–23
+                F65.22–26, 26 tests in `comprehension_tests`, 1254 in the suite. F65.22–23
                 and §8's `Kept` block seen red before the build; F65.23 red with each `when`
                 narrowing from the generator's first domain, F65.25 red with `apply_guard/3`
-                dropping the alternatives that read another generator's binder. The emitted
+                dropping the alternatives that read another generator's binder, F65.26 red on
+                the first cut, which the review measured, and with its guard checked against
+                the narrowed scope. The emitted
                 `.abstr` is byte-identical to `9f2ace2`'s over the examples corpus and four
                 guarded comprehensions
 **Implements**  [ticket 114](../../wayfinder/issues/114-comprehensions-revisited.md), A1–A7.
@@ -62,10 +64,11 @@ Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
 - A guard is checked as a clause guard is: a call to a user function is refused
   (`call_in_guard`), and the guard-level operator refusals (`mixed_operands`) reach it.
 - A guard narrows the binders of the generator before it, as an arm's guard narrows its pattern,
-  so `[n for int n in xs when n >= 0]` is a `list<NonNegative>`. It is checked before it narrows, and
-  each `when` narrows what the ones before it left. A guard that reads a name its generator did
-  not bind, an outer one or another generator's, narrows nothing, as an arm's guard reading an
-  outer name does.
+  so `[n for int n in xs when n >= 0]` is a `list<NonNegative>`. Each `when` narrows what the ones
+  before it left, for the head and every later source, but every guard is checked against the
+  binders before any `when` narrowed them, as a clause guard is checked against its pattern's
+  domain. A guard that reads a name its generator did not bind, an outer one or another
+  generator's, narrows nothing, as an arm's guard reading an outer name does.
 - A later generator and every guard see the bindings before them. Nothing bound inside a
   comprehension is visible after it, and a generator may not rebind a name already bound
   (`rebinding`), as a switch arm and a lambda parameter may not, nor bind one name twice in
@@ -116,4 +119,5 @@ ENG-571, with the nested-relational fix under **Fixes**, and it is recorded in
 | F65.22 | `Kept`, `[n for int n in xs when n >= 0]` declared `list<NonNegative>` | compiles, and returns `[0, 3]` from `[-1, 0, 3]`; refused as `[int >= 0, ..] \| [int <= -1, ..]` before ENG-572 |
 | F65.23 | `when n >= 0 when n <= 9` declared `list<Digit>`; and `when n >= 0 for int m in ys when m <= 9` declared `list<(NonNegative, Small)>` | both compile: each `when` narrows what the ones before it left, and a later generator keeps an earlier one's narrowing; `[0, 3, 9]` and `[(2, 5)]` |
 | F65.24 | `[(x, y) for int x in xs for int y in ys when x < y]` declared `list<(int, int)>` | a guard that narrows nothing still compiles, and returns `[(1, 2)]` |
-| F65.25 | `when x >= 0 or y >= 0`, across two generators, declared `list<(int, NonNegative)>` | refused, `return_not_declared`: either side of the `or` may admit the pair, so neither binder narrows; undeclared, it keeps `(0, -5)` |
+| F65.25 | `when x >= 0 or y >= 0`, across two generators, declared `list<(int, NonNegative)>` | refused, `return_not_declared`: the guard reads `x`, which the generator before it did not bind, so it narrows nothing; nor could it soundly, since either side of the `or` may admit the pair: undeclared, it keeps `(0, -5)` |
+| F65.26 | `when n > 5 and n < 3 when n == 1.0`, and the second `when` after a later generator | refused, `mixed_operands`, both: a guard is checked before any `when` narrows, so an earlier one that admits nothing cannot hide it. The first cut of ENG-572 checked each against the previous one's narrowing and compiled both |

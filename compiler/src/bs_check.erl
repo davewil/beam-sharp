@@ -2914,7 +2914,7 @@ type_of({e_with, L, Base, Fields}, S, C) ->
 %% Rationale: compiler/features/F65-comprehensions.md.
 type_of({e_comp, _L, Head, Quals}, S, C) ->
     %% The parser puts a generator first, so a guard always has one before it.
-    {Scope, D0} = comp_quals(Quals, S, C, none, []),
+    {Scope, D0} = comp_quals(Quals, S, S, C, none, []),
     {HeadTy, D1} = type_of(Head, Scope, C),
     {bs_types:list(HeadTy), D0 ++ D1};
 %% A switch uses the clause walk over one synthesised column, sharing pattern
@@ -3737,11 +3737,16 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
 %%% element can match it. A guard keeps guard rules, and the guard-level
 %%% operator refusals reach it as they reach an arm's. A guard narrows the
 %%% generator before it, as an arm's guard narrows its pattern.
+%%%
+%%% `S` types the head and each later source under every guard's narrowing.
+%%% `GS` types the guards under none of it, as `arms/10` checks a guard against
+%%% its pattern's domain, so a guard that admits nothing cannot erase a later
+%%% one's mixed operand.
 %%% Rationale: compiler/features/F65-comprehensions.md.
 
-comp_quals([], S, _C, _Gen, Diags) ->
+comp_quals([], S, _GS, _C, _Gen, Diags) ->
     {S, Diags};
-comp_quals([{gen, L, P, Src} | Rest], S, C, _Gen, Diags) ->
+comp_quals([{gen, L, P, Src} | Rest], S, GS, C, _Gen, Diags) ->
     {SrcTy, D0} = type_of(Src, S, C),
     {PTy, Binds, _Exact} = pattern_type(P, [], C#ctx.types),
     %% `list_elem/1` answers `none` for `int` and `term` for `term`, so a
@@ -3764,19 +3769,20 @@ comp_quals([{gen, L, P, Src} | Rest], S, C, _Gen, Diags) ->
                      _       -> []
                  end
          end,
-    comp_quals(Rest, gen_scope(S, Domain, Binds), C, {PTy, Binds, Domain},
-               Diags ++ D0 ++ D1 ++ D2);
-%% Check the guard before it narrows, as `arms/10` does, so narrowing cannot
-%% erase a mixed operand. Each `when` lowers to its own filter, so the next
-%% one sees this one's narrowing. A guard reading a name the generator did not
-%% bind gets its pattern back from `apply_guard/3`, which narrows nothing.
-comp_quals([{filter, _, G} | Rest], S, C, {PTy, Binds, Domain}, Diags) ->
-    D = guard_diags({guard, G}, C) ++ mixed_guard_diags({guard, G}, S, C),
+    comp_quals(Rest, bind_at(S, Domain, Binds), bind_at(GS, Domain, Binds), C,
+               {PTy, Binds, Domain}, Diags ++ D0 ++ D1 ++ D2);
+%% Each `when` lowers to its own filter, so the next one's head and sources
+%% see this one's narrowing. A guard reading a name the generator did not bind
+%% gets its pattern back from `apply_guard/3`, which narrows nothing.
+comp_quals([{filter, _, G} | Rest], S, GS, C, {PTy, Binds, Domain}, Diags) ->
+    D = guard_diags({guard, G}, C) ++ mixed_guard_diags({guard, G}, GS, C),
     {_Certain, Possible} = apply_guard(PTy, Binds, {guard, G}),
     Narrowed = bs_types:intersect(Domain, Possible),
-    comp_quals(Rest, gen_scope(S, Narrowed, Binds), C, {PTy, Binds, Narrowed}, Diags ++ D).
+    comp_quals(Rest, bind_at(S, Narrowed, Binds), GS, C, {PTy, Binds, Narrowed},
+               Diags ++ D).
 
-gen_scope(S, Domain, Binds) ->
+%% Bind each of a pattern's names to its path's part of `Domain`, over `S`.
+bind_at(S, Domain, Binds) ->
     maps:merge(S, maps:from_list([{V, at_path(Domain, Path)}
                                   || {V, Path} <- maps:to_list(Binds)])).
 
