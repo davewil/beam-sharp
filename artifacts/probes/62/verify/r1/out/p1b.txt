@@ -1,0 +1,8 @@
+format:   def direct(i), do: :Api."New"(i)
+direct: %{Id: 1, Kind: :"Api.Order", Total: 0}
+piped: %{Id: 2, Kind: :"Api.Order", Total: 0}
+captured: %{Id: 3, Kind: :"Api.Order", Total: 0}
+crash: no function clause matching in :Api."Total"/1
+    /home/user/beam-sharp/artifacts/probes/62/verify/r1/src/Api/api.bs:22: :Api."Total"(%{Id: 1, Kind: :"Wrong.Order", Total: 1})
+    /home/user/beam-sharp/artifacts/probes/62/verify/r1/p1b_elixir_in_module.exs:26: (file)
+:Api."New"/1

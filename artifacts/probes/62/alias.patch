@@ -1,0 +1,78 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-09-29 23:03:57.031429541 +0000
++++ compiler-copy/src/bs_emit.erl	2026-09-29 23:19:42.291485730 +0000
+@@ -74,7 +74,8 @@
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+-                             ++ [{type_atoms_name(), 0}]}]
++                             ++ [{type_atoms_name(), 0}]
++                             ++ alias_exports(Exports, Fns, Behaviours)}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+@@ -89,7 +90,8 @@
+     %% `ToJson<T>` generates does, on a value its validator refused, and the
+     %% stack still names the B# function that called it.
+     ++ validator_forms(Validators)
+-    ++ reserved_forms(Fns).
++    ++ reserved_forms(Fns)
++    ++ alias_forms(Exports, Fns, Behaviours).
+ 
+ %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
+ %% have no path to attribute to; no attribute is emitted for them.
+@@ -123,7 +125,7 @@
+ 
+ emitted_name(Name, Arity, Behaviours) ->
+     case bs_otp:callback_name(Name, Arity, Behaviours) of
+-        none -> Name;
++        none -> case os:getenv("BS_ALIAS") of "rename" -> snake(Name); _ -> Name end;
+         Otp  -> Otp
+     end.
+ 
+@@ -2501,3 +2503,46 @@
+ to_abstr(Forms) ->
+     iolist_to_binary(["%% coding: latin-1\n"
+                       | [io_lib:format("~p.~n", [F]) || F <- Forms]]).
++
++
++%%% ---------------------------------------------------------------------------
++%%% EXPERIMENT (ticket 62, probe 3; never merged). BS_ALIAS=wrapper emits, beside every
++%%% public function `Name/N`, a thin wrapper `snake(Name)/N` that tail-calls it.
++%%% ---------------------------------------------------------------------------
++alias_mode() -> os:getenv("BS_ALIAS").
++
++%% Gleam's rule, as observed in probe 4: every uppercase letter is lowercased and,
++%% unless first, preceded by `_`. Digits are ordinary lowercase characters.
++snake(Atom) ->
++    list_to_atom(snake_(atom_to_list(Atom), true)).
++snake_([], _) -> [];
++snake_([C | T], First) when C >= $A, C =< $Z ->
++    (if First -> []; true -> [$_] end) ++ [C + 32 | snake_(T, false)];
++snake_([C | T], _) -> [C | snake_(T, false)].
++
++alias_pairs(Exports, Fns, Behaviours) ->
++    case alias_mode() of
++        "wrapper" ->
++            Pairs = [{snake(name(F, Behaviours)), name(F, Behaviours), A} || {F, A} <- Exports],
++            Real = [{name(F, Behaviours), arity(F)} || F <- Fns],
++            Keys = [{Al, A} || {Al, _, A} <- Pairs],
++            [begin
++                 Clash = [N || {Al2, N, A2} <- Pairs, Al2 =:= Al, A2 =:= A]
++                         ++ [N || {N, A2} <- Real, N =:= Al, A2 =:= A],
++                 case length(Clash) > 1 of
++                     true -> erlang:error({alias_collision, Al, A, lists:usort(Clash)});
++                     false -> ok
++                 end,
++                 P
++             end || {Al, N, A} = P <- Pairs, Al =/= N, lists:member({Al, A}, Keys)];
++        _ -> []
++    end.
++
++alias_exports(Exports, Fns, Behaviours) ->
++    [{Al, A} || {Al, _, A} <- alias_pairs(Exports, Fns, Behaviours)].
++
++alias_forms(Exports, Fns, Behaviours) ->
++    [begin
++         Vs = [{var, ?A, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, A)],
++         {function, ?A, Al, A, [{clause, ?A, Vs, [], [{call, ?A, {atom, ?A, N}, Vs}]}]}
++     end || {Al, N, A} <- alias_pairs(Exports, Fns, Behaviours)].

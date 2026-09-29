@@ -1,0 +1,5 @@
+stack via alias: first frames ['GetItem5',do_apply,try_clauses]
+call events for one alias call [get_item5,'GetItem5']; for one direct call ['GetItem5']
+T1 stack hides alias PASS
+T2 two trace events PASS
+PASS p3c

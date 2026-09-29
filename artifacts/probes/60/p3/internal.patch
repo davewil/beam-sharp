@@ -1,0 +1,67 @@
+--- a/bs_check.erl
++++ b/bs_check.erl
+@@ -489,17 +489,39 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> guard_internal(M, Self, L),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    Vis = [C || C <- Children, internal_ok(C, Self)],
++                    Vis =:= [] andalso erlang:error({internal_module, M, internal_owner(hd(Children)), L}),
++                    add_namespace_import(M, Vis, Acc)
+             end
+     end.
+ 
++%% Experimental (ticket 60): `Owner.Internal.X` may be named only from `Owner`
++%% or `Owner.*`.
++guard_internal(M, Self, L) ->
++    internal_ok(M, Self) orelse erlang:error({internal_module, M, internal_owner(M), L}).
++
++internal_ok(M, Self) ->
++    case internal_owner(M) of
++        none  -> true;
++        Owner -> O = atom_to_list(Owner), S = atom_to_list(Self),
++                 S =:= O orelse lists:prefix(O ++ ".", S)
++    end.
++
++internal_owner(M) ->
++    case string:split(atom_to_list(M), ".Internal.") of
++        [Pre, _] -> list_to_atom(Pre);
++        _        -> none
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- a/bs_diag.erl
++++ b/bs_diag.erl
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {internal_module, Mod, Owner, Line}) ->
++    #{tag => internal_module, severity => error, file => Path, line => Line,
++      module => Mod, owner => Owner};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2022,6 +2025,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := internal_module, file := P, line := L, column := C, module := Mod, owner := O}) ->
++    {"~s:~p:~p: error: ~s is internal to ~s~n"
++     "  a module under `.Internal.` may be named only by ~s and the modules under it.~n",
++     [P, L, C, Mod, O, O]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

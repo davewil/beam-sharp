@@ -1,0 +1,7 @@
+alias :Api, as: Api ; Api."New"(1): %{Id: 1, Kind: :"Api.Order", Total: 0}
+:Api.get_x(1)           raised UndefinedFunctionError
+:Api.h_t_t_p_get(1)     raised UndefinedFunctionError
+:Api.parse2_ints(1)     raised UndefinedFunctionError
+:Api.get__x(1)          raised UndefinedFunctionError
+:Api.http_get(1)        raised UndefinedFunctionError
+exports: [:GetX, :Get_X, :HTTPGet, :New, :Parse2Ints, :Total, :bs@type_atoms, :module_info]

@@ -1,0 +1,4 @@
+module Shop.Internal.M04
+
+public int G04(int n)
+G04(n) -> n + 4

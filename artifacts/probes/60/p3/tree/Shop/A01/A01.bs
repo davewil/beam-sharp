@@ -1,0 +1,8 @@
+module Shop.A01
+
+using Shop.Internal.M02
+using Shop.Internal.M03
+using Shop.Internal.M04
+
+public int F01(int n)
+F01(n) -> G02(n) + G03(n) + G04(n)

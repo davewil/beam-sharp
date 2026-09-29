@@ -1,0 +1,4 @@
+module Shop.Ledger
+
+public int Post(int amount)
+Post(amount) -> amount + 100

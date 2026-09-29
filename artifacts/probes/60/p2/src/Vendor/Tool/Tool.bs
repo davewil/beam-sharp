@@ -1,0 +1,6 @@
+module Vendor.Tool
+
+using Shop.Internal.Ledger
+
+public int Sneak(int n)
+Sneak(n) -> Post(n)

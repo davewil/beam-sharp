@@ -1,0 +1,22 @@
+exports: [{'GetX',1},
+          {'Get_X',1},
+          {'HTTPGet',1},
+          {'New',1},
+          {'Parse2Ints',1},
+          {'Total',1},
+          {bs@type_atoms,0}]
+New(1): #{'Id' => 1,'Kind' => 'Api.Order','Total' => 0}
+GetX(1): 2 Get_X(1): 4 HTTPGet(1): 3
+get_x(1): {'EXIT',{undef,[{'Api',get_x,[1],[]},
+                          {erl_eval,do_apply,7,
+                                    [{file,"erl_eval.erl"},{line,744}]},
+                          {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,480}]},
+                          {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,282}]},
+                          {erl_eval,expr_list,7,
+                                    [{file,"erl_eval.erl"},{line,961}]},
+                          {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,454}]},
+                          {escript,eval_exprs,5,
+                                   [{file,"escript.erl"},{line,869}]},
+                          {erl_eval,local_func,8,
+                                    [{file,"erl_eval.erl"},{line,644}]}]}}
+PASS p2

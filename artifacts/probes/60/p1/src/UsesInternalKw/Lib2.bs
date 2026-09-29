@@ -1,0 +1,4 @@
+module UsesInternalKw
+
+internal int Mid(int n)
+Mid(n) -> n

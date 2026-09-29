@@ -1,0 +1,16 @@
+load: {module,'N10'}
+get_item5(1)=6 GetItem5(1)=6
+exports=14
+crash via alias: {function_clause,[{'GetItem5',[not_an_int]},
+                                   {do_apply,7},
+                                   {try_clauses,10},
+                                   {expr,6},
+                                   {eval_exprs,5},
+                                   {local_func,8},
+                                   {interpret,4},
+                                   {start,1}]}
+X1 loads PASS
+X2 same value PASS
+X3 stack names callee PASS
+X4 one extra export PASS
+PASS p3b

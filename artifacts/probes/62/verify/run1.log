@@ -1,0 +1,63 @@
+## setup: B# modules with the reference compiler
+## setup: experimental compiler copy (alias.patch applied to a COPY of compiler/src)
+## p1  Elixir spellings
+PASS p1
+## p1b Elixir tooling
+PASS p1b
+## p1c Elixir alias + snake aliases
+PASS p1c
+## p2  Erlang call into a real B# module
+PASS p2
+## p3  alias cost (patched copy of the compiler)
+  E1 export table PASS
+  E2 bytes ratio PASS
+  E3 tail call PASS
+  E4 load slower<2x (pre-stated, all n) PASS
+  E4b n=100 1.1-2.0, n=1000 1.3-2.0 (post-hoc) PASS
+  E5 call <10ns PASS
+  E6 same values PASS
+  PASS p3
+PASS p3
+## p3b second export label (beam rewrite)
+PASS p3b
+## p3c stack traces and call tracing
+PASS p3c
+## p4  Gleam 1.12: names it emits
+PASS p4
+## p6  derivation rule vs Gleam's real output; collision census
+  corpus: 161 .bs files, 120 modules, 252 public functions (155 distinct names)
+          collisions R1=0 R2=0 ; names with 2+ consecutive capitals: 0 []
+  R1-check PASS
+  R2-check PASS
+  COLL-syn PASS
+  COLL-real PASS
+  ACR-real FAIL
+  FAIL p6
+FAIL p6
+## p6b real compile of colliding names
+PASS p6b
+## p8  different emission (snake_case only), Shop.Billing calls Shop
+PASS p8
+## p5  Elixir def naming
+PASS p5
+## p7  Gleam calls 'Api':'New' for real
+PASS p7
+
+== SUMMARY
+PASS p1
+PASS p1b
+PASS p1c
+PASS p2
+PASS p3
+PASS p3b
+PASS p3c
+PASS p4
+FAIL p6
+PASS p6b
+PASS p8
+PASS p5
+PASS p7
+
+real	0m26.315s
+user	0m21.234s
+sys	0m3.697s

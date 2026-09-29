@@ -1,0 +1,6 @@
+module Tests.LedgerTest
+
+using Shop.Internal.Ledger
+
+public int Go(int n)
+Go(n) -> Post(n)

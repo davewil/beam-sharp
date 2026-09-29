@@ -1,0 +1,4 @@
+   Compiled in 0.00s
+    Running gext.main
+new: #{'Id' => 1,'Kind' => 'Api.Order','Total' => 0}
+get_x_pascal: 4

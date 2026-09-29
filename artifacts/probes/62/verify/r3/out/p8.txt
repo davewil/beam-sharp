@@ -1,0 +1,4 @@
+compile exit=0
+Shop exports: [amount,'band',bump,new,pay,squared]
+Billing.label -> undef 'Shop':'Which'
+PASS p8

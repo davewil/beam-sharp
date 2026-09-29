@@ -1,0 +1,6 @@
+module UsesPub
+
+using Lib
+
+public int Go(int n)
+Go(n) -> Lib.Pub(n)

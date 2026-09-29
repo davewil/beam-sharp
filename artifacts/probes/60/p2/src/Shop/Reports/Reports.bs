@@ -1,0 +1,6 @@
+module Shop.Reports
+
+using Shop.Internal
+
+public int Total(int n)
+Total(n) -> Ledger.Post(n)

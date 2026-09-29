@@ -1,0 +1,9 @@
+error: Syntax error
+  ┌─ /home/user/beam-sharp/artifacts/probes/62/verify/r2/gleam_bad/src/gbad.gleam:3:8
+  │
+3 │ pub fn GetX(x: Int) -> Int { x + 1 }
+  │        ^^^^ I'm expecting a lowercase name here
+
+Hint: Variable and module names start with a lowercase letter, and can contain
+a-z, 0-9, or _.
+

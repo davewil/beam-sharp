@@ -1,0 +1,6 @@
+module Vendor.NsAll
+
+using Shop
+
+public int Go(int n)
+Go(n) -> Internal.Ledger.Post(n)

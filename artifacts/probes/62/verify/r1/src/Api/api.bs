@@ -1,0 +1,22 @@
+// Probe 62 subject module: PascalCase public functions as a B# author writes them.
+module Api
+
+record Order { Id: int, Total: int }
+
+public Order New(int id)
+New(id) -> Order{ Id = id, Total = 0 }
+
+public int GetX(int x)
+GetX(x) -> x + 1
+
+public int HTTPGet(int x)
+HTTPGet(x) -> x + 2
+
+public int Get_X(int x)
+Get_X(x) -> x + 3
+
+public int Parse2Ints(int x)
+Parse2Ints(x) -> x + 4
+
+public int Total(Order o)
+Total(o) -> o.Total

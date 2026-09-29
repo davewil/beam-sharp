@@ -1,0 +1,6 @@
+module Vendor.NsTool
+
+using Shop.Internal
+
+public int Go(int n)
+Go(n) -> Ledger.Post(n)

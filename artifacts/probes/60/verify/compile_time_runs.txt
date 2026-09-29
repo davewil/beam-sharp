@@ -1,0 +1,12 @@
+round 1 int exit=0 N=20 min_ms=188.8 median_ms=239.0 max_ms=353.5
+round 1 base exit=0 N=20 min_ms=203.3 median_ms=240.8 max_ms=278.9
+round 1 int exit=0 N=20 min_ms=204.1 median_ms=241.5 max_ms=312.4
+round 1 base exit=0 N=20 min_ms=198.3 median_ms=245.3 max_ms=282.4
+round 2 int exit=0 N=20 min_ms=189.2 median_ms=225.4 max_ms=240.7
+round 2 base exit=0 N=20 min_ms=191.7 median_ms=221.7 max_ms=253.0
+round 2 int exit=0 N=20 min_ms=201.4 median_ms=217.9 max_ms=257.4
+round 2 base exit=0 N=20 min_ms=185.6 median_ms=211.8 max_ms=276.6
+round 3 int exit=0 N=20 min_ms=197.0 median_ms=211.2 max_ms=240.6
+round 3 base exit=0 N=20 min_ms=192.4 median_ms=218.1 max_ms=231.2
+round 3 int exit=0 N=20 min_ms=191.8 median_ms=222.0 max_ms=265.3
+round 3 base exit=0 N=20 min_ms=182.7 median_ms=207.8 max_ms=240.7

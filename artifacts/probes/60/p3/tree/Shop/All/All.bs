@@ -1,0 +1,55 @@
+module Shop.All
+
+using Shop.Internal.M01
+using Shop.Internal.M02
+using Shop.Internal.M03
+using Shop.Internal.M04
+using Shop.Internal.M05
+using Shop.Internal.M06
+using Shop.Internal.M07
+using Shop.Internal.M08
+using Shop.Internal.M09
+using Shop.Internal.M10
+using Shop.A01
+using Shop.A02
+using Shop.A03
+using Shop.A04
+using Shop.A05
+using Shop.A06
+using Shop.A07
+using Shop.A08
+using Shop.A09
+using Shop.A10
+using Shop.A11
+using Shop.A12
+using Shop.A13
+using Shop.A14
+using Shop.A15
+using Shop.A16
+using Shop.A17
+using Shop.A18
+using Shop.A19
+using Shop.A20
+using Shop.A21
+using Shop.A22
+using Shop.A23
+using Shop.A24
+using Shop.A25
+using Shop.A26
+using Shop.A27
+using Shop.A28
+using Shop.A29
+using Shop.A30
+using Shop.A31
+using Shop.A32
+using Shop.A33
+using Shop.A34
+using Shop.A35
+using Shop.A36
+using Shop.A37
+using Shop.A38
+using Shop.A39
+using Shop.A40
+
+public int Go(int n)
+Go(n) -> F40(n)

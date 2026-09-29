@@ -1,0 +1,3 @@
+reference compiler exit=0 ; alias compiler exit=1
+alias_collision,get_x,1,['GetX','Get_x']}
+PASS p6b

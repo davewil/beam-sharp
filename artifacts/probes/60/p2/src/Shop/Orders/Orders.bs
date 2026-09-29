@@ -1,0 +1,6 @@
+module Shop.Orders
+
+using Shop.Internal.Ledger
+
+public int Place(int n)
+Place(n) -> Post(n)

@@ -1,0 +1,3 @@
+exports: [New: 1, fetch!: 1, get_x: 1, valid?: 1]
+Naming."New"(1): 1
+def New(x) bare: {:error, SyntaxError}

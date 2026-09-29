@@ -1,0 +1,4 @@
+module Shop.Internal.M06
+
+public int G06(int n)
+G06(n) -> n + 6

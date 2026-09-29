@@ -1,0 +1,8 @@
+// PROBE 6b subject: two distinct PascalCase names whose Gleam-rule alias is the same atom `get_x`.
+module Coll
+
+public int GetX(int x)
+GetX(x) -> x + 1
+
+public int Get_x(int x)
+Get_x(x) -> x + 2

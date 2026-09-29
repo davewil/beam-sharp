@@ -1,0 +1,4 @@
+module Shop.Internal.M02
+
+public int G02(int n)
+G02(n) -> n + 2

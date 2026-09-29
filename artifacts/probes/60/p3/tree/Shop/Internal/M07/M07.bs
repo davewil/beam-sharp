@@ -1,0 +1,4 @@
+module Shop.Internal.M07
+
+public int G07(int n)
+G07(n) -> n + 7

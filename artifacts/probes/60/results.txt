@@ -1,0 +1,89 @@
+### Build the experimental compiler copy (never touches /home/user/beam-sharp/compiler)
+### P1 (real compiler): private refused, public accepted, nothing in between
+PASS P1a
+PASS P1b
+PASS P1c
+PASS P1d
+PASS P1e
+### P2 (real compiler, unpatched): under the F15 layout any module can name any other
+PASS P2-Shop/Orders
+PASS P2-Shop/Reports
+PASS P2-Vendor/Tool
+PASS P2-Tests/LedgerTest
+PASS P2-Vendor/NsTool
+PASS P2-Vendor/NsAll
+PASS P2-Vendor/Bypass
+PASS P2-Vendor/Bypass2
+### P3 (patched COPY of the compiler): Owner.Internal.X nameable only from Owner and Owner.*
+PASS P3-Shop/Orders
+PASS P3-Shop/Reports
+PASS P3-Vendor/Tool
+PASS P3-Tests/LedgerTest
+PASS P3-Vendor/NsTool
+PASS P3-Vendor/NsAll
+   (diagnostic wart, recorded: NsAll's message tells the author to add `using Internal.Ledger`, which is not a fix)
+PASS P3-moved-out-of-Internal
+### P3b delta size: lines changed in the copy (measured from the patch)
+   +28 -2 lines across 2 files (bs_check.erl, bs_diag.erl)
+PASS P3b-delta
+### P3c checker cost: per-import guard (bs_check:internal_ok/2, ebin built with +export_all), and 51-module compile
+   guard: 2480 ns/call (net of loop), 1,000,000 calls
+PASS P3c-guard
+   tree modules: 51; using lines: 209
+   round 1 base: exit=0 N=15 min_ms=190.8 median_ms=229.1 max_ms=291.8
+   round 1 int: exit=0 N=15 min_ms=204.0 median_ms=256.3 max_ms=287.4
+   round 2 base: exit=0 N=15 min_ms=218.8 median_ms=237.2 max_ms=305.2
+   round 2 int: exit=0 N=15 min_ms=210.3 median_ms=283.0 max_ms=395.1
+PASS P3c-compile-time
+### P4 runtime emission unaffected: .beam chunks (except CInf) identical with and without the rule
+PASS P4-patched-vs-base
+PASS P4-control-same-compiler
+PASS P4-control-edited-body-must-differ
+   (files=51 differing_excluding_CInf=1 extra_in_B=0)
+### P5 the rule is compile-time only: an Erlang caller names the internal module freely
+PASS P5-erlang-bypass
+### N1-N3 Erlang/OTP 25 toy: unexported call unchecked at compile time, undef at run time, xref reports it
+   N1 compile results: [{lib_a,[{"/home/user/beam-sharp/artifacts/probes/60/n_erlang/lib_a.erl",
+                                 [{{5,2},erl_lint,{unused_type,{privt,0}}}]}]},
+                        {shop_b,[]},
+                        {vendor_c,[]}]
+   N2 go_pub=1 go_priv=undef
+   N3 undefined_function_calls=[{{shop_b,go_priv,0},{lib_a,priv,0}}]
+   N3 edges vendor_c->lib_a=[{{vendor_c,go,0},{lib_a,pub,0}}]
+   PASS N1
+   PASS N2
+   PASS N3
+PASS N1-N3-erlang
+### N4 Elixir 1.14: @moduledoc false / private across two path-dependent mix apps
+   ==> app_a
+   Compiling 1 file (.ex)
+   Generated app_a app
+   ==> app_b
+   Compiling 2 files (.ex)
+   warning: AppA.Hidden.really_private/1 is undefined or private
+     lib/caller_priv.ex:3: AppB.CallerPriv.go/0
+   
+   Generated app_b app
+PASS N4-elixir-compile
+PASS N4-elixir-run
+   Module doc line 290: Accepts a string (often a heredoc) or `false` where `@moduledoc false`
+   xref modes: callers, trace, graph
+   xref doc mentions forbid/restrict/boundary: false
+PASS N5-elixir-docs
+### N6 Gleam 1.12: internal modules and @internal across a PATH dependency
+     Resolving versions
+     Compiling lib
+     Compiling app
+      Compiled in 0.55s
+FALSIFIED N6: expected the compiler to refuse cross-package use of internal items; observed exit 0, no warning
+PASS N6-gleam-build-accepts
+   interface: ['lib'] {'lib': ['public_api']}
+PASS N6-gleam-docs-hide
+### N7 Elm 0.19.2: NOT MEASURED — expected to fail offline at the package list
+   -- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+   
+   I need the list of published packages to verify your dependencies, so I tried to
+   fetch:
+PASS N7-elm-cannot-run-so-not-measured
+
+ALL PROBES PASS

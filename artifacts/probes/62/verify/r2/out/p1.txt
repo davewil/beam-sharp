@@ -1,0 +1,21 @@
+:Api.New(1) | SYNTAX_ERROR | -
+:"BSharp.Api".New(1) | SYNTAX_ERROR | -
+:"Api.Reports".Totals(1) | SYNTAX_ERROR | -
+:"Elixir.Api".New(1) | SYNTAX_ERROR | -
+:"BSharp.Api".new(1) | parses | raised UndefinedFunctionError
+:Api.new(1) | parses | raised UndefinedFunctionError
+:Api."New"(1) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+:"Api"."New"(1) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+mod."New"(1) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+mod.New(1) | SYNTAX_ERROR | -
+:"Api".unquote(:New)(1) | parses | raised CompileError
+apply(:Api, :New, [1]) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+Kernel.apply(:Api, :New, [1]) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+:erlang.apply(:Api, :New, [1]) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+(&:Api.New/1).(1) | SYNTAX_ERROR | -
+(&:Api."New"/1).(1) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+(&mod."New"/1).(1) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+:Api."Get_X"(1) | parses | ok 4
+:Api."HTTPGet"(1) | parses | ok 3
+Function.capture(:Api, :New, 1).(1) | parses | ok %{Id: 1, Kind: :"Api.Order", Total: 0}
+elixir 1.14.0 otp 25

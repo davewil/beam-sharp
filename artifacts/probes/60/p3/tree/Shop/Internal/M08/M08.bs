@@ -1,0 +1,4 @@
+module Shop.Internal.M08
+
+public int G08(int n)
+G08(n) -> n + 8

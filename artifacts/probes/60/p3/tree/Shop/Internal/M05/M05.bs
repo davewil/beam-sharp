@@ -1,0 +1,4 @@
+module Shop.Internal.M05
+
+public int G05(int n)
+G05(n) -> n + 5

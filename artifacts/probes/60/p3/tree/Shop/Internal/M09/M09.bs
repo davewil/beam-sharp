@@ -1,0 +1,4 @@
+module Shop.Internal.M09
+
+public int G09(int n)
+G09(n) -> n + 9

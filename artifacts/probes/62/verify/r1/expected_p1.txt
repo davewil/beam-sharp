@@ -1,0 +1,19 @@
+:Api.New(1) | SYNTAX_ERROR | -
+:"BSharp.Api".New(1) | SYNTAX_ERROR | -
+:"Api.Reports".Totals(1) | SYNTAX_ERROR | -
+:"Elixir.Api".New(1) | SYNTAX_ERROR | -
+:"BSharp.Api".new(1) | parses | raised UndefinedFunctionError
+:Api.new(1) | parses | raised UndefinedFunctionError
+:Api."New"(1) | parses | ok %{
+:"Api"."New"(1) | parses | ok %{
+mod."New"(1) | parses | ok %{
+:"Api".unquote(:New)(1) | parses | raised CompileError
+apply(:Api, :New, [1]) | parses | ok %{
+Kernel.apply(:Api, :New, [1]) | parses | ok %{
+:erlang.apply(:Api, :New, [1]) | parses | ok %{
+(&:Api.New/1).(1) | SYNTAX_ERROR | -
+(&:Api."New"/1).(1) | parses | ok %{
+(&mod."New"/1).(1) | parses | ok %{
+:Api."Get_X"(1) | parses | ok 4
+:Api."HTTPGet"(1) | parses | ok 3
+Function.capture(:Api, :New, 1).(1) | parses | ok %{

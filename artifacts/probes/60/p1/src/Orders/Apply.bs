@@ -1,0 +1,4 @@
+module Orders
+
+public int Apply(int n)
+Apply(n) -> RecomputeTotal(n) + 1

@@ -1,0 +1,21 @@
+gleam constructors -> emitted atom vs R1:
+    Ok2          gleam=ok2            R1=ok2            R2=ok2
+    MyVariant    gleam=my_variant     R1=my_variant     R2=my_variant
+    GetX         gleam=get_x          R1=get_x          R2=get_x
+    Parse2Ints   gleam=parse2_ints    R1=parse2_ints    R2=parse2_ints
+    HTTPGet      gleam=h_t_t_p_get    R1=h_t_t_p_get    R2=http_get
+    HTTPGet2     gleam=h_t_t_p_get2   R1=h_t_t_p_get2   R2=http_get2
+    ABC          gleam=a_b_c          R1=a_b_c          R2=abc
+    AbcDef       gleam=abc_def        R1=abc_def        R2=abc_def
+    X1Y          gleam=x1_y           R1=x1_y           R2=x1_y
+synthetic collisions R1: [{"get_x",["GetX","Get_x"]}]
+                     R2: [{"get_x",["GetX","Get_x"]},
+                          {"http_get",["HTTPGet","HttpGet"]}]
+corpus: 161 .bs files, 120 modules, 252 public functions (155 distinct names)
+        collisions R1=0 R2=0 ; names with 2+ consecutive capitals: 0 []
+R1-check PASS
+R2-check PASS
+COLL-syn PASS
+COLL-real PASS
+ACR-real FAIL
+FAIL p6

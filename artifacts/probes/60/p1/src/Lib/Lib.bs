@@ -1,0 +1,7 @@
+module Lib
+
+public int Pub(int n)
+Pub(n) -> Priv(n) + 1
+
+private int Priv(int n)
+Priv(n) -> n * 2

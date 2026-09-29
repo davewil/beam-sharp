@@ -1,0 +1,6 @@
+module Vendor.Bypass
+
+using Shop.Orders
+
+public int Go(int n)
+Go(n) -> Shop.Internal.Ledger.Post(n)
