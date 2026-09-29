@@ -1,0 +1,27 @@
+first which(erlang  )      18 us  found=true
+first which(lists   )      15 us  found=true
+first which(ets     )      13 us  found=true
+first which(maps    )       4 us  found=true
+first which(file    )       3 us  found=true
+first which(sofs    )       6 us  found=true
+first which(zip     )     407 us  found=true
+first which(********)    1096 us  found=false
+second pass over the same 8: 976 us total
+first which(erlang  )      16 us  found=true
+first which(lists   )      12 us  found=true
+first which(ets     )       5 us  found=true
+first which(maps    )       5 us  found=true
+first which(file    )       3 us  found=true
+first which(sofs    )       3 us  found=true
+first which(zip     )     404 us  found=true
+first which(********)    1770 us  found=false
+second pass over the same 8: 1886 us total
+first which(erlang  )      18 us  found=true
+first which(lists   )      12 us  found=true
+first which(ets     )       3 us  found=true
+first which(maps    )       3 us  found=true
+first which(file    )       3 us  found=true
+first which(sofs    )       2 us  found=true
+first which(zip     )     357 us  found=true
+first which(********)     995 us  found=false
+second pass over the same 8: 1206 us total

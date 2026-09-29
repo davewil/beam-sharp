@@ -1,0 +1,41 @@
+=== a_extra_app: mix compile
+Compiling 1 file (.ex)
+Generated a app
+exit=0
+=== c_undef_call: mix compile
+Compiling 1 file (.ex)
+warning: Nope.Module.call/1 is undefined (module Nope.Module is not available or is yet to be defined)
+  lib/c.ex:2: C.f/0
+
+Generated c app
+exit=0
+=== b_hexdep: mix compile
+Could not find Hex, which is needed to build dependency :req
+Shall I install Hex? (if running non-interactively, use "mix local.hex --force") [Yn] ** (Mix) Could not find an SCM for dependency :req from B.MixProject
+exit=1
+=== b_hexdep: mix compile --no-deps-check
+Could not find Hex, which is needed to build dependency :req
+Shall I install Hex? (if running non-interactively, use "mix local.hex --force") [Yn] ** (Mix) Could not find an SCM for dependency :req from B.MixProject
+exit=1
+=== a_extra_app: .app file's applications list
+applications,[kernel,stdlib,elixir,logger,nope_app]
+=== a_extra_app: does starting it fail? (ensure_all_started)
+** (Mix) Could not start application nope_app: could not find application file: nope_app.app
+=== 3d missing path dep: mix compile
+Unchecked dependencies for environment dev:
+* gone (../nowhere_at_all)
+  the dependency is not available
+** (Mix) Can't continue due to errors on dependencies
+exit=1
+=== 3d missing path dep: mix compile --no-deps-check
+Compiling 1 file (.ex)
+Generated d app
+exit=0
+=== 3d present-but-uncompiled path dep: mix compile
+==> dd
+Compiling 1 file (.ex)
+Generated dd app
+==> e
+Compiling 1 file (.ex)
+Generated e app
+exit=0

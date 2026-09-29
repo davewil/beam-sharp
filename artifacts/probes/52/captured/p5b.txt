@@ -1,0 +1,7 @@
+  Resolving versions
+error: Dependency resolution failed
+
+An error occured while chosing the version of gleam_json: error sending
+request for url (https://repo.hex.pm/packages/gleam_json)
+
+exit=1

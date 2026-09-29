@@ -1,0 +1,4 @@
+before   lib_dir(myapp) {error,bad_name}
+after    lib_dir(myapp) "myapp"
+bare     lib_dir(bare)  "./p2/bare"   which(loosemod) found=true
+load     application:load(myapp) ok

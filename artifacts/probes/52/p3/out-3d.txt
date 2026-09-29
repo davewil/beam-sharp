@@ -1,0 +1,18 @@
+=== 3d missing path dep: mix compile
+Unchecked dependencies for environment dev:
+* gone (../nowhere_at_all)
+  the dependency is not available
+** (Mix) Can't continue due to errors on dependencies
+exit=1
+=== 3d missing path dep: mix compile --no-deps-check
+Compiling 1 file (.ex)
+Generated d app
+exit=0
+=== 3d present-but-uncompiled path dep: mix compile
+==> dd
+Compiling 1 file (.ex)
+Generated dd app
+==> e
+Compiling 1 file (.ex)
+Generated e app
+exit=0

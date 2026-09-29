@@ -1,0 +1,6 @@
+Could not find Hex, which is needed to build dependency :req
+Shall I install Hex? (if running non-interactively, use "mix local.hex --force") [Yn] ** (Mix) Could not find an SCM for dependency :req from B.MixProject
+exit=1
+Could not find Hex, which is needed to build dependency :req
+Shall I install Hex? (if running non-interactively, use "mix local.hex --force") [Yn] ** (Mix) Could not find an SCM for dependency :req from B.MixProject
+exit=1

@@ -1,0 +1,8 @@
+module Absent
+
+using :'Elixir.Nope' {
+    int count(list<int> xs)
+}
+
+public int Count(list<int> xs)
+Count(xs) -> :'Elixir.Nope'.count(xs)

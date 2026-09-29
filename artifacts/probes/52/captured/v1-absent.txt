@@ -1,0 +1,4 @@
+Absent/absent.bs:3:1: error: `using :'Elixir.Nope'` names a module that is not on the code path
+  this machine's code path holds no 'Elixir.Nope'.beam. Put the dependency's ebin on
+  ERL_LIBS (or build it) before compiling; otherwise the call fails at run time with error:undef.
+exit=1

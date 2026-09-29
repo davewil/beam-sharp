@@ -1,0 +1,6 @@
+name = "b_dep"
+version = "1.0.0"
+target = "erlang"
+
+[dependencies]
+gleam_json = ">= 1.0.0 and < 2.0.0"

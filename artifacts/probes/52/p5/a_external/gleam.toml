@@ -1,0 +1,3 @@
+name = "a_external"
+version = "1.0.0"
+target = "erlang"

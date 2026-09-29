@@ -1,0 +1,8 @@
+Unchecked dependencies for environment dev:
+* gone (../nowhere_at_all)
+  the dependency is not available
+** (Mix) Can't continue due to errors on dependencies
+exit=1
+Compiling 1 file (.ex)
+Generated d app
+exit=0

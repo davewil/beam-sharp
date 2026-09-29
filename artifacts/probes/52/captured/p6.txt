@@ -1,0 +1,25 @@
+elm version: 0.19.2
+=== 6a outline: elm/core only
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/json" dependency your elm.json file. It helps me handle
+flags and ports.
+
+If you modified your elm.json by hand, try to change it back! And if you are
+having trouble getting back to a working elm.json, it may be easier to delete it
+and use `elm init` to start fresh.
+exit=1
+=== 6b outline: elm/core + elm/json
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+exit=1

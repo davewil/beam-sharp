@@ -1,0 +1,17 @@
+=== 4a/4b erlc (plain, no debug_info)
+erlc exit=0
+=== 4c prelude: xref on this beam WITHOUT debug_info
+Skipping ebin/caller.beam (no debug information)
+{ok,[]}
+undefined_function_calls (no debug_info): []
+=== 4c recompile with +debug_info (xref reads the abstract code; first attempt without it returned [] and was a setup error, not a finding)
+=== 4b attribute survives in the beam:
+[nope_app]
+=== 4c xref
+[{{caller,f,0},{'Elixir.Nope',count,1}}]
+=== 4d .app applications list
+load: ok
+ensure_all_started: {error,{nope_app,{"no such file or directory",
+                                      "nope_app.app"}}}
+=== 4d systools:make_script
+{error,systools_make,{undefined_applications,[nope_app]}}

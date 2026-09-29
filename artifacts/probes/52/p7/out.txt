@@ -1,0 +1,4 @@
+/tmp/claude-0/-home-user-beam-sharp/40070274-2489-5304-8393-d8d915b713dc/scratchpad/work/52/cc/ebin_base  N=41  min 18652 us  median 23805 us  max 45045 us
+/tmp/claude-0/-home-user-beam-sharp/40070274-2489-5304-8393-d8d915b713dc/scratchpad/work/52/cc/ebin_v1  N=41  min 19875 us  median 28025 us  max 43210 us
+/tmp/claude-0/-home-user-beam-sharp/40070274-2489-5304-8393-d8d915b713dc/scratchpad/work/52/cc/ebin_base  N=41  min 19306 us  median 23902 us  max 38577 us
+/tmp/claude-0/-home-user-beam-sharp/40070274-2489-5304-8393-d8d915b713dc/scratchpad/work/52/cc/ebin_v1  N=41  min 18808 us  median 33388 us  max 57968 us

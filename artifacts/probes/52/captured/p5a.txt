@@ -1,0 +1,4 @@
+  Resolving versions
+  Compiling a_external
+   Compiled in 0.34s
+exit=0

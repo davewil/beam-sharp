@@ -1,0 +1,8 @@
+module Present
+
+using :'Elixir.Enum' {
+    int count(list<int> xs)
+}
+
+public int Count(list<int> xs)
+Count(xs) -> :'Elixir.Enum'.count(xs)

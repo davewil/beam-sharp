@@ -1,0 +1,9 @@
+first which(erlang  )      11 us  found=true
+first which(lists   )      11 us  found=true
+first which(ets     )      17 us  found=true
+first which(maps    )      27 us  found=true
+first which(file    )      16 us  found=true
+first which(sofs    )       6 us  found=true
+first which(zip     )     299 us  found=true
+first which(********)     857 us  found=false
+second pass over the same 8: 2180 us total

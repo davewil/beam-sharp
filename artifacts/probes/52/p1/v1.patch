@@ -1,0 +1,49 @@
+--- a/bs_check.erl	2026-09-29 23:18:46.135657622 +0000
++++ b/bs_check.erl	2026-09-29 23:18:46.137814922 +0000
+@@ -323,6 +323,8 @@
+     %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
+     %% `error_members/1`, which requires non-recursive members.
+     foreign_rets_decidable(Decls, Env),
++    %% PROBE 52 (patched copy only): a foreign module must be on the code path at compile time.
++    foreign_modules_reachable(Decls),
+     %% Scan bodies for `ToJson<T>` refusals: `--api` does not type bodies.
+     to_json_refused(Decls ++ implementation_clauses(Decls), Env),
+     %% F64: a block's type arguments resolve here, so `--api` refuses
+@@ -628,6 +630,13 @@
+ %%% `string` with `binary`.
+ %%% Rationale: compiler/features/F40-foreign-return-rule.md.
+ 
++foreign_modules_reachable(Decls) ->
++    _ = [case code:which(Mod) of
++             non_existing -> erlang:error({foreign_module_unavailable, L, Mod});
++             _            -> ok
++         end || {foreign, L, Mod, _Sigs} <- Decls],
++    ok.
++
+ foreign_rets_decidable(Decls, Env) ->
+     _ = [foreign_ret_decidable(L, Mod, N, R, Env)
+          || {foreign, _, Mod, Sigs} <- Decls,
+--- a/bs_diag.erl	2026-09-29 23:18:46.135797467 +0000
++++ b/bs_diag.erl	2026-09-29 23:18:46.138006194 +0000
+@@ -653,6 +653,9 @@
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+ %% A file's `using` declarations define its dependencies.
++built(Path, {foreign_module_unavailable, Line, Mod}) ->
++    #{tag => foreign_module_unavailable, severity => error, file => Path, line => Line,
++      module => Mod};
+ built(Path, {module_not_imported, Mod, Line}) ->
+     #{tag => module_not_imported, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2027,6 +2030,11 @@
+      "  a module is a source file this invocation can reach; a namespace~n"
+      "  is a path that other modules sit under. Neither matched.~n",
+      [P, L, C, Mod]};
++message(#{tag := foreign_module_unavailable, file := P, line := L, column := C, module := Mod}) ->
++    {"~s:~p:~p: error: `using :~p` names a module that is not on the code path~n"
++     "  this machine's code path holds no ~p.beam. Put the dependency's ebin on~n"
++     "  ERL_LIBS (or build it) before compiling; otherwise the call fails at run time with error:undef.~n",
++     [P, L, C, Mod, Mod]};
+ message(#{tag := module_not_imported, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: ~s is called but never imported~n"
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"

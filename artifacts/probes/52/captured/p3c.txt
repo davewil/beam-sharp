@@ -1,0 +1,6 @@
+Compiling 1 file (.ex)
+warning: Nope.Module.call/1 is undefined (module Nope.Module is not available or is yet to be defined)
+  lib/c.ex:2: C.f/0
+
+Generated c app
+exit=0

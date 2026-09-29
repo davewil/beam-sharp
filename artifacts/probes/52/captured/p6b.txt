@@ -1,0 +1,13 @@
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+exit=1

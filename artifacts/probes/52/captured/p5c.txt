@@ -1,0 +1,19 @@
+  Resolving versions
+  Compiling c_import
+error: Unknown module
+  ┌─ /home/user/beam-sharp/artifacts/probes/52/p5/c_import/src/c_import.gleam:1:1
+  │
+1 │ import nope_pkg/thing
+  │ ^^^^^^^^^^^^^^^^^^^^^
+
+No module has been found with the name `nope_pkg/thing`.
+
+error: Unknown module
+  ┌─ /home/user/beam-sharp/artifacts/probes/52/p5/c_import/src/c_import.gleam:3:17
+  │
+3 │ pub fn main() { thing.go() }
+  │                 ^^^^^
+
+No module has been found with the name `thing`.
+
+exit=1

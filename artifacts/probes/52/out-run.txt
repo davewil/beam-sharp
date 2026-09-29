@@ -1,0 +1,41 @@
+PASS P1a  Absent (no such module) COMPILES, exit 0
+PASS P1b  Absent fails at the call: error:undef
+PASS P1c  Present compiles but is undef without ERL_LIBS
+PASS P1d  Present runs with ERL_LIBS (prints 3)
+PASS P1e  patched: Absent refused at compile time, exit 1
+PASS P1f  patched: Present refused without ERL_LIBS
+PASS P1g  patched: Present still runs (3) with ERL_LIBS
+PASS P1h  patched: --api refuses too (check sits in declared/4)
+PASS P1i  patched: all 21 in-repo example dirs still compile
+PASS P2-E1  lib_dir(elixir): bad_name unset, a path with ERL_LIBS
+PASS P2-E2  lib_dir(nope): bad_name
+PASS P2-E3  which('Elixir.Enum'): non_existing unset, a beam path with ERL_LIBS
+PASS P2-E4  module-only beam: which finds it, lib_dir(loosemod) bad_name
+PASS P2-E5  application:load(elixir): ok with ERL_LIBS, no such file without
+PASS P2-E6  lib_dir < 20 us; which on an unloaded module >= 50x slower (min: 2.173us vs 493.500us)
+FAIL P2b  lib_dir(bare) == bad_name for a beam in a dir not shaped <app>/ebin  [expected to FAIL: expectation was wrong]
+PASS P2b-2  lib_dir(myapp) bad_name before add_patha, found after
+PASS P2c  app derivable from a beam path: get_application undefined then {ok,elixir}; dir names elixir / stdlib-4.3.1.3
+PASS P3a  mix compile succeeds silently with extra_applications [:nope_app]
+PASS P3a2  nope_app lands in the .app applications list; failure only at start
+FAIL P3b  hex dep, hex absent: refused with an 'Unchecked dependencies' error; --no-deps-check compiles  [expected to FAIL: hex-less mix stops earlier with 'Could not find an SCM']
+PASS P3c  call to a nonexistent module: compiles, exit 0, with an 'undefined (module ... not available)' warning
+PASS P3d1  missing path dep: mix compile refused (Unchecked dependencies), exit 1
+PASS P3d2  missing path dep: --no-deps-check compiles anyway, exit 0
+PASS P3d3  present-but-uncompiled path dep: mix builds it, exit 0
+PASS P4a  erlc on a call to a missing module: exit 0, no warning
+PASS P4b  -required_app(nope_app) is accepted and stored, nothing checks it
+PASS P4c  xref (with +debug_info) reports {caller,f,0} -> {'Elixir.Nope',count,1}
+PASS P4c0  xref on a beam without debug_info reports nothing (setup trap, not a finding about Nope)
+PASS P4d  app list: load ok, ensure_all_started fails, systools reports undefined_applications
+PASS P5a  @external to a nonexistent Erlang module: gleam build succeeds
+PASS P5b  gleam.toml dependency, no network: fails at dependency resolution, exit 1
+PASS P5c  import of a module in no declared package: Unknown module, exit 1
+FAIL P6a  elm.json with elm/core only: fails on the registry  [expected to FAIL: it fails EARLIER on a local outline check, MISSING DEPENDENCY elm/json]
+PASS P6a2  observed instead: MISSING DEPENDENCY elm/json, before any network
+PASS P6b  with elm/json added: reaches the registry, 403, exit 1, nothing said about Http
+PASS P7b  which/1 on loaded/preloaded modules is single-digit-to-tens of microseconds; on an unloaded one ~0.3 ms (first 3 runs' zip line)
+PASS P7c  corpus: json and epgsql are non_existing on this OTP 25 machine; lists/erlang found
+INFO P7 end-to-end compile time (noisy; see p7/out.txt for the captured runs): run  TMPDIR=$TMPDIR ./p7/time.escript EBIN SRC
+
+summary: 35 PASS, 3 FAIL  (3 FAIL lines are the pre-stated expectations that were wrong: P2b, P3b, P6a)

@@ -1,0 +1,7 @@
+==> dd
+Compiling 1 file (.ex)
+Generated dd app
+==> e
+Compiling 1 file (.ex)
+Generated e app
+exit=0

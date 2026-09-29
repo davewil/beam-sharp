@@ -1,0 +1,30 @@
+### unset
+ERL_LIBS=false
+lib_dir(elixir)                    {error,bad_name}
+lib_dir(nope)                      {error,bad_name}
+lib_dir(stdlib) [control]          true
+which('Elixir.Enum')               non_existing
+which('Elixir.Nope')               non_existing
+which(erlang) [preloaded]          preloaded
+which(lists)                       "/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam"
+which(loosemod) after add_patha    "loosemod.beam"
+lib_dir(loosemod)                  {error,bad_name}
+where_is_file("elixir.app")        non_existing
+TIME lib_dir(elixir)                    min     2.175 us  median     2.301 us  (N=20000 x 7)
+TIME lib_dir(nope)                      min     2.164 us  median     2.205 us  (N=20000 x 7)
+TIME which('Elixir.Enum') unloaded      min   562.605 us  median   626.225 us  (N=200 x 7)
+TIME which('Elixir.Nope') miss          min   548.315 us  median   574.215 us  (N=200 x 7)
+TIME where_is_file(elixir.app)          min   519.480 us  median   623.065 us  (N=200 x 7)
+TIME is_loaded(Elixir.Enum)             min     2.051 us  median     2.076 us  (N=20000 x 7)
+application:load(elixir)           {error,
+                                       {"no such file or directory",
+                                        "elixir.app"}}
+application:load(elixir) again     {error,
+                                       {"no such file or directory",
+                                        "elixir.app"}}
+application:load(nope)             {error,
+                                       {"no such file or directory",
+                                        "nope.app"}}
+TIME application:load(nope) miss        min   539.815 us  median   577.275 us  (N=200 x 7)
+TIME application:load(elixir) already   min   575.909 us  median   638.150 us  (N=20000 x 7)
+ebin count on path                 31
