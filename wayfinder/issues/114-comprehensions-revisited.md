@@ -307,6 +307,14 @@ alone; `in` becomes a keyword; the build is a feature of its own.
   `from Receipt r in cs` would be `Cast<T>()`, which throws. Elixir's `<-` already lexes as
   `< -` in B#. A `when` keeps guard rules, so it cannot call a user function. Map, binary and
   `Enumerable<T>` comprehensions are fog. Unbuilt: [ENG-571](https://linear.app/davewil/issue/ENG-571).
+  **Amended 2026-09-29 by David, reviewing F65 ([ENG-571](https://linear.app/davewil/issue/ENG-571),
+  built at `6ab638b`):** a generator's source must be a list, and a `term` is refused, since
+  `ValidateAs<list<T>>` is where an outside value becomes one and a generator skipping malformed
+  entries would drop them silently; a comprehension in a guard is refused, as a `switch` is; a
+  generator may not rebind an outer name or bind one name twice, as an arm and a lambda may not; a
+  map pattern in a generator stays deferred with 48 Q2 ([ENG-323](https://linear.app/davewil/issue/ENG-323));
+  and a `when` narrows the binders of the generator before it, as an arm's guard narrows its
+  pattern ([ENG-572](https://linear.app/davewil/issue/ENG-572), unbuilt).
 ```
 
 Under **yes**, these follow, each asked after it rather than beside it: whether a generator skips

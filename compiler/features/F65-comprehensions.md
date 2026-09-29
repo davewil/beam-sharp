@@ -18,8 +18,12 @@
                 trap F53 met for the part prefix). `child_type/3` now refuses it structurally,
                 for an arm and a generator alike (F65.21)
 **Leaves**      map, binary and `Enumerable<T>` comprehensions (ticket 114 A7, fog on the map); a
-                filter narrowing its binders, so `[n for int n in xs when n >= 0]` is `list<int>`,
-                not a refinement; an expected arrow for a lambda written in a comprehension's head
+                `when` narrowing its generator's binders, as a head's and an arm's guard do, so
+                `[n for int n in xs when n >= 0]` is `list<int>` today
+                ([ENG-572](https://linear.app/davewil/issue/ENG-572)); advice naming `== x` for
+                `(x, x)` in a generator, which today says "rename the second one"
+                ([ENG-573](https://linear.app/davewil/issue/ENG-573)); an expected arrow for a
+                lambda written in a comprehension's head
 
 ## The program
 
@@ -62,7 +66,9 @@ Large(cs) -> [r for Receipt r in cs when r.Pence >= 10000]
   filter. An Erlang generator binds its pattern's names fresh, so `== n` lowers to a fresh name
   and an `=:=` filter, and each generator's lowered names are unique in the module.
 
-What the build read that no ticket spelled, for David to overrule:
+What the build read that no ticket spelled. David accepted all of it on 2026-09-29, reviewing
+ENG-571, with the nested-relational fix under **Fixes**, and it is recorded in
+[ticket 114](../../wayfinder/issues/114-comprehensions-revisited.md)'s Decisions entry:
 
 - `generator_not_list` and `comprehension_in_guard` refuse what ticket 114 did not list; both
   would otherwise compile and crash (`bad_generator`, or an Erlang compile error).
