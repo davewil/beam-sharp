@@ -2914,7 +2914,7 @@ type_of({e_with, L, Base, Fields}, S, C) ->
 %% Rationale: compiler/features/F65-comprehensions.md.
 type_of({e_comp, _L, Head, Quals}, S, C) ->
     %% The parser puts a generator first, so a guard always has one before it.
-    {Scope, D0} = comp_quals(Quals, S, S, C, none, []),
+    {Scope, D0} = comp_quals(Quals, S, C, none, []),
     {HeadTy, D1} = type_of(Head, Scope, C),
     {bs_types:list(HeadTy), D0 ++ D1};
 %% A switch uses the clause walk over one synthesised column, sharing pattern
@@ -3735,24 +3735,26 @@ arms([{arm, AL, P, Guard, Body} | Rest], Residual, Declared, S, C, N, Tys, Diags
 %%% typed at the top, as a switch subject's is, so the part prefix is legal
 %%% there; it narrows the list's element type and is reported only when no
 %%% element can match it. A guard keeps guard rules, and the guard-level
-%%% operator refusals reach it as they reach an arm's. A guard narrows the
-%%% generator before it, as an arm's guard narrows its pattern.
+%%% operator refusals reach it as they reach an arm's.
 %%%
-%%% `S` types the head and each later source under every guard's narrowing.
-%%% `GuardScope` types the guards under none of it, sources included, as
-%%% `arms/10` checks a guard against its pattern's domain, so one guard's
-%%% narrowing cannot erase a later one's mixed operand.
+%%% A guard narrows the generator before it, as an arm's guard narrows its
+%%% pattern: the generator is the pattern, its `when`s are the guard, and what
+%%% follows them is the body. So its `when`s are checked in the scope the
+%%% generator bound, as `arms/10` checks a guard against its pattern's domain,
+%%% and the head and every later generator see their narrowing.
 %%% Rationale: compiler/features/F65-comprehensions.md.
 
-comp_quals([], S, _GuardScope, _C, _Gen, Diags) ->
+comp_quals([], S, _C, _Gen, Diags) ->
     {S, Diags};
-comp_quals([{gen, L, P, Src} | Rest], S, GuardScope, C, _Gen, Diags) ->
+comp_quals([{gen, L, P, Src} | Rest], S, C, _Gen, Diags) ->
     {SrcTy, D0} = type_of(Src, S, C),
     {PTy, Binds, _Exact} = pattern_type(P, [], C#ctx.types),
+    %% `list_elem/1` answers `none` for `int` and `term` for `term`, so a
+    %% source that is no list is refused before its element type is read.
     {Elem, D1} =
-        case source_elem(SrcTy) of
-            {ok, E}  -> {E, []};
-            not_list -> {reported(), [{error, L, C#ctx.fname, {generator_not_list, SrcTy}}]}
+        case bs_types:is_subtype(SrcTy, bs_types:list(bs_types:term())) of
+            true  -> {bs_types:list_elem(SrcTy), []};
+            false -> {reported(), [{error, L, C#ctx.fname, {generator_not_list, SrcTy}}]}
         end,
     Domain = bs_types:intersect(Elem, PTy),
     D2 = case map_arm_deferred(P, Elem) of
@@ -3767,38 +3769,22 @@ comp_quals([{gen, L, P, Src} | Rest], S, GuardScope, C, _Gen, Diags) ->
                      _       -> []
                  end
          end,
-    %% The source again, under the guards' scope; the first typing reported.
-    {GuardSrcTy, _} = type_of(Src, GuardScope, C),
-    GuardElem = case source_elem(GuardSrcTy) of
-                    {ok, GE} -> GE;
-                    not_list -> reported()
-                end,
-    comp_quals(Rest, bind_at(S, Domain, Binds),
-               bind_at(GuardScope, bs_types:intersect(GuardElem, PTy), Binds), C,
-               {PTy, Binds, Domain}, Diags ++ D0 ++ D1 ++ D2);
-%% Each `when` lowers to its own filter, so the next one's head and sources
-%% see this one's narrowing. A guard reading a name the generator did not bind
-%% gets its pattern back from `apply_guard/3`, which narrows nothing. A `when`
-%% that admits nothing narrows nothing either, so what follows it keeps its
-%% diagnostics; an arm's narrows and warns, which a generator's awaits (ENG-575).
-comp_quals([{filter, _, G} | Rest], S, GuardScope, C, {PTy, Binds, Domain}, Diags) ->
+    Scope = bind_at(S, Domain, Binds),
+    comp_quals(Rest, Scope, C, {PTy, Binds, Domain, Scope}, Diags ++ D0 ++ D1 ++ D2);
+%% A guard reading a name the generator did not bind gets its pattern back from
+%% `apply_guard/3`, which narrows nothing. A `when` that admits nothing narrows
+%% nothing either, so what follows it keeps its diagnostics; an arm's narrows
+%% and warns, which a generator's awaits (ENG-575).
+comp_quals([{filter, _, G} | Rest], S, C, {PTy, Binds, Domain, GuardScope}, Diags) ->
     D = guard_diags({guard, G}, C) ++ mixed_guard_diags({guard, G}, GuardScope, C),
     {_Certain, Possible} = apply_guard(PTy, Binds, {guard, G}),
-    Both = bs_types:intersect(Domain, Possible),
-    Narrowed = case bs_types:is_none(Both) of
+    Admitted = bs_types:intersect(Domain, Possible),
+    Narrowed = case bs_types:is_none(Admitted) of
                    true  -> Domain;
-                   false -> Both
+                   false -> Admitted
                end,
-    comp_quals(Rest, bind_at(S, Narrowed, Binds), GuardScope, C, {PTy, Binds, Narrowed},
+    comp_quals(Rest, bind_at(S, Narrowed, Binds), C, {PTy, Binds, Narrowed, GuardScope},
                Diags ++ D).
-
-%% `list_elem/1` answers `none` for `int` and `term` for `term`, so a source
-%% that is no list is refused before its element type is read.
-source_elem(SrcTy) ->
-    case bs_types:is_subtype(SrcTy, bs_types:list(bs_types:term())) of
-        true  -> {ok, bs_types:list_elem(SrcTy)};
-        false -> not_list
-    end.
 
 %% Bind each of a pattern's names to its path's part of `Domain`, over `S`.
 bind_at(S, Domain, Binds) ->

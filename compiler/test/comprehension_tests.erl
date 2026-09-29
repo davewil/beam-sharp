@@ -429,29 +429,43 @@ a_guard_across_generators_does_not_narrow_test() ->
     ok_rc(Got),
     has(Got, "[(0, -5)]").
 
-%% F65.26 — every `when` is checked against the binders before any `when`
-%% narrowed them, as a clause guard is. `a > 0` keeps only the `(int, int)`
-%% product, which would make `b` an `int`; checked as written, `b` is still
-%% `int | float`, for its own generator and through a later one's source.
-a_guard_is_checked_before_any_narrowing_test() ->
+%% F65.26 — a generator is an arm's pattern, its `when`s the arm's guard and
+%% what follows the arm's body. `a > 0` keeps only the `(int, int)` product.
+%% The generator's next `when` is checked with `b` as bound, `int | float`, as
+%% `a > 0 and b > 0` is in an arm; a later generator sees `b` an `int`, and `b`
+%% a list, as the arm's body does.
+guards_are_checked_as_an_arms_guard_is_test() ->
     Sibling = diagnose([{"Sb.bs",
                          "module Sb\n"
                          "public list<int | float> Kept(list<(int, int) | (:x, float)> ps)\n"
                          "Kept(ps) -> [b for (a, b) in ps when a > 0 when b > 0]\n"}]),
     bad_rc(Sibling),
     tagged(Sibling, "numeric_union_operand"),
-    Source = diagnose([{"Ss.bs",
-                        "module Ss\n"
-                        "public list<int | float> Kept(list<(int, int) | (:x, float)> ps)\n"
-                        "Kept(ps) -> [c for (a, b) in ps when a > 0 for c in [b] when c > 0]\n"}]),
+    Later = run([{"Lt.bs",
+                  "module Lt\n"
+                  "public list<int> Kept(list<(int, int) | (:x, float)> ps, list<int> ys)\n"
+                  "Kept(ps, ys) -> [c for (a, b) in ps when a > 0 for c in ys when b > 0]\n"
+                  "public list<int> Demo()\n"
+                  "Demo() -> Kept([(1, 2), (:x, 1.5)], [7])\n"}],
+                "Demo"),
+    ok_rc(Later),
+    has(Later, "[7]"),
+    Source = diagnose([{"Sl.bs",
+                        "module Sl\n"
+                        "public list<int> Kept(list<(int, list<int>) | (:x, float)> ps)\n"
+                        "Kept(ps) -> [c for (a, b) in ps when a > 0 for c in b when c == 1.0]\n"}]),
     bad_rc(Source),
-    tagged(Source, "numeric_union_operand"),
-    Own = diagnose([{"Mo.bs",
-                     "module Mo\n"
-                     "public list<int> Kept(list<int> xs)\n"
-                     "Kept(xs) -> [n for int n in xs when n > 5 and n < 3 when n == 1.0]\n"}]),
-    bad_rc(Own),
-    tagged(Own, "mixed_operands"),
+    tagged(Source, "mixed_operands").
+
+%% F65.27 — a `when` that admits nothing narrows nothing, so what follows it
+%% is typed with `n` an `int`, not `none`, and keeps its diagnostics (ENG-575).
+a_guard_admitting_nothing_leaves_what_follows_checked_test() ->
+    Head = diagnose([{"Dn.bs",
+                      "module Dn\n"
+                      "public list<bool> Ones(list<int> xs)\n"
+                      "Ones(xs) -> [n == 1.0 for int n in xs when n > 5 and n < 3]\n"}]),
+    bad_rc(Head),
+    tagged(Head, "mixed_operands"),
     Later = diagnose([{"Ml.bs",
                        "module Ml\n"
                        "public list<(int, int)> Kept(list<int> xs, list<int> ys)\n"
@@ -459,16 +473,6 @@ a_guard_is_checked_before_any_narrowing_test() ->
                        " for int m in ys when n == 1.0]\n"}]),
     bad_rc(Later),
     tagged(Later, "mixed_operands").
-
-%% F65.27 — a `when` that admits nothing narrows nothing, so the head keeps
-%% its diagnostics rather than being typed with `n` at `none` (ENG-575).
-a_guard_that_admits_nothing_narrows_nothing_test() ->
-    Got = diagnose([{"Dn.bs",
-                     "module Dn\n"
-                     "public list<bool> Ones(list<int> xs)\n"
-                     "Ones(xs) -> [n == 1.0 for int n in xs when n > 5 and n < 3]\n"}]),
-    bad_rc(Got),
-    tagged(Got, "mixed_operands").
 
 flatten(Forms) -> lists:flatten([walk(F) || F <- Forms]).
 
