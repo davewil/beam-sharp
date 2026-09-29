@@ -17,9 +17,12 @@
 **Depends on**  F51 (the operator's refusals and the guard sites they reach), F53 (the numeric union,
                 which stays its own refusal), F66 (the template this refusal's advice names)
 **Leaves**      an operand with a numeric part beside another, `int | :none` or `term`, which is
-                ticket 83's leave; an operand over a type variable, which meets `int` and is not
-                refused (see *The rule*), so `F<T>(T a) -> a + 1` still compiles and `F("x")` still
-                raises `badarith`; a template for a chain whose operands are not names, one-level
+                ticket 83's leave; an operand over a type variable, which is not refused, so
+                `F<T>(T a) -> a + 1` still compiles and `F("x")` still raises `badarith`. That is
+                not decided here: ticket 27 §2–3 make a variable opaque and unbounded and name
+                arithmetic as a capability only a bound would grant, which reads as refusing it,
+                while ticket 112's rule is written over concrete types. F67 keeps what compiled,
+                and the question is [ENG-579](https://linear.app/davewil/issue/ENG-579); a template for a chain whose operands are not names, one-level
                 projections or plain literals, where the advice names the form without writing it;
                 a parenthesised chain on the right, `"a" + (s + "b")`, which is advised the inner
                 chain's template alone, since flattening it would reorder numeric additions C# does
@@ -58,10 +61,10 @@ Pasted as the body, the template returns `"-/glm-5.2/opencode"`.
   operand, and refuses one the same way (`side => right`). Comparisons, `and` and `or` are not
   arithmetic, and are unchanged.
 - **Meets, not is a subtype of.** `int | :none` and `term` have a numeric part, and compile as they
-  did. A type variable meets `int`, since it may be one. The body sees it as an opaque atom, so a
-  type holding that atom is read as the variable, unless it holds every atom: `atom` holds `:T`
-  too, and is refused beside a type variable as it is anywhere else. `F<T>(T a) -> a + 1` ran
-  `F(4)` to `5` before F67, and still does.
+  did. **A type variable is not refused**, since whether arithmetic over one is legal is not
+  decided (see *Leaves*), and `F<T>(T a) -> a + 1` ran `F(4)` to `5` before F67. The body sees a
+  variable as an opaque atom, so a type holding that atom is read as the variable, unless it holds
+  every atom: `atom` holds `:T` too, and is refused beside a type variable as it is anywhere else.
 - **Arithmetic over an uninhabited operand is uninhabited.** An operand of type `none` never arrives,
   whether it raised or was refused below. It answered `int` before, so the second `+` of a string
   chain refused the first one's `int`, and the return check refused an `int` the chain never made.

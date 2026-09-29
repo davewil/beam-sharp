@@ -154,8 +154,8 @@ a_numeric_part_beside_another_still_compiles_test() ->
 a_term_operand_still_compiles_test() ->
     ok_rc(compile([{"Any.bs", "module Any\npublic int Inc(term a)\nInc(a) -> a + 1\n"}])).
 
-%% A type variable meets `int`, since `T` may be `int`: the rule is "meets",
-%% and `F(4)` ran before this and runs after it.
+%% A type variable is not refused: `F(4)` ran before this and runs after it.
+%% Whether ticket 27's opacity refuses arithmetic over one is not decided here.
 a_type_variable_operand_still_runs_test() ->
     Got = run([{"GenInt.bs", "module GenInt\npublic int F<T>(T a)\nF(a) -> a + 1\n"
                              "public int Demo()\nDemo() -> F(4)\n"}],

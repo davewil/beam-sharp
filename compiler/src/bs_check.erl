@@ -3976,9 +3976,11 @@ non_numeric(Op, ATy, BTy, C) when Op =:= '+'; Op =:= '-'; Op =:= '*'; Op =:= '/'
 non_numeric(_Op, _ATy, _BTy, _C) ->
     none.
 
-%% A type variable meets `int`, since it may be one. The body sees it as an
-%% opaque atom (`opaque_env/2`), so a type holding that atom is the variable,
-%% unless it holds every atom: `atom` holds `:T` too, and is no variable.
+%% A type variable is not refused: `F<T>(T a) -> a + 1` compiled before F67,
+%% and whether ticket 27's opacity refuses it is not decided (F67's Leaves).
+%% The body sees a variable as an opaque atom (`opaque_env/2`), so a type
+%% holding that atom is the variable, unless it holds every atom: `atom` holds
+%% `:T` too, and is no variable.
 lacks_number(Ty, C) ->
     Numeric = bs_types:union(bs_types:int(), bs_types:float_top()),
     Variable = lists:any(fun(V) -> bs_types:is_subtype(bs_types:atom_lit(V), Ty) end,
