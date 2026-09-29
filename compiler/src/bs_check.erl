@@ -2678,6 +2678,9 @@ keep_from_guard(D)            -> mixed_pair(D).
 mixed_pair({error, _, _, {mixed_operands, _, _, _, _}}) -> true;
 %% Numeric-union refusals must survive guard filtering too.
 mixed_pair({error, _, _, {numeric_union_operand, _, _, _, _}}) -> true;
+%% F67: a guard over an operand with no numeric part is silently false, not a
+%% crash, so the refusal matters there most of all.
+mixed_pair({error, _, _, {non_numeric_operand, _, _, _, _, _}}) -> true;
 mixed_pair(_)                                           -> false.
 
 %%% --- Binary patterns ---
@@ -2884,6 +2887,18 @@ type_of({e_raise, _, Reason}, S, C) ->
 type_of({e_tuple, _, Es}, S, C) ->
     {Tys, D} = type_of_all(Es, S, C),
     {bs_types:tuple(Tys), D};
+%% F67: a `+` chain is typed as the left fold the parser built, each `+` at its
+%% own position, so a refusal inside it can print the whole chain as one
+%% template rather than the first two operands the fold reaches.
+type_of({e_op, _, '+', _, _} = E, S, C) ->
+    Chain = plus_chain(E),
+    Typed = [{L, type_of(X, S, C)} || {L, X} <- Chain],
+    Repair = chain_template(Chain, [T || {_, {T, _}} <- Typed]),
+    [{_, {T0, D0}} | Rest] = Typed,
+    lists:foldl(fun({L, {BTy, DB}}, {ATy, D}) ->
+                        {Ty, DOp} = op_result('+', ATy, BTy, L, C),
+                        {Ty, D ++ DB ++ [with_repair(X, Repair) || X <- DOp]}
+                end, {T0, D0}, Rest);
 %% Arithmetic synthesises numeric types, not exact result intervals.
 type_of({e_op, L, Op, A, B}, S, C) ->
     {ATy, D1} = type_of(A, S, C),
@@ -3604,7 +3619,13 @@ lambda_params([P | Ps], [D | Ds], I, L, C) ->
                {false, true} -> [{error, L, C#ctx.fname,
                                   {lambda_param_refuted, I, D}}]
            end,
-    Bound = maps:from_list([{V, at_path(D, Path)} || {V, Path} <- maps:to_list(PBinds)]),
+    %% A refuted parameter's names are `term`, as an unbound name's are: read
+    %% off a domain the pattern does not cover, `(:ok, n)` over a `result`
+    %% bound `n` to the error's `string`, and F67 refused `acc + n` for it.
+    Bound = maps:from_list([{V, case Diag of
+                                    [] -> at_path(D, Path);
+                                    _  -> bs_types:term()
+                                end} || {V, Path} <- maps:to_list(PBinds)]),
     {Rest, Diags} = lambda_params(Ps, Ds, I + 1, L, C),
     {maps:merge(Bound, Rest), Diag ++ Diags}.
 
@@ -3917,8 +3938,97 @@ op_result(Op, ATy, BTy, L, C) ->
         {float, int} when Op =/= 'and', Op =/= 'or' ->
             {reported(), [mixed(Op, float, int, BTy, L, C)]};
         _ ->
-            union_result(Op, ATy, BTy, L, C)
+            case non_numeric(Op, ATy, BTy, C) of
+                none         -> union_result(Op, ATy, BTy, L, C);
+                uninhabited  -> {reported(), []};
+                {Side, OpTy} -> {reported(), [non_numeric_operand(Op, Side, OpTy, L, C)]}
+            end
     end.
+
+%% F67 (ticket 112 A4): an arithmetic operand that meets neither `int` nor
+%% `float` is refused, where the BEAM would raise `badarith`. Meets, not is a
+%% subtype of: `int | :none` and `term` have a numeric part and are ticket
+%% 83's leave.
+%%
+%% Arithmetic over an uninhabited operand is uninhabited: the operand never
+%% arrives, whether it raised or was refused below. It answered `int` before,
+%% and then `a + "/" + b` refused its second `+` over the first one's `int`
+%% and the return check refused the `int` the chain never made.
+%%
+%% A type variable meets `int`, since it may be one. The body sees it as an
+%% opaque atom (`opaque_env/2`), so it joins the numeric side of the meet here
+%% rather than being read as the atom it is spelled with.
+non_numeric(Op, ATy, BTy, C) when Op =:= '+'; Op =:= '-'; Op =:= '*'; Op =:= '/';
+                                  Op =:= '%' ->
+    Numeric = bs_types:union([bs_types:int(), bs_types:float_top()
+                              | [bs_types:atom_lit(V) || V <- C#ctx.tvars]]),
+    Lacks = fun(T) -> bs_types:is_none(bs_types:intersect(T, Numeric)) end,
+    case bs_types:is_none(ATy) orelse bs_types:is_none(BTy) of
+        true -> uninhabited;
+        false ->
+            case {Lacks(ATy), Lacks(BTy)} of
+                {true, _} -> {left, ATy};
+                {_, true} -> {right, BTy};
+                _         -> none
+            end
+    end;
+non_numeric(_Op, _ATy, _BTy, _C) ->
+    none.
+
+%% A `string` under `+` is a join, which a template spells; the chain's own
+%% rendering replaces `template` when there is one (`with_repair/2`). Under
+%% any other operator a string is no join, and nothing is offered. A record
+%% is named as the author wrote it, as `interp_hole` names one.
+non_numeric_operand(Op, Side, Ty, L, C) ->
+    Repair = case Op =:= '+' andalso bs_types:is_subtype(Ty, bs_types:string()) of
+                 true  -> template;
+                 false -> none
+             end,
+    {error, L, C#ctx.fname,
+     {non_numeric_operand, Op, Side, Ty, hole_records(Ty), Repair}}.
+
+with_repair({error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, template}}, Text)
+  when Text =/= none ->
+    {error, L, Fn, {non_numeric_operand, Op, Side, Ty, Rs, Text}};
+with_repair(D, _Text) ->
+    D.
+
+%% The parser nests `+` to the left, so the chain is the left spine; a
+%% parenthesised `+` on the right is one operand, typed as a chain of its own.
+plus_chain({e_op, L, '+', A, B}) -> plus_chain(A) ++ [{L, B}];
+plus_chain(E)                    -> [{none, E}].
+
+%% The template a chain of `+` means, or `none`. It is printed only where it
+%% builds the string C# would: every operand fills a hole (`hole_part/1`), and
+%% one of the first two is a `string`, since C#'s `+` adds numbers until a
+%% string joins them. The operands it copies are names, one-level projections
+%% and plain literals, each printed as written; any other operand leaves the
+%% advice naming the form without writing it.
+chain_template(Chain, Tys) ->
+    Parts = [case bs_types:is_none(T) of
+                 true  -> refused;
+                 false -> hole_part(T)
+             end || T <- Tys],
+    Pieces = [template_piece(X) || {_, X} <- Chain],
+    case not lists:member(refused, Parts)
+         andalso lists:member(string, lists:sublist(Parts, 2))
+         andalso not lists:member(none, Pieces) of
+        true  -> "$\"" ++ lists:append(Pieces) ++ "\"";
+        false -> none
+    end.
+
+template_piece({e_var, _, V})         -> "{" ++ atom_to_list(V) ++ "}";
+template_piece({e_proj, _, V, Field}) -> "{" ++ atom_to_list(V) ++ "." ++ atom_to_list(Field) ++ "}";
+template_piece({e_str, _, Bytes})     -> template_text(Bytes, []);
+template_piece(_)                     -> none.
+
+%% A literal's bytes as template text: a brace doubles, as a template writes
+%% one. A byte that needs an escape to be written is not re-escaped here.
+template_text([], Acc)                  -> lists:reverse(Acc);
+template_text([$\{ | T], Acc)           -> template_text(T, "{{" ++ Acc);
+template_text([$\} | T], Acc)           -> template_text(T, "}}" ++ Acc);
+template_text([B | _], _) when B =:= $"; B =:= $\\; B < 32 -> none;
+template_text([B | T], Acc)             -> template_text(T, [B | Acc]).
 
 %% Keep this operator set aligned with both mixed-part clauses above: every
 %% operator except `and` and `or`. Both operands must be inhabited. Only wholly

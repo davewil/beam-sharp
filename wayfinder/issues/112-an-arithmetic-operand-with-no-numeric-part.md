@@ -412,6 +412,8 @@ exists to prevent.
    in `op_result/5`, asked at both guard sites (`walk/6`, `arms/10`), with the round 1 delta
    above. A string operand's advice names the template. [25](25-exemplar-programs.md) finding 5
    and F5's *Out of scope* line are amended to point here.
+   *Built as [F67](../../compiler/features/F67-non-numeric-operand.md), 2026-09-29. The advice
+   prints the whole `+` chain as one template where it can.*
 
 **Not decided here, after Q3.** Whether a template may be a pattern (`$"order-{rest}"`, the BEAM's
 literal-prefix match), format specifiers (`{o.Total:F2}`, C#'s alignment and format), and an
@@ -448,6 +450,6 @@ iodata builder (25e's `Iodata`).
   [83](issues/83-a-union-operand-at-an-operator.md) had already started checking. Not decided:
   a template in a pattern, format specifiers, an iodata builder. Round 4 (2026-09-29, from the
   F66 build): a hole may span lines, as C# 11's may, and a guard refuses a non-`string` hole as
-  `interp_in_guard`. Unbuilt:
-  [ENG-562](https://linear.app/davewil/issue/ENG-562), then [ENG-551](https://linear.app/davewil/issue/ENG-551).
+  `interp_in_guard`. Built: [ENG-562](https://linear.app/davewil/issue/ENG-562) as F66, then
+  [ENG-551](https://linear.app/davewil/issue/ENG-551) as F67.
 ```

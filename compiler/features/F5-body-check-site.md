@@ -272,7 +272,10 @@ obligation.
   feature that does not wait on F2's two owed decisions.
 - **Checking `e_op`'s operands.** `:a + 1` synthesises `int` and is not rejected. `e_op` declares
   no type, so it is not a site; the BEAM raises `badarith` and ticket 33 enumerated the sites
-  rather than collecting plausible checks.
+  rather than collecting plausible checks. *(Amended 2026-09-29: `:a + 1` is refused now, as
+  `non_numeric_operand`, by [F67](F67-non-numeric-operand.md) under ticket 112 A4. The operator
+  already refused a mixed pair (F51) and a numeric union (F53); it is still not one of F5's
+  sites, since it checks its operands against its own table rather than a declared type.)*
 - **`with`'s assigned values.** `o with { Total = :oops }` is unchecked — `with` is
   width-preserving, so it synthesises the base's type unchanged (26 §2). This is ticket 33's answer
   and not an oversight; a check here would be a sixth site and needs the decision that admits it.

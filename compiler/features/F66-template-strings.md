@@ -18,7 +18,7 @@
 **Depends on**  F9 (a string literal's escapes and its UTF-8 check, which a template's text reuses),
                 F41 (guard rules), F51 (the guard-site typing a hole's part is read at)
 **Unblocks**    [ENG-551](https://linear.app/davewil/issue/ENG-551), whose refusal of `string + string`
-                names a template as the repair; [ENG-565](https://linear.app/davewil/issue/ENG-565),
+                names a template as the repair, built as [F67](F67-non-numeric-operand.md); [ENG-565](https://linear.app/davewil/issue/ENG-565),
                 a record hole through `Formattable` (ticket 113)
 **Leaves**      a template in pattern position, format specifiers and an iodata builder (ticket 112,
                 *not decided*); a record hole, which is ENG-565; braces nested more than two deep

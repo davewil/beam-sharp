@@ -85,6 +85,34 @@ derive_pair() {
   "$BSC" "$dir/Total/Total.bs" Total 7 250 > "$dir/pair.out" 2>&1 || true
 }
 
+# THE SAME PASTE-BACK FOR A TEMPLATE. Ticket 112 A4, F67. `id.Lab + "/" +
+# id.Model` is refused because `+` takes numbers, and the advice prints the
+# chain as one template on a line of its own. This lifts that line, makes it
+# `ModelKey`'s body, and runs the key. The key is the point: a template that
+# dropped a field, or held the `+` inside a hole, still reads like the fix.
+#
+# THE REFUSAL THIS REPLACED WAS ITS OWN F19. Before F67 the compiler said the
+# chain returned an `int` and offered `public string | int ModelKey(...)`,
+# which compiles and crashes with `badarith`.
+derive_template() {
+  local advice="$1" dir="$2" body
+  mkdir -p "$dir/Evidence"
+  grep -c '^[[:space:]]*\$"' "$advice" > "$dir/templates.count" || true
+  body="$(sed -n 's/^[[:space:]]*\(\$".*\)$/\1/p' "$advice" | head -1)"
+  {
+    echo "module Evidence"
+    echo
+    echo "record ModelIdentity { Lab: string, Model: string, Harness: string }"
+    echo
+    echo "public string ModelKey(ModelIdentity id)"
+    echo "ModelKey(id) -> $body"
+    echo
+    echo "public string Demo()"
+    echo "Demo() -> ModelKey(ModelIdentity { Lab = \"-\", Model = \"glm-5.2\", Harness = \"opencode\" })"
+  } > "$dir/Evidence/Evidence.bs"
+  "$BSC" "$dir/Evidence/Evidence.bs" Demo > "$dir/template.out" 2>&1 || true
+}
+
 # ---------------------------------------------------------------------------
 # judge — the whole of the gate's opinion, in one place.
 # ---------------------------------------------------------------------------
@@ -133,6 +161,25 @@ judge() {
     echo "A7: the advice for a two-parameter function did not compile (got '$pair', wanted 7)"
 }
 
+# The template half's opinion. The marker in T1 is the refusal's own sentence
+# in bs_diag.erl, so the old `returns a value its signature does not declare`
+# refusal, which also says `error`, cannot pass for it.
+judge_template() {
+  local dir="$1" advice count ran
+  advice="$(cat "$dir/template_advice.txt")"
+  count="$(cat "$dir/templates.count" 2>/dev/null || echo 0)"
+  ran="$(cat "$dir/template.out" 2>/dev/null || echo "")"
+
+  case "$advice" in
+    *"takes an int or a float on each side"*) ;;
+    *) echo "T1: the string chain was not refused at its operator (got '$advice')" ;;
+  esac
+  [ "${count:-0}" -eq 1 ] || \
+    echo "T2: the advice printed $count template line(s); the chain is one template"
+  [ "$ran" = '"-/glm-5.2/opencode"' ] || \
+    echo "T3: the advised template did not build the key (got '$ran', wanted \"-/glm-5.2/opencode\")"
+}
+
 probe() {
   local dir="$1"
   mkdir -p "$dir/Owed" "$dir/Ledger" "$dir/Two"
@@ -170,6 +217,20 @@ Post(float f) when f < 0.0 -> :credit
 Post(float f)              -> :debit
 EOF
   "$BSC" "$dir/Ledger/Ledger.bs" Post -2.50 > "$dir/table.out" 2>&1 || true
+
+  # Ticket 112's program, in a directory of its own: `derive_template` writes
+  # the pasted module under the same name.
+  mkdir -p "$dir/refused/Evidence"
+  cat > "$dir/refused/Evidence/Evidence.bs" <<'EOF'
+module Evidence
+
+record ModelIdentity { Lab: string, Model: string, Harness: string }
+
+public string ModelKey(ModelIdentity id)
+ModelKey(id) -> id.Lab + "/" + id.Model + "/" + id.Harness
+EOF
+  "$BSC" "$dir/refused/Evidence/Evidence.bs" > "$dir/template_advice.txt" 2>&1 || true
+  derive_template "$dir/template_advice.txt" "$dir"
 }
 
 # ---------------------------------------------------------------------------
@@ -260,8 +321,64 @@ if [ "${1:-}" = "--self-test" ]; then
   else
     echo "  ok green on the correct advice"
   fi
+
+  # THE TEMPLATE HALF. Each stub is the text the compiler would print, and
+  # `derive_template` pastes and runs it through the built `bsc`, so a red is
+  # a key the compiler really built wrong or refused.
+  tstub() {
+    local name="$1" advice="$2"
+    mkdir -p "$W/$name"
+    printf '%s\n' "$advice" > "$W/$name/template_advice.txt"
+    derive_template "$W/$name/template_advice.txt" "$W/$name"
+  }
+  refusal='Evidence/Evidence.bs:6:24: error: `+` in ModelKey has `string` on its left
+  `+` takes an int or a float on each side; this operand has neither part.'
+
+  tstub t_good "$refusal"'
+  Build a string with a template:
+    $"{id.Lab}/{id.Model}/{id.Harness}"'
+
+  # The refusal this feature replaced: an `error`, and a signature that
+  # compiles into `badarith`.
+  tstub t_return 'Evidence/Evidence.bs:6:1: error: ModelKey returns a value its signature does not declare
+  Otherwise, the signature its clauses justify:
+    public string | int ModelKey(ModelIdentity id)'
+
+  # Refused, and nothing to paste.
+  tstub t_bare "$refusal"
+
+  # The first cut's shape: the refused operator's own two operands, and the
+  # rest of the chain lost.
+  tstub t_partial "$refusal"'
+  Build a string with a template:
+    $"{id.Lab}/"'
+
+  # A hole holding the `+` it replaces: it reads as a template and is the
+  # same refusal once pasted.
+  tstub t_inner "$refusal"'
+  Build a string with a template:
+    $"{id.Lab + "/" + id.Model + "/" + id.Harness}"'
+
+  # Two template lines: the chain is one string.
+  tstub t_two "$refusal"'
+  Build a string with a template:
+    $"{id.Lab}/{id.Model}/{id.Harness}"
+    $"{id.Lab}/{id.Model}"'
+
+  for bad in t_return t_bare t_partial t_inner t_two; do
+    if [ -z "$(judge_template "$W/$bad")" ]; then
+      echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
+    else
+      echo "  ok red on $bad"
+    fi
+  done
+  if [ -n "$(judge_template "$W/t_good")" ]; then
+    echo "  x SELF-TEST: the CORRECT template was rejected -"; judge_template "$W/t_good"; fail=1
+  else
+    echo "  ok green on the correct template"
+  fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: six defective advices seen, the dispatch accepted"
+  echo "self-test passed: eleven defective advices seen, the dispatch and the template accepted"
   exit 0
 fi
 
@@ -269,5 +386,7 @@ fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
 out="$(judge "$W")"
-if [ -n "$out" ]; then echo "$out"; exit 1; fi
+tout="$(judge_template "$W")"
+if [ -n "$out$tout" ]; then printf '%s\n' "$out" "$tout" | sed '/^$/d'; exit 1; fi
 echo "  ok         the numeric-union refusal's advice is a program that compiles and runs"
+echo "  ok         the string chain's template is a program that builds the key"

@@ -882,6 +882,28 @@ public int Net(int gross, int tax)
 Net(gross, tax) -> gross + 1 - tax * 2
 ```
 
+**An operand with no numeric part is refused at the operator.** `+`, `-`, `*`, `/` and `%` take
+an `int` or a `float` on each side, so a `string`, an atom, a record or a list beside one is
+refused at compile time, in a guard as in a body. `+` does not join strings; a template does, and
+where the operands are a chain the template can print, the refusal prints it:
+
+<!-- diagnoses: non_numeric_operand -->
+```csharp
+module Evidence
+
+record ModelIdentity { Lab: string, Model: string, Harness: string }
+
+public string ModelKey(ModelIdentity id)
+ModelKey(id) -> id.Lab + "/" + id.Model + "/" + id.Harness
+```
+
+— *`+` in ModelKey has `string` on its left — `+` takes an int or a float on each side; this
+operand has neither part. Build a string with a template: `$"{id.Lab}/{id.Model}/{id.Harness}"`*.
+An operand that has a numeric part beside another, `int | :none` or `term`, is not refused: the
+BEAM still raises `badarith` if the other part arrives. **shipped** — F67.
+<!-- decided by ticket 112 A4; built by F67, ENG-551. The numeric-part-beside-another case is
+     ticket 83's leave, and not decided -->
+
 **`/` on two `int`s is truncated integer division, and `%` is the remainder it leaves, taking the
 sign of the dividend.** So `-7 / 2` is `-3` and `-7 % 2` is `-1` — C#'s meaning, TypeScript's
 meaning, and exactly Erlang's `div` and `rem`. It is *not* Erlang's `/`, which is float division

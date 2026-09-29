@@ -420,6 +420,19 @@ built(Path, {Sev, Line, Fn, {numeric_union_operand, Op, Side, Ty, Heads}}) ->
                                side => Side,
                                type => bs_types:to_string(Ty),
                                heads => union_heads(Fn, Heads)};
+%% `repair` is `none` for an operand no template joins, `template` for a
+%% string the checker could not print a chain for, or the template's text. A
+%% record operand is printed by the names the author wrote, as a hole's is.
+built(Path, {Sev, Line, Fn, {non_numeric_operand, Op, Side, Ty, Records, Repair}}) ->
+    Text = case Records of
+               none -> bs_types:to_string(Ty);
+               _    -> lists:flatten(lists:join(" | ", [atom_to_list(R) || R <- Records]))
+           end,
+    (at(Sev, Path, Line, Fn))#{tag => non_numeric_operand,
+                               op => Op,
+                               side => Side,
+                               type => Text,
+                               repair => Repair};
 %% Nested prefixes are refused by position regardless of their type.
 %% Undecidable prefixes carry the checker's reason for type-specific advice.
 built(Path, {type_prefix_nested, Line}) ->
@@ -1486,6 +1499,23 @@ message(#{tag := numeric_union_operand, file := P, line := L, column := C,
      "  has no one meaning over both.~n"
      ++ dispatch_advice(maps:get(heads, D, [])),
      [P, L, C, Op, Fn, Ty, Side, Op]};
+%% F67 (ticket 112 A4). The template goes on a line of its own, as a clause
+%% head does in the message above, because it is the text an author pastes
+%% and what `check-advice-compiles.sh` lifts and runs. It is an argument, not
+%% format text: a `~` in a literal would otherwise be read as a directive.
+message(#{tag := non_numeric_operand, file := P, line := L, column := C,
+          function := Fn, op := Op, side := Side, type := Ty, repair := Repair}) ->
+    {Advice, Args} =
+        case Repair of
+            none     -> {"", []};
+            template -> {"  Build a string with a template, `$\"…{expr}…\"`: a hole takes a~n"
+                         "  string, an int, a float or an atom type as it stands.~n", []};
+            Text     -> {"  Build a string with a template:~n    ~s~n", [Text]}
+        end,
+    {"~s:~p:~p: error: `~s` in ~s has `~s` on its ~s~n"
+     "  `~s` takes an int or a float on each side; this operand has neither part.~n"
+     ++ Advice,
+     [P, L, C, Op, Fn, Ty, Side, Op | Args]};
 %% Says which test is true of more values than the type holds, rather than
 %% claiming in general that none decides it — `term` is decided by every test
 %% and `list<int>` by none, and one sentence for both would be false of one.

@@ -613,6 +613,12 @@ The findings, compressed (full versions and controls in the write-up):
    `e_op` declares no type. What this exemplar adds is that F5 illustrates the rule with `:a + 1`,
    which nobody writes, while the realistic case is string concatenation in the one program where
    joining strings is the entire job. A cost to weigh, not a bug to fix. → 33, 16 §2.
+   *(Amended 2026-09-29: no longer so. [112](112-an-arithmetic-operand-with-no-numeric-part.md) A4
+   refuses an operand of `+ - * / %` with no `int` or `float` part, since
+   [80](80-does-an-int-flow-where-a-float-is-expected.md) and
+   [83](83-a-union-operand-at-an-operator.md) had already made the operator check its operands,
+   and strings are joined with a template, `$"{a}{b}"` (A2). Built as F67,
+   [ENG-551](https://linear.app/davewil/issue/ENG-551).)*
 6. **The two `Reverse`s collide, and the module refuses them.** `escape.bs` and `rows.bs` each want
    the same six-token accumulator reversal at a different type; a module is one beam, so `Reverse/2`
    twice is an error. The workaround for a missing generic is therefore not "write it twice" but
