@@ -93,7 +93,7 @@ failure, not by the change). 102 public and 26 private functions.
 | B widen kind | 0 | 13 | 8452 (+9) | 3 (adds `Free/1`, `Double/1`) |
 | C escape wrapper | 0 | 0 (2 wrappers) | 8486 (+43) | 1 (in the wrapper) |
 
-**No private function in the corpus has a record parameter** (0 of 26). The private tag test currently
+**No private function in the corpus has a record parameter** (0 of 26 in the measured corpus; `compiler/examples/exemplars/` is excluded because those programs do not compile today, and they do hold private functions with record parameters, e.g. `rows.bs:15`, `summary.bs:14,19`, `triage_answer.bs:13`. The 26 also counts generated functions; only 15 `private` declarations appear in the measured directories). The private tag test currently
 protects nothing shipped.
 
 Run time, 1,000,000 elements, 40 reps, three alternating rounds, OTP 25 JIT (medians in microseconds):
@@ -221,6 +221,9 @@ needs a sentence, since the handoff treats the compiler as the judge and P2/P3 s
 is observable.
 
 ## Open risks
+
+- **The recommended build was never measured (verifier).** Variant C contains variant A (`variant_C.patch`, second hunk, removes the private tag test), but the recommendation keeps the private tag test. The P2, P4 and P9 figures for C therefore describe A plus the wrapper; "C plus the retained private tag test" is unbuilt and unmeasured.
+- **Reproduce fix.** `env.sh` originally failed to build variants (erlc rejects `bs_emit.A.erl`); it now stages each variant as `bs_emit.erl`. Re-verified outputs are identical to the committed ones; base failures were 449 on the verifier's run vs 451 here (environmental).
 
 - Every cost number is OTP 25. The JIT in 28.5 may keep or remove different guards (P5 depends on
   erlc's type propagation for local functions).

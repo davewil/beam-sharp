@@ -20,7 +20,9 @@ build_compiler() {          # build_compiler <ebin-dir> [bs_emit.erl override]
     b=$(basename "$f"); [ "$b" = bs_emit.erl ] && continue
     erlc -o "$ebin" "$f" 2>/dev/null
   done
-  erlc -o "$ebin" "$emit" 2>/dev/null
+  # erlc requires the file name to match the module: stage the emitter as bs_emit.erl
+  stage=$(mktemp -d); cp "$emit" "$stage/bs_emit.erl"
+  erlc -o "$ebin" "$stage/bs_emit.erl" 2>/dev/null; rm -rf "$stage"
   erlc -o "$ebin" "$BUILD"/gen/bs_lexer.erl "$BUILD"/gen/bs_parser.erl 2>/dev/null
   cp "$REPO"/compiler/src/bsc.app.src "$ebin/bsc.app"
 }
