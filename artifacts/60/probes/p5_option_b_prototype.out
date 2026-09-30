@@ -1,0 +1,21 @@
+
+--- owner Shop.Orders names Shop.Orders.Internal  (expect 110)
+110
+exit=0
+--- sibling Shop.Reports names Shop.Orders.Internal  (expect refusal)
+fx/Shop/Reports/Peek.bs:2:1: error: Shop.Reports cannot name Shop.Orders.Internal
+  a module under an `Internal` directory may be named only by modules under Shop.Orders.
+exit=1
+--- --diagnostics term for the refusal
+#{caller => 'Shop.Reports',column => 1,file => "fx/Shop/Reports/Peek.bs",line => 2,module => 'Shop.Orders.Internal',parent => "Shop.Orders",severity => error,tag => internal_module}
+exit=1
+--- unrelated code is unaffected: Web.Checkout via public Shop.Ledger (expect 101)
+101
+exit=0
+--- diff size
+71 option_b.patch
+added lines: 32  removed: 2
+--- --api on the violating module (does the query mode refuse too?)
+fx/Shop/Reports/Peek.bs:2:1: error: Shop.Reports cannot name Shop.Orders.Internal
+  a module under an `Internal` directory may be named only by modules under Shop.Orders.
+exit=1

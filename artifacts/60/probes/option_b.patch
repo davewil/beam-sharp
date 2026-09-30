@@ -1,5 +1,5 @@
---- a/bs_check.erl	2026-09-30 23:16:09.170957444 +0000
-+++ b/bs_check.erl	2026-09-30 23:16:09.184672741 +0000
+--- a/bs_check.erl	2026-09-30 23:13:59.876183045 +0000
++++ b/bs_check.erl	2026-09-30 23:13:59.908136515 +0000
 @@ -489,17 +489,42 @@
  
  add_import(L, M, Self, World, Known, Mode, Acc) ->
@@ -45,8 +45,8 @@
  %% Local names take precedence over imports at `unqualified_key/4`.
  add_module_import(M, World, Acc) ->
      Entry = maps:get(M, World),
---- a/bs_diag.erl	2026-09-30 23:16:09.171046381 +0000
-+++ b/bs_diag.erl	2026-09-30 23:16:09.185584666 +0000
+--- a/bs_diag.erl	2026-09-30 23:13:59.876321317 +0000
++++ b/bs_diag.erl	2026-09-30 23:13:59.910384555 +0000
 @@ -649,6 +649,9 @@
        name => Name, arity => Arity, candidates => Mods,
        heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
