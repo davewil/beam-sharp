@@ -1,4 +1,4 @@
-compile: /tmp/tmp.rxokYcHf4A/P1/p1.bs:0: Warning: function 'InFloat'/1 is unused
+compile: /tmp/tmp.Ao9lk6qlu8/P1/p1.bs:0: Warning: function 'InFloat'/1 is unused
 public  bs@type_atoms/0
 public  OutRec/1
     guard: when map_get('Kind', O) =:= 'P1.Order'

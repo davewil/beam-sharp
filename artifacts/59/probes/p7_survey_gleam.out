@@ -1,5 +1,5 @@
   Compiling probe59
-   Compiled in 0.57s
+   Compiled in 0.34s
 -module(probe59).
 -compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
 -define(FILEPATH, "src/probe59.gleam").

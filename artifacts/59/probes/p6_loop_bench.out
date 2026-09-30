@@ -8,9 +8,9 @@
 [B] private Loop/2
 [B]     guard: when is_integer(Acc)
 [B] surviving is_integer tests: exported=0 local=1
-round 1 [base] /tmp/bs59-build/p6-base: median=9330us min=9067us max=12955us (n=1000000, reps=40)
-round 1 [B] /tmp/bs59-build/p6-B: median=9587us min=7326us max=12765us (n=1000000, reps=40)
-round 2 [base] /tmp/bs59-build/p6-base: median=8572us min=8176us max=10258us (n=1000000, reps=40)
-round 2 [B] /tmp/bs59-build/p6-B: median=9084us min=8893us max=11026us (n=1000000, reps=40)
-round 3 [base] /tmp/bs59-build/p6-base: median=9186us min=8385us max=12852us (n=1000000, reps=40)
-round 3 [B] /tmp/bs59-build/p6-B: median=9077us min=7956us max=11238us (n=1000000, reps=40)
+round 1 [base] /tmp/bs59-build/p6-base: median=9018us min=8369us max=12170us (n=1000000, reps=40)
+round 1 [B] /tmp/bs59-build/p6-B: median=9185us min=8027us max=11109us (n=1000000, reps=40)
+round 2 [base] /tmp/bs59-build/p6-base: median=9154us min=8896us max=10264us (n=1000000, reps=40)
+round 2 [B] /tmp/bs59-build/p6-B: median=8493us min=7661us max=12049us (n=1000000, reps=40)
+round 3 [base] /tmp/bs59-build/p6-base: median=8584us min=8082us max=9539us (n=1000000, reps=40)
+round 3 [B] /tmp/bs59-build/p6-B: median=9106us min=8918us max=9824us (n=1000000, reps=40)
