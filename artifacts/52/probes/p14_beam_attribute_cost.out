@@ -1,0 +1,3 @@
+beam bytes: none=592 one_app=644 (+52) three_apps=668 (+76)
+read back without loading: [{bs_requires,[libdep,finch,jason]},
+                            {vsn,[23266244227878824844396878948502687383]}]

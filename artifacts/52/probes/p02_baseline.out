@@ -1,0 +1,13 @@
+--- A. compile only, ERL_LIBS unset
+exit=0
+--- B. compile + run Shout, ERL_LIBS unset
+crashed: error:undef
+exit=1
+--- C. compile + run Shout, ERL_LIBS=/usr/lib/elixir/lib
+"REQ"
+exit=0
+--- D. module atom is a typo (:lits), compile only, ERL_LIBS unset
+exit=0
+--- E. typo, run
+crashed: error:undef
+exit=1

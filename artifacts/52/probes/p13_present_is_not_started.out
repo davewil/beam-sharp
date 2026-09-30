@@ -1,0 +1,6 @@
+--- Cold(): ticker on the path, never started
+crashed: exit:{noproc,{gen_server,call,[ticker_srv,get]}}
+exit=1
+--- Warm(): the program starts the application itself (as 51a/Req.bs Start() does), then calls
+42
+exit=0

@@ -1,0 +1,8 @@
+--- ERL_LIBS unset
+module Up
+binary Shout(binary)
+exit=0
+--- ERL_LIBS=/usr/lib/elixir/lib
+module Up
+binary Shout(binary)
+exit=0

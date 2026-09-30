@@ -1,0 +1,19 @@
+--- emitted heads
+public  bs@type_atoms/0
+public  Rule/1
+private Keep/1
+public  Reader/1
+private Total/1
+--- the escaped fun, applied by an Erlang caller
+F = M:'Rule'(staff), {erlang:fun_info(F, type), erlang:fun_info(F, module), F(7)}
+    => {ok,{{type,local},{module,'P3'},7}}
+F = M:'Rule'(staff), F(1.5)
+    => {ok,1.5}
+F = M:'Rule'(staff), F(foo)
+    => {ok,foo}
+F = M:'Reader'(total), F(#{'Kind' => 'P3.Order', 'Id' => 1, 'Total' => 9})
+    => {ok,9}
+F = M:'Reader'(total), F(#{'Kind' => 'P3.Invoice', 'Id' => 1, 'Total' => 9})
+    => {ok,9}
+F = M:'Reader'(total), F(5)
+    => {error,{badmap,5}}

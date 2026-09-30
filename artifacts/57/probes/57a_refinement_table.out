@@ -1,0 +1,45 @@
+== the ticket's five rows ==
+ok  R1                         refused  (expected refused)
+        | $W/R1/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  R2                         refused  (expected refused)
+        | $W/R2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  R3                         refused  (expected refused)
+        | $W/R3/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  R4                         accepted (expected accepted)
+ok  R5                         accepted (expected accepted)
+== fold variants: what would a checker fold have to reach? ==
+ok  V1                         refused  (expected refused)
+        | $W/V1/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V2                         refused  (expected refused)
+        | $W/V2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V3                         refused  (expected refused)
+        | $W/V3/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V4                         refused  (expected refused)
+        | $W/V4/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V5                         refused  (expected refused)
+        | $W/V5/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V6                         refused  (expected refused)
+        | $W/V6/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V7                         refused  (expected refused)
+        | $W/V7/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V8                         refused  (expected refused)
+        | $W/V8/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  V9                         accepted (expected accepted)
+== float: refused for a different reason (F51 'a float refinement, refused as opaque') ==
+ok  F1                         refused  (expected refused)
+        | $W/F1/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to
+ok  F2                         refused  (expected refused)
+        | $W/F2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+        |   a refinement narrows a type, so the compiler has to be able to

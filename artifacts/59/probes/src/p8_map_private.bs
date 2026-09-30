@@ -1,0 +1,9 @@
+module P8
+
+// The escape that is measured: a private function passed by name to the
+// collection prelude, which applies it once per element.
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Double/1)
+
+private int Double(int n)
+Double(n) -> n * 2

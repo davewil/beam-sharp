@@ -1,0 +1,35 @@
+  Compiling probe59
+   Compiled in 0.57s
+-module(probe59).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+-define(FILEPATH, "src/probe59.gleam").
+-export([rule/0, reader/0, out_int/1]).
+-export_type([order/0]).
+
+-type order() :: {order, integer(), integer()}.
+
+-file("src/probe59.gleam", 7).
+-spec keep(integer()) -> integer().
+keep(N) ->
+    N.
+
+-file("src/probe59.gleam", 11).
+-spec total(order()) -> integer().
+total(O) ->
+    erlang:element(3, O).
+
+-file("src/probe59.gleam", 15).
+-spec rule() -> fun((integer()) -> integer()).
+rule() ->
+    fun keep/1.
+
+-file("src/probe59.gleam", 19).
+-spec reader() -> fun((order()) -> integer()).
+reader() ->
+    fun total/1.
+
+-file("src/probe59.gleam", 23).
+-spec out_int(integer()) -> integer().
+out_int(N) ->
+    keep(N).
+rule()(1.5) = 1.5

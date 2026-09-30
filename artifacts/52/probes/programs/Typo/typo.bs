@@ -1,0 +1,8 @@
+module Typo
+
+using :lits {
+    int sum(list<int> xs)
+}
+
+public int Total(list<int> xs)
+Total(xs) -> :lits.sum(xs)

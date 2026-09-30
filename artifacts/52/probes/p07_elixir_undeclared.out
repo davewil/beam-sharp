@@ -1,0 +1,12 @@
+--- A. elixirc, libdep NOT on path
+warning: Libdep.hello/1 is undefined (module Libdep is not available or is yet to be defined)
+  use_libdep.ex:2: UseLibdep.go/0
+
+exit=0
+--- B. elixirc, libdep on path (-pa)
+exit=0
+--- C. elixirc, module name typo (Libdpe), libdep on path
+warning: Libdpe.hello/1 is undefined (module Libdpe is not available or is yet to be defined)
+  use_typo.ex:2: UseTypo.go/0
+
+exit=0

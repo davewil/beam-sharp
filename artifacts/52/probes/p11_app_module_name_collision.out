@@ -1,0 +1,6 @@
+applications on the path: 27
+applications that own a module of the SAME NAME: 12
+  [crypto,elixir,eunit,ftp,inets,kernel,mnesia,public_key,runtime_tools,sasl,
+   ssl,tftp]
+module 'Elixir.String' lives in app elixir
+module 'Elixir.Enum' lives in app elixir

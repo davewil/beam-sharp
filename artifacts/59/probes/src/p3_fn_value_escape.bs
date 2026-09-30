@@ -1,0 +1,22 @@
+module P3
+
+record Order { Id: int, Total: int }
+
+// Ticket 75 / F46: a private function named in value position leaves the module
+// as a fun. `Rule(:staff)` hands `Keep` to whoever called `Rule` -- a B# caller,
+// or an Erlang one, who may then apply it to anything.
+public fn(int) -> int Rule(atom tier)
+Rule(:standard) -> (cents) => cents
+Rule(:staff)    -> Keep
+Rule(_)         -> (cents) => cents
+
+private int Keep(int n)
+Keep(n) -> n
+
+// The same escape for a record parameter.
+public fn(Order) -> int Reader(atom which)
+Reader(:total) -> Total
+Reader(_)      -> (o) => o.Id
+
+private int Total(Order o)
+Total(o) -> o.Total

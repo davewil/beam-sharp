@@ -1,0 +1,25 @@
+--- 1. @external(erlang, "libdep_not_there", "hello"): build
+  Compiling gleam_ext
+   Compiled in 0.67s
+build exit=0
+--- 1b. run it
+
+A function was called but it did not exist.
+
+stacktrace:
+  libdep_not_there.hello[90m unknown source[0m
+
+--- 2. import libdep_pkg/thing (no such package in gleam.toml [dependencies]): build
+  │ ^^^^^^^^^^^^^^^^^^^^^^^
+
+No module has been found with the name `libdep_pkg/thing`.
+
+error: Unknown module
+  ┌─ /home/user/beam-sharp/artifacts/52/probes/neighbours/gleam_imp/src/gleam_imp.gleam:4:3
+  │
+4 │   thing.f()
+  │   ^^^^^
+
+No module has been found with the name `thing`.
+
+build exit=1

@@ -1,0 +1,16 @@
+module Dep
+
+using :'Elixir.Libdep' in :libdep {
+    binary hello(binary name)
+}
+
+using :'Elixir.Libdep.Extra' in :libdep {
+    int two()
+}
+
+using :lists {
+    int sum(list<int> xs)
+}
+
+public binary Greet(binary n)
+Greet(n) -> :'Elixir.Libdep'.hello(n)

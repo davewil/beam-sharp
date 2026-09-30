@@ -1,0 +1,33 @@
+Lit    => -5
+Mul    => -10
+Sub    => 15
+Paren  => -5
+Div    => -3
+Rem    => -1
+Neg 4 => -4
+Mixed 4 => -7
+--- emitted abstract format (N.abstr) for Lit / Mul / Sub
+{function,0,'Lit',0,[{clause,{4,1},[],[],[{integer,{4,11},-5}]}]}
+{function,0,'Mul',0,
+          [{clause,{7,1},
+                   [],[],
+                   [{op,{7,10},
+                        '-',
+                        {op,{7,13},
+                            '*',
+                            {integer,{7,11},5},
+                            {integer,{7,15},2}}}]}]}
+{function,0,'Sub',0,
+          [{clause,{10,1},
+                   [],[],
+                   [{op,{10,13},
+                        '-',
+                        {integer,{10,10},10},
+                        {integer,{10,16},-5}}]}]}
+--- beam_disasm of Lit
+[{line,1},
+ {label,3},
+ {func_info,{atom,'N'},{atom,'Lit'},0},
+ {label,4},
+ {move,{integer,-5},{x,0}},
+ return]

@@ -1,0 +1,16 @@
+--- A. consumer_undeclared: deps: [], libdep on ERL_LIBS
+Compiling 1 file (.ex)
+warning: Libdep.hello/1 defined in application :libdep is used by the current application but the current application does not depend on :libdep. To fix this, you must do one of:
+
+  1. If :libdep is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
+
+  2. If :libdep is a dependency, make sure it is listed under "def deps" in your mix.exs
+
+  3. In case you don't want to add a requirement to :libdep, you may optionally skip this warning by adding [xref: [exclude: [Libdep]]] to your "def project" in mix.exs
+
+  lib/consumer_u.ex:1: ConsumerU.x/0
+
+Generated consumer_u app
+--- B. consumer: deps: [{:libdep, path: "../libdep"}]
+Compiling 1 file (.ex)
+Generated consumer app

@@ -1,0 +1,18 @@
+module Tick
+
+using :ticker {
+    int get()
+}
+
+using :application {
+    term ensure_all_started(atom app)
+}
+
+public int Cold()
+Cold() -> :ticker.get()
+
+public int Warm()
+Warm() -> Ready(:application.ensure_all_started(:ticker))
+
+private int Ready(term started)
+Ready(s) -> :ticker.get()

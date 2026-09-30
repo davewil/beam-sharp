@@ -1,0 +1,5 @@
+name = "gleam_imp"
+version = "1.0.0"
+target = "erlang"
+
+[dependencies]

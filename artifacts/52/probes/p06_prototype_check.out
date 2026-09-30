@@ -1,0 +1,18 @@
+=== libdep REACHABLE (ERL_LIBS=.../_build/dev/lib)
+dep.bs:{3,1}   'Elixir.Libdep'            declared=libdep     ok    module is in declared application libdep
+dep.bs:{7,1}   'Elixir.Libdep.Extra'      declared=libdep     ok    module is in declared application libdep
+dep.bs:{11,1}  lists                      declared=none       ok    OTP application stdlib needs no declaration
+wrong.bs:{3,1} 'Elixir.Libdep'            declared=libdpe     ERROR  declared `in :libdpe` but the module belongs to application libdep
+noapp.bs:{3,1} 'Elixir.Libdep'            declared=none       NEEDS  module is in application libdep, which is not OTP: write `in :libdep`
+noapp.bs:{7,1} my_helper                  declared=my_project ERROR  module my_helper is not on the code path; declared application my_project is not on the path either
+
+=== libdep NOT reachable (ERL_LIBS unset)
+dep.bs:{3,1}   'Elixir.Libdep'            declared=libdep     ERROR  module 'Elixir.Libdep' is not on the code path; declared application libdep is not on the path either
+dep.bs:{7,1}   'Elixir.Libdep.Extra'      declared=libdep     ERROR  module 'Elixir.Libdep.Extra' is not on the code path; declared application libdep is not on the path either
+dep.bs:{11,1}  lists                      declared=none       ok    OTP application stdlib needs no declaration
+wrong.bs:{3,1} 'Elixir.Libdep'            declared=libdpe     ERROR  module 'Elixir.Libdep' is not on the code path; declared application libdpe is not on the path either
+noapp.bs:{3,1} 'Elixir.Libdep'            declared=none       ERROR  module 'Elixir.Libdep' is not on the code path (no application named, so no hint which to install)
+noapp.bs:{7,1} my_helper                  declared=my_project ERROR  module my_helper is not on the code path; declared application my_project is not on the path either
+
+=== the build-order case: /tmp/helper52/my_helper.erl exists, is not compiled yet
+code:which(my_helper) = non_existing   source present: true

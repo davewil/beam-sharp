@@ -1,0 +1,11 @@
+=== gleam: gleam 1.12.0 ===
+  Resolving versions
+  Compiling p57h
+   Compiled in 0.34s
+--- same file without the function named bad (is the rest accepted?)
+  Compiling p57h
+   Compiled in 0.44s
+rc=0
+=== elm: 0.19.1 ===
+elm 0.19.1 needs elm/core and elm/json in ~/.elm/0.19.1/packages; only the lock file is present (no package cache).
+Two attempts (elm/core only; then without) both stopped at MISSING DEPENDENCY. Elm: NOT PROBED (and it has no refinement types).

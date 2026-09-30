@@ -1,0 +1,53 @@
+== G: guards. non-negative bound (control) vs negative bound ==
+--- G0
+  > public atom Sign(int n)
+  > Sign(n) when n >= 0 -> :nonneg
+  > Sign(n) when n < 0  -> :neg
+  rc=0
+--- G1
+  > public atom Sign(int n)
+  > Sign(n) when n >= -5 -> :a
+  > Sign(n) when n <= -6 -> :b
+  rc=0
+--- G2
+  > public atom Sign(int n)
+  > Sign(n) when n >= 0  -> :nonneg
+  > Sign(n) when n <= -1 -> :neg
+  rc=0
+== L: is the literal -5 the interval -5..-5? (compare with 5) ==
+--- L0
+  > type Nz = int where value != 0
+  > public int Half(Nz d)
+  > Half(d) -> 100 / d
+  > 
+  > public int UsePos()
+  > UsePos() -> Half(5)
+  rc=0
+--- L1
+  > type Nz = int where value != 0
+  > public int Half(Nz d)
+  > Half(d) -> 100 / d
+  > 
+  > public int UseNeg()
+  > UseNeg() -> Half(-5)
+  | $W/L1/a.bs:7:13: error: UseNeg hands Half an argument it does not accept
+  |   argument 1 is not covered by Half's declared type:
+  |     0
+  rc=1
+--- L2
+  > public int Z()
+  > Z() -> 10 / -0
+  | compile: $W/L2/a.bs:3:11: Warning: evaluation of operator 'div'/2 will fail with a 'badarith' exception
+  | %    3| Z() -> 10 / -0
+  | %     |           ^
+  rc=0
+== R: the residual IS writable as a pattern, not as a refinement ==
+--- R0
+  > public atom F(int n)
+  > F(0) -> :zero
+  | $W/R0/a.bs:2:13: error: F is not exhaustive
+  |   no clause matches:
+  |     F(<= -1) -> ...
+  |     F(>= 1) -> ...
+  rc=1
+ok  R1                         accepted (expected accepted)

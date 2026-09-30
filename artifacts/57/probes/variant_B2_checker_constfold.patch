@@ -1,0 +1,43 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-09-30 23:03:16.346587869 +0000
++++ /tmp/src57-B2/bs_check.erl	2026-09-30 23:08:47.608735470 +0000
+@@ -4938,15 +4938,35 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison({e_op, _, Op, {e_var, _, V}, R}) when element(1, R) =/= e_var ->
++    case const_int(R) of
++        {ok, K} -> int_cmp(Op, V, K);
++        error   -> comparison_atom({e_op, 0, Op, {e_var, 0, V}, R})
++    end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when element(1, L) =/= e_var ->
++    case const_int(L) of
++        {ok, K} -> int_cmp(flip(Op), V, K);
++        error   -> unknown
++    end;
++comparison(E) -> comparison_atom(E).
++
++comparison_atom({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison_atom({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+-comparison(_) ->
++comparison_atom(_) ->
+     unknown.
+ 
++%% Constant integer folding: literals, unary minus, + - *. Nothing else.
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_neg, _, E}) -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int({e_op, _, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_int(A), const_int(B)} of
++        {{ok, X}, {ok, Y}} -> {ok, case Op of '+' -> X + Y; '-' -> X - Y; '*' -> X * Y end};
++        _ -> error
++    end;
++const_int(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

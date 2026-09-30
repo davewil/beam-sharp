@@ -1,0 +1,32 @@
+--- exhaustive version
+  | $W/D/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  |   a refinement narrows a type, so the compiler has to be able to
+  |   reason about it: comparisons on `value`, joined with `and`/`or`.
+  |   `int where value >= 0 and value <= 255` is one.
+  |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  |   is the O(n) tier. It is established once at a boundary and never
+  |   reasoned about, and this compiler has no site to establish it at.
+  rc=1
+  Direction(-100) =>   reasoned about, and this compiler has no site to establish it at.
+  Direction(-1) =>   reasoned about, and this compiler has no site to establish it at.
+  Direction(0) =>   reasoned about, and this compiler has no site to establish it at.
+  Direction(100) =>   reasoned about, and this compiler has no site to establish it at.
+  Direction(101) =>   reasoned about, and this compiler has no site to establish it at.
+  Direction(-101) =>   reasoned about, and this compiler has no site to establish it at.
+--- first clause deleted: is the residual a writable, pasteable thing?
+  | $W/E/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  |   a refinement narrows a type, so the compiler has to be able to
+  |   reason about it: comparisons on `value`, joined with `and`/`or`.
+  |   `int where value >= 0 and value <= 255` is one.
+  |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  |   is the O(n) tier. It is established once at a boundary and never
+  |   reasoned about, and this compiler has no site to establish it at.
+--- Clamp into Delta (guards mention -100; refinement mentions -100)
+  | $W/F/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  |   a refinement narrows a type, so the compiler has to be able to
+  |   reason about it: comparisons on `value`, joined with `and`/`or`.
+  |   `int where value >= 0 and value <= 255` is one.
+  |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  |   is the O(n) tier. It is established once at a boundary and never
+  |   reasoned about, and this compiler has no site to establish it at.
+  rc=1

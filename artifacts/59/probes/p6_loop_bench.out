@@ -1,0 +1,16 @@
+[base] private Step/2
+[base] private Loop/2
+[base] public  Total/1
+[base] surviving is_integer tests: exported=0 local=0
+[B] private Step/2
+[B]     guard: when
+[B] --
+[B] private Loop/2
+[B]     guard: when is_integer(Acc)
+[B] surviving is_integer tests: exported=0 local=1
+round 1 [base] /tmp/bs59-build/p6-base: median=9330us min=9067us max=12955us (n=1000000, reps=40)
+round 1 [B] /tmp/bs59-build/p6-B: median=9587us min=7326us max=12765us (n=1000000, reps=40)
+round 2 [base] /tmp/bs59-build/p6-base: median=8572us min=8176us max=10258us (n=1000000, reps=40)
+round 2 [B] /tmp/bs59-build/p6-B: median=9084us min=8893us max=11026us (n=1000000, reps=40)
+round 3 [base] /tmp/bs59-build/p6-base: median=9186us min=8385us max=12852us (n=1000000, reps=40)
+round 3 [B] /tmp/bs59-build/p6-B: median=9077us min=7956us max=11238us (n=1000000, reps=40)

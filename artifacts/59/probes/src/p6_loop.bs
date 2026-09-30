@@ -1,0 +1,14 @@
+module P6
+
+// A private helper applied to every element of a list. The element comes out of
+// a list cell, which erlc cannot see is an integer, so the widened guard on
+// `Step` and `Loop` cannot be proved away here.
+private int Step(int acc, int x)
+Step(acc, x) -> acc + x
+
+private int Loop(list<int> xs, int acc)
+Loop([], acc)         -> acc
+Loop([h, ..t], acc)   -> Loop(t, Step(acc, h))
+
+public int Total(list<int> xs)
+Total(xs) -> Loop(xs, 0)

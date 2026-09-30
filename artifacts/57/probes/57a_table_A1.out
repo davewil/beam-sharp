@@ -1,0 +1,26 @@
+== the ticket's five rows ==
+!!  R1                         accepted (expected refused)
+!!  R2                         accepted (expected refused)
+!!  R3                         accepted (expected refused)
+ok  R4                         accepted (expected accepted)
+ok  R5                         accepted (expected accepted)
+== fold variants: what would a checker fold have to reach? ==
+ok  V1                         refused  (expected refused)
+        | $W/V1/a.bs:2:31: error: syntax error before: '-'
+ok  V2                         refused  (expected refused)
+        | $W/V2/a.bs:2:31: error: syntax error before: '+'
+ok  V3                         refused  (expected refused)
+        | $W/V3/a.bs:2:30: error: syntax error before: '('
+ok  V4                         refused  (expected refused)
+        | $W/V4/a.bs:2:31: error: syntax error before: '-'
+!!  V5                         accepted (expected refused)
+!!  V6                         accepted (expected refused)
+!!  V7                         accepted (expected refused)
+ok  V8                         refused  (expected refused)
+        | $W/V8/a.bs:2:31: error: syntax error before: '-'
+ok  V9                         accepted (expected accepted)
+== float: refused for a different reason (F51 'a float refinement, refused as opaque') ==
+ok  F1                         refused  (expected refused)
+        | $W/F1/a.bs:2:31: error: syntax error before: 1.0
+ok  F2                         refused  (expected refused)
+        | $W/F2/a.bs:2:32: error: syntax error before: 1.0

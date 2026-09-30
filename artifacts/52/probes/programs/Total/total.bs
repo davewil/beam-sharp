@@ -1,0 +1,8 @@
+module Total
+
+using :'Elixir.Libdep' {
+    int total(list<int> xs)
+}
+
+public int Sum(list<int> xs)
+Sum(xs) -> :'Elixir.Libdep'.total(xs)

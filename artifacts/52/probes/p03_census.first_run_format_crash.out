@@ -1,0 +1,14 @@
+files scanned: 161
+foreign using blocks: 30
+
+blocks by resolved application on THIS machine (OTP 25):
+  erts                         13
+  kernel                       1
+  stdlib                       10
+  unresolved                   6
+
+distinct foreign modules: 14
+escript: exception error: bad argument
+  in function  io:format/2
+     called as io:format("  ~-22p -> ~p~n",['Elixir.Application',unresolved])
+     *** argument 1: failed to format string

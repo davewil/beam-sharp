@@ -1,0 +1,18 @@
+--- honest values
+M:'ViaRec'({#{'Kind' => 'P2.Order', 'Id' => 1, 'Total' => 9}, 1})
+    => {ok,order}
+M:'ViaInt'({7, 1})
+    => {ok,7}
+--- forged record (an Invoice where an Order is declared), one tuple deep
+M:'ViaRec'({#{'Kind' => 'P2.Invoice', 'Id' => 1, 'Total' => 9}, 1})
+    => {error,function_clause}
+M:'DirectRec'({#{'Kind' => 'P2.Invoice', 'Id' => 1, 'Total' => 9}, 1})
+    => {ok,9}
+--- forged record, whole parameter (control: the exported tag test fires)
+M:'WholeRec'(#{'Kind' => 'P2.Invoice', 'Id' => 1, 'Total' => 9})
+    => {error,function_clause}
+--- a float where int is declared, one tuple deep, through a private int function
+M:'ViaInt'({1.5, 1})
+    => {ok,1.5}
+M:'ViaInt'({foo, 1})
+    => {ok,foo}

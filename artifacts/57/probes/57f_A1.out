@@ -1,0 +1,24 @@
+--- exhaustive version
+  rc=0
+  Direction(-100) => :down
+  Direction(-1) => :down
+  Direction(0) => :none
+  Direction(100) => :up
+  Direction(101) => crashed: error:function_clause
+  Direction(-101) => crashed: error:function_clause
+--- first clause deleted: is the residual a writable, pasteable thing?
+  | $W/E/a.bs:5:13: error: Direction is not exhaustive
+  |   no clause matches:
+  |     Direction(>= -100 and <= -1) -> ...
+--- Clamp into Delta (guards mention -100; refinement mentions -100)
+  | $W/F/a.bs:5:1: error: Clamp returns a value its signature does not declare
+  |   not covered by the declared return type:
+  |     int <= -101 | int >= 101
+  |   If `Delta` is what you meant, fix the clause, not the signature.
+  |   no signature is offered: what the clauses return has no spelling as a type yet.
+  | $W/F/a.bs:6:1: error: Clamp returns a value its signature does not declare
+  |   not covered by the declared return type:
+  |     int <= -101
+  |   If `Delta` is what you meant, fix the clause, not the signature.
+  |   no signature is offered: what the clauses return has no spelling as a type yet.
+  rc=1

@@ -1,0 +1,6 @@
+yecc output per variant (a 'Warning: conflicts' line appears whenever the count is not zero):
+baseline                           /tmp/tmp.pwTAxaeEwX/baseline.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce ok 
+B_in_atom_per_block                /tmp/tmp.pwTAxaeEwX/B_in_atom_per_block.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce ok 
+C_using_app_line                   /tmp/tmp.pwTAxaeEwX/C_using_app_line.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce ok 
+C2_bare_using_atom                 /tmp/tmp.pwTAxaeEwX/C2_bare_using_atom.yrl: Warning: conflicts: 7 shift/reduce, 0 reduce/reduce ok 
+D_attribute_before_using           /tmp/tmp.pwTAxaeEwX/D_attribute_before_using.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce ok 

@@ -1,0 +1,37 @@
+ERL_LIBS=/usr/lib/elixir/lib:/tmp/mixdeps52b/consumer/_build/dev/lib:/tmp/fakelibs52
+
+lists                  which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam"
+    dir-name heuristic: stdlib
+    .app `modules` scan: {stdlib,vsn,"4.3.1.3",{listed_in_modules,true}}
+    application:get_application (nothing loaded yet): {ok,stdlib}
+'Elixir.Libdep'        which="/tmp/mixdeps52b/consumer/_build/dev/lib/libdep/ebin/Elixir.Libdep.beam"
+    dir-name heuristic: libdep
+    .app `modules` scan: {libdep,vsn,"2.3.1",{listed_in_modules,true}}
+    application:get_application (nothing loaded yet): undefined
+'Elixir.Libdep.Extra'  which="/tmp/mixdeps52b/consumer/_build/dev/lib/libdep/ebin/Elixir.Libdep.Extra.beam"
+    dir-name heuristic: libdep
+    .app `modules` scan: {libdep,vsn,"2.3.1",{listed_in_modules,true}}
+    application:get_application (nothing loaded yet): undefined
+'Elixir.String'        which="/usr/lib/elixir/lib/elixir/ebin/Elixir.String.beam"
+    dir-name heuristic: elixir
+    .app `modules` scan: {elixir,vsn,"1.14.0",{listed_in_modules,true}}
+    application:get_application (nothing loaded yet): undefined
+acme_mod               which="/tmp/fakelibs52/acme-1.3.0/ebin/acme_mod.beam"
+    dir-name heuristic: acme
+    .app `modules` scan: {acme,vsn,"1.3.0",{listed_in_modules,true}}
+    application:get_application (nothing loaded yet): undefined
+erlang                 which=preloaded
+    dir-name heuristic: preloaded
+    .app `modules` scan: preloaded
+    application:get_application (nothing loaded yet): undefined
+nope                   which=non_existing
+    dir-name heuristic: non_existing
+    .app `modules` scan: non_existing
+    application:get_application (nothing loaded yet): undefined
+
+TWO-VERSION CASE
+code:lib_dir(acme) = "/tmp/fakelibs52/acme-1.3.0"
+acme_mod:version() = "1.3.0"
+erlang:function_exported(acme_mod, only_in_130, 0) = true
+application:load(acme) -> ok; vsn = {ok,"1.3.0"}
+code:get_path() acme entries = ["/tmp/fakelibs52/acme-1.3.0/ebin"]

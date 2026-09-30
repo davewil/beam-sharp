@@ -1,0 +1,4 @@
+module Undecl
+
+public int Total(list<int> xs)
+Total(xs) -> :lists.sum(xs)

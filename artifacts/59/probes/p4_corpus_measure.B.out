@@ -1,0 +1,8 @@
+  (did not compile: Signalbox)
+[B] compiled=26 failed=1
+modules=29 file_bytes=55652 code_bytes=8452
+functions: public=102 private=26
+  tag       public=13 private=0
+  int       public=43 private=13
+  float     public=4 private=0
+  private functions whose name is taken as a value (fun Name/N): 2

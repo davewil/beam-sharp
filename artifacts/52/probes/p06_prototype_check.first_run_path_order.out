@@ -1,0 +1,10 @@
+=== libdep REACHABLE (ERL_LIBS=.../_build/dev/lib)
+escript: exception error: no match of right hand side value 
+                 {error,{{3,1},bs_parser,["syntax error before: ","in"]}}
+
+=== libdep NOT reachable (ERL_LIBS unset)
+escript: exception error: no match of right hand side value 
+                 {error,{{3,1},bs_parser,["syntax error before: ","in"]}}
+
+=== the build-order case: /tmp/helper52/my_helper.erl exists, is not compiled yet
+code:which(my_helper) = non_existing   source present: true

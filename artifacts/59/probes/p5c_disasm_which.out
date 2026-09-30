@@ -1,0 +1,6 @@
+[base]
+  Intake:bs@validate@5/2  escapes-as-fun=false
+[B]
+  Intake:bs@validate@5/2  escapes-as-fun=false
+  Shop.Pricing:Free/1  escapes-as-fun=true
+  Shop.Pricing:Double/1  escapes-as-fun=true

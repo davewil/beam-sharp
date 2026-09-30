@@ -1,0 +1,18 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-09-30 23:03:16.348098260 +0000
++++ /tmp/bs59-build/var/B/bs_emit.erl	2026-09-30 23:10:03.622494340 +0000
+@@ -273,13 +273,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->                              % VARIANT B: no `when Public`
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from

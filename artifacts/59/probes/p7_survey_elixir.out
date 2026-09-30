@@ -1,0 +1,4 @@
+Probe59.rule().(1.5): 1.5
+out_int(1.5) (hand-written guard): FunctionClauseError
+fun type: {:type, :local}
+exports: [__info__: 1, module_info: 0, module_info: 1, out_int: 1, rule: 0]

@@ -1,0 +1,12 @@
+code path entries: 30   (OTP 25)
+14 distinct ABSENT modules (the corpus has 14 distinct foreign modules)        median   8772 us  min   8198  max  15950
+8 PRESENT modules                                                              median     14 us  min     13  max     32
+1 absent module                                                                median    581 us  min    547  max    694
+full check incl. .app scan for 8 present modules                               median    455 us  min    415  max   2191
+
+=== with 200 extra app dirs + elixir on ERL_LIBS
+code path entries: 236   (OTP 25)
+14 distinct ABSENT modules (the corpus has 14 distinct foreign modules)        median  59095 us  min  45275  max 141547
+8 PRESENT modules                                                              median     14 us  min     14  max     90
+1 absent module                                                                median   4550 us  min   3412  max  17396
+full check incl. .app scan for 8 present modules                               median    720 us  min    450  max   3908

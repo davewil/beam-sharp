@@ -1,0 +1,8 @@
+module Wrong
+
+using :'Elixir.Libdep' in :libdpe {
+    binary hello(binary name)
+}
+
+public binary Greet(binary n)
+Greet(n) -> :'Elixir.Libdep'.hello(n)

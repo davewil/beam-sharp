@@ -1,0 +1,13 @@
+--- A. only libdep reachable: the declared application is present
+crashed: error:undef
+exit=1
+--- B. libdep + Elixir reachable
+6
+exit=0
+--- C. closure walk over .app `applications` (what a compile-time check could additionally do)
+with only libdep reachable:
+  MISSING application elixir
+  MISSING application logger
+closure: [elixir,kernel,libdep,logger,stdlib]
+with libdep + elixir lib dir:
+closure: [compiler,elixir,kernel,libdep,logger,stdlib]

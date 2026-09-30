@@ -1,0 +1,16 @@
+--- P1_deleted
+  | $W/P1_deleted/a.bs:5:16: error: Classify is not exhaustive
+  |   no clause matches:
+  |     Classify((:ok, n)) when n <= -1 -> ...
+  rc=1
+--- P2_pasted_guard_form
+  | $W/P2_pasted_guard_form/a.bs:5:16: error: Classify is not exhaustive
+  |   no clause matches:
+  |     Classify((:ok, n)) when n <= -1 -> ...
+  rc=1
+--- P3_pattern_form
+  | $W/P3_pattern_form/a.bs:9:16: error: a relational pattern goes where a whole argument goes
+  |   `Classify(>= 4 and <= 7)` is the shipped form. Inside a record
+  |   pattern, a tuple or a list it is not built yet \x{2014} write the
+  |   comparison as a guard there: `when o.Total > 100`.
+  rc=1

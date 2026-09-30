@@ -1,0 +1,27 @@
+=== Erlang (OTP 25) ===
+{attribute,3,type,
+           {delta,{type,3,range,[{op,3,'-',{integer,3,100}},{integer,3,100}]},
+                  []}}
+{function,4,f,1,
+          [{clause,4,[{op,4,'-',{integer,4,5}}],[],[{atom,4,a}]},
+           {clause,5,
+                   [{var,5,'X'}],
+                   [[{op,5,'>=',{var,5,'X'},{op,5,'-',{integer,5,5}}}]],
+                   [{atom,5,b}]},
+           {clause,6,[{var,6,'_'}],[],[{atom,6,c}]}]}
+{function,7,g,1,
+          [{clause,7,
+                   [{var,7,'X'}],
+                   [],
+                   [{op,7,'+',{op,7,'-',{integer,7,5}},{var,7,'X'}}]}]}
+erl_lint: ok
+
+=== Elixir Elixir 1.14.0 (compiled with Erlang/OTP 24) ===
+-5        {:-, [line: 1], [5]}
+x >= -5   {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+-x        {:-, [line: 1], [{:x, [line: 1], nil}]}
+-(5)      {:-, [line: 1], [5]}
+- -5      {:-, [line: 1], [{:-, [line: 1], [5]}]}
+-5..5     {:.., [line: 1], [{:-, [line: 1], [5]}, 5]}
+2 + 3     {:+, [line: 1], [2, 3]}
+compiled and ran: {:a, :b, :c}

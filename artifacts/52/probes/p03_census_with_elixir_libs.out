@@ -1,0 +1,44 @@
+files scanned: 161
+foreign using blocks: 30
+
+blocks by resolved application on THIS machine (OTP 25):
+  elixir                       3
+  erts                         13
+  kernel                       1
+  stdlib                       10
+  unresolved                   3
+
+distinct foreign modules: 14
+  'Elixir.Application'         -> elixir
+  'Elixir.Enum'                -> elixir
+  'Elixir.Req'                 -> unresolved
+  'Elixir.String'              -> elixir
+  binary                       -> stdlib
+  epgsql                       -> unresolved
+  erlang                       -> erts
+  ets                          -> stdlib
+  file                         -> kernel
+  gen_server                   -> stdlib
+  json                         -> unresolved
+  lists                        -> stdlib
+  maps                         -> stdlib
+  string                       -> stdlib
+
+per B# module directory: blocks / distinct apps / blocks repeating an app
+  aoc/2019/Day01                                                         1 / 1 / 0
+  aoc/2025/Day01                                                         1 / 1 / 0
+  aoc/bench/Day01                                                        1 / 1 / 0
+  compiler/examples/Foreign                                              2 / 2 / 0
+  compiler/examples/Interop                                              3 / 2 / 1
+  compiler/examples/Label                                                1 / 1 / 0
+  compiler/examples/Names                                                1 / 1 / 0
+  compiler/examples/exemplars/25d-database-querying                      2 / 2 / 0
+  compiler/examples/exemplars/25e-dynamic-web-page                       2 / 2 / 0
+  compiler/examples/exemplars/25f-llm-evaluation-client                  3 / 3 / 0
+  compiler/examples/exemplars/25g-jev-server                             4 / 2 / 2
+  wayfinder/prototypes/50a-elixir-ffi/Elx                                2 / 2 / 0
+  wayfinder/prototypes/51a-code-path/Elx                                 2 / 1 / 1
+  wayfinder/prototypes/51a-code-path/Req                                 3 / 3 / 0
+  wayfinder/prototypes/63d_erlc_leak_sweep/G03ForeignBif                 1 / 1 / 0
+  wayfinder/prototypes/63d_erlc_leak_sweep/G04ForeignNonBif              1 / 1 / 0
+TOTAL blocks 30, blocks that would repeat an already-named app within their directory 4

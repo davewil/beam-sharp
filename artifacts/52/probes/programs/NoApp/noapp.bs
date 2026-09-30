@@ -1,0 +1,12 @@
+module NoApp
+
+using :'Elixir.Libdep' {
+    binary hello(binary name)
+}
+
+using :my_helper in :my_project {
+    int twice(int n)
+}
+
+public binary Greet(binary n)
+Greet(n) -> :'Elixir.Libdep'.hello(n)

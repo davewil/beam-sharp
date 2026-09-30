@@ -1,0 +1,54 @@
+refinement  value >= -5      module M
+type T = int where value >= -5
+  => [{module,{1,1},'M'},
+      {type_refined,{2,1},
+                    'T',
+                    {t_builtin,int},
+                    {e_op,{2,26},
+                          '>=',
+                          {e_var,{2,20},value},
+                          {e_neg,{2,29},{e_int,{2,30},5}}}}]
+refinement  value >= 0 - 5   module M
+type T = int where value >= 0 - 5
+  => [{module,{1,1},'M'},
+      {type_refined,{2,1},
+                    'T',
+                    {t_builtin,int},
+                    {e_op,{2,26},
+                          '>=',
+                          {e_var,{2,20},value},
+                          {e_op,{2,31},
+                                '-',
+                                {e_int,{2,29},0},
+                                {e_int,{2,33},5}}}}]
+refinement  value >= 5       module M
+type T = int where value >= 5
+  => [{module,{1,1},'M'},
+      {type_refined,{2,1},
+                    'T',
+                    {t_builtin,int},
+                    {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,29},5}}}]
+pattern     F(<= -1)         module M
+public int F(int n)
+F(<= -1) -> 1
+F(_) -> 2
+  => [{module,{1,1},'M'},
+      {signature,{2,12},
+                 'F',
+                 {t_builtin,int},
+                 [{param,{t_builtin,int},n}],
+                 public,[]},
+      {clause,{3,1},'F',[{p_rel,{3,3},'<=',-1}],none,{e_int,{3,13},1}},
+      {clause,{4,1},'F',[{p_wild,{4,3}}],none,{e_int,{4,9},2}}]
+pattern     F(-5)            module M
+public int F(int n)
+F(-5) -> 1
+F(_) -> 2
+  => [{module,{1,1},'M'},
+      {signature,{2,12},
+                 'F',
+                 {t_builtin,int},
+                 [{param,{t_builtin,int},n}],
+                 public,[]},
+      {clause,{3,1},'F',[{p_int,{3,3},-5}],none,{e_int,{3,10},1}},
+      {clause,{4,1},'F',[{p_wild,{4,3}}],none,{e_int,{4,9},2}}]

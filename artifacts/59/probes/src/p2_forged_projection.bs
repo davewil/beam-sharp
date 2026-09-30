@@ -1,0 +1,26 @@
+module P2
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+
+private atom InRec(Order o)
+InRec(o) -> :order
+
+private int InInt(int n)
+InInt(n) -> n
+
+// The record and the int sit one tuple deep, which the exported boundary does
+// not look into (ticket 46 §4 decided it should; F24 §5 / F37 record it owed).
+public atom ViaRec((Order, int) t)
+ViaRec((o, _)) -> InRec(o)
+
+public int ViaInt((int, int) t)
+ViaInt((a, _)) -> InInt(a)
+
+// Same shape, no private helper: nothing objects to the forged record.
+public int DirectRec((Order, int) t)
+DirectRec((o, _)) -> o.Total
+
+// And the control: the whole parameter is the record.
+public atom WholeRec(Order o)
+WholeRec(o) -> InRec(o)

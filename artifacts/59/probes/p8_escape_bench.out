@@ -1,0 +1,12 @@
+[base] surviving is_integer tests in bytecode: exported=0 local=0
+[B] surviving is_integer tests in bytecode: exported=0 local=1
+[C] surviving is_integer tests in bytecode: exported=0 local=1
+round 1 [base] /tmp/bs59-build/p8-base: median=47798us min=32948us max=138671us (n=1000000, reps=40)
+round 1 [B] /tmp/bs59-build/p8-B: median=60340us min=31792us max=177508us (n=1000000, reps=40)
+round 1 [C] /tmp/bs59-build/p8-C: median=44043us min=31367us max=158645us (n=1000000, reps=40)
+round 2 [base] /tmp/bs59-build/p8-base: median=52327us min=29154us max=154924us (n=1000000, reps=40)
+round 2 [B] /tmp/bs59-build/p8-B: median=51417us min=31128us max=201612us (n=1000000, reps=40)
+round 2 [C] /tmp/bs59-build/p8-C: median=54031us min=33343us max=255212us (n=1000000, reps=40)
+round 3 [base] /tmp/bs59-build/p8-base: median=46850us min=29672us max=126056us (n=1000000, reps=40)
+round 3 [B] /tmp/bs59-build/p8-B: median=49816us min=31517us max=176428us (n=1000000, reps=40)
+round 3 [C] /tmp/bs59-build/p8-C: median=55179us min=32397us max=108888us (n=1000000, reps=40)

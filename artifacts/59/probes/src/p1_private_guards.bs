@@ -1,0 +1,27 @@
+module P1
+
+record Order { Id: int, Total: int }
+
+// One exported and one private function per parameter kind, so the emitted
+// heads can be compared side by side.
+public int OutRec(Order o)
+OutRec(o) -> o.Total
+
+private int InRec(Order o)
+InRec(o) -> o.Total
+
+public int OutInt(int n)
+OutInt(n) -> n
+
+private int InInt(int n)
+InInt(n) -> n
+
+public float OutFloat(float f)
+OutFloat(f) -> f
+
+private float InFloat(float f)
+InFloat(f) -> f
+
+// Keeps the private functions called, so erlc does not warn them away.
+public int Use(Order o, int n, float f)
+Use(o, n, f) -> InRec(o) + InInt(n)

@@ -1,0 +1,3 @@
+programs/Undecl/undecl.bs:4:1: error: Total calls :lists.sum/1, which nothing declares
+  every function has a signature. Write one, or fix the name.
+exit=1

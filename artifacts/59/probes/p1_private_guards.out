@@ -1,0 +1,19 @@
+compile: /tmp/tmp.rxokYcHf4A/P1/p1.bs:0: Warning: function 'InFloat'/1 is unused
+public  bs@type_atoms/0
+public  OutRec/1
+    guard: when map_get('Kind', O) =:= 'P1.Order'
+private InRec/1
+    guard: when map_get('Kind', O) =:= 'P1.Order'
+public  OutInt/1
+    guard: when is_integer(N)
+private InInt/1
+public  OutFloat/1
+    guard: when is_float(F)
+private InFloat/1
+public  Use/3
+    guard: when
+    map_get('Kind', O) =:= 'P1.Order'
+    andalso
+    is_integer(N)
+    andalso
+    is_float(F)
