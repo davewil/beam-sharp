@@ -51,7 +51,7 @@ Q2 is asked only after Q1 = operator. Q3, the `opaque_refinement` wording, follo
 | The same problem affects floats | 57a F1/F2 | `float where value >= 1.0` is refused too, with no negative in sight (F51: float refinements are opaque) | VERIFIED, separate defect |
 | `erlc` output is unchanged if `-5` becomes one literal | 57d | `beam_disasm` of `Lit` identical in both: `{move,{integer,-5},{x,0}}`; results identical | VERIFIED |
 | A negative `e_int` is already a shape the compiler builds | `bs_emit.erl:455`, `:661` (`cmp/4`, `rel_expr/2` put `{e_int,L,K}` with K negative for `<= -1`) | source read | VERIFIED |
-| Nothing in the suite regresses | `run_suite.sh` | 1303 tests; 54 failures on baseline and on every variant, same 54 (OTP 25 lacks `json:encode/1`, `maps:iterator/2`) | VERIFIED (weak: no test has a negative refinement) |
+| Nothing in the suite regresses | `run_suite.sh` | 1303 tests; 54 failures on baseline, A2, B1, B2, B3 (identical failing set). **A1 gives 55** (verifier): `intervals_tests:an_unreadable_refinement_predicate_is_an_error_test` (`intervals_test.erl:46-53`) fails because A1 turns `type Email = int where WellFormed(value)` into a syntax error and loses the `opaque_refinement` diagnostic. Causes of the 54 also include 5 `json:decode/1`, `-0.0` vs `0.0` matching (OTP 27 semantics) and an io_lib `~k` format, so on OTP 25 the suite cannot see regressions near the negation code | VERIFIED for A2/B1/B2/B3; A1 = 55 (weak: no test has a negative refinement) |
 
 ## Survey
 
@@ -83,7 +83,7 @@ same function (`bs_parser.yrl:942-944`, "`-0.0` is the platform's negative zero"
 | B1 checker, `comparison/1` only | R1-R3, V3, V5-V7 | accepted | refused | green | **refused** (below) | same 54 |
 | B3 checker, `comparison/1` + `type_of/3` | as B1 | accepted | **accepted** | green | compiles | same 54 |
 | B2 checker, general int fold | adds V1, V2, V4, V8 | accepted | refused | green | refused | same 54 |
-| A1 grammar, refinement-only | R1-R3, V5-V7; V1-V4, V8 become **syntax errors** | **refused** | refused | **red** | **refused** (two errors) | same 54 |
+| A1 grammar, refinement-only | R1-R3, V5-V7; V1-V4, V8 become **syntax errors** | **refused** | refused | **red** | **refused** (two errors) | **55** (one extra: `opaque_refinement` test) |
 
 Patch sizes: A2 one added line; B1 +7/-2; B3 B1 plus one clause; B2 about 25 lines; A1 about 14
 grammar rules. `bs_parser.yrl` reports the same "6 shift/reduce" before and after A1.
@@ -153,7 +153,7 @@ for `{e_neg,_,{e_int,_,N}}` (`:2867`). Extending the helper to `+ - *` is B2.
 - **Compiles to:** the same BEAM and abstract forms as today. `Direction`/`Clamp` compile (57f).
 - **Compiler delta:** two sites now, plus an obligation on every future reader of a literal.
   `bs_emit.kind_expr` (`:698-700`) reads the same comparison shape and sits outside the fix.
-- **Measured:** equals A on every probe I wrote. B1 alone (the ticket's option) does **not**:
+- **Measured:** equals A on every probe except V4 (`- -5`), which A2 accepts and B3 refuses (see the table). B1 alone (the ticket's option) does **not**:
   `Clamp` is refused (above) and `Half(-5)` still fails. B2 adds `2 + 3` and `5 - 10` and keeps
   the same two-site shape.
 - **Strongest counterargument against B:** it is correct only if each consumer of a literal
@@ -173,7 +173,7 @@ for `{e_neg,_,{e_int,_,N}}` (`:2867`). Extending the helper to `+ - *` is B2.
   (57e), `Half(-5)` still fails (57c). `value >= 2 + 3` becomes `syntax error before: '+'` where it
   was a readable "not a predicate" refusal (57a A1).
 - **Strongest counterargument against C:** it splits the refinement from the guard, which
-  `bs_parser.yrl:219` and F2.5 say must not happen, and it leaves the larger defect in place. In
+  `bs_parser.yrl:221` and F2.5 say must not happen, and it leaves the larger defect in place. In
   favour: it is the literal reading of "what patterns already do", and it needs no checker change.
 
 ## Recommendation
@@ -191,6 +191,9 @@ for `{e_neg,_,{e_int,_,N}}` (`:2867`). Extending the helper to `+ - *` is B2.
 Q2 lapses under A. `2 + 3` stays refused and the message is the only open edit.
 
 ## Open risks
+
+- **A2 has a side effect not priced above (verifier).** It also changes `to_match` (`bs_parser.yrl:882`) and `to_param` (`:930`): `-1 = x` and a lambda parameter `(-5)` now parse as int patterns, where `-1 = x` was refused with "must be a literal pattern". Decide whether that is wanted.
+- **Probe notes.** `probe()` in `common.sh:9-11` counts any output as "refused" (every refused row does show an `error:` line). 57e had no non-negative control; the verifier supplied one and the loop is specific to negative bounds in nested positions. The committed `.out` files contain a `$W` placeholder that no script writes.
 
 - **Suite coverage is weak.** The 1303-test suite has no negative-bound scenario, so "no
   regressions" says only that nothing that exists moved. The gates (`check-language.sh`,
