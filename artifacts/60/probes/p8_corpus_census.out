@@ -1,0 +1,7 @@
+bs files: 102   modules: 63   using-edges between modules in corpus: 5
+public functions: 158   named from another corpus module: 4   named by none: 154
+  Jev  <- Triage
+  Shop  <- Shop.Billing
+  Shop.Collections.Ints  <- Shop.Reports
+  Support.Triage  <- Jev, Triage
+modules named by at least one other module: 4

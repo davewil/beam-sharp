@@ -1,0 +1,4 @@
+module Shop.Orders
+using Shop.Orders.Internal
+public int Gross(int cents)
+Gross(cents) -> cents + Tax(cents)

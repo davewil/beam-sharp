@@ -1,0 +1,3 @@
+module Shop.Orders
+private int RecomputeTotal(int total)
+RecomputeTotal(total) -> total * 2

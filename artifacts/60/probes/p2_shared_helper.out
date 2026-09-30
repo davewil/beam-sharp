@@ -1,0 +1,11 @@
+--- Shop.Billing (intended caller) -> Bill(103)
+100
+exit=0
+--- Web.Checkout (unintended caller) -> Total(103)
+101
+exit=0
+--- Web.NoUsing: qualified call with NO using line -> is `using` the only door?
+fx/Web/NoUsing/N.bs:3:1: error: Shop.Ledger is called but never imported
+  add `using Shop.Ledger` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1

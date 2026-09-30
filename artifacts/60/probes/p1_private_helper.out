@@ -1,0 +1,13 @@
+--- aggregate compiles and the sibling file reaches the private helper (Apply(3) = 7)
+7
+exit=0
+--- a test module in another directory names RecomputeTotal
+fx/Probe/OrdersTest/T.bs:4:1: error: Test calls RecomputeTotal/1, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+exit=1
+--- --api of the aggregate: what does the boundary manifest show?
+module Shop.Orders
+int Apply(int)
+int Gross(int)
+exit=0

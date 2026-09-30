@@ -1,0 +1,4 @@
+module Web.Ns
+using Shop
+public int Total(int cents)
+Total(cents) -> Internal.Ledger.Round(cents)

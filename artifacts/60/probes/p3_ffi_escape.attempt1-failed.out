@@ -1,0 +1,10 @@
+--- compile Shop.Ledger (the helper module)
+exit=0
+--- compile Web.Ffi, which names it as a foreign module
+fx/Web/Ffi/F.bs:4:1: error: syntax error before: 'Round'
+exit=1
+--- run it on the BEAM with both beams loaded: Total(103)
+{"init terminating in do_boot",{undef,[{'Web.Ffi','Total',"g",[]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,282}]},{erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,961}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,454}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,136}]},{init,start_it,1,[]},{init,start_em,1,[]}]}}
+init terminating in do_boot ({undef,[{Web.Ffi,Total,g,[]},{erl_eval,do_apply,7,[{_},{_}]},{erl_eval,expr,6,[{_},{_}]},{erl_eval,expr_list,7,[{_},{_}]},{erl_eval,expr,6,[{_},{_}]},{erl_eval,exprs,6,[{_},{_}]},{init,start_it,1,[]},{init,start_em,1,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done

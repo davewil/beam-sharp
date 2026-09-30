@@ -1,0 +1,4 @@
+module Shop.Reports
+using Shop.Orders.Internal
+public int Peek(int cents)
+Peek(cents) -> Tax(cents)

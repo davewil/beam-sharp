@@ -1,0 +1,4 @@
+module Shop.Billing2
+using Shop.Internal.Ledger
+public int Bill(int cents)
+Bill(cents) -> Round(cents)

@@ -1,0 +1,8 @@
+module Web.Ffi
+
+using :erlang {
+    term apply(atom m, atom f, list<term> args)
+}
+
+public term Total(int cents)
+Total(cents) -> :erlang.apply(:'Shop.Ledger', :'Round', [cents])

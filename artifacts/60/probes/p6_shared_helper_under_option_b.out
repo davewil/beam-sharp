@@ -1,0 +1,12 @@
+--- Shop.Billing2 -> Bill(103) (expect 100)
+100
+exit=0
+--- Web.Checkout2 -> Total(103) (expect refusal)
+fx6/Web/Checkout2/C.bs:2:1: error: Web.Checkout2 cannot name Shop.Internal.Ledger
+  a module under an `Internal` directory may be named only by modules under Shop.
+exit=1
+--- Web.Ns: namespace tier, `using Shop` + Internal.Ledger.Round (expect refusal)
+fx6/Web/Ns/N.bs:4:1: error: Internal.Ledger is called but never imported
+  add `using Internal.Ledger` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1

@@ -1,0 +1,17 @@
+=== A: app (other package) imports lib/internal/helper and calls lib.sneaky (@internal)
+  Resolving versions
+  Compiling lib
+  Compiling app
+   Compiled in 0.39s
+exit=0
+=== B: same package, sibling module imports lib/internal/helper (lib2 is the package; no dependency)
+  Resolving versions
+  Compiling lib2
+   Compiled in 0.35s
+exit=0
+=== C: internal_modules = ["lib/internal/*"] configured explicitly in lib
+   Compiled in 0.00s
+exit=0
+=== D: what 'internal' DOES do: the exported package interface (what docs/tooling see)
+module lib functions ['api']
+lib/internal/helper in interface: False | lib.sneaky (@internal) in interface: False

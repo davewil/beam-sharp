@@ -1,0 +1,10 @@
+--- Shop.Orders (owner; has a nested Internal/ module) Gross(100)
+110
+exit=0
+Shop.Orders.Internal.abstr
+Shop.Orders.Internal.beam
+Shop.Orders.abstr
+Shop.Orders.beam
+--- Shop.Reports (a sibling subtree) names Shop.Orders.Internal: Peek(100)
+10
+exit=0

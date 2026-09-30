@@ -1,0 +1,3 @@
+module Shop.Ledger
+friend Shop.Billing
+friend Shop.Orders

@@ -1,0 +1,9 @@
+Lib.Api.api()        = 42
+Outsider.peek()      = 2   (compiled with no warning or error above this line)
+** (ArgumentError) errors were found at the given arguments:
+
+  * 1st argument: out of range
+
+    :erlang.element(5, {:error, :module_not_found})
+    p9_elixir_erlang_internal.exs:18: (file)
+    (elixir 1.14.0) lib/code.ex:1245: Code.require_file/2

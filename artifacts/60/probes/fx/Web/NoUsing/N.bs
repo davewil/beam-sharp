@@ -1,0 +1,3 @@
+module Web.NoUsing
+public int Total(int cents)
+Total(cents) -> Shop.Ledger.Round(cents)

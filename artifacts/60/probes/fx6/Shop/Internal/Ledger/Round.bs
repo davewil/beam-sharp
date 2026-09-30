@@ -1,0 +1,3 @@
+module Shop.Internal.Ledger
+public int Round(int cents)
+Round(cents) -> cents - cents % 5

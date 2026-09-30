@@ -1,0 +1,4 @@
+module Probe.OrdersTest
+using Shop.Orders
+public int Test()
+Test() -> RecomputeTotal(5)

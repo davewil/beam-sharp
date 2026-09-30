@@ -1,0 +1,15 @@
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+yecc: {ok,"/tmp/bsc-build-60c/gen/bs_parser.erl"}
+
+--- Shop/Billing -> Bill(103)
+100
+exit=0
+--- Shop/Orders -> Apply(103)
+101
+exit=0
+--- Web/Checkout -> Total(103)
+fx7/Web/Checkout/C.bs:2:1: error: Web.Checkout cannot name Shop.Ledger
+  Shop.Ledger declares `friend Shop.Billing, Shop.Orders`, so only those modules and the modules under them may.
+exit=1
+--- diff size
+added lines: 33  removed: 4

@@ -1,0 +1,3 @@
+module Shop.Orders
+public int Apply(int total)
+Apply(total) -> RecomputeTotal(total) + 1

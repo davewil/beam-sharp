@@ -1,0 +1,8 @@
+module Web.Ffi
+
+using :'Shop.Ledger' {
+    int Round(int cents)
+}
+
+public int Total(int cents)
+Total(cents) -> Round(cents)

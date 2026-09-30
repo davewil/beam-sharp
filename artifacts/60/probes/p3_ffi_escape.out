@@ -1,0 +1,6 @@
+--- compile Shop.Ledger (the helper module)
+exit=0
+--- compile Web.Ffi: :erlang.apply(:Shop.Ledger, :Round, [cents]), no using of Shop.Ledger
+exit=0
+--- run it on the BEAM with both beams loaded: Total(103)
+100

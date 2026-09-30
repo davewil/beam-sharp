@@ -1,0 +1,4 @@
+Lib.Api.api()        = 42
+Outsider.peek()      = 2   (compiled with no warning or error above this line)
+elixir app: 253 modules, 36 carry @moduledoc false (hidden from docs, still callable)
+:erts_internal.cmp_term(1, 2) from user code: -1

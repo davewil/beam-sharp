@@ -1,0 +1,4 @@
+module Web.Checkout
+using Shop.Ledger
+public int Total(int cents)
+Total(cents) -> Round(cents) + 1

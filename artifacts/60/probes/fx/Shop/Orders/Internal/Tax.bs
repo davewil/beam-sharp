@@ -1,0 +1,3 @@
+module Shop.Orders.Internal
+public int Tax(int cents)
+Tax(cents) -> cents / 10

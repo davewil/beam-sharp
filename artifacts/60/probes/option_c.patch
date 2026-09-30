@@ -1,0 +1,121 @@
+--- a/bs_check.erl	2026-09-30 23:13:07.109902317 +0000
++++ b/bs_check.erl	2026-09-30 23:13:07.132774233 +0000
+@@ -489,17 +489,36 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> may_name(L, M, Self, World),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    add_namespace_import(
++                      M, [C || C <- Children, allowed(Self, C, World)], Acc)
+             end
+     end.
+ 
++%% OPTION C PROTOTYPE. A module with no `friend` line is open. With one or more, a caller must
++%% sit at or under one of the named modules.
++allowed(Self, M, World) ->
++    case maps:get(friends, maps:get(M, World, #{}), []) of
++        []      -> true;
++        Friends -> Mine = string:split(atom_to_list(Self), ".", all),
++                   lists:any(fun(F) -> lists:prefix(string:split(atom_to_list(F), ".", all), Mine) end,
++                             Friends)
++    end.
++
++may_name(L, M, Self, World) ->
++    case allowed(Self, M, World) of
++        true  -> ok;
++        false -> erlang:error({friend_module, M, Self, maps:get(friends, maps:get(M, World)), L})
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- a/bs_diag.erl	2026-09-30 23:13:07.110013079 +0000
++++ b/bs_diag.erl	2026-09-30 23:13:07.134463027 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {friend_module, Mod, Self, Friends, Line}) ->
++    #{tag => friend_module, severity => error, file => Path, line => Line,
++      module => Mod, caller => Self, friends => Friends};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2022,6 +2025,11 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := friend_module, file := P, line := L, column := C, module := Mod,
++          caller := Self, friends := Fs}) ->
++    {"~s:~p:~p: error: ~s cannot name ~s~n"
++     "  ~s declares `friend ~s`, so only those modules and the modules under them may.~n",
++     [P, L, C, Self, Mod, Mod, lists:join(", ", [atom_to_list(F) || F <- Fs])]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"
+--- a/bsc.erl	2026-09-30 23:13:07.110488407 +0000
++++ b/bsc.erl	2026-09-30 23:13:07.130044499 +0000
+@@ -238,6 +238,7 @@
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
++                                     friends => [F || {friend, _, F} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+                                      %% name in type position.
+--- a/bs_lexer.xrl	2026-09-30 23:13:07.110545516 +0000
++++ b/bs_lexer.xrl	2026-09-30 23:13:07.125666869 +0000
+@@ -44,6 +44,7 @@
+ using                   : {token, {'using', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
++friend                  : {token, {'friend', TokenLoc}}.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+ behavior                : {token, {'behaviour', TokenLoc}}.
+ %% `implements Enumerable<int> for Node { … }`: a record's own module implements
+--- a/bs_parser.yrl	2026-09-30 23:13:07.110677128 +0000
++++ b/bs_parser.yrl	2026-09-30 23:13:07.129843383 +0000
+@@ -11,7 +11,7 @@
+   program decls decl
+   comp_quals comp_qual
+   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
+-  behaviour_decl record_decl field_decls field_decl open_field_decls
++  friend_decl behaviour_decl record_decl field_decls field_decl open_field_decls
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+   patterns pattern_list pattern plist_items pat_fields pat_field
+@@ -25,7 +25,7 @@
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'behaviour' 'friend' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -101,6 +101,7 @@
+     {line('$1'), '$2', '$4', '$6'}.
+ decl -> foreign_decl : '$1'.
+ decl -> behaviour_decl : '$1'.
++decl -> friend_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
+ decl -> implements_decl : '$1'.
+@@ -161,6 +162,7 @@
+ %% `behaviour GenServer` uses the platform's own word and is emitted as
+ %% written. Not `using GenServer`, which is the same tokens as a one-segment
+ %% import and would need a symbol table to tell apart.
++friend_decl -> 'friend' modpath : {friend, line('$1'), modatom('$2')}.
+ behaviour_decl -> 'behaviour' uident : {behaviour, line('$1'), value('$2')}.
+ 
+ %% --- foreign modules --------------------------------------------------------

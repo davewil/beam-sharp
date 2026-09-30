@@ -1,0 +1,11 @@
+--- Shop.Billing2 -> Bill(103) (expect 100)
+100
+exit=0
+--- Web.Checkout2 -> Total(103) (expect refusal)
+fx/Web/Checkout2/C.bs:2:1: error: Web.Checkout2 cannot name Shop.Internal.Ledger
+  a module under an `Internal` directory may be named only by modules under Shop.
+exit=1
+--- Web.Ns: namespace tier, `using Shop` + Internal.Ledger.Round (expect refusal)
+fx/Shop/Reports/Peek.bs:2:1: error: Shop.Reports cannot name Shop.Orders.Internal
+  a module under an `Internal` directory may be named only by modules under Shop.Orders.
+exit=1
