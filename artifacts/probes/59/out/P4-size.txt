@@ -1,0 +1,20 @@
+kind   K    variant     file_B stripped_B     code_B
+rec    1    repo          1604        502        135
+rec    1    narrow        1524        477        123
+rec    1    wide          1604        502        135
+rec    10   repo          3060        787        666
+rec    10   narrow        2664        710        538
+rec    10   wide          3060        787        666
+rec    100  repo         17288       2876       6147
+rec    100  narrow       13524       2324       4759
+rec    100  wide         17288       2876       6147
+int    1    repo          1508        472        127
+int    1    narrow        1508        472        127
+int    1    wide          1640        490        147
+int    10   repo          2724        750        594
+int    10   narrow        2728        750        594
+int    10   wide          3640        837        809
+int    100  repo         14692       2915       5440
+int    100  narrow       14692       2915       5440
+int    100  wide         24096       3633       7725
+per private function at K=100: tag test = 13.88 B Code; int guard (unproved args) = 22.85 B Code

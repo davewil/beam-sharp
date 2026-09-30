@@ -1,0 +1,4 @@
+RecP  (private, record param, self-call)      min= 239166 us  median= 289525 us  min= 23.92 ns/call  median= 28.95 ns/call
+IntP  (private, int unproved by caller)       min=  12741 us  median=  25490 us  min=  1.27 ns/call  median=  2.55 ns/call
+IntP  (private, int proved by caller)         min=  15036 us  median=  17510 us  min=  1.50 ns/call  median=  1.75 ns/call
+IntE  (EXPORTED self-recursive, int)          min=  27297 us  median=  70198 us  min=  2.73 ns/call  median=  7.02 ns/call

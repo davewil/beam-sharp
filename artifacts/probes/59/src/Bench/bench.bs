@@ -1,0 +1,30 @@
+module Bench
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+// A: private hot loop taking a record. Tag test at every iteration under BASE/WIDE.
+int RecP(Order o, int n, int acc)
+RecP(_, 0, acc) -> acc
+RecP(o, n, acc) -> RecP(o, n - 1, acc + o.Total)
+
+public int RunRec(Order o, int n)
+RunRec(o, n) -> RecP(o, n, 0)
+
+// B: private hot loop taking a refined int the exported caller has NOT proved.
+int IntP(Octet x, int n, int acc)
+IntP(_, 0, acc) -> acc
+IntP(x, n, acc) -> IntP(x, n - 1, acc + x)
+
+public int RunIntKept(list<Octet> xs, int n)
+RunIntKept([], _)       -> 0
+RunIntKept([x, .._], n) -> IntP(x, n, 0)
+
+// C: same private loop, but the exported caller's own guard proves x.
+public int RunIntProven(Octet x, int n)
+RunIntProven(x, n) -> IntP(x, n, 0)
+
+// D: the loop itself is EXPORTED: every self-call re-enters the guarded label.
+public int IntE(Octet x, int n, int acc)
+IntE(_, 0, acc) -> acc
+IntE(x, n, acc) -> IntE(x, n - 1, acc + x)

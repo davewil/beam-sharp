@@ -1,0 +1,10 @@
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -269,6 +269,7 @@
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};
++                false when not Public -> {Pat, []};   % NARROW: private gets no tag test
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}

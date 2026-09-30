@@ -1,0 +1,3 @@
+66a67,68
+> boundary_kind_tests: a_private_function_is_not_guarded_test
+> boundary_range_tests: a_private_function_carries_no_range_guard_test

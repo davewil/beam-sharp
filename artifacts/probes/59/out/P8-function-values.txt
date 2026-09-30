@@ -1,0 +1,36 @@
+== repo
+Rule          1.5      -> ok:-98.5
+Banding       300      -> ok:1
+Banding       100.5    -> ok:1
+Reader        #{'Kind' -> error:function_clause@'Fv':'Amount'/1
+ViaLambda     1.5      -> ok:-98.5
+InlineLambda  1.5      -> ok:-98.5
+Rule          150      -> ok:50
+Banding       100      -> ok:1
+== narrow
+Rule          1.5      -> ok:-98.5
+Banding       300      -> ok:1
+Banding       100.5    -> ok:1
+Reader        #{'Kind' -> ok:5
+ViaLambda     1.5      -> ok:-98.5
+InlineLambda  1.5      -> ok:-98.5
+Rule          150      -> ok:50
+Banding       100      -> ok:1
+== wide
+Rule          1.5      -> error:function_clause@'Fv':'Shave'/1
+Banding       300      -> error:function_clause@'Fv':'Band'/1
+Banding       100.5    -> error:function_clause@'Fv':'Band'/1
+Reader        #{'Kind' -> error:function_clause@'Fv':'Amount'/1
+ViaLambda     1.5      -> error:function_clause@'Fv':'Shave'/1
+InlineLambda  1.5      -> ok:-98.5
+Rule          150      -> ok:50
+Banding       100      -> ok:1
+== refsite
+Rule          1.5      -> error:function_clause@'Fv':'-Rule/1-fun-0-'/1
+Banding       300      -> error:function_clause@'Fv':'-Banding/1-fun-0-'/1
+Banding       100.5    -> error:function_clause@'Fv':'-Banding/1-fun-0-'/1
+Reader        #{'Kind' -> error:function_clause@'Fv':'-Reader/1-fun-0-'/1
+ViaLambda     1.5      -> ok:-98.5
+InlineLambda  1.5      -> ok:-98.5
+Rule          150      -> ok:50
+Banding       100      -> ok:1

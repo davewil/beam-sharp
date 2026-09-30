@@ -1,0 +1,3 @@
+repo: beams=22 functions=97 exported=78 private=19 | private with: tag=0 kind=0 float=0 | exported with: tag=8 kind=34 float=4 | code_bytes=6605
+narrow: beams=22 functions=97 exported=78 private=19 | private with: tag=0 kind=0 float=0 | exported with: tag=8 kind=34 float=4 | code_bytes=6605
+wide: beams=22 functions=97 exported=78 private=19 | private with: tag=0 kind=9 float=0 | exported with: tag=8 kind=34 float=4 | code_bytes=6605

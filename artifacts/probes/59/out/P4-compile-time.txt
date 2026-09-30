@@ -1,0 +1,5 @@
+compile time rec K=100 repo: min=154.0 ms median=212.7 ms (N=9)
+compile time int K=100 repo: min=98.0 ms median=175.5 ms (N=9)
+compile time rec K=100 narrow: min=97.4 ms median=156.3 ms (N=9)
+compile time int K=100 narrow: min=128.8 ms median=184.3 ms (N=9)
+compile time rec K=100 wide: min=204.0 ms median=291.2 ms (N=9)

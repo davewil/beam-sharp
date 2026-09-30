@@ -1,0 +1,11 @@
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -273,7 +273,7 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->   % WIDE: private gets the kind/range guards too
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)

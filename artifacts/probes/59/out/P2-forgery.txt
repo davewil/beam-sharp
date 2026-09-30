@@ -1,0 +1,30 @@
+== repo
+Direct     FORGED                  -> error:function_clause@'Fwd':'Direct'/1
+SumAll     [FORGED]                -> error:function_clause@'Fwd':'Amount'/1
+SumInline  [FORGED]                -> ok:5
+SumPair    {FORGED,1}              -> error:function_clause@'Fwd':'Amount'/1
+ViaUnion   FORGED                  -> error:function_clause@'Fwd':'ViaUnion'/1
+Buckets    [100.5]                                                      -> ok:1
+Buckets    [300]                                                        -> ok:1
+SumAll     [VALID]                  -> ok:5
+Buckets    [100]                                                        -> ok:1
+== narrow
+Direct     FORGED                  -> error:function_clause@'Fwd':'Direct'/1
+SumAll     [FORGED]                -> ok:5
+SumInline  [FORGED]                -> ok:5
+SumPair    {FORGED,1}              -> ok:6
+ViaUnion   FORGED                  -> error:function_clause@'Fwd':'ViaUnion'/1
+Buckets    [100.5]                                                      -> ok:1
+Buckets    [300]                                                        -> ok:1
+SumAll     [VALID]                  -> ok:5
+Buckets    [100]                                                        -> ok:1
+== wide
+Direct     FORGED                  -> error:function_clause@'Fwd':'Direct'/1
+SumAll     [FORGED]                -> error:function_clause@'Fwd':'Amount'/1
+SumInline  [FORGED]                -> ok:5
+SumPair    {FORGED,1}              -> error:function_clause@'Fwd':'Amount'/1
+ViaUnion   FORGED                  -> error:function_clause@'Fwd':'ViaUnion'/1
+Buckets    [100.5]                                                      -> error:function_clause@'Fwd':'Bucket'/1
+Buckets    [300]                                                        -> error:function_clause@'Fwd':'Bucket'/1
+SumAll     [VALID]                  -> ok:5
+Buckets    [100]                                                        -> ok:1

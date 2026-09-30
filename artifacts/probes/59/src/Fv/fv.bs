@@ -1,0 +1,33 @@
+module Fv
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+// Private functions, reachable from outside the module only as function values.
+int Shave(int cents)
+Shave(c) -> c - 100
+
+int Band(Octet n)
+Band(n) when n >= 9 -> 1
+Band(n) -> 0
+
+int Amount(Order o)
+Amount(o) -> o.Total
+
+public fn(int) -> int Rule(atom tier)
+Rule(:member) -> Shave
+Rule(_)       -> Shave
+
+public fn(Octet) -> int Banding(atom tier)
+Banding(_) -> Band
+
+public fn(Order) -> int Reader(atom tier)
+Reader(_) -> Amount
+
+// A lambda handed out: its own parameter has no guard (F46), and it calls a private function.
+public fn(int) -> int ViaLambda(atom tier)
+ViaLambda(_) -> (c) => Shave(c)
+
+// The same lambda with the arithmetic inline: no private function anywhere.
+public fn(int) -> int InlineLambda(atom tier)
+InlineLambda(_) -> (c) => c - 100

@@ -1,0 +1,2 @@
+Exp:  callee_entry_label=4 callee_has_is_integer=true caller_local_call_targets=[4,7] calls_callee_entry=true
+Priv: callee_entry_label=7 callee_has_is_integer=false caller_local_call_targets=[4,7] calls_callee_entry=true

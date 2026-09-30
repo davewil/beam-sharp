@@ -1,0 +1,50 @@
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -47,6 +47,7 @@
+             qmods => maps:get(qmods, Module, #{}),
+             validators => Validators,
+             remote_names => maps:get(remote_names, Module, #{}),
++            privfns => maps:from_list([{{element(2, F), arity(F)}, F} || F <- Fns, not is_public(F)]),
+             %% Which foreign calls are owed a `try` is decided in `bs_check`
+             %% and only looked up here.
+             foreigns => maps:get(foreigns, Module, #{}),
+@@ -269,6 +270,7 @@
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};
++                false when not Public -> {Pat, []};   % REFSITE: callee unguarded when private
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+@@ -1063,8 +1065,29 @@
+ expr({e_fname, L, Name, _}, C) ->
+     case maps:get(L, maps:get(fnames, C, #{})) of
+         {Name, Arity} ->
+-            {'fun', L, {function, emitted_name(Name, Arity, maps:get(behaviours, C, [])),
+-                        Arity}};
++            Emitted = emitted_name(Name, Arity, maps:get(behaviours, C, [])),
++            Plain = {'fun', L, {function, Emitted, Arity}},
++            case maps:find({Name, Arity}, maps:get(privfns, C, #{})) of
++                error -> Plain;
++                {ok, PF} ->
++                    %% REFSITE: a private function handed out as a value is guarded
++                    %% at the site that hands it out, by the guards its own
++                    %% signature would carry were it exported.
++                    Ctx = C#{env => fn_env(PF, maps:get(env, C))},
++                    Pats = [{p_var, L, list_to_atom("bs@ref" ++ integer_to_list(I))}
++                            || I <- lists:seq(1, Arity)],
++                    Accepts = lists:duplicate(Arity, bs_types:term()),
++                    {_, Tests} = boundary_guards(Pats, element(5, PF), L, Ctx, true, Accepts),
++                    case Tests of
++                        [] -> Plain;
++                        _ ->
++                            Vars = [{var, L, var_name(V)} || {p_var, _, V} <- Pats],
++                            {'fun', L, {clauses,
++                                        [{clause, L, Vars,
++                                          guard({guard, fold_and(Tests, L)}, Ctx),
++                                          [{call, L, {atom, L, Emitted}, Vars}]}]}}
++                    end
++            end;
+         {q, Mod0, Name, Arity} ->
+             Mod = maps:get(Mod0, maps:get(qmods, C, #{}), Mod0),
+             RName = maps:get({Mod, Name, Arity}, maps:get(remote_names, C, #{}), Name),

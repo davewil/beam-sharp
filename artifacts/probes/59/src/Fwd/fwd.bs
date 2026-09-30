@@ -1,0 +1,39 @@
+module Fwd
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+int Amount(Order o)
+Amount(o) -> o.Total
+
+int Bucket(Octet n)
+Bucket(n) when n >= 9 -> 1
+Bucket(n) -> 0
+
+public int SumAll(list<Order> os)
+SumAll([])       -> 0
+SumAll([o, ..t]) -> Amount(o) + SumAll(t)
+
+public int Buckets(list<Octet> ns)
+Buckets([])       -> 0
+Buckets([n, ..t]) -> Bucket(n) + Buckets(t)
+
+public int Direct(Order o)
+Direct(o) -> Amount(o)
+
+// Nothing private involved: the exported function reads the element itself.
+public int SumInline(list<Order> os)
+SumInline([])       -> 0
+SumInline([o, ..t]) -> o.Total + SumInline(t)
+
+// A tuple parameter is not a record parameter: no top-level tag test.
+public int SumPair((Order, int) p)
+SumPair((o, k)) -> Amount(o) + k
+
+record Invoice { Id: int, Total: int }
+type Doc = Order | Invoice
+
+// A union parameter gets no tag test; the clause head is the test.
+public int ViaUnion(Doc d)
+ViaUnion(Order o)   -> Amount(o)
+ViaUnion(Invoice i) -> i.Total

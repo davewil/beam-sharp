@@ -1,0 +1,21 @@
+module Asym
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+public int PubRec(Order o)
+PubRec(o) -> o.Total
+
+int PrivRec(Order o)
+PrivRec(o) -> o.Total
+
+public int PubInt(Octet n)
+PubInt(n) when n >= 9 -> n
+PubInt(n) -> 0
+
+int PrivInt(Octet n)
+PrivInt(n) when n >= 9 -> n
+PrivInt(n) -> 0
+
+public int Use(Order o, Octet n)
+Use(o, n) -> PrivRec(o) + PrivInt(n)

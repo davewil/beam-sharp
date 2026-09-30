@@ -1,0 +1,31 @@
+diff base->narrow: 1 changed lines
+diff base->wide: 2 changed lines
+PASS P1a  exported record param: tag test
+PASS P1b  PRIVATE record param: tag test (unscoped)
+PASS P1c  exported refined-int param: is_integer
+PASS P1d  PRIVATE refined-int param: no guard
+PASS P1e  recompiled base == shipped compiler (abstr identical)
+PASS P1f  NARROW: private record fn loses its tag test, nothing else moves
+PASS P1g  WIDE: private int fn gains is_integer, tag test kept
+PASS P2a  Direct(forged): caught at the exported function, every variant
+PASS P2b  SumAll([forged]) via private helper: base crashes IN the private fn, narrow returns silently, wide crashes
+PASS P2c  SumPair(({forged},1)): same split as P2b
+PASS P2d  SumInline([forged]) (no private helper): silent in every variant
+PASS P2e  ViaUnion(forged): clause head refuses it, every variant
+PASS P2f  Buckets([300]) out-of-domain int under private helper: silent in base and narrow, crash in wide
+PASS P2g  Buckets([100.5]) float under private helper: same split
+PASS P2h  controls: valid record and valid int still answer in every variant
+PASS P5b1  local call reaches the exported function's guarded entry label
+PASS P5b2  private sibling has no is_integer at its entry
+PASS P5c  WIDE, callers prove int: private callee's is_integer erased by erlc, range tests kept
+PASS P8a  private int fn handed out as a value, called with 1.5: silent in repo+narrow, crash in callee (wide) / in wrapper (refsite)
+PASS P8b  private Octet fn handed out, called with 300: same split
+PASS P8c  private record fn handed out, called with a forged map: repo keeps its tag test, narrow loses it
+PASS P8d  lambda calling a private fn: only WIDE refuses 1.5
+PASS P8e  lambda with inline arithmetic: silent in every variant (out of this ticket's reach)
+PASS P8f  controls: in-domain arguments still answer in every variant
+PASS P8g  refsite leaves nested forgery to the callee exactly as narrow does (SumAll([forged]) -> ok:5)
+per private function at K=100: tag test = 13.88 B Code; int guard (unproved args) = 22.85 B Code
+PASS P4a  tag test costs 10..18 Code bytes per private function
+PASS P4b  int guard on private (args unproved) costs 3..40 Code bytes per function
+PASS P4c  NARROW changes int-only modules by 0 bytes; WIDE changes rec-only modules by 0 bytes
