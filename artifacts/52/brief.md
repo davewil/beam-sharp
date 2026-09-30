@@ -37,7 +37,7 @@ the "sequence with 50" warning no longer has anything to collide with.
 
 | # | Claim | Probe | Result | Status |
 |---|---|---|---|---|
-| 1 | Ticket: "compile it on a machine with a different `ERL_LIBS` and it fails at the call site with `error:undef`" | p02 | Compile exits **0**; `Shout` then `crashed: error:undef`. The failure is at run time, not compile time | **REFUTED** (as worded) |
+| 1 | Ticket: "compile it on a machine with a different `ERL_LIBS` and it fails at the call site with `error:undef`" | p02 | Compile exits **0**; `Shout` then `crashed: error:undef`. The failure is at run time, not compile time | **NOT CONFIRMED as a refutation (verifier).** The ticket itself says run-time `error:undef`; it never claimed a compile-time failure. The facts (exit 0, undef at run time) stand. Not evidence for or against B |
 | 2 | A mistyped foreign module gets the same treatment | p02 D/E | `using :lits { … }` compiles (exit 0) and crashes `undef` at run time | VERIFIED |
 | 3 | The `using :m { }` block is the only way a foreign module is named | p06a | `:lists.sum` with no block: `error: Total calls :lists.sum/1, which nothing declares` | VERIFIED |
 | 4 | Nothing in the source records the application | p16 | `bsc --api` output is identical with and without `ERL_LIBS` and lists no dependency | VERIFIED |
@@ -48,7 +48,7 @@ the "sequence with 50" warning no longer has anything to collide with.
 | 9 | Most blocks need no declaration | p03 | 24 of 30 resolve to `erts` (13), `kernel` (1), `stdlib` (10). Another (`:json`) is OTP-27+ `stdlib`. 5 are non-OTP: 3 Elixir stdlib modules, Req, epgsql | VERIFIED |
 | 10 | The OTP release is itself an undeclared dependency | p03, p17 | `:json` is non-existent on this OTP 25. Exemplar 25f (`using :json`) still compiles, exit 0. No application name would record this; `.tool-versions` does | VERIFIED |
 | 11 | Presence on the path is not readiness | p13 | `ticker` on the path, never started: `Cold()` gives `crashed: exit:{noproc,{gen_server,call,[ticker_srv,get]}}`. After `:application.ensure_all_started(:ticker)` in the program, `Warm()` returns `42` | VERIFIED |
-| 12 | An application atom is unambiguous beside a module atom | p11 | **12 of 27** applications on the path own a module of the same name (`ssl`, `inets`, `mnesia`, `crypto`, `kernel`, `elixir`, …). A bare `using :ssl` could mean either | **REFUTED** |
+| 12 | An application atom is unambiguous beside a module atom | p11 | **12 of 27** applications on the path own a module of the same name (`ssl`, `inets`, `mnesia`, `crypto`, `kernel`, `elixir`, …). A bare `using :ssl` could mean either | CONFIRMED as a number. No ticket claimed the atoms are unambiguous, and it matters only for the bare `using :app` spelling, which the yecc count already rejects |
 | 13 | The grammar can carry an application | p12 | Baseline 6 shift/reduce on this yecc. `using :M in :app { }` 6; new keyword `using app :x` 6; `[app: x] using …` 6; bare `using :app` **7**. Scratch copies of `bs_parser.yrl`; first run of this probe was vacuous (productions landed after `Erlang code.`) and is kept as `p12…first_run_vacuous.out` | VERIFIED |
 | 14 | A new keyword `app` is not free | grep | `wayfinder/prototypes/51a-code-path/Req/req.bs:44` has a parameter `atom app`; `fn` and `raise` already left the variable namespace this way (`bs_lexer.xrl`) | VERIFIED |
 | 15 | A presence check is cheap | p05 | `code:which` on an *absent* module: 0.5-0.6 ms (30 path entries); 3-5 ms (236 entries). 14 absent modules: 8-9 ms and 40-60 ms (the two runs disagreed; min/max in `.out`). Present + `.app` read, 8 modules: ~0.5 ms. "Present" figures are for already-loaded modules; I did not time a cold one | VERIFIED |
@@ -76,7 +76,7 @@ Erlang and Elixir sources are not installed here (only `ebin/`), so I cite measu
   called but it did not exist`: today's B# behaviour exactly. A missing *Gleam* import is refused at compile time
   (`error: Unknown module`, p09); that dependency graph is declared in `gleam.toml`, not in the source.
 - **Elm** (p10). **UNVERIFIED**: package.elm-lang.org is refused. The one message obtained said `MISSING DEPENDENCY …
-  elm.json`, so Elm checks source against a manifest.
+  elm.json`, (Correction after verification: that run had an incomplete `elm.json`; it is not evidence that Elm checks imports against a manifest. Treat Elm as no data.)
 - **B# side** (read): `bs_parser.yrl:170` (the one foreign production, a 4-tuple `{foreign, L, Mod, Sigs}`);
   `bs_check.erl:615, 633, 1054, 1092` (the four sites that match that 4-tuple); `bs_emit.erl:73-78` (module
   attributes); `bs_api.erl:60` ("read and never built"); `bs_lexer.xrl:131` (quoted atoms lex);
@@ -211,6 +211,10 @@ Defaults for the follow-ups, to be asked *after* the gating answer and open to D
   25 of 30 corpus blocks would otherwise carry ceremony that tells the reader nothing.
 
 ## Open risks
+
+- **B versus A is a judgement, not a measurement (verifier).** No probe shows A is worse for a clean-room handoff; B rests on the ticket's handoff argument plus a cheap grammar. Rows 1 and 12 were framed as refutations and are not evidence either way.
+- **p06 models the parser change with a 5-tuple `{foreign,..,App,..}`**, which contradicts delta 1 (leave the 4-tuple, emit a separate `{requires}` decl). The parser already splices lists (`bs_parser.yrl:74`), so delta 1 is feasible but untested.
+- **p15's closure walk over-approximates** (flags `logger`, not needed). The census count of 4 repeated blocks comes from `p03_census_with_elixir_libs.out`; the default output says 5. Yecc conflict counts are OTP 25 only. The C comparison did not try reusing the `in` token.
 
 - **The 1-line claim is refuted and the rest of the ticket's three sub-questions are only partly settled by the corpus.**
   Two third-party blocks cannot decide per-block vs per-module; the Elixir-stdlib repetition is the only signal.
