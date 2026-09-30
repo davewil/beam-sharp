@@ -1,0 +1,11 @@
+diff -ruN a/src/bs_parser.yrl b/src/bs_parser.yrl
+--- a/src/bs_parser.yrl	2026-09-29 23:08:09.788405215 +0000
++++ b/src/bs_parser.yrl	2026-09-29 23:11:27.894924243 +0000
+@@ -587,6 +587,7 @@
+ %% one, refused. A negated float LITERAL folds to the literal, so `-0.0` is
+ %% the platform's negative zero and not `0 - 0.0`, which is `0.0`.
+ expr_low -> '-' expr_low : negate(line('$1'), '$2').
++expr_low -> '-' integer : {e_int, line('$1'), -value('$2')}.
+ expr_low -> atom_lit : {e_atom, line('$1'), value('$1')}.
+ expr_low -> string_lit : {e_str, line('$1'), value('$1')}.
+ %% `$"Order {o.Id}"` builds a string (ticket 112, F66): text parts stay bytes

@@ -1,0 +1,35 @@
+E1 ast(-5): {:-, [line: 1], [5]}
+PASS E1
+E2 ast(x >= -5): {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+PASS E2
+E3 Macro.expand(quote(do: -5)): -5
+PASS E3 (the first-run prediction is confirmed WRONG; corrected in the b-check)
+PASS E3b
+PASS E8
+PASS E4
+PASS E5
+PASS E6
+E7 tokens(-5): [{:dual_op, {1, 1, nil}, :-}, {:int, {1, 2, 5}, '5'}]
+PASS E7 (the first-run prediction is confirmed WRONG; corrected in the b-check)
+PASS E7b
+EL1 parse("-5.") = {op,1,'-',{integer,1,5}}
+PASS EL1
+EL2 head = [{op,1,'-',{integer,1,5}}]
+PASS EL2
+PASS EL3
+PASS EL4
+PASS EL5
+EL6 compile result = error
+PASS EL6
+PASS EL7
+PASS GL1 expected a observed a  
+GL1-run g(-6)=false g(-5)=true
+PASS GL2 expected a observed a  
+GL2-run h(-5)=true h(5)=false
+PASS GL3 expected a observed a (first-run prediction r was wrong)  
+RECORD GL4 expected - observed r  error: Syntax error
+RECORD GL5 expected - observed a  
+elm 0.19.2
+Knowing all that, would you like me to create an elm.json file now? [Y/n]: -- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+PASS elm init failed as predicted -> Elm NOT measured

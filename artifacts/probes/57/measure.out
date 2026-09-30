@@ -1,0 +1,30 @@
+== M1 yecc conflicts (yecc:file, as reported / count of precedence-resolved parse-action conflicts in verbose mode)
+base   conflicts: 6 shift/reduce, 0 reduce/reduce ; verbose parse-action conflict reports: 232
+A      conflicts: 6 shift/reduce, 0 reduce/reduce ; verbose parse-action conflict reports: 232
+Aprod  conflicts: 6 shift/reduce, 0 reduce/reduce ; verbose parse-action conflict reports: 281
+B0     conflicts: 6 shift/reduce, 0 reduce/reduce ; verbose parse-action conflict reports: 232
+Bn     conflicts: 6 shift/reduce, 0 reduce/reduce ; verbose parse-action conflict reports: 232
+Ba     conflicts: 6 shift/reduce, 0 reduce/reduce ; verbose parse-action conflict reports: 232
+
+== M2 lines changed vs unpatched copy (git diff --no-index --shortstat)
+A      1 file changed, 1 insertion(+)
+Aprod  1 file changed, 1 insertion(+)
+B0     1 file changed, 10 insertions(+)
+Bn     1 file changed, 27 insertions(+), 9 deletions(-)
+Ba     1 file changed, 34 insertions(+), 9 deletions(-)
+
+== M3 compile time, 200-refinement module, timer:tc, 7 runs interleaved across compilers (ms)
+-- nonneg refinements
+base   min 250 ms  median 291 ms  runs [291, 299, 310, 250, 307, 281, 286]  compile result term(s): ['ok']
+A      min 248 ms  median 275 ms  runs [268, 328, 330, 270, 275, 313, 248]  compile result term(s): ['ok']
+Aprod  min 271 ms  median 292 ms  runs [299, 276, 271, 302, 285, 310, 292]  compile result term(s): ['ok']
+B0     min 265 ms  median 293 ms  runs [293, 318, 313, 290, 309, 265, 280]  compile result term(s): ['ok']
+Bn     min 283 ms  median 321 ms  runs [299, 333, 290, 283, 360, 321, 347]  compile result term(s): ['ok']
+Ba     min 210 ms  median 289 ms  runs [289, 289, 331, 299, 210, 285, 226]  compile result term(s): ['ok']
+-- neg refinements
+base   min 46 ms  median 67 ms  runs [62, 67, 97, 46, 68, 71, 54]  compile result term(s): ['error']
+A      min 249 ms  median 276 ms  runs [249, 300, 268, 266, 310, 289, 276]  compile result term(s): ['ok']
+Aprod  min 232 ms  median 273 ms  runs [273, 321, 247, 284, 271, 294, 232]  compile result term(s): ['ok']
+B0     min 263 ms  median 286 ms  runs [307, 328, 263, 283, 350, 278, 286]  compile result term(s): ['ok']
+Bn     min 259 ms  median 291 ms  runs [320, 302, 259, 337, 283, 281, 291]  compile result term(s): ['ok']
+Ba     min 267 ms  median 312 ms  runs [345, 313, 372, 312, 285, 290, 267]  compile result term(s): ['ok']

@@ -1,0 +1,7 @@
+PASS base abstract-format operand of -3: unary-op nodes=1 literal nodes=0 (want op>=1 lit=0); Arith.beam 1344 bytes
+PASS A abstract-format operand of -3: unary-op nodes=0 literal nodes=1 (want op=0 lit>=1); Arith.beam 1336 bytes
+PASS Aprod abstract-format operand of -3: unary-op nodes=0 literal nodes=1 (want op=0 lit>=1); Arith.beam 1324 bytes
+PASS B0 abstract-format operand of -3: unary-op nodes=1 literal nodes=0 (want op>=1 lit=0); Arith.beam 1340 bytes
+PASS Bn abstract-format operand of -3: unary-op nodes=1 literal nodes=0 (want op>=1 lit=0); Arith.beam 1340 bytes
+PASS Ba abstract-format operand of -3: unary-op nodes=1 literal nodes=0 (want op>=1 lit=0); Arith.beam 1340 bytes
+PASS beam size delta A vs base = 8 bytes

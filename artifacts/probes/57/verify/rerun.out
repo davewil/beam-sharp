@@ -1,0 +1,291 @@
+
+[R1] ticket row 1: value >= -5
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R2] ticket row 2: >= -5 and <= 5
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R3] ticket row 3: >= 1 or <= -1
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R4] ticket row 4: <= 3 or >= 10 (disjoint, non-negative)
+  PASS base   expected a observed a   
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R5] ticket row 5: != 0
+  PASS base   expected a observed a   
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R6] value >= 2 + 3
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected r observed r   this refinement is not a predicate the checker can read
+  PASS Aprod  expected r observed r   this refinement is not a predicate the checker can read
+  PASS B0     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Bn     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Ba     expected a observed a   
+
+[R7] value >= -(-5): parens are transparent to A (negate folds twice), not to Aprod
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected r observed r   this refinement is not a predicate the checker can read
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R8] value >= 5 - 10
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected r observed r   this refinement is not a predicate the checker can read
+  PASS Aprod  expected r observed r   this refinement is not a predicate the checker can read
+  PASS B0     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Bn     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Ba     expected a observed a   
+
+[R9] value >= 2 * 3
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected r observed r   this refinement is not a predicate the checker can read
+  PASS Aprod  expected r observed r   this refinement is not a predicate the checker can read
+  PASS B0     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Bn     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Ba     expected a observed a   
+
+[R10] literal on the left: -5 <= value
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[R11] value >= n : must stay refused (n is not a constant)
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected r observed r   this refinement is not a predicate the checker can read
+  PASS Aprod  expected r observed r   this refinement is not a predicate the checker can read
+  PASS B0     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Bn     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Ba     expected r observed r   this refinement is not a predicate the checker can read
+
+[R12] value >= Min() : a call is not a constant
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected r observed r   this refinement is not a predicate the checker can read
+  PASS Aprod  expected r observed r   this refinement is not a predicate the checker can read
+  PASS B0     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Bn     expected r observed r   this refinement is not a predicate the checker can read
+  PASS Ba     expected r observed r   this refinement is not a predicate the checker can read
+
+[V1] Id(-5) into int where value != 0 : is -5 typed as the literal -5?
+  PASS base   expected r observed r   Go hands Id an argument it does not accept
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected r observed r   Go hands Id an argument it does not accept
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[V2] Id(2 + 3) into != 0 : arithmetic is typed int, not the interval 5..5 (bs_check type_of comment)
+  PASS base   expected r observed r   Go hands Id an argument it does not accept
+  PASS A      expected r observed r   Go hands Id an argument it does not accept
+  PASS Aprod  expected r observed r   Go hands Id an argument it does not accept
+  PASS B0     expected r observed r   Go hands Id an argument it does not accept
+  PASS Bn     expected r observed r   Go hands Id an argument it does not accept
+  PASS Ba     expected r observed r   Go hands Id an argument it does not accept
+
+[V3] Id(-(2 + 3)) into != 0 : Ba folds it although V2 (2 + 3) is typed int
+  PASS base   expected r observed r   Go hands Id an argument it does not accept
+  PASS A      expected r observed r   Go hands Id an argument it does not accept
+  PASS Aprod  expected r observed r   Go hands Id an argument it does not accept
+  PASS B0     expected r observed r   Go hands Id an argument it does not accept
+  PASS Bn     expected r observed r   Go hands Id an argument it does not accept
+  PASS Ba     expected a observed a   
+
+[V4] Id(0) into != 0 : a real violation stays refused
+  PASS base   expected r observed r   Go hands Id an argument it does not accept
+  PASS A      expected r observed r   Go hands Id an argument it does not accept
+  PASS Aprod  expected r observed r   Go hands Id an argument it does not accept
+  PASS B0     expected r observed r   Go hands Id an argument it does not accept
+  PASS Bn     expected r observed r   Go hands Id an argument it does not accept
+  PASS Ba     expected r observed r   Go hands Id an argument it does not accept
+
+[V5] Delta domain, in range: Id(-100)
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected r observed r   Go hands Id an argument it does not accept
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[V6] Delta domain, out of range: Id(-101) must be refused (base: refused earlier, at the type)
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected r observed r   Go hands Id an argument it does not accept
+  PASS Aprod  expected r observed r   Go hands Id an argument it does not accept
+  PASS B0     expected r observed r   Go hands Id an argument it does not accept
+  PASS Bn     expected r observed r   Go hands Id an argument it does not accept
+  PASS Ba     expected r observed r   Go hands Id an argument it does not accept
+
+[G1] guard partition on -5 with no catch-all: exhaustive only if both guards are read
+  PASS base   expected r observed r   Side is not exhaustive
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[G2] guard partition with 2 + 3 and 5
+  PASS base   expected r observed r   Side is not exhaustive
+  PASS A      expected r observed r   Side is not exhaustive
+  PASS Aprod  expected r observed r   Side is not exhaustive
+  PASS B0     expected r observed r   Side is not exhaustive
+  PASS Bn     expected r observed r   Side is not exhaustive
+  PASS Ba     expected a observed a   
+
+[G3] unread guard with a catch-all: accepted everywhere (a guard only ever credits, never errors)
+  PASS base   expected a observed a   
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[G4] switch arm guards on -5, no catch-all
+  PASS base   expected r observed r   this switch in Side is not exhaustive
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[P1] relational patterns with negative bounds (int_lit)
+  PASS base   expected a observed a   
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[P2] negative literal pattern
+  PASS base   expected a observed a   
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[P3] pattern bound written 2 - 3: int_lit is a literal only, in every compiler here
+  PASS base   expected r observed r   syntax error before: '-'
+  PASS A      expected r observed r   syntax error before: '-'
+  PASS Aprod  expected r observed r   syntax error before: '-'
+  PASS B0     expected r observed r   syntax error before: '-'
+  PASS Bn     expected r observed r   syntax error before: '-'
+  PASS Ba     expected r observed r   syntax error before: '-'
+
+[P4] negative literal in an 8-bit binary segment: parses (int_lit), refused by the size check
+  PASS base   expected r observed r   -1 does not fit in 8 bits
+  PASS A      expected r observed r   -1 does not fit in 8 bits
+  PASS Aprod  expected r observed r   -1 does not fit in 8 bits
+  PASS B0     expected r observed r   -1 does not fit in 8 bits
+  PASS Bn     expected r observed r   -1 does not fit in 8 bits
+  PASS Ba     expected r observed r   -1 does not fit in 8 bits
+
+[S1] a range literal -5..5 : no such syntax (.. is a rest)
+  PASS base   expected r observed r   syntax error before: '..'
+  PASS A      expected r observed r   syntax error before: '..'
+  PASS Aprod  expected r observed r   syntax error before: '..'
+  PASS B0     expected r observed r   syntax error before: '..'
+  PASS Bn     expected r observed r   syntax error before: '..'
+  PASS Ba     expected r observed r   syntax error before: '..'
+
+[S2] a where on a record field, NON-negative: syntax absent independent of the gap
+  PASS base   expected r observed r   syntax error before: where
+  PASS A      expected r observed r   syntax error before: where
+  PASS Aprod  expected r observed r   syntax error before: where
+  PASS B0     expected r observed r   syntax error before: where
+  PASS Bn     expected r observed r   syntax error before: where
+  PASS Ba     expected r observed r   syntax error before: where
+
+[S3] a record field of a refined alias with a negative bound (the only way a field gets one)
+  PASS base   expected r observed r   this refinement is not a predicate the checker can read
+  PASS A      expected a observed a   
+  PASS Aprod  expected a observed a   
+  PASS B0     expected a observed a   
+  PASS Bn     expected a observed a   
+  PASS Ba     expected a observed a   
+
+[D1] n / -0 : a provably zero divisor spelled with unary minus
+  PASS base   expected a observed a   
+  PASS A      expected r observed r   the right-hand side of `/` in Half is always zero
+  PASS Aprod  expected r observed r   the right-hand side of `/` in Half is always zero
+  PASS B0     expected a observed a   
+  PASS Bn     expected r observed r   the right-hand side of `/` in Half is always zero
+  PASS Ba     expected r observed r   the right-hand side of `/` in Half is always zero
+
+[AGREE] refinement D = -5..5 at an exported boundary vs guard n >= -5 and n <= 5
+  PASS base refused (as expected)
+  PASS A -6:R=crashed: error:function_clause,G=:out -5:R=:in,G=:in 0:R=:in,G=:in 5:R=:in,G=:in 6:R=crashed: error:function_clause,G=:out
+  PASS Aprod -6:R=crashed: error:function_clause,G=:out -5:R=:in,G=:in 0:R=:in,G=:in 5:R=:in,G=:in 6:R=crashed: error:function_clause,G=:out
+  PASS B0 -6:R=crashed: error:function_clause,G=:out -5:R=:in,G=:in 0:R=:in,G=:in 5:R=:in,G=:in 6:R=crashed: error:function_clause,G=:out
+  PASS Bn -6:R=crashed: error:function_clause,G=:out -5:R=:in,G=:in 0:R=:in,G=:in 5:R=:in,G=:in 6:R=crashed: error:function_clause,G=:out
+  PASS Ba -6:R=crashed: error:function_clause,G=:out -5:R=:in,G=:in 0:R=:in,G=:in 5:R=:in,G=:in 6:R=crashed: error:function_clause,G=:out
+
+[GUARD-RUNS] G(n) when n >= -5 and n <= 5 -> :in ; G(_) -> :out, run on each compiler
+  PASS base -6::out -5::in 0::in 5::in 6::out
+  PASS A -6::out -5::in 0::in 5::in 6::out
+  PASS Aprod -6::out -5::in 0::in 5::in 6::out
+  PASS B0 -6::out -5::in 0::in 5::in 6::out
+  PASS Bn -6::out -5::in 0::in 5::in 6::out
+  PASS Ba -6::out -5::in 0::in 5::in 6::out
+
+[RESIDUAL] subtract(-10..10, 0)
+  PASS base cannot declare Delta (opaque_refinement)
+  PASS A residual heads printed and re-accepted: Kind(>= -10 and <= -1) Kind(>= 1 and <= 10) 
+  PASS Aprod residual heads printed and re-accepted: Kind(>= -10 and <= -1) Kind(>= 1 and <= 10) 
+  PASS B0 residual heads printed and re-accepted: Kind(>= -10 and <= -1) Kind(>= 1 and <= 10) 
+  PASS Bn residual heads printed and re-accepted: Kind(>= -10 and <= -1) Kind(>= 1 and <= 10) 
+  PASS Ba residual heads printed and re-accepted: Kind(>= -10 and <= -1) Kind(>= 1 and <= 10) 
+  PASS the printed type text 'int <= -11 | int >= 11' is refused as a type in all 6 compilers
+
+[REF] ticket table on /tmp/claude-0/-home-user-beam-sharp/40070274-2489-5304-8393-d8d915b713dc/scratchpad/bsc.sh
+  PASS R1 reference compiler: expected r observed r
+  PASS R2 reference compiler: expected r observed r
+  PASS R3 reference compiler: expected r observed r
+  PASS R4 reference compiler: expected a observed a
+  PASS R5 reference compiler: expected a observed a
+
+[ARITH] run-time values of expressions containing negative literals
+  PASS base Div=-3 Rem=-1 Mix=-9 Sub=13
+  PASS A Div=-3 Rem=-1 Mix=-9 Sub=13
+  PASS Aprod Div=-3 Rem=-1 Mix=-9 Sub=13
+  PASS B0 Div=-3 Rem=-1 Mix=-9 Sub=13
+  PASS Bn Div=-3 Rem=-1 Mix=-9 Sub=13
+  PASS Ba Div=-3 Rem=-1 Mix=-9 Sub=13
+
+[AST] comparand of  value >= -5
+  PASS base comparand = e_neg(e_int 5)
+  PASS A comparand = e_int -5
+  PASS Aprod comparand = e_int -5
+  PASS B0 comparand = e_neg(e_int 5)
+  PASS Bn comparand = e_neg(e_int 5)
+  PASS Ba comparand = e_neg(e_int 5)
+
+TOTAL 216 checks, 0 FAIL
+ALL PASS

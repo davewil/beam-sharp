@@ -1,0 +1,63 @@
+diff -ruN a/src/bs_check.erl b/src/bs_check.erl
+--- a/src/bs_check.erl	2026-09-29 23:08:09.787819206 +0000
++++ b/src/bs_check.erl	2026-09-29 23:11:27.898565202 +0000
+@@ -2865,15 +2865,9 @@
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
+ type_of({e_neg, L, E}, S, C) ->
+-    {Ty, D} = type_of(E, S, C),
+-    case operand_verdict(Ty, C) of
+-        uninhabited -> {reported(), D};
+-        lacks       -> {reported(), D ++ [non_numeric_operand('-', operand, Ty, L, C)]};
+-        numeric ->
+-            case in_part(Ty, float) of
+-                true  -> {bs_types:float_top(), D};
+-                false -> {bs_types:int(), D}
+-            end
++    case const_int(E) of
++        {ok, N} -> {bs_types:range(-N, -N), []};
++        error   -> type_of_neg(L, E, S, C)
+     end;
+ type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
+ %% The lexer guarantees UTF-8 for string literals; downstream passes trust it.
+@@ -4901,6 +4895,20 @@
+ opaque_step({str_tail}) -> true;
+ opaque_step(_)         -> false.
+ 
++
++%% EXPERIMENT B: the former `e_neg` clause, unchanged.
++type_of_neg(L, E, S, C) ->
++    {Ty, D} = type_of(E, S, C),
++    case operand_verdict(Ty, C) of
++        uninhabited -> {reported(), D};
++        lacks       -> {reported(), D ++ [non_numeric_operand('-', operand, Ty, L, C)]};
++        numeric ->
++            case in_part(Ty, float) of
++                true  -> {bs_types:float_top(), D};
++                false -> {bs_types:int(), D}
++            end
++    end.
++
+ %%% --- Guards as type operations ---
+ 
+ apply_guard(Ty, _Bindings, none) ->
+@@ -4944,9 +4952,19 @@
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
++comparison({e_op, _, Op, {e_var, _, V}, R}) ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison(_) ->
+     unknown.
+ 
++%% EXPERIMENT B: the constant test reads a folded literal expression.
++const_int({e_int, _, N}) -> {ok, N};
++const_int({e_neg, _, E}) ->
++    case const_int(E) of {ok, N} -> {ok, -N}; error -> error end;
++const_int(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

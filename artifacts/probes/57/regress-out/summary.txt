@@ -1,0 +1,11 @@
+base     Failed: 55.  Skipped: 0.  Passed: 1248.  failset=55
+A        Failed: 55.  Skipped: 0.  Passed: 1248.  failset=55
+Aprod    Failed: 55.  Skipped: 0.  Passed: 1248.  failset=55
+B0       Failed: 55.  Skipped: 0.  Passed: 1248.  failset=55
+Bn       Failed: 55.  Skipped: 0.  Passed: 1248.  failset=55
+Ba       Failed: 55.  Skipped: 0.  Passed: 1248.  failset=55
+A diff-vs-base lines: 0
+Aprod diff-vs-base lines: 0
+B0 diff-vs-base lines: 0
+Bn diff-vs-base lines: 0
+Ba diff-vs-base lines: 0

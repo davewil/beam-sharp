@@ -1,0 +1,14 @@
+base:   Failed: 55.  Skipped: 0.  Passed: 1248. set=55
+ 00:12:12 up 38 min,  0 user,  load average: 2.99, 2.53, 2.98
+A:   Failed: 55.  Skipped: 0.  Passed: 1248. set=55
+ 00:15:32 up 41 min,  0 user,  load average: 1.96, 2.34, 2.82
+Amut:   Failed: 62.  Skipped: 0.  Passed: 1241. set=62
+ 00:18:50 up 45 min,  0 user,  load average: 1.34, 1.95, 2.58
+Aprod:   Failed: 55.  Skipped: 0.  Passed: 1248. set=55
+ 00:22:19 up 48 min,  0 user,  load average: 2.30, 1.99, 2.46
+B0:   Failed: 55.  Skipped: 0.  Passed: 1248. set=55
+ 00:25:37 up 51 min,  0 user,  load average: 1.99, 1.86, 2.30
+Bn:   Failed: 55.  Skipped: 0.  Passed: 1248. set=55
+ 00:28:56 up 55 min,  0 user,  load average: 2.17, 1.90, 2.21
+Ba:   Failed: 55.  Skipped: 0.  Passed: 1248. set=55
+ 00:32:16 up 58 min,  0 user,  load average: 1.32, 1.62, 2.04

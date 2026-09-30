@@ -1,0 +1,23 @@
+diff -ruN a/src/bs_check.erl b/src/bs_check.erl
+--- a/src/bs_check.erl	2026-09-29 23:08:09.787819206 +0000
++++ b/src/bs_check.erl	2026-09-29 23:11:27.895804827 +0000
+@@ -4944,9 +4944,19 @@
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
++comparison({e_op, _, Op, {e_var, _, V}, R}) ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison(_) ->
+     unknown.
+ 
++%% EXPERIMENT B: the constant test reads a folded literal expression.
++const_int({e_int, _, N}) -> {ok, N};
++const_int({e_neg, _, E}) ->
++    case const_int(E) of {ok, N} -> {ok, -N}; error -> error end;
++const_int(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};
