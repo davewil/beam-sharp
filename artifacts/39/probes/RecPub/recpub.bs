@@ -1,0 +1,11 @@
+// Same loop, the recursive function is PUBLIC, so it carries the exported-boundary record tag guard (ticket 18, F3.9).
+module RecPub
+
+record Order { Id: int, Total: int }
+
+public int Spin(Order o, int n, int acc)
+Spin(o, 0, acc) -> acc
+Spin(o, n, acc) -> Spin(o, n - 1, acc + o.Total)
+
+public int Run(int n)
+Run(n) -> Spin(Order { Id = 1, Total = 3 }, n, 0)

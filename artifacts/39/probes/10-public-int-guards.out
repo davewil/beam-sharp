@@ -1,0 +1,33 @@
+--- Spin/4 guard as emitted (public):
+{function,0,'Spin',4,
+    [{clause,
+         {19,1},
+         [{var,{19,1},'Pos'},
+          {var,{19,1},'Step'},
+          {integer,{19,1},0},
+          {var,{19,1},'Zeros'}],
+         [[{op,{19,1},
+               'andalso',
+               {call,
+                   {19,1},
+                   {remote,
+                       {19,1},
+                       {atom,{19,1},erlang},
+                       {atom,{19,1},is_integer}},
+                   [{var,{19,1},'Pos'}]},
+               {op,{19,1},
+                   'andalso',
+                   {call,
+                       {19,1},
+                       {remote,
+                           {19,1},
+                           {atom,{19,1},erlang},
+                           {atom,{19,1},is_integer}},
+                       [{var,{19,1},'Step'}]},
+                   {call,
+                       {19,1},
+                       {remote,
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+bench_erl:part_two               9.05    11.17    11.61     0.83
+Day01:PartTwo                    9.03    11.06    11.60     0.90
+Day01Pub:PartTwo                 9.18    11.25    11.81     0.88

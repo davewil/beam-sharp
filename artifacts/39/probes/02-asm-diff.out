@@ -1,0 +1,40 @@
+{ok,'Day01'}
+Day01.S
+bench_erl.S
+bench_erl.erl
+== Erlang wrap/spin ==
+{function, wrap, 1, 2}.
+  {label,1}.
+    {line,[{location,"build/asm/bench_erl.erl",4}]}.
+    {func_info,{atom,bench_erl},{atom,wrap},1}.
+  {label,2}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {gc_bif,'rem',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+    {gc_bif,'rem',
+            {f,0},
+            1,
+            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+            {x,0}}.
+    return.
+
+
+{function, hit, 1, 4}.
+== B# Wrap ==
+{function, 'Wrap', 1, 4}.
+  {label,3}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/Day01/bench_bs.bs",12}]}.
+    {func_info,{atom,'Day01'},{atom,'Wrap'},1}.
+  {label,4}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {gc_bif,'rem',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+    {gc_bif,'rem',
+            {f,0},
+            1,
+            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+            {x,0}}.
+    return.
+
+
+{function, 'Hit', 1, 6}.

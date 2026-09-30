@@ -1,0 +1,9 @@
+answers: [{"RecPub:Run",9000000},
+          {"RecPriv:Run",9000000},
+          {"rec_erl:run_noguard",9000000},
+          {"rec_erl:run_guard",9000000}]
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+RecPub:Run                      33.85    40.92    44.28     4.65
+RecPriv:Run                     35.15    42.84    45.40     3.66
+rec_erl:run_noguard             18.45    22.68    24.15     3.02
+rec_erl:run_guard               36.10    42.53    45.59     4.10

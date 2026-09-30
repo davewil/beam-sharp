@@ -1,0 +1,11 @@
+compile: {ok,'Day01_attr'}
+local calls in Spin after attribute-inline:
+{"init terminating in do_boot",{{unbound_var,'Day01_attr'},[{erl_eval,exprs,2,[{file,"erl_eval.erl"},{line,96}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
+init terminating in do_boot ({{unbound_var,Day01_attr},[{erl_eval,exprs,2,[{_},{_}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+bench_erl:part_two               9.60    11.15    11.77     1.86
+Day01:PartTwo                    9.02    10.97    11.83     1.86
+Day01_attr:PartTwo               8.43     9.87    10.51     1.50
+bench_gleam:part_two             7.96     9.64    10.32     1.80

@@ -1,0 +1,7 @@
+compile: {ok,'Day01_attr'}
+Spin/4 after attribute-inline: 28 instrs, 2 local calls
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+bench_erl:part_two               9.04    11.63    12.47     1.73
+Day01:PartTwo                    9.18    11.63    12.34     1.66
+Day01_attr:PartTwo               8.22    10.46    10.85     0.95
+bench_gleam:part_two             7.95    10.18    10.49     1.65

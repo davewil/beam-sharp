@@ -1,0 +1,328 @@
+%%% beam-sharp lexer.
+%%%
+%%% Keywords are lowercase words, `:name` is an atom, and `true`/`false` are
+%%% the only keyword atoms. Builtin type names are lowercase; user types and
+%%% functions are PascalCase, which lets the grammar tell them apart without a
+%%% symbol table. `->` opens a clause body and `=>` a switch arm, `|>` pipes,
+%%% `..` marks a rest, and `and`/`or` are the only conjunctions, in guards and
+%%% in patterns alike.
+
+Definitions.
+
+D          = [0-9]
+H          = [0-9a-fA-F]
+UPPER      = [A-Z]
+LOWER      = [a-z]
+ALNUM      = [a-zA-Z0-9_]
+WS         = [\s\t\r\n]
+
+%% A template string, `$"Order {o.Id}"` (ticket 112, F66). The rule has to
+%% match the whole template exactly: a leex action may push characters back,
+%% but the line and column have already been advanced past them, so every
+%% position after an over-long match would be wrong (F35). A hole may span
+%% lines, as C# 11's may (ticket 112 A5). It skips string literals and balances
+%% braces two deep, which a `switch` or a record construction in a hole needs;
+%% the depth is this lexer's limit, not the language's. A hole's first
+%% character is never `{`, so `{{` is always a literal brace, as it is in C#.
+HSTR       = "(\\.|[^"\\])*"
+HCH        = [^{}"]
+HNEST1     = \{({HCH}|{HSTR})*\}
+HNEST2     = \{({HCH}|{HSTR}|{HNEST1})*\}
+HOLE       = \{({HCH}|{HSTR})({HCH}|{HSTR}|{HNEST2})*\}
+TTEXT      = \\.|[^"\\{}]|\{\{|\}\}
+
+Rules.
+
+{WS}+                   : skip_token.
+//[^\n]*                : skip_token.
+
+%% Keywords must precede the identifier rule: leex prefers the earliest rule
+%% among equal-length matches.
+module                  : {token, {'module', {TokenLine,1}}}.
+type                    : {token, {'type', {TokenLine,1}}}.
+when                    : {token, {'when', {TokenLine,1}}}.
+using                   : {token, {'using', {TokenLine,1}}}.
+%% Both spellings are accepted and one token is produced; the emitter writes
+%% the BEAM's own `behaviour`.
+behaviour               : {token, {'behaviour', {TokenLine,1}}}.
+behavior                : {token, {'behaviour', {TokenLine,1}}}.
+%% `implements Enumerable<int> for Node { … }`: a record's own module implements
+%% a protocol (tickets 99 and 91 Q2).
+implements              : {token, {'implements', {TokenLine,1}}}.
+for                     : {token, {'for', {TokenLine,1}}}.
+%% `[r for Receipt r in cs]`: a comprehension's generator (ticket 114).
+in                      : {token, {'in', {TokenLine,1}}}.
+%% Visibility is written on the signature, in C#'s words: `public` exports a
+%% function and there is no separate export list (F12, ticket 40 §3).
+public                  : {token, {'public',  {TokenLine,1}}}.
+private                 : {token, {'private', {TokenLine,1}}}.
+%% `record` declares a record type (ticket 26 §1).
+record                  : {token, {'record', {TokenLine,1}}}.
+%% `o with { Total = 500 }` updates a record without changing its field set;
+%% there is no spread form (ticket 26 §2).
+with                    : {token, {'with', {TokenLine,1}}}.
+%% `switch` is the only branching construct, spelled postfix as in C#; there is
+%% no `if`, `else` or ternary (ticket 17 §6).
+switch                  : {token, {'switch', {TokenLine,1}}}.
+%% `var` marks a binding that introduces names; a bare `=` only matches. The
+%% marker lets the parser take a `pattern` directly: without it
+%% `binding -> pattern '=' expr` is 15 reduce/reduce conflicts (measured
+%% 2026-08-16) and yecc refuses to generate (F8).
+var                     : {token, {'var', {TokenLine,1}}}.
+
+%% `raise` crashes on purpose, and is a keyword rather than a prelude function
+%% returning `none`: a function would be lexically identical to a call, would
+%% keep its signature in another file under one-function-per-file, and would
+%% leave no single token that finds every crash site (ticket 12 §5). Being a
+%% keyword, it is not available as a name — a parameter called `raise` is a
+%% syntax error, the same consequence `and` and `or` carry below.
+raise                   : {token, {'raise', {TokenLine,1}}}.
+
+%% `fn` opens an arrow type, `fn(int) -> int` (ticket 75, F46). A keyword
+%% rather than a lowercase type name because `fn(` in type position would
+%% otherwise read as a builtin applied to a tuple, and because the value side
+%% may one day want it too. It leaves the variable namespace: a parameter
+%% called `fn` is a syntax error, as one called `raise` is.
+fn                      : {token, {'fn', {TokenLine,1}}}.
+
+%% `and`/`or` are the only conjunctions, in guards and in patterns alike; `&&`
+%% and `||` are not accepted, even as synonyms, and a parameter may not be
+%% named `and` or `or` (ticket 44, amending ticket 08). Erlang's `and` does not
+%% short-circuit, but a guard is the only context a conjunction lowers into and
+%% there a raising guard simply fails, so the difference is unobservable.
+and                     : {token, {'and', {TokenLine,1}}}.
+or                      : {token, {'or', {TokenLine,1}}}.
+
+%% `where` attaches a predicate to a type alias:
+%% `type Octet = int where value >= 0 and value <= 255` (ticket 20 §5).
+%% `value` is not a keyword: it is an ordinary identifier the refinement
+%% translator gives meaning to, so a parameter named `value` stays legal.
+where                   : {token, {'where', {TokenLine,1}}}.
+
+%% `true` and `false` are the only keyword atoms (ticket 10, LANGUAGE.md §4).
+%% Without these rules a bare `true` lexes as a lowercase identifier, which in
+%% pattern position is a variable that matches everything.
+true                    : {token, {atom_lit, {TokenLine,1}, true}}.
+false                   : {token, {atom_lit, {TokenLine,1}, false}}.
+
+%% A string literal must be valid UTF-8, checked here because this is the one
+%% place with the bytes and a line number at once, so no later stage validates
+%% a literal (ticket 20 §4). `TokenChars` is a Latin-1 byte list, so a
+%% multi-byte character arrives as its UTF-8 bytes and needs no re-encoding.
+%% `\\.` is one backslash then any character; written doubled it would match
+%% two backslashes and no escape would ever lex.
+"(\\.|[^"\\])*"         : str_token({TokenLine,1}, TokenChars).
+
+%% `$"…{expr}…"` builds a string (ticket 112 A2). Longest-match gives a whole
+%% template to the first rule; anything the first cannot match falls to the
+%% second, which names what a template may hold instead of reporting `$`.
+\$"({TTEXT}|{HOLE})*"   : interp_token({TokenLine,1}, TokenChars).
+\$"                     : {error, "a template string closes with `\"`, a hole is `{expr}`, "
+                                  "and a literal brace is `{{` or `}}`"}.
+
+%% `:name` is an atom. The universe is open: nothing declares an atom and the
+%% lexer interns what it sees (ticket 10).
+:{LOWER}{ALNUM}*        : {token, {atom_lit, {TokenLine,1}, list_to_atom(tl(TokenChars))}}.
+:true                   : {token, {atom_lit, {TokenLine,1}, true}}.
+:false                  : {token, {atom_lit, {TokenLine,1}, false}}.
+
+%% A quoted atom spells what the bare sigil cannot, such as `:'Shop.Order'`,
+%% the tag minted from a record's qualified name (ticket 26 §1, F3.2).
+:'[^']*'                : {token, {atom_lit, {TokenLine,1},
+                                   list_to_atom(lists:sublist(TokenChars, 3, length(TokenChars) - 3))}}.
+
+%% `0xCE` is an integer, accepted everywhere and not only inside a binary
+%% segment; marker and digits are case-insensitive. Longest-match puts it
+%% ahead of `{D}+` with no ordering dependency (F13).
+0[xX]{H}+               : {token, {integer, {TokenLine,1},
+                                   list_to_integer(lists:nthtail(2, TokenChars), 16)}}.
+%% A float is C#'s spelling: digits, a dot, digits, an optional exponent
+%% (ticket 69, F51). The digit AFTER the dot is required, so `1..5` stays an
+%% integer, the rest marker and an integer — `1.` alone is never a float —
+%% and the dot that ends a qualified name never follows a digit. Longest-match
+%% puts `1.5` ahead of `{D}+`. `1e5` is not a float here: no dot, no float.
+{D}+\.{D}+([eE][+-]?{D}+)? : {token, {float, {TokenLine,1}, list_to_float(TokenChars)}}.
+{D}+                    : {token, {integer, {TokenLine,1}, list_to_integer(TokenChars)}}.
+
+_                       : {token, {'_', {TokenLine,1}}}.
+
+%% PascalCase: a user type or a function name.
+{UPPER}{ALNUM}*         : {token, {uident, {TokenLine,1}, list_to_atom(TokenChars)}}.
+
+%% lowercase: a variable, a parameter, or a builtin type (`int`, `atom`).
+{LOWER}{ALNUM}*         : {token, {lident, {TokenLine,1}, list_to_atom(TokenChars)}}.
+
+%% `.` joins module path segments, calls into a foreign module (`:ets.lookup`)
+%% and projects a record field. `..` wins by longest-match, so the two never
+%% collide whatever the rule order.
+\.                      : {token, {'.', {TokenLine,1}}}.
+
+%% `..` is the rest marker in `[h, ..t]`, in pattern and construction position
+%% alike (ticket 28).
+\.\.                    : {token, {'..', {TokenLine,1}}}.
+->                      : {token, {'->', {TokenLine,1}}}.
+%% `->` opens a clause body and `=>` a switch arm. Longest-match keeps `=>` off
+%% the `=` rule below whatever the rule order (F7).
+=>                      : {token, {'=>', {TokenLine,1}}}.
+==                      : {token, {'==', {TokenLine,1}}}.
+!=                      : {token, {'!=', {TokenLine,1}}}.
+<=                      : {token, {'<=', {TokenLine,1}}}.
+>=                      : {token, {'>=', {TokenLine,1}}}.
+
+%% `<<` opens a binary pattern, and there is no `>>` token: `list<list<int>>`
+%% must lex its close as two `>` tokens, so the parser closes a binary on two
+%% `'>'` tokens too. `<<` is safe because no other form puts two `<` adjacent;
+%% a generic's bracket always follows a name (F13).
+<<                      : {token, {'<<', {TokenLine,1}}}.
+<                       : {token, {'<', {TokenLine,1}}}.
+>                       : {token, {'>', {TokenLine,1}}}.
+\+                      : {token, {'+', {TokenLine,1}}}.
+-                       : {token, {'-', {TokenLine,1}}}.
+\*                      : {token, {'*', {TokenLine,1}}}.
+%% `/` is truncating integer division and lowers to Erlang's `div`, never its
+%% float `/`; `%` is the remainder, signed by the dividend (F26, ticket 38).
+%% `%` is escaped because leex reads a bare one as a comment and silently
+%% drops the rule.
+/                       : {token, {'/', {TokenLine,1}}}.
+\%                      : {token, {'%', {TokenLine,1}}}.
+=                       : {token, {'=', {TokenLine,1}}}.
+%% `:` separates a field from its type in a declaration and from its pattern
+%% in a record pattern; `=` assigns in construction (ticket 26 §2).
+%% Longest-match gives `:placed` to the atom rule, so `Id:int` lexes `:int` as
+%% an atom; the parser refuses that shape by name.
+:                       : {token, {':', {TokenLine,1}}}.
+%% `?` is not a language construct: there are no optional fields. It is lexed
+%% so the parser can refuse `Notes?: int` by name (ticket 26 §4).
+\?                      : {token, {'?', {TokenLine,1}}}.
+%% `|>` is the pipe, `|?>` the valve, and `|` joins union members. Longest-match
+%% keeps the three apart with no lexer state (ticket 17 §1 and §4).
+\|\?>                    : {token, {'|?>', {TokenLine,1}}}.
+\|>                      : {token, {'|>', {TokenLine,1}}}.
+\|                      : {token, {'|', {TokenLine,1}}}.
+,                       : {token, {',', {TokenLine,1}}}.
+\(                      : {token, {'(', {TokenLine,1}}}.
+\)                      : {token, {')', {TokenLine,1}}}.
+\{                      : {token, {'{', {TokenLine,1}}}.
+\}                      : {token, {'}', {TokenLine,1}}}.
+\[                      : {token, {'[', {TokenLine,1}}}.
+\]                      : {token, {']', {TokenLine,1}}}.
+
+Erlang code.
+
+%% Unescape, then validate. The order matters: an escape produces a byte, so
+%% validating first would read the source spelling rather than the value.
+str_token(Line, Chars) ->
+    Body = lists:sublist(Chars, 2, length(Chars) - 2),
+    case unescape(Body, []) of
+        {error, Msg} ->
+            {error, Msg};
+        {ok, Bytes} ->
+            case utf8_ok(Bytes) of
+                true ->
+                    {token, {string_lit, Line, Bytes}};
+                false ->
+                    %% Invalid UTF-8 is refused, not replaced with U+FFFD as
+                    %% C# and TypeScript do: a silent replacement would
+                    %% manufacture the invalid string this check exists to
+                    %% prevent (ticket 29 §4, ticket 20 §4).
+                    {error, "string literal is not valid UTF-8"}
+            end
+    end.
+
+%% A template becomes one token, `{interp, Loc, Parts}`, each part `{text,
+%% Bytes}` or `{hole, Loc, Tokens}`. The rule's regex has already proved the
+%% shape, so this scan only splits it: in the text, `{{` and `}}` are a brace
+%% and `{` opens a hole; in a hole, braces nest and a string literal is skipped
+%% whole. A hole is lexed from its own position, so a diagnostic inside it
+%% points at the hole and not at the `$`. Text is unescaped and checked for
+%% UTF-8 exactly as a plain literal is.
+interp_token({L, C}, [$$, $" | Chars]) ->
+    Body = lists:droplast(Chars),
+    case interp_parts(Body, advance("$\"", {L, C}), [], []) of
+        {ok, Parts}    -> {token, {interp, {L, C}, Parts}};
+        {error, _} = E -> E
+    end.
+
+interp_parts([], _Pos, Text, Parts) ->
+    interp_done(Text, Parts);
+interp_parts([$\\, X | T], Pos, Text, Parts) ->
+    interp_parts(T, advance([$\\, X], Pos), [X, $\\ | Text], Parts);
+interp_parts([${, ${ | T], Pos, Text, Parts) ->
+    interp_parts(T, advance("{{", Pos), [${ | Text], Parts);
+interp_parts([$}, $} | T], Pos, Text, Parts) ->
+    interp_parts(T, advance("}}", Pos), [$} | Text], Parts);
+interp_parts([${ | T], Pos, Text, Parts0) ->
+    {Src, Rest} = hole_source(T, 1, []),
+    Start = advance("{", Pos),
+    case text_part(Text) of
+        {error, _} = E -> E;
+        TextPart ->
+            case string(Src, Start) of
+                {ok, Toks, _} ->
+                    Parts = [{hole, Pos, Toks} | TextPart ++ Parts0],
+                    interp_parts(Rest, advance(Src ++ "}", Start), [], Parts);
+                {error, {_, _, Info}, _} ->
+                    {error, "in a template's hole: " ++ lists:flatten(format_error(Info))}
+            end
+    end;
+interp_parts([X | T], Pos, Text, Parts) ->
+    interp_parts(T, advance([X], Pos), [X | Text], Parts).
+
+interp_done(Text, Parts) ->
+    case text_part(Text) of
+        {error, _} = E -> E;
+        TextPart       -> {ok, lists:reverse(TextPart ++ Parts)}
+    end.
+
+%% Text is gathered reversed, raw, so an escape is read once, here.
+text_part([]) -> [];
+text_part(Rev) ->
+    case unescape(lists:reverse(Rev), []) of
+        {error, _} = E -> E;
+        {ok, Bytes} ->
+            case utf8_ok(Bytes) of
+                true  -> [{text, Bytes}];
+                false -> {error, "template string text is not valid UTF-8"}
+            end
+    end.
+
+%% The hole's source up to its closing brace, and what follows that brace.
+hole_source([$} | T], 1, Acc) -> {lists:reverse(Acc), T};
+hole_source([$} | T], D, Acc) -> hole_source(T, D - 1, [$} | Acc]);
+hole_source([${ | T], D, Acc) -> hole_source(T, D + 1, [${ | Acc]);
+hole_source([$" | T], D, Acc) ->
+    {Str, Rest} = string_source(T, [$"]),
+    hole_source(Rest, D, lists:reverse(Str) ++ Acc);
+hole_source([X | T], D, Acc) -> hole_source(T, D, [X | Acc]).
+
+string_source([$\\, X | T], Acc) -> string_source(T, [X, $\\ | Acc]);
+string_source([$" | T], Acc)     -> {lists:reverse([$" | Acc]), T};
+string_source([X | T], Acc)      -> string_source(T, [X | Acc]).
+
+%% Positions advance as leex's own do, so a hole's tokens carry the columns a
+%% plain lex of the same line would give them.
+advance(Chars, {L, C}) ->
+    {L + length([X || X <- Chars, X =:= $\n]), adjust_col(Chars, length(Chars), C)}.
+
+%% Deliberately a closed set. An unknown escape is an error rather than the
+%% character itself, so that adding `\u` later cannot change the meaning of a
+%% program that already compiles.
+unescape([], Acc)             -> {ok, lists:reverse(Acc)};
+unescape([$\\, $"  | T], Acc) -> unescape(T, [$"  | Acc]);
+unescape([$\\, $\\ | T], Acc) -> unescape(T, [$\\ | Acc]);
+unescape([$\\, $n  | T], Acc) -> unescape(T, [$\n | Acc]);
+unescape([$\\, $t  | T], Acc) -> unescape(T, [$\t | Acc]);
+unescape([$\\, $r  | T], Acc) -> unescape(T, [$\r | Acc]);
+unescape([$\\, $0  | T], Acc) -> unescape(T, [0   | Acc]);
+unescape([$\\, C   | _], _)   -> {error, "unknown escape \\" ++ [C]};
+unescape([C | T], Acc)        -> unescape(T, [C | Acc]).
+
+%% A decode attempt over the raw bytes; `unicode:characters_to_binary/2`
+%% returns an error tuple rather than replacing, which is what is needed here.
+utf8_ok(Bytes) ->
+    case unicode:characters_to_binary(list_to_binary(Bytes), utf8, utf8) of
+        B when is_binary(B) -> true;
+        _                   -> false
+    end.
+
+adjust_col(_Chars, N, C) -> C + N.

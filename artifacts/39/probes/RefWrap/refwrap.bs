@@ -1,0 +1,16 @@
+// B# KNOWS the range: Pct is 0..99 and the checker proves Clamp returns it.
+// Question for the probe: what of that reaches the optimiser's input?
+module RefWrap
+
+type Pct = int where value >= 0 and value <= 99
+
+private Pct Clamp(int n)
+Clamp(n) when n >= 0 and n <= 99 -> n
+Clamp(n) -> 0
+
+private int Bucket(Pct p)
+Bucket(p) when p < 50 -> 1
+Bucket(p) -> 2
+
+public int Run(int n)
+Run(n) -> Bucket(Clamp(n))

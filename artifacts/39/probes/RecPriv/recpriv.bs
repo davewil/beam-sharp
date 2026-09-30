@@ -1,0 +1,11 @@
+// Identical, but Spin is PRIVATE: no boundary guard is emitted for it.
+module RecPriv
+
+record Order { Id: int, Total: int }
+
+private int Spin(Order o, int n, int acc)
+Spin(o, 0, acc) -> acc
+Spin(o, n, acc) -> Spin(o, n - 1, acc + o.Total)
+
+public int Run(int n)
+Run(n) -> Spin(Order { Id = 1, Total = 3 }, n, 0)

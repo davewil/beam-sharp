@@ -1,0 +1,42 @@
+--- order: bs FIRST (bs, erl, elixir, gleam)
+Day01:PartTwo              min  11.53  med  11.82
+bench_erl:part_two         min  11.48  med  11.76
+Elixir.BenchEx:part_two    min  11.46  med  11.79
+bench_gleam:part_two       min   9.79  med  10.16
+--- order: bs LAST  (erl, elixir, gleam, bs)
+bench_erl:part_two         min  11.49  med  12.36
+Elixir.BenchEx:part_two    min   9.18  med  12.20
+bench_gleam:part_two       min   9.95  med  10.12
+Day01:PartTwo              min   9.04  med  11.32
+--- order: bs, bs, bs (same impl three times)
+Day01:PartTwo              min  11.32  med  11.72
+Day01:PartTwo              min   9.23  med   9.86
+Day01:PartTwo              min   8.95  med   9.00
+--- order: bs FIRST (bs, erl, elixir, gleam)
+Day01:PartTwo              min   9.51  med  11.47
+bench_erl:part_two         min  11.43  med  11.51
+Elixir.BenchEx:part_two    min   9.44  med  11.48
+bench_gleam:part_two       min   9.52  med  10.01
+--- order: bs LAST  (erl, elixir, gleam, bs)
+bench_erl:part_two         min   9.16  med  11.59
+Elixir.BenchEx:part_two    min   9.51  med  11.56
+bench_gleam:part_two       min   7.92  med  10.25
+Day01:PartTwo              min  10.95  med  12.50
+--- order: bs, bs, bs (same impl three times)
+Day01:PartTwo              min  11.51  med  12.04
+Day01:PartTwo              min  11.44  med  11.95
+Day01:PartTwo              min  11.18  med  11.57
+--- order: bs FIRST (bs, erl, elixir, gleam)
+Day01:PartTwo              min  11.42  med  12.20
+bench_erl:part_two         min   8.96  med  11.53
+Elixir.BenchEx:part_two    min   8.97  med  12.26
+bench_gleam:part_two       min  10.12  med  10.30
+--- order: bs LAST  (erl, elixir, gleam, bs)
+bench_erl:part_two         min  11.22  med  11.53
+Elixir.BenchEx:part_two    min  10.85  med  11.35
+bench_gleam:part_two       min  10.13  med  10.46
+Day01:PartTwo              min  11.54  med  12.28
+--- order: bs, bs, bs (same impl three times)
+Day01:PartTwo              min  11.48  med  11.55
+Day01:PartTwo              min  11.48  med  11.55
+Day01:PartTwo              min  11.87  med  12.29

@@ -1,0 +1,9 @@
+inline           28 instrs; calls left in Spin: ['Wrap','Spin']
+{inline,40}      28 instrs; calls left in Spin: ['Wrap','Spin']
+{inline,60}      28 instrs; calls left in Spin: ['Wrap','Spin']
+{inline,100}     42 instrs; calls left in Spin: ['Spin']
+--- same four settings on the hand-written Erlang
+inline           25 instrs, 1 calls
+{inline,40}      25 instrs, 1 calls
+{inline,60}      25 instrs, 1 calls
+{inline,100}     42 instrs, 1 calls

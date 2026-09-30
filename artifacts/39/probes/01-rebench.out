@@ -1,0 +1,27 @@
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         11.51     12.11    1.13x
+Elixir       6770         11.48     11.79    1.13x
+Gleam        6770         10.15     10.58    1.00x
+beam-sharp   6770         11.54     12.44    1.14x
+
+all four agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770          8.98      9.03    1.00x
+Elixir       6770          8.95      9.21    1.00x
+Gleam        6770          9.65     10.28    1.08x
+beam-sharp   6770         11.50     12.05    1.28x
+
+all four agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770          9.01     11.99    1.01x
+Elixir       6770          8.94      9.05    1.00x
+Gleam        6770          9.50     10.13    1.06x
+beam-sharp   6770         10.78     11.02    1.20x
+
+all four agree on 6770

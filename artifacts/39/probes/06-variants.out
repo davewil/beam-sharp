@@ -1,0 +1,8 @@
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+bench_erl_erl:part_two           9.01    11.54    11.93     1.02
+bench_erl_erli:part_two          7.93     9.85    10.34     0.80
+bench_erl_erlnot:part_two        9.07    11.57    12.08     1.33
+Day01_bs:PartTwo                 9.03    11.52    11.90     1.19
+Day01_bsi:PartTwo                8.12    10.03    10.48     0.97
+Day01_bsnot:PartTwo              9.12    11.70    12.11     1.26
+bench_gleam:part_two             7.96     9.77    10.27     0.78

@@ -1,0 +1,39 @@
+=== a/1 ===
+{function, a, 1, 12}.
+=== b/1 ===
+{function, b, 1, 14}.
+=== c/1 ===
+{function, c, 1, 16}.
+=== wb/1 (spec 0..99)  and wc/1 (guard) ===
+25:{function, wb, 1, 4}.
+26-  {label,3}.
+28-    {func_info,{atom,p8_carry},{atom,wb},1}.
+29-  {label,4}.
+30-    {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}.
+31-    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+32-    {gc_bif,'rem',
+33-            {f,0},
+34-            1,
+35-            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+36-            {x,0}}.
+37-    return.
+38-
+39-
+40:{function, wc, 1, 6}.
+41-  {label,5}.
+43-    {func_info,{atom,p8_carry},{atom,wc},1}.
+44-  {label,6}.
+45-    {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}.
+46-    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+47-    {gc_bif,'rem',
+48-            {f,0},
+49-            1,
+50-            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+51-            {x,0}}.
+52-    {test,is_ge,{f,7},[{tr,{x,0},{t_integer,{0,99}}},{integer,0}]}.
+53-    return.
+54-  {label,7}.
+55-    {case_end,{x,0}}.
+56-
+57-
+58-{function, hit, 1, 9}.

@@ -1,0 +1,10 @@
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+bench_erl:part_two               9.58    12.05    12.87     1.13
+Elixir.BenchEx:part_two          9.57    12.23    12.99     0.98
+bench_gleam:part_two             7.93     9.84    10.19     0.52
+Day01:PartTwo                    9.59    12.20    12.60     1.01
+impl                           min_ms   p25_ms   med_ms   iqr_ms
+bench_erl:part_two               9.03    11.21    11.66     1.18
+Elixir.BenchEx:part_two          9.00    11.49    11.70     0.88
+bench_gleam:part_two             7.89     9.50    10.20     0.92
+Day01:PartTwo                    9.01    11.24    11.71     1.07
