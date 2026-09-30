@@ -73,8 +73,8 @@ Erlang and Elixir sources are not installed here (only `ebin/`), so I cite measu
   Elixir's check is module to application to declared list, name only, **warning**. Its only in-source declaration is
   `Mix.install/2` for scripts (docs chunk, p18: "Installs and starts dependencies").
 - **Gleam** (p09). `@external(erlang, "libdep_not_there", "hello")` builds (exit 0) and dies at run time, `A function was
-  called but it did not exist`: today's B# behaviour exactly. A missing *Gleam* import is refused at compile time,
-  because Gleam owns the graph via `gleam.toml`.
+  called but it did not exist`: today's B# behaviour exactly. A missing *Gleam* import is refused at compile time
+  (`error: Unknown module`, p09); that dependency graph is declared in `gleam.toml`, not in the source.
 - **Elm** (p10). **UNVERIFIED**: package.elm-lang.org is refused. The one message obtained said `MISSING DEPENDENCY …
   elm.json`, so Elm checks source against a manifest.
 - **B# side** (read): `bs_parser.yrl:170` (the one foreign production, a 4-tuple `{foreign, L, Mod, Sigs}`);
@@ -142,7 +142,7 @@ noapp.bs:3 'Elixir.Libdep'  declared=none     NEEDS  module is in application li
 (ERL_LIBS unset)  ... ERROR module 'Elixir.Libdep' is not on the code path; declared application libdep is not on the path either
 ```
 
-(The prototype prints ERROR for all rows; the recommendation below downgrades most to warnings.)
+(The prototype labels every failure ERROR or NEEDS; the recommendation below downgrades most to warnings.)
 
 **Compiler delta:**
 1. One production (`'using' atom_lit 'in' atom_lit '{' foreign_sigs '}'`), **0 new conflicts** (p12), no new keyword
@@ -225,7 +225,7 @@ Defaults for the follow-ups, to be asked *after* the gating answer and open to D
 - **The OTP release is an undeclared dependency** (row 10) that no application name captures; today `.tool-versions`
   carries it. A `stdlib` version would be the only spelling, and row 7 says versions are out.
 - **`code:which` under the real `bsc` escript** and **Req itself** are UNVERIFIED (rows 19-20).
-- Probe-hygiene log: five probes were corrected after a first run, and each first run is kept beside its fix
+- Probe-hygiene log: eight probes were corrected after a first run (all probe bugs, none a changed expectation), and each first run is kept beside its fix
   (`*.first_run_*.out`): p03 format crash, p06 `-pa` order, p08 missing `+debug_info`, p10 incomplete `elm.json`, p12
   vacuous productions, p13 `_started` parameter name, p15 unbuilt syntax, p18 module not loaded. A first p17 tried to
   compile exemplar directories that do not compile standalone; it was replaced, not kept.

@@ -1,0 +1,12 @@
+[base]   Failed: 451.  Skipped: 0.  Passed: 852.
+[A]   Failed: 451.  Skipped: 0.  Passed: 852.
+[B]   Failed: 453.  Skipped: 0.  Passed: 850.
+[C]   Failed: 451.  Skipped: 0.  Passed: 852.
+== tests failing under A that pass on base:
+== tests failing on base that pass under A:
+== tests failing under B that pass on base:
+     boundary_kind_tests: a_private_function_is_not_guarded_test *failed*
+     boundary_range_tests: a_private_function_carries_no_range_guard_test *failed*
+== tests failing on base that pass under B:
+== tests failing under C that pass on base:
+== tests failing on base that pass under C:
