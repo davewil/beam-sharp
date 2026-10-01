@@ -1,0 +1,19 @@
+module Kind59
+
+// Exported, but its parameter is a LIST: the kind guard (ticket 58) tests an `int` parameter, not list elements.
+public int Total(list<int> xs)
+
+Total([])          -> 0
+Total([x, ..rest]) -> Band(x) + Total(rest)
+
+// Private: its int parameter is a comparison, and a comparison is not a type test (100.5 >= 9).
+private int Band(int n)
+
+Band(>= 9) -> 2
+Band(_)    -> 1
+
+// Control: the same function exported, called directly with a float.
+public int BandOut(int n)
+
+BandOut(>= 9) -> 2
+BandOut(_)    -> 1

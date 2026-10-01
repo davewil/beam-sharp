@@ -1,0 +1,17 @@
+  Resolving versions
+  Compiling shop
+   Compiled in 0.54s
+beam: build/dev/erlang/shop/ebin/shop.beam
+exports: [{foreign_new,1},{module_info,0},{module_info,1},{new_order,1}]
+constructor value: {order,7,0}
+--- a module whose file name is PascalCase / a path:
+  Compiling shop
+   Compiled in 0.80s
+shop@@main.beam
+deep@nested.beam
+shop.beam
+--- Gleam rejects a PascalCase module file name?
+warning: Invalid module name
+Module names must begin with a lowercase letter and contain only lowercase
+--- run the @external call into a PascalCase Erlang export (ticket 62 only measured that it compiles)
+shop:foreign_new(3) = #{'Id' => 3,'Kind' => 'Shop.Order','Total' => 0}

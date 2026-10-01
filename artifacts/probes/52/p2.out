@@ -1,0 +1,17 @@
+##### with ERL_LIBS
+ERL_LIBS=/tmp/tmp.U2GGtTnXH8/libs
+code:which(Elixir.Req)      = "/tmp/tmp.U2GGtTnXH8/libs/req-0.7.3/ebin/Elixir.Req.beam"
+code:lib_dir(req)           = "/tmp/tmp.U2GGtTnXH8/libs/req-0.7.3"
+app file read               = "0.7.3"
+-- present --
+  code:which(Mod)                              195307 ns/lookup (median of 5)
+  code:lib_dir(App)                            3661 ns/lookup (median of 5)
+  code:ensure_loaded(Mod) (already loaded)     76 ns/lookup (median of 5)
+-- absent --
+  code:which(Mod)                              1530351 ns/lookup (median of 5)
+  code:lib_dir(App)                            1726 ns/lookup (median of 5)
+code:which(absent) = non_existing, code:lib_dir(absent) = {error,bad_name}
+##### without ERL_LIBS
+code:which=non_existing lib_dir={error,bad_name}
+##### module's app: which application OWNS a module? (needs a scan; no direct API)
+code:which gives a PATH, app name must be parsed from it: /tmp/tmp.U2GGtTnXH8/libs/req-0.7.3/ebin/Elixir.Req.beam

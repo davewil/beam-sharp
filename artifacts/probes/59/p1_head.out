@@ -1,0 +1,3 @@
+SumAll([Good])  (well-formed)                        7
+SumAll([Forged]) forged element, via private One/1   {error,function_clause}
+Direct(Forged)   forged, exported record parameter   {error,function_clause}

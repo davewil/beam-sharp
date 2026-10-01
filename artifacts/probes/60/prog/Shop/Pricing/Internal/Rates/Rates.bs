@@ -1,0 +1,5 @@
+module Shop.Pricing.Internal.Rates
+
+public int Rate(atom tier)
+Rate(:standard) -> 100
+Rate(_)         -> 90

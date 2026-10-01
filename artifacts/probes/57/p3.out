@@ -1,0 +1,74 @@
+
+################ variantA_parse_fold (1 changed lines)
+== refinements (the ticket's table)
+rc=0  type T = int where value >= -5
+rc=0  type T = int where value >= -5 and value <= 5
+rc=0  type T = int where value >= 1 or value <= -1
+rc=0  type T = int where value <= 3 or value >= 10
+rc=0  type T = int where value != 0
+== forms the ticket did not list
+rc=1  type T = int where value >= 2 + 3
+rc=0  type T = int where value >= -(5)
+rc=0  type T = int where value != -1
+rc=0  type T = int where value == -1
+rc=0  type T = int where -5 <= value
+== the same literals as PATTERNS
+rc=0  public atom Sign(int n)
+== guard with a negative literal, two clauses that cover int between them
+rc=0  public atom F(int n)
+== control: same shape, non-negative literal
+rc=0  public atom F(int n)
+== control: negative literal in a guard but a catch-all clause follows (no coverage claim needed)
+rc=0  public atom F(int n)
+== the pattern form of the same split
+rc=0  public atom F(int n)
+
+################ variantB_checker_negated_literal (2 changed lines)
+== refinements (the ticket's table)
+rc=0  type T = int where value >= -5
+rc=0  type T = int where value >= -5 and value <= 5
+rc=0  type T = int where value >= 1 or value <= -1
+rc=0  type T = int where value <= 3 or value >= 10
+rc=0  type T = int where value != 0
+== forms the ticket did not list
+rc=1  type T = int where value >= 2 + 3
+rc=0  type T = int where value >= -(5)
+rc=0  type T = int where value != -1
+rc=0  type T = int where value == -1
+rc=0  type T = int where -5 <= value
+== the same literals as PATTERNS
+rc=0  public atom Sign(int n)
+== guard with a negative literal, two clauses that cover int between them
+rc=0  public atom F(int n)
+== control: same shape, non-negative literal
+rc=0  public atom F(int n)
+== control: negative literal in a guard but a catch-all clause follows (no coverage claim needed)
+rc=0  public atom F(int n)
+== the pattern form of the same split
+rc=0  public atom F(int n)
+
+################ variantC_checker_const_fold (22 changed lines)
+== refinements (the ticket's table)
+rc=0  type T = int where value >= -5
+rc=0  type T = int where value >= -5 and value <= 5
+rc=0  type T = int where value >= 1 or value <= -1
+rc=0  type T = int where value <= 3 or value >= 10
+rc=0  type T = int where value != 0
+== forms the ticket did not list
+rc=0  type T = int where value >= 2 + 3
+rc=0  type T = int where value >= -(5)
+rc=0  type T = int where value != -1
+rc=0  type T = int where value == -1
+rc=0  type T = int where -5 <= value
+== the same literals as PATTERNS
+rc=0  public atom Sign(int n)
+== guard with a negative literal, two clauses that cover int between them
+rc=0  public atom F(int n)
+== control: same shape, non-negative literal
+rc=0  public atom F(int n)
+== control: negative literal in a guard but a catch-all clause follows (no coverage claim needed)
+rc=0  public atom F(int n)
+== the pattern form of the same split
+rc=0  public atom F(int n)
+
+(builds kept in /tmp/claude-0/-home-user-beam-sharp/ca43dd62-eb31-5a76-a9e2-8f15a79c0eba/scratchpad/v57 for the test-suite run)

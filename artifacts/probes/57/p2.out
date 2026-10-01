@@ -1,0 +1,10 @@
+== guard with a negative literal, two clauses that cover int between them
+rc=1  public atom F(int n)
+        /tmp/tmp.3DNFlrW32B/G1/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+== control: same shape, non-negative literal
+rc=0  public atom F(int n)
+== control: negative literal in a guard but a catch-all clause follows (no coverage claim needed)
+rc=0  public atom F(int n)
+== the pattern form of the same split
+rc=0  public atom F(int n)

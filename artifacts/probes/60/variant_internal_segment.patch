@@ -1,0 +1,68 @@
+diff --git a/src/bs_check.erl b/src/bs_check.erl
+index 4494719..60f7c28 100644
+--- a/src/bs_check.erl
++++ b/src/bs_check.erl
+@@ -489,14 +489,37 @@ import_env(Decls, Self, World, Mode) ->
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> internal_ok(M, Self, L), add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                %% A namespace import brings in only the children this module may name.
++                {Children, _} -> add_namespace_import(M, [C || C <- Children, internal_allowed(C, Self) =:= true], Acc)
++            end
++    end.
++
++%% A module path with an `Internal` segment may be named only from the subtree
++%% rooted at that segment's parent (the rule Go applies to `internal/`).
++internal_ok(M, Self, L) ->
++    case internal_allowed(M, Self) of
++        true        -> ok;
++        {false, Root} -> erlang:error({internal_module, M, Self, Root, L})
++    end.
++
++internal_allowed(M, Self) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:search(fun(I) -> lists:nth(I, Segs) =:= "Internal" end,
++                      lists:reverse(lists:seq(2, length(Segs)))) of
++        false -> true;
++        {value, I} ->
++            Parent = lists:sublist(Segs, I - 1),
++            Mine = string:split(atom_to_list(Self), ".", all),
++            case lists:prefix(Parent, Mine) of
++                true  -> true;
++                false -> {false, lists:flatten(lists:join(".", Parent))}
+             end
+     end.
+ 
+diff --git a/src/bs_diag.erl b/src/bs_diag.erl
+index 6dc4787..3ad9bb0 100644
+--- a/src/bs_diag.erl
++++ b/src/bs_diag.erl
+@@ -649,6 +649,9 @@ built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {internal_module, Mod, Self, Root, Line}) ->
++    #{tag => internal_module, severity => error, file => Path, line => Line,
++      module => Mod, importer => Self, root => Root};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2022,6 +2025,9 @@ message(#{tag := ambiguous_call, file := P, line := L, column := C, name := Name
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := internal_module, file := P, line := L, column := C, module := Mod, importer := Self, root := Root}) ->
++    {"~s:~p:~p: error: ~s is internal to ~s and cannot be named from ~s~n",
++     [P, L, C, Mod, Root, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

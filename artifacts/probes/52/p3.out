@@ -1,0 +1,8 @@
+## ERL_LIBS holds req:
+(:req, [])
+exit=0
+## ERL_LIBS empty (the other machine):
+crashed: error:undef
+exit=1
+## compile only (no run), ERL_LIBS empty:
+exit=0

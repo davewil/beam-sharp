@@ -1,0 +1,51 @@
+diff --git a/src/bs_check.erl b/src/bs_check.erl
+index 4494719..38fd648 100644
+--- a/src/bs_check.erl
++++ b/src/bs_check.erl
+@@ -323,6 +323,7 @@ declared(Sources, World, Expect, Mode) ->
+     %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
+     %% `error_members/1`, which requires non-recursive members.
+     foreign_rets_decidable(Decls, Env),
++    foreign_modules_present(Decls, World),
+     %% Scan bodies for `ToJson<T>` refusals: `--api` does not type bodies.
+     to_json_refused(Decls ++ implementation_clauses(Decls), Env),
+     %% F64: a block's type arguments resolve here, so `--api` refuses
+@@ -628,6 +629,15 @@ callees(Decls, Env, Imports) ->
+ %%% `string` with `binary`.
+ %%% Rationale: compiler/features/F40-foreign-return-rule.md.
+ 
++%% A `using :Mod { ... }` names a module the program will call. Refuse one that is
++%% neither compiled in this invocation nor on the code path (nor preloaded).
++foreign_modules_present(Decls, World) ->
++    [case maps:is_key(Mod, World) orelse code:which(Mod) =/= non_existing of
++         true  -> ok;
++         false -> erlang:error({foreign_module_absent, Mod, L})
++     end || {foreign, L, Mod, _Sigs} <- Decls],
++    ok.
++
+ foreign_rets_decidable(Decls, Env) ->
+     _ = [foreign_ret_decidable(L, Mod, N, R, Env)
+          || {foreign, _, Mod, Sigs} <- Decls,
+diff --git a/src/bs_diag.erl b/src/bs_diag.erl
+index 6dc4787..0ad7c6b 100644
+--- a/src/bs_diag.erl
++++ b/src/bs_diag.erl
+@@ -649,6 +649,8 @@ built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {foreign_module_absent, Mod, Line}) ->
++    #{tag => foreign_module_absent, severity => error, file => Path, line => Line, module => Mod};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2022,6 +2024,9 @@ message(#{tag := ambiguous_call, file := P, line := L, column := C, name := Name
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := foreign_module_absent, file := P, line := L, column := C, module := Mod}) ->
++    {"~s:~p:~p: error: `using ~p` names a module that is not on the code path~n",
++     [P, L, C, Mod]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

@@ -1,0 +1,17 @@
+N      mode          bytes   stripped
+1      base           1048        744
+1      alias          1124        776
+1      dup            1244        820
+10     base           2512       1516
+10     alias          3172       1896
+10     dup            4232       2424
+50     base           9084       5220
+50     alias         12388       7172
+50     dup           17768       9896
+200    base          34696      19276
+200    alias         47956      27172
+200    dup           69760      38148
+m_base_10  Fun1     ns/call samples [37.31,38.23,39.22,39.32,39.6]
+m_alias_10 Fun1     ns/call samples [36.7,37.46,37.51,38.08,38.75]
+m_alias_10 fun_1    ns/call samples [37.55,37.74,38.22,38.55,38.9]
+m_dup_10   fun_1    ns/call samples [37.55,37.71,38.04,38.13,40.08]

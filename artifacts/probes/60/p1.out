@@ -1,0 +1,22 @@
+=== (a) Gleam: library package 'lib' with internal modules, consumer package 'app' depending on it by path
+--- consumer uses the public module only:
+  Compiling app
+   Compiled in 0.42s
+--- consumer names the internal module:
+  Resolving versions
+  Compiling app
+   Compiled in 0.37s
+gleam exit=0
+--- the SAME package naming its own internal module from a sibling (lib/src/lib.gleam above) built fine:
+   Compiled in 0.41s
+--- @internal on a single pub function: does a consumer get refused?
+  Compiling lib
+  Compiling app
+   Compiled in 0.44s
+gleam exit=0
+
+=== (b) Elixir: @moduledoc false (the 'internal' convention) -- does a caller get any diagnostic?
+elixirc exit=0 (no output = no diagnostic)
+
+=== (c) Erlang: -export is the only gate; any export is callable from anywhere
+erlc exit=0

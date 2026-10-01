@@ -1,0 +1,6 @@
+Shop/Pricing       (exit 0)
+Shop/Pricing/Sub   (exit 0)
+Shop/Reports       (exit 0)
+Shop/Vians         (exit 0)
+--- runtime sanity: the allowed path still runs
+200

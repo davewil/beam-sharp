@@ -1,0 +1,5 @@
+Twice(-6) -> crashed: error:function_clause 
+Twice(-5) -> -10 
+Twice(0) -> 0 
+Twice(5) -> 10 
+Twice(6) -> crashed: error:function_clause 

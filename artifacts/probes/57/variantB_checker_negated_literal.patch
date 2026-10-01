@@ -1,0 +1,13 @@
+diff --git a/src/bs_check.erl b/src/bs_check.erl
+index 4494719..b086ef8 100644
+--- a/src/bs_check.erl
++++ b/src/bs_check.erl
+@@ -4938,6 +4938,8 @@ alternatives(Cmp) ->
+         Constraint  -> [[Constraint]]
+     end.
+ 
++comparison({e_op, _, Op, {e_var, _, V}, {e_neg, _, {e_int, _, K}}}) -> int_cmp(Op, V, -K);
++comparison({e_op, _, Op, {e_neg, _, {e_int, _, K}}, {e_var, _, V}}) -> int_cmp(flip(Op), V, -K);
+ comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+ comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->

@@ -1,0 +1,4 @@
+Total([10])          int in a list                         2
+Total([100.5])       FLOAT in a list -> private Band       2
+BandOut(100.5)       FLOAT direct -> exported guard        {error,
+                                                            function_clause}

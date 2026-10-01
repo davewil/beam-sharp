@@ -1,0 +1,13 @@
+diff --git a/src/bs_emit.erl b/src/bs_emit.erl
+index 669772d..37d7c42 100644
+--- a/src/bs_emit.erl
++++ b/src/bs_emit.erl
+@@ -266,6 +266,8 @@ boundary_guards(Patterns, Params, Line, Ctx, Public, Accepts) ->
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        {ok, _Tag} when not Public ->
++            {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

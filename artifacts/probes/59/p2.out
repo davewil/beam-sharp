@@ -1,0 +1,9 @@
+head     Shop59.beam = 1516 bytes
+var      Shop59.beam = 1480 bytes
+head   SumAll over 100k orders: [18.38,18.83,25.54] ns/element (min/median/max of 7)
+var    SumAll over 100k orders: [15.56,16.24,17.22] ns/element (min/median/max of 7)
+head   SumAll over 100k orders: [18.21,18.57,19.87] ns/element (min/median/max of 7)
+var    SumAll over 100k orders: [15.41,16.98,20.15] ns/element (min/median/max of 7)
+--- disassembly: the private function One/1, HEAD vs variant (instruction count)
+head {'One',1}: 8 instructions
+var {'One',1}: 6 instructions

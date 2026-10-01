@@ -1,0 +1,30 @@
+== refinements (the ticket's table)
+rc=1  type T = int where value >= -5
+        /tmp/tmp.HdrORJbGNC/R1/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value >= -5 and value <= 5
+        /tmp/tmp.lpiJ29M5g2/R2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value >= 1 or value <= -1
+        /tmp/tmp.cYvF9P5hPY/R3/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=0  type T = int where value <= 3 or value >= 10
+rc=0  type T = int where value != 0
+== forms the ticket did not list
+rc=1  type T = int where value >= 2 + 3
+        /tmp/tmp.gtFfQpaLb9/R6/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value >= -(5)
+        /tmp/tmp.gZuCqrIgeb/R7/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value != -1
+        /tmp/tmp.31xTZpJFwV/R8/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value == -1
+        /tmp/tmp.rYPmgjvQWz/R9/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where -5 <= value
+        /tmp/tmp.8eQEt74NNB/R10/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+== the same literals as PATTERNS
+rc=0  public atom Sign(int n)

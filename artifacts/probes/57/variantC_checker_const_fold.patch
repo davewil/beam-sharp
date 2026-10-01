@@ -1,0 +1,38 @@
+diff --git a/src/bs_check.erl b/src/bs_check.erl
+index 4494719..c2625b7 100644
+--- a/src/bs_check.erl
++++ b/src/bs_check.erl
+@@ -4938,13 +4938,28 @@ alternatives(Cmp) ->
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison({e_op, _, Op, {e_var, _, V}, R}) when is_tuple(R) ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> comparison_rest({e_op, 0, Op, {e_var, 0, V}, R}) end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when is_tuple(L) ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
++comparison(E) -> comparison_rest(E).
++
++%% A literal-only integer expression: the one place a refinement comparand is folded.
++const_int({e_int, _, K})      -> {ok, K};
++const_int({e_neg, _, E})      -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int({e_op, _, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_int(A), const_int(B)} of
++        {{ok, X}, {ok, Y}} -> {ok, case Op of '+' -> X + Y; '-' -> X - Y; '*' -> X * Y end};
++        _ -> error
++    end;
++const_int(_) -> error.
++
++
++comparison_rest({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison_rest({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+-comparison(_) ->
++comparison_rest(_) ->
+     unknown.
+ 
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};

@@ -1,0 +1,3 @@
+./shop/pricing         exit=0
+./shop/pricing/sub     exit=0
+./shop/reports         package ex.com/app/shop/reports 	shop/reports/reports.go:2:8: use of internal package ex.com/app/shop/pricing/internal/rates not allowed exit=1

@@ -1,0 +1,29 @@
+diff --git a/src/bs_emit.erl b/src/bs_emit.erl
+index 669772d..86f3e7e 100644
+--- a/src/bs_emit.erl
++++ b/src/bs_emit.erl
+@@ -264,7 +264,7 @@ boundary_guards(Patterns, Params, Line, Ctx, Public, Accepts) ->
+ %% The tag guard and the integer guard are mutually exclusive: a record type
+ %% has a `maps` part and an integer type does not, so no parameter is a
+ %% candidate for both.
+-guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
++guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, _Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+@@ -273,13 +273,11 @@ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from

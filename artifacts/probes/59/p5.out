@@ -1,0 +1,8 @@
+head   Kind59.beam = 1340 bytes
+var    Kind59.beam = 1376 bytes
+head   Total over 100k ints: [13.19,13.44,15.49] ns/element (min/median/max of 7)
+var    Total over 100k ints: [14.07,15.29,15.69] ns/element (min/median/max of 7)
+head   Total over 100k ints: [13.05,13.19,13.77] ns/element (min/median/max of 7)
+var    Total over 100k ints: [13.83,14.02,14.73] ns/element (min/median/max of 7)
+head   Total over 100k ints: [13.1,13.6,14.24] ns/element (min/median/max of 7)
+var    Total over 100k ints: [14.06,14.4,15.87] ns/element (min/median/max of 7)

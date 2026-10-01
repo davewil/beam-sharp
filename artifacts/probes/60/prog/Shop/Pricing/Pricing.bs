@@ -1,0 +1,6 @@
+module Shop.Pricing
+
+using Shop.Pricing.Internal.Rates
+
+public int Charge(atom tier, int cents)
+Charge(tier, cents) -> cents * Rate(tier)

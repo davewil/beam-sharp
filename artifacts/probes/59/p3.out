@@ -1,0 +1,9 @@
+== Elixir: defp with a struct pattern, forged map arrives nested in a list through def
+sum_all (struct pattern in defp): FunctionClauseError
+sum_untagged (projection only): 100
+== Gleam: no run-time test exists to ask -- types are erased and nothing guards a pub fn either
+   Compiled in 0.59s
+pub fn sum_all fed a forged 2-tuple of a different tag: {error,
+                                                         {case_clause,
+                                                          [{invoice,1,100}]}}
+pub fn sum_all fed a 3-tuple: {error,{case_clause,[{order,1,2,3}]}}

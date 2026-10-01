@@ -1,0 +1,6 @@
+module Shop.Reports
+
+using Shop.Pricing.Internal.Rates
+
+public int Peek(atom tier)
+Peek(tier) -> Rate(tier)

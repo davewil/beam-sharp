@@ -1,0 +1,37 @@
+=== Erlang (erlc): remote call to an absent module
+erlc exit=0 (0 = compiled silently)
+run time: error:undef
+--- Erlang xref sees it (a separate tool, not the compiler):
+xref undefined: [{{e,f,0},{'Elixir.Req',new,1}}]
+
+=== Elixir (elixirc): remote call to an absent module
+warning: Req.new/1 is undefined (module Req is not available or is yet to be defined)
+  x.ex:2: X.f/0
+
+elixirc exit=0
+--- with @compile {:no_warn_undefined, Req}:
+elixirc exit=0
+
+=== Gleam: import of an absent Gleam module vs @external to an absent Erlang module
+  Resolving versions
+  Compiling g
+error: Unknown module
+  ┌─ /tmp/tmp.AuvNezGUgS/g/src/g.gleam:1:1
+  │
+1 │ import req/client
+  │ ^^^^^^^^^^^^^^^^^
+No module has been found with the name `req/client`.
+--- @external to absent module:
+  Compiling g
+   Compiled in 0.54s
+gleam exit=0
+
+=== Elm: import of an absent module (NOTE: needs elm/core from package.elm-lang.org; unreachable from this sandbox, so this section does NOT measure Elm's behaviour)
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/core" dependency your elm.json file. The default imports
+of `List` and `Maybe` do not work without it.
+
+If you modified your elm.json by hand, try to change it back! And if you are
+having trouble getting back to a working elm.json, it may be easier to delete it
+and use `elm init` to start fresh.

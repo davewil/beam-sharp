@@ -1,0 +1,6 @@
+module Shop.Vians
+
+using Shop.Pricing.Internal
+
+public int Peek(atom tier)
+Peek(tier) -> Rates.Rate(tier)

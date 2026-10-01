@@ -1,0 +1,6 @@
+### lib/hidden NOT listed
+consumer importing lib/hidden: gleam build exit=0
+package-interface modules: ['lib', 'lib/hidden']
+### lib/hidden listed as internal
+consumer importing lib/hidden: gleam build exit=0
+package-interface modules: ['lib']

@@ -1,0 +1,20 @@
+module Shop59
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+
+// Exported. Takes a LIST of orders, so the boundary guard has no record parameter to test at the entry.
+public int SumAll(list<Order> os)
+
+SumAll([])          -> 0
+SumAll([o, ..rest]) -> One(o) + SumAll(rest)
+
+// Private. Its only callers are checked B# call sites... except that the element came out of a foreign list.
+private int One(Order o)
+
+One(o) -> o.Total
+
+// Exported twin with the record as a direct parameter, for the entry-guard control.
+public int Direct(Order o)
+
+Direct(o) -> o.Total

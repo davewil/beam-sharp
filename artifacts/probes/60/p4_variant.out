@@ -1,0 +1,6 @@
+Shop/Pricing       (exit 0)
+Shop/Pricing/Sub   (exit 0)
+Shop/Reports       /home/user/beam-sharp/artifacts/probes/60/prog/Shop/Reports/Reports.bs:3:1: error: Shop.Pricing.Internal.Rates is internal to Shop.Pricing and cannot be named from Shop.Reports (exit 1)
+Shop/Vians         /home/user/beam-sharp/artifacts/probes/60/prog/Shop/Vians/Vians.bs:6:20: error: Rates is called but never imported   add `using Rates` \x{2014} a file's `using` lines are its dependency list, (exit 1)
+--- runtime sanity: the allowed path still runs
+200
