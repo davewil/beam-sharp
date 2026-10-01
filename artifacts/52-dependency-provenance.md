@@ -34,7 +34,7 @@ ERL_LIBS empty       -> crashed: error:undef  exit 1     (compile alone: exit 0,
 
 So the closest neighbour to "a foreign `using` block" (Gleam's `@external`, Erlang's remote call) is
 silent, and the one that does check (Elixir) **warns, does not refuse**, and declares nothing per
-file. No neighbour records an application name in the source file that calls into it. Sources for
+file. No neighbour records an application name at a *foreign call site* (Erlang's `-include_lib("app/include/x.hrl")` does name an app in source, and `erlc` refuses when it is absent, but that is for headers, not calls). Sources for
 Elixir and Gleam are not installed in the sandbox: behaviour only, no file:line.
 
 ## Measurements
@@ -44,12 +44,12 @@ Elixir and Gleam are not installed in the sandbox: behaviour only, no file:line.
   file gives `vsn "0.7.3"`. Absent: `non_existing` / `{error,bad_name}`. No direct "which app owns this
   module" call exists; it is a path parse.
 - **Cost**, 20 000 lookups per sample, median of 5, a noisy box: `code:which` present ≈ 195 µs,
-  absent ≈ 1.5 ms (it scans the whole path); `code:lib_dir` ≈ 1.7–3.7 µs either way;
+  absent ≈ 1.5 ms on OTP 25 (the verifier, on OTP 27, got ≈ 43 µs and ≈ 0.5 ms; `p2` uses whichever `erl` is first on PATH); `code:lib_dir` ≈ 1.7–3.7 µs either way;
   `ensure_loaded` of a loaded module ≈ 76 ns. Per `using` block, once per compile: not a budget issue.
 - **False positives** (`p4`, patch `variant_presence_check.patch`: 15 lines in `bs_check.erl` and
   `bs_diag.erl`, raising an error when a foreign `using` module is neither compiled in this
   invocation nor on the code path). Over the 27 example modules that compile today: **0 flip to
-  refused.** Over every distinct foreign module the corpus names (examples and exemplars, 9): **8
+  refused, but this is near-vacuous**: only 4 of the 28 example files contain a `using :Mod` block and all four use always-present OTP modules (`erlang`, `file`, `lists`, `ets`). Over every distinct foreign module the corpus names (examples and exemplars, 9): **8
   present, 1 absent: `epgsql`** (exemplar 25d, which does not compile in its checked-in layout anyway: measured, "no `module` line"; compare ENG-446 for 25e–25g). On OTP 25 `json` would also be absent (it joined OTP in 27).
 
 ## Options
@@ -74,7 +74,7 @@ today), a field on the `{foreign, ...}` node every consumer of that tuple matche
 `code:lib_dir(App)`. Version stays out (a constraint is resolution, which 51 refuses).
 *Strongest counterargument:* every `using` of one app repeats it, the declaration can disagree with
 `ERL_LIBS` in the other direction (app present, module not), and it adds a second thing to keep in
-step with `mix.exs`/`rebar.config` that **no neighbour makes a source file carry**.
+step with `mix.exs`/`rebar.config` that **no neighbour makes a foreign call site carry**.
 
 **C. Leave it (ticket 51's "reads what rebar3 or mix already produced").**
 Compiler delta: none. *Strongest counterargument:* the run-time `undef` is exactly the
@@ -93,10 +93,9 @@ source. If David wants B anyway, sequence it with ticket 50 as the ticket says: 
 ## Caveats
 
 - Elm unmeasured; Elixir/Gleam by behaviour only.
-- The prototype refuses; I did not build the `--api` warning path. `--api` today skips unknown imports
-  (`bs_check.erl:490` area), so the warning half is untested.
+- The prototype refuses and does not distinguish `--api`: the verifier measured that HEAD `--api` succeeds with nothing built and the patched build prints the refusal in `--api` mode too. (`bs_check.erl:480`'s comment concerns imports, not `using` blocks.) The warning-only path is unbuilt.
 - `code:which/1` on OTP 25 for the lookup cost numbers; the `bsc` build is OTP 27.
 
 ## Verification
 
-See "Verifier result" appended below by the independent verifier run.
+An independent verifier (`artifacts/probes/52/verify/REPORT.md`) reproduced every probe result, found no probe-specific text in the patch, and added its own control (its patched build refuses `using 'Elixir.Req'` with `ERL_LIBS` empty and accepts it when set). Its corrections are applied above; the material one is that the false-positive result is near-vacuous.
