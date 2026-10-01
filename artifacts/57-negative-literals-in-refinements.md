@@ -41,7 +41,7 @@ facts it did not know change it:**
 
 - **Erlang**: the parser keeps `-5` as `{op,1,'-',{integer,1,5}}` in a guard *and* in a pattern
   (measured, `p5`); folding happens later: `erl_parse.yrl:1799 normalise({op,_,'-',{integer,_,I}}) -> -I`
-  for term conversion, and the compiler folds general constants (`erlc -S` of `X >= 2 + 3` emits
+  for term conversion only (it is `normalise/1`, not a folder); the real support for "Erlang folds after parsing" is that the compiler folds general constants (`erlc -S` of `X >= 2 + 3` emits
   `{test,is_ge,...,[{x,0},{integer,5}]}`). So Erlang folds **after** parsing, generally.
 - **Elixir** (1.14): `quote do: x >= -5` is `{:-, _, [5]}`, a unary-op node; `-5` and `2 + 3`
   both work as guard comparands (measured). Folding is a later pass. Sources not installed: behaviour only.
@@ -62,9 +62,8 @@ Each patch was applied to a fresh copy and the **same unchanged** probe scripts 
 Meaning, not just acceptance (`p4`): under A and B, `type Delta = int where value >= -5 and value <= 5`
 accepts `-5, 0, 5` and the exported boundary rejects `-6` and `6` with `function_clause`.
 Full `rebar3 eunit` for A and for B: **1299 passed, 4 failed**, the same four that fail on an
-unpatched HEAD checkout in this sandbox (baseline: 1298 passed, 5 failed, the fifth a flaky
-`diagnostic_term_tests` gate that passed in both variant runs). **No regression attributable to
-either patch.** The four are `every_aoc_program_still_compiles`, `batch_runs_every_entry_in_one_vm_and_attributes_each`, `a_path_is_utf8_on_the_wire` and `a_non_ascii_literal_is_advised_as_written`; I did not diagnose why they fail here (the last two read like locale, the first may need `aoc/`, which sits outside the `compiler/` tree I copied; both are guesses).
+unpatched HEAD checkout in this sandbox (baseline: 1298 passed, 5 failed, the fifth, `diagnostic_term_tests:the_diagnostics_gate_passes_test`, fails only because `check-diagnostics.sh` needs a built `bsc` that the eunit-only archive copy lacked, so that baseline comparison was slightly asymmetric). **No regression attributable to
+either patch.** The four are `every_aoc_program_still_compiles`, `batch_runs_every_entry_in_one_vm_and_attributes_each`, `a_path_is_utf8_on_the_wire` and `a_non_ascii_literal_is_advised_as_written`; the verifier traced them: `every_aoc_program_still_compiles` needs `../aoc`, which a `compiler/`-only copy lacks, and the other three read UTF-8 test literals as latin1 under the POSIX locale (environmental, not caused by either patch).
 
 ## Options
 
@@ -72,7 +71,7 @@ either patch.** The four are `every_aoc_program_still_compiles`, `batch_runs_eve
 Compiler delta: one clause. *Strongest counterargument:* it rewrites the AST for **every** `-<int
 literal>` in the language, not only comparands, so any later pass that wants to tell `-5` from a
 negated expression loses the distinction (none does today: the suite is baseline-equal), and it
-matches neither neighbour (both BEAM neighbours keep the unary node and fold later).
+differs from Erlang and Elixir, which keep the unary node and fold later (Gleam, like A, produces a literal and leaves `2 + 3` unfolded).
 
 **B. The checker reads a negated int literal.** Compiler delta: two `comparison/1` clauses.
 *Strongest counterargument:* the fold lives in one consumer; a second reader of expressions that wants
@@ -83,14 +82,25 @@ constants (a future `Take(n)` bound, a `ToJson` width) must rediscover it.
 standing design surface (`value >= 10 / 2`? division by zero? overflow semantics?) for a
 spelling nobody has asked for; CLAUDE.md's rule is one occurrence gets a sentence, not a feature.
 
+## A and B are not equivalent at call sites (verifier finding, reproduced)
+
+With `type Neg = int where value <= -1`, a call `Take(-3)` is **accepted under A** (the parser makes
+`-3` an `e_int`, which types as a singleton) and **refused under B and C** (B's `type_of(e_neg ..)`
+returns plain `int`). `- -5` is accepted by A and refused by B; `-(2+3)` only by C. So B repairs the
+declaration (refinement, guard) but not the *use* of a negative literal where a signed refinement is
+expected, which is the program the refinement exists to serve. Earlier briefs on this ticket found the
+same (`Half(-5)`, `Id(-50)`). The verifier also found an unrelated HEAD bug: `value >= 5 and
+value <= 8 or value == 100` fails with "bad range type" when an exported function uses the type.
+
 ## Recommendation
 
-**Option B, with a note that C is the follow-up if `2 + 3` ever appears in a real program.** B fixes
-refinements and guards at the one function both share, matches how Erlang and Elixir actually do it
-(fold after parsing), and is the smaller blast radius than A. A is defensible and one line shorter if
-David prefers parse-time symmetry with `int_lit` and the float fold. Either way the ticket should be
-re-titled: it is not a refinement-only defect, and `F2`'s five all-non-negative scenarios should gain a
-negative one *and a guard one*.
+**Option A** (fold the int literal in `negate/2`). I first preferred B; the call-site finding reverses
+that. A is one line, fixes refinements, guards *and* literal arguments, mirrors the float fold already
+in `negate/2`, and Gleam does the same. Its cost is the AST-wide effect named above (earlier briefs
+measured that a bare `-1 = x` line may newly parse as a literal pattern; I did not). C is the follow-up
+only if `2 + 3` ever appears in a real program; B alone is not enough. Either way the ticket should be
+re-titled (it is not refinement-only) and `F2`'s all-non-negative scenarios should gain a negative one
+*and a guard one*.
 
 ## Caveats
 
@@ -100,4 +110,4 @@ negative one *and a guard one*.
 
 ## Verification
 
-See "Verifier result" appended below by the independent verifier run.
+An independent verifier (`artifacts/probes/57/verify/REPORT.md`) rebuilt all three variants from `git archive HEAD` + the patches (p3 output identical), reproduced p1, p2, p4, p5, the full eunit counts (A and B: 1299 passed / 4 failed, same set) and the Erlang/Elixir/Gleam claims, and found no probe-specific text. It noted that p2 has no over-acceptance control (its own gap probes show A, B and C all refuse the gap cases correctly) and that a green suite says nothing about negative refinements because no test pins them. The call-site finding and the changed recommendation are its.
