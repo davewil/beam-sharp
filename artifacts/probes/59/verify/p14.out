@@ -1,0 +1,37 @@
+##### p1 head
+SumAll([Good])  (well-formed)                        7
+SumAll([Forged]) forged element, via private One/1   {error,function_clause}
+Direct(Forged)   forged, exported record parameter   {error,function_clause}
+##### p4 head
+Total([10])          int in a list                         2
+Total([100.5])       FLOAT in a list -> private Band       2
+BandOut(100.5)       FLOAT direct -> exported guard        {error,
+                                                            function_clause}
+##### p1 tag
+SumAll([Good])  (well-formed)                        7
+SumAll([Forged]) forged element, via private One/1   100
+Direct(Forged)   forged, exported record parameter   {error,function_clause}
+##### p4 tag
+Total([10])          int in a list                         2
+Total([100.5])       FLOAT in a list -> private Band       2
+BandOut(100.5)       FLOAT direct -> exported guard        {error,
+                                                            function_clause}
+##### p1 kind
+SumAll([Good])  (well-formed)                        7
+SumAll([Forged]) forged element, via private One/1   {error,function_clause}
+Direct(Forged)   forged, exported record parameter   {error,function_clause}
+##### p4 kind
+Total([10])          int in a list                         2
+Total([100.5])       FLOAT in a list -> private Band       {error,
+                                                            function_clause}
+BandOut(100.5)       FLOAT direct -> exported guard        {error,
+                                                            function_clause}
+##### p1 prebuilt
+SumAll([Good])  (well-formed)                        7
+SumAll([Forged]) forged element, via private One/1   {error,function_clause}
+Direct(Forged)   forged, exported record parameter   {error,function_clause}
+##### p4 prebuilt
+Total([10])          int in a list                         2
+Total([100.5])       FLOAT in a list -> private Band       2
+BandOut(100.5)       FLOAT direct -> exported guard        {error,
+                                                            function_clause}

@@ -1,0 +1,9 @@
+:Shop.New(1)                                     -> FAIL: ** (SyntaxError) nofile:1:22: unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or unders
+:Shop."New"(1)   (quoted fun name)               -> OK: %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:"Shop"."New"(1)                                 -> OK: %{Id: 1, Kind: :"Shop.Order", Total: 0}
+apply(:Shop, :New, [1])                          -> OK: %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:Shop.new(1)  (hand-written alias)               -> OK: %{Id: 1, Kind: :"Shop.Order", Total: 0}
+Kernel.then pipe: 1 |> :Shop."New"()             -> OK: %{Id: 1, Kind: :"Shop.Order", Total: 0}
+Total on a struct-like arg                       -> OK: 0
+import :Shop, only: [..] ?                       -> OK: %{Id: 3, Kind: :"Shop.Order", Total: 0}
+defdelegate in an Elixir wrapper                 -> OK: %{Id: 2, Kind: :"Shop.Order", Total: 0}

@@ -1,0 +1,1004 @@
+module Mint200
+
+record R { Id: int, Total: int }
+
+public int Fun1(int n)
+
+Fun1(0) -> 0
+Fun1(n) -> n + 1
+
+public int Fun2(int n)
+
+Fun2(0) -> 0
+Fun2(n) -> n + 2
+
+public int Fun3(int n)
+
+Fun3(0) -> 0
+Fun3(n) -> n + 3
+
+public int Fun4(int n)
+
+Fun4(0) -> 0
+Fun4(n) -> n + 4
+
+public int Fun5(int n)
+
+Fun5(0) -> 0
+Fun5(n) -> n + 5
+
+public int Fun6(int n)
+
+Fun6(0) -> 0
+Fun6(n) -> n + 6
+
+public int Fun7(int n)
+
+Fun7(0) -> 0
+Fun7(n) -> n + 7
+
+public int Fun8(int n)
+
+Fun8(0) -> 0
+Fun8(n) -> n + 8
+
+public int Fun9(int n)
+
+Fun9(0) -> 0
+Fun9(n) -> n + 9
+
+public int Fun10(int n)
+
+Fun10(0) -> 0
+Fun10(n) -> n + 10
+
+public int Fun11(int n)
+
+Fun11(0) -> 0
+Fun11(n) -> n + 11
+
+public int Fun12(int n)
+
+Fun12(0) -> 0
+Fun12(n) -> n + 12
+
+public int Fun13(int n)
+
+Fun13(0) -> 0
+Fun13(n) -> n + 13
+
+public int Fun14(int n)
+
+Fun14(0) -> 0
+Fun14(n) -> n + 14
+
+public int Fun15(int n)
+
+Fun15(0) -> 0
+Fun15(n) -> n + 15
+
+public int Fun16(int n)
+
+Fun16(0) -> 0
+Fun16(n) -> n + 16
+
+public int Fun17(int n)
+
+Fun17(0) -> 0
+Fun17(n) -> n + 17
+
+public int Fun18(int n)
+
+Fun18(0) -> 0
+Fun18(n) -> n + 18
+
+public int Fun19(int n)
+
+Fun19(0) -> 0
+Fun19(n) -> n + 19
+
+public int Fun20(int n)
+
+Fun20(0) -> 0
+Fun20(n) -> n + 20
+
+public int Fun21(int n)
+
+Fun21(0) -> 0
+Fun21(n) -> n + 21
+
+public int Fun22(int n)
+
+Fun22(0) -> 0
+Fun22(n) -> n + 22
+
+public int Fun23(int n)
+
+Fun23(0) -> 0
+Fun23(n) -> n + 23
+
+public int Fun24(int n)
+
+Fun24(0) -> 0
+Fun24(n) -> n + 24
+
+public int Fun25(int n)
+
+Fun25(0) -> 0
+Fun25(n) -> n + 25
+
+public int Fun26(int n)
+
+Fun26(0) -> 0
+Fun26(n) -> n + 26
+
+public int Fun27(int n)
+
+Fun27(0) -> 0
+Fun27(n) -> n + 27
+
+public int Fun28(int n)
+
+Fun28(0) -> 0
+Fun28(n) -> n + 28
+
+public int Fun29(int n)
+
+Fun29(0) -> 0
+Fun29(n) -> n + 29
+
+public int Fun30(int n)
+
+Fun30(0) -> 0
+Fun30(n) -> n + 30
+
+public int Fun31(int n)
+
+Fun31(0) -> 0
+Fun31(n) -> n + 31
+
+public int Fun32(int n)
+
+Fun32(0) -> 0
+Fun32(n) -> n + 32
+
+public int Fun33(int n)
+
+Fun33(0) -> 0
+Fun33(n) -> n + 33
+
+public int Fun34(int n)
+
+Fun34(0) -> 0
+Fun34(n) -> n + 34
+
+public int Fun35(int n)
+
+Fun35(0) -> 0
+Fun35(n) -> n + 35
+
+public int Fun36(int n)
+
+Fun36(0) -> 0
+Fun36(n) -> n + 36
+
+public int Fun37(int n)
+
+Fun37(0) -> 0
+Fun37(n) -> n + 37
+
+public int Fun38(int n)
+
+Fun38(0) -> 0
+Fun38(n) -> n + 38
+
+public int Fun39(int n)
+
+Fun39(0) -> 0
+Fun39(n) -> n + 39
+
+public int Fun40(int n)
+
+Fun40(0) -> 0
+Fun40(n) -> n + 40
+
+public int Fun41(int n)
+
+Fun41(0) -> 0
+Fun41(n) -> n + 41
+
+public int Fun42(int n)
+
+Fun42(0) -> 0
+Fun42(n) -> n + 42
+
+public int Fun43(int n)
+
+Fun43(0) -> 0
+Fun43(n) -> n + 43
+
+public int Fun44(int n)
+
+Fun44(0) -> 0
+Fun44(n) -> n + 44
+
+public int Fun45(int n)
+
+Fun45(0) -> 0
+Fun45(n) -> n + 45
+
+public int Fun46(int n)
+
+Fun46(0) -> 0
+Fun46(n) -> n + 46
+
+public int Fun47(int n)
+
+Fun47(0) -> 0
+Fun47(n) -> n + 47
+
+public int Fun48(int n)
+
+Fun48(0) -> 0
+Fun48(n) -> n + 48
+
+public int Fun49(int n)
+
+Fun49(0) -> 0
+Fun49(n) -> n + 49
+
+public int Fun50(int n)
+
+Fun50(0) -> 0
+Fun50(n) -> n + 50
+
+public int Fun51(int n)
+
+Fun51(0) -> 0
+Fun51(n) -> n + 51
+
+public int Fun52(int n)
+
+Fun52(0) -> 0
+Fun52(n) -> n + 52
+
+public int Fun53(int n)
+
+Fun53(0) -> 0
+Fun53(n) -> n + 53
+
+public int Fun54(int n)
+
+Fun54(0) -> 0
+Fun54(n) -> n + 54
+
+public int Fun55(int n)
+
+Fun55(0) -> 0
+Fun55(n) -> n + 55
+
+public int Fun56(int n)
+
+Fun56(0) -> 0
+Fun56(n) -> n + 56
+
+public int Fun57(int n)
+
+Fun57(0) -> 0
+Fun57(n) -> n + 57
+
+public int Fun58(int n)
+
+Fun58(0) -> 0
+Fun58(n) -> n + 58
+
+public int Fun59(int n)
+
+Fun59(0) -> 0
+Fun59(n) -> n + 59
+
+public int Fun60(int n)
+
+Fun60(0) -> 0
+Fun60(n) -> n + 60
+
+public int Fun61(int n)
+
+Fun61(0) -> 0
+Fun61(n) -> n + 61
+
+public int Fun62(int n)
+
+Fun62(0) -> 0
+Fun62(n) -> n + 62
+
+public int Fun63(int n)
+
+Fun63(0) -> 0
+Fun63(n) -> n + 63
+
+public int Fun64(int n)
+
+Fun64(0) -> 0
+Fun64(n) -> n + 64
+
+public int Fun65(int n)
+
+Fun65(0) -> 0
+Fun65(n) -> n + 65
+
+public int Fun66(int n)
+
+Fun66(0) -> 0
+Fun66(n) -> n + 66
+
+public int Fun67(int n)
+
+Fun67(0) -> 0
+Fun67(n) -> n + 67
+
+public int Fun68(int n)
+
+Fun68(0) -> 0
+Fun68(n) -> n + 68
+
+public int Fun69(int n)
+
+Fun69(0) -> 0
+Fun69(n) -> n + 69
+
+public int Fun70(int n)
+
+Fun70(0) -> 0
+Fun70(n) -> n + 70
+
+public int Fun71(int n)
+
+Fun71(0) -> 0
+Fun71(n) -> n + 71
+
+public int Fun72(int n)
+
+Fun72(0) -> 0
+Fun72(n) -> n + 72
+
+public int Fun73(int n)
+
+Fun73(0) -> 0
+Fun73(n) -> n + 73
+
+public int Fun74(int n)
+
+Fun74(0) -> 0
+Fun74(n) -> n + 74
+
+public int Fun75(int n)
+
+Fun75(0) -> 0
+Fun75(n) -> n + 75
+
+public int Fun76(int n)
+
+Fun76(0) -> 0
+Fun76(n) -> n + 76
+
+public int Fun77(int n)
+
+Fun77(0) -> 0
+Fun77(n) -> n + 77
+
+public int Fun78(int n)
+
+Fun78(0) -> 0
+Fun78(n) -> n + 78
+
+public int Fun79(int n)
+
+Fun79(0) -> 0
+Fun79(n) -> n + 79
+
+public int Fun80(int n)
+
+Fun80(0) -> 0
+Fun80(n) -> n + 80
+
+public int Fun81(int n)
+
+Fun81(0) -> 0
+Fun81(n) -> n + 81
+
+public int Fun82(int n)
+
+Fun82(0) -> 0
+Fun82(n) -> n + 82
+
+public int Fun83(int n)
+
+Fun83(0) -> 0
+Fun83(n) -> n + 83
+
+public int Fun84(int n)
+
+Fun84(0) -> 0
+Fun84(n) -> n + 84
+
+public int Fun85(int n)
+
+Fun85(0) -> 0
+Fun85(n) -> n + 85
+
+public int Fun86(int n)
+
+Fun86(0) -> 0
+Fun86(n) -> n + 86
+
+public int Fun87(int n)
+
+Fun87(0) -> 0
+Fun87(n) -> n + 87
+
+public int Fun88(int n)
+
+Fun88(0) -> 0
+Fun88(n) -> n + 88
+
+public int Fun89(int n)
+
+Fun89(0) -> 0
+Fun89(n) -> n + 89
+
+public int Fun90(int n)
+
+Fun90(0) -> 0
+Fun90(n) -> n + 90
+
+public int Fun91(int n)
+
+Fun91(0) -> 0
+Fun91(n) -> n + 91
+
+public int Fun92(int n)
+
+Fun92(0) -> 0
+Fun92(n) -> n + 92
+
+public int Fun93(int n)
+
+Fun93(0) -> 0
+Fun93(n) -> n + 93
+
+public int Fun94(int n)
+
+Fun94(0) -> 0
+Fun94(n) -> n + 94
+
+public int Fun95(int n)
+
+Fun95(0) -> 0
+Fun95(n) -> n + 95
+
+public int Fun96(int n)
+
+Fun96(0) -> 0
+Fun96(n) -> n + 96
+
+public int Fun97(int n)
+
+Fun97(0) -> 0
+Fun97(n) -> n + 97
+
+public int Fun98(int n)
+
+Fun98(0) -> 0
+Fun98(n) -> n + 98
+
+public int Fun99(int n)
+
+Fun99(0) -> 0
+Fun99(n) -> n + 99
+
+public int Fun100(int n)
+
+Fun100(0) -> 0
+Fun100(n) -> n + 100
+
+public int Fun101(int n)
+
+Fun101(0) -> 0
+Fun101(n) -> n + 101
+
+public int Fun102(int n)
+
+Fun102(0) -> 0
+Fun102(n) -> n + 102
+
+public int Fun103(int n)
+
+Fun103(0) -> 0
+Fun103(n) -> n + 103
+
+public int Fun104(int n)
+
+Fun104(0) -> 0
+Fun104(n) -> n + 104
+
+public int Fun105(int n)
+
+Fun105(0) -> 0
+Fun105(n) -> n + 105
+
+public int Fun106(int n)
+
+Fun106(0) -> 0
+Fun106(n) -> n + 106
+
+public int Fun107(int n)
+
+Fun107(0) -> 0
+Fun107(n) -> n + 107
+
+public int Fun108(int n)
+
+Fun108(0) -> 0
+Fun108(n) -> n + 108
+
+public int Fun109(int n)
+
+Fun109(0) -> 0
+Fun109(n) -> n + 109
+
+public int Fun110(int n)
+
+Fun110(0) -> 0
+Fun110(n) -> n + 110
+
+public int Fun111(int n)
+
+Fun111(0) -> 0
+Fun111(n) -> n + 111
+
+public int Fun112(int n)
+
+Fun112(0) -> 0
+Fun112(n) -> n + 112
+
+public int Fun113(int n)
+
+Fun113(0) -> 0
+Fun113(n) -> n + 113
+
+public int Fun114(int n)
+
+Fun114(0) -> 0
+Fun114(n) -> n + 114
+
+public int Fun115(int n)
+
+Fun115(0) -> 0
+Fun115(n) -> n + 115
+
+public int Fun116(int n)
+
+Fun116(0) -> 0
+Fun116(n) -> n + 116
+
+public int Fun117(int n)
+
+Fun117(0) -> 0
+Fun117(n) -> n + 117
+
+public int Fun118(int n)
+
+Fun118(0) -> 0
+Fun118(n) -> n + 118
+
+public int Fun119(int n)
+
+Fun119(0) -> 0
+Fun119(n) -> n + 119
+
+public int Fun120(int n)
+
+Fun120(0) -> 0
+Fun120(n) -> n + 120
+
+public int Fun121(int n)
+
+Fun121(0) -> 0
+Fun121(n) -> n + 121
+
+public int Fun122(int n)
+
+Fun122(0) -> 0
+Fun122(n) -> n + 122
+
+public int Fun123(int n)
+
+Fun123(0) -> 0
+Fun123(n) -> n + 123
+
+public int Fun124(int n)
+
+Fun124(0) -> 0
+Fun124(n) -> n + 124
+
+public int Fun125(int n)
+
+Fun125(0) -> 0
+Fun125(n) -> n + 125
+
+public int Fun126(int n)
+
+Fun126(0) -> 0
+Fun126(n) -> n + 126
+
+public int Fun127(int n)
+
+Fun127(0) -> 0
+Fun127(n) -> n + 127
+
+public int Fun128(int n)
+
+Fun128(0) -> 0
+Fun128(n) -> n + 128
+
+public int Fun129(int n)
+
+Fun129(0) -> 0
+Fun129(n) -> n + 129
+
+public int Fun130(int n)
+
+Fun130(0) -> 0
+Fun130(n) -> n + 130
+
+public int Fun131(int n)
+
+Fun131(0) -> 0
+Fun131(n) -> n + 131
+
+public int Fun132(int n)
+
+Fun132(0) -> 0
+Fun132(n) -> n + 132
+
+public int Fun133(int n)
+
+Fun133(0) -> 0
+Fun133(n) -> n + 133
+
+public int Fun134(int n)
+
+Fun134(0) -> 0
+Fun134(n) -> n + 134
+
+public int Fun135(int n)
+
+Fun135(0) -> 0
+Fun135(n) -> n + 135
+
+public int Fun136(int n)
+
+Fun136(0) -> 0
+Fun136(n) -> n + 136
+
+public int Fun137(int n)
+
+Fun137(0) -> 0
+Fun137(n) -> n + 137
+
+public int Fun138(int n)
+
+Fun138(0) -> 0
+Fun138(n) -> n + 138
+
+public int Fun139(int n)
+
+Fun139(0) -> 0
+Fun139(n) -> n + 139
+
+public int Fun140(int n)
+
+Fun140(0) -> 0
+Fun140(n) -> n + 140
+
+public int Fun141(int n)
+
+Fun141(0) -> 0
+Fun141(n) -> n + 141
+
+public int Fun142(int n)
+
+Fun142(0) -> 0
+Fun142(n) -> n + 142
+
+public int Fun143(int n)
+
+Fun143(0) -> 0
+Fun143(n) -> n + 143
+
+public int Fun144(int n)
+
+Fun144(0) -> 0
+Fun144(n) -> n + 144
+
+public int Fun145(int n)
+
+Fun145(0) -> 0
+Fun145(n) -> n + 145
+
+public int Fun146(int n)
+
+Fun146(0) -> 0
+Fun146(n) -> n + 146
+
+public int Fun147(int n)
+
+Fun147(0) -> 0
+Fun147(n) -> n + 147
+
+public int Fun148(int n)
+
+Fun148(0) -> 0
+Fun148(n) -> n + 148
+
+public int Fun149(int n)
+
+Fun149(0) -> 0
+Fun149(n) -> n + 149
+
+public int Fun150(int n)
+
+Fun150(0) -> 0
+Fun150(n) -> n + 150
+
+public int Fun151(int n)
+
+Fun151(0) -> 0
+Fun151(n) -> n + 151
+
+public int Fun152(int n)
+
+Fun152(0) -> 0
+Fun152(n) -> n + 152
+
+public int Fun153(int n)
+
+Fun153(0) -> 0
+Fun153(n) -> n + 153
+
+public int Fun154(int n)
+
+Fun154(0) -> 0
+Fun154(n) -> n + 154
+
+public int Fun155(int n)
+
+Fun155(0) -> 0
+Fun155(n) -> n + 155
+
+public int Fun156(int n)
+
+Fun156(0) -> 0
+Fun156(n) -> n + 156
+
+public int Fun157(int n)
+
+Fun157(0) -> 0
+Fun157(n) -> n + 157
+
+public int Fun158(int n)
+
+Fun158(0) -> 0
+Fun158(n) -> n + 158
+
+public int Fun159(int n)
+
+Fun159(0) -> 0
+Fun159(n) -> n + 159
+
+public int Fun160(int n)
+
+Fun160(0) -> 0
+Fun160(n) -> n + 160
+
+public int Fun161(int n)
+
+Fun161(0) -> 0
+Fun161(n) -> n + 161
+
+public int Fun162(int n)
+
+Fun162(0) -> 0
+Fun162(n) -> n + 162
+
+public int Fun163(int n)
+
+Fun163(0) -> 0
+Fun163(n) -> n + 163
+
+public int Fun164(int n)
+
+Fun164(0) -> 0
+Fun164(n) -> n + 164
+
+public int Fun165(int n)
+
+Fun165(0) -> 0
+Fun165(n) -> n + 165
+
+public int Fun166(int n)
+
+Fun166(0) -> 0
+Fun166(n) -> n + 166
+
+public int Fun167(int n)
+
+Fun167(0) -> 0
+Fun167(n) -> n + 167
+
+public int Fun168(int n)
+
+Fun168(0) -> 0
+Fun168(n) -> n + 168
+
+public int Fun169(int n)
+
+Fun169(0) -> 0
+Fun169(n) -> n + 169
+
+public int Fun170(int n)
+
+Fun170(0) -> 0
+Fun170(n) -> n + 170
+
+public int Fun171(int n)
+
+Fun171(0) -> 0
+Fun171(n) -> n + 171
+
+public int Fun172(int n)
+
+Fun172(0) -> 0
+Fun172(n) -> n + 172
+
+public int Fun173(int n)
+
+Fun173(0) -> 0
+Fun173(n) -> n + 173
+
+public int Fun174(int n)
+
+Fun174(0) -> 0
+Fun174(n) -> n + 174
+
+public int Fun175(int n)
+
+Fun175(0) -> 0
+Fun175(n) -> n + 175
+
+public int Fun176(int n)
+
+Fun176(0) -> 0
+Fun176(n) -> n + 176
+
+public int Fun177(int n)
+
+Fun177(0) -> 0
+Fun177(n) -> n + 177
+
+public int Fun178(int n)
+
+Fun178(0) -> 0
+Fun178(n) -> n + 178
+
+public int Fun179(int n)
+
+Fun179(0) -> 0
+Fun179(n) -> n + 179
+
+public int Fun180(int n)
+
+Fun180(0) -> 0
+Fun180(n) -> n + 180
+
+public int Fun181(int n)
+
+Fun181(0) -> 0
+Fun181(n) -> n + 181
+
+public int Fun182(int n)
+
+Fun182(0) -> 0
+Fun182(n) -> n + 182
+
+public int Fun183(int n)
+
+Fun183(0) -> 0
+Fun183(n) -> n + 183
+
+public int Fun184(int n)
+
+Fun184(0) -> 0
+Fun184(n) -> n + 184
+
+public int Fun185(int n)
+
+Fun185(0) -> 0
+Fun185(n) -> n + 185
+
+public int Fun186(int n)
+
+Fun186(0) -> 0
+Fun186(n) -> n + 186
+
+public int Fun187(int n)
+
+Fun187(0) -> 0
+Fun187(n) -> n + 187
+
+public int Fun188(int n)
+
+Fun188(0) -> 0
+Fun188(n) -> n + 188
+
+public int Fun189(int n)
+
+Fun189(0) -> 0
+Fun189(n) -> n + 189
+
+public int Fun190(int n)
+
+Fun190(0) -> 0
+Fun190(n) -> n + 190
+
+public int Fun191(int n)
+
+Fun191(0) -> 0
+Fun191(n) -> n + 191
+
+public int Fun192(int n)
+
+Fun192(0) -> 0
+Fun192(n) -> n + 192
+
+public int Fun193(int n)
+
+Fun193(0) -> 0
+Fun193(n) -> n + 193
+
+public int Fun194(int n)
+
+Fun194(0) -> 0
+Fun194(n) -> n + 194
+
+public int Fun195(int n)
+
+Fun195(0) -> 0
+Fun195(n) -> n + 195
+
+public int Fun196(int n)
+
+Fun196(0) -> 0
+Fun196(n) -> n + 196
+
+public int Fun197(int n)
+
+Fun197(0) -> 0
+Fun197(n) -> n + 197
+
+public int Fun198(int n)
+
+Fun198(0) -> 0
+Fun198(n) -> n + 198
+
+public int Fun199(int n)
+
+Fun199(0) -> 0
+Fun199(n) -> n + 199
+
+public int Fun200(int n)
+
+Fun200(0) -> 0
+Fun200(n) -> n + 200
+

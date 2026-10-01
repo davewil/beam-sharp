@@ -1,0 +1,44 @@
+module Brec10
+
+record R { Id: int, Total: int }
+
+public int Fun1(R r)
+
+Fun1(r) -> r.Total + 1
+
+public int Fun2(R r)
+
+Fun2(r) -> r.Total + 2
+
+public int Fun3(R r)
+
+Fun3(r) -> r.Total + 3
+
+public int Fun4(R r)
+
+Fun4(r) -> r.Total + 4
+
+public int Fun5(R r)
+
+Fun5(r) -> r.Total + 5
+
+public int Fun6(R r)
+
+Fun6(r) -> r.Total + 6
+
+public int Fun7(R r)
+
+Fun7(r) -> r.Total + 7
+
+public int Fun8(R r)
+
+Fun8(r) -> r.Total + 8
+
+public int Fun9(R r)
+
+Fun9(r) -> r.Total + 9
+
+public int Fun10(R r)
+
+Fun10(r) -> r.Total + 10
+

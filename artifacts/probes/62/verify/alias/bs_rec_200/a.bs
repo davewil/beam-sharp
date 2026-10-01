@@ -1,0 +1,804 @@
+module Mrec200
+
+record R { Id: int, Total: int }
+
+public int Fun1(R r)
+
+Fun1(r) -> r.Total + 1
+
+public int Fun2(R r)
+
+Fun2(r) -> r.Total + 2
+
+public int Fun3(R r)
+
+Fun3(r) -> r.Total + 3
+
+public int Fun4(R r)
+
+Fun4(r) -> r.Total + 4
+
+public int Fun5(R r)
+
+Fun5(r) -> r.Total + 5
+
+public int Fun6(R r)
+
+Fun6(r) -> r.Total + 6
+
+public int Fun7(R r)
+
+Fun7(r) -> r.Total + 7
+
+public int Fun8(R r)
+
+Fun8(r) -> r.Total + 8
+
+public int Fun9(R r)
+
+Fun9(r) -> r.Total + 9
+
+public int Fun10(R r)
+
+Fun10(r) -> r.Total + 10
+
+public int Fun11(R r)
+
+Fun11(r) -> r.Total + 11
+
+public int Fun12(R r)
+
+Fun12(r) -> r.Total + 12
+
+public int Fun13(R r)
+
+Fun13(r) -> r.Total + 13
+
+public int Fun14(R r)
+
+Fun14(r) -> r.Total + 14
+
+public int Fun15(R r)
+
+Fun15(r) -> r.Total + 15
+
+public int Fun16(R r)
+
+Fun16(r) -> r.Total + 16
+
+public int Fun17(R r)
+
+Fun17(r) -> r.Total + 17
+
+public int Fun18(R r)
+
+Fun18(r) -> r.Total + 18
+
+public int Fun19(R r)
+
+Fun19(r) -> r.Total + 19
+
+public int Fun20(R r)
+
+Fun20(r) -> r.Total + 20
+
+public int Fun21(R r)
+
+Fun21(r) -> r.Total + 21
+
+public int Fun22(R r)
+
+Fun22(r) -> r.Total + 22
+
+public int Fun23(R r)
+
+Fun23(r) -> r.Total + 23
+
+public int Fun24(R r)
+
+Fun24(r) -> r.Total + 24
+
+public int Fun25(R r)
+
+Fun25(r) -> r.Total + 25
+
+public int Fun26(R r)
+
+Fun26(r) -> r.Total + 26
+
+public int Fun27(R r)
+
+Fun27(r) -> r.Total + 27
+
+public int Fun28(R r)
+
+Fun28(r) -> r.Total + 28
+
+public int Fun29(R r)
+
+Fun29(r) -> r.Total + 29
+
+public int Fun30(R r)
+
+Fun30(r) -> r.Total + 30
+
+public int Fun31(R r)
+
+Fun31(r) -> r.Total + 31
+
+public int Fun32(R r)
+
+Fun32(r) -> r.Total + 32
+
+public int Fun33(R r)
+
+Fun33(r) -> r.Total + 33
+
+public int Fun34(R r)
+
+Fun34(r) -> r.Total + 34
+
+public int Fun35(R r)
+
+Fun35(r) -> r.Total + 35
+
+public int Fun36(R r)
+
+Fun36(r) -> r.Total + 36
+
+public int Fun37(R r)
+
+Fun37(r) -> r.Total + 37
+
+public int Fun38(R r)
+
+Fun38(r) -> r.Total + 38
+
+public int Fun39(R r)
+
+Fun39(r) -> r.Total + 39
+
+public int Fun40(R r)
+
+Fun40(r) -> r.Total + 40
+
+public int Fun41(R r)
+
+Fun41(r) -> r.Total + 41
+
+public int Fun42(R r)
+
+Fun42(r) -> r.Total + 42
+
+public int Fun43(R r)
+
+Fun43(r) -> r.Total + 43
+
+public int Fun44(R r)
+
+Fun44(r) -> r.Total + 44
+
+public int Fun45(R r)
+
+Fun45(r) -> r.Total + 45
+
+public int Fun46(R r)
+
+Fun46(r) -> r.Total + 46
+
+public int Fun47(R r)
+
+Fun47(r) -> r.Total + 47
+
+public int Fun48(R r)
+
+Fun48(r) -> r.Total + 48
+
+public int Fun49(R r)
+
+Fun49(r) -> r.Total + 49
+
+public int Fun50(R r)
+
+Fun50(r) -> r.Total + 50
+
+public int Fun51(R r)
+
+Fun51(r) -> r.Total + 51
+
+public int Fun52(R r)
+
+Fun52(r) -> r.Total + 52
+
+public int Fun53(R r)
+
+Fun53(r) -> r.Total + 53
+
+public int Fun54(R r)
+
+Fun54(r) -> r.Total + 54
+
+public int Fun55(R r)
+
+Fun55(r) -> r.Total + 55
+
+public int Fun56(R r)
+
+Fun56(r) -> r.Total + 56
+
+public int Fun57(R r)
+
+Fun57(r) -> r.Total + 57
+
+public int Fun58(R r)
+
+Fun58(r) -> r.Total + 58
+
+public int Fun59(R r)
+
+Fun59(r) -> r.Total + 59
+
+public int Fun60(R r)
+
+Fun60(r) -> r.Total + 60
+
+public int Fun61(R r)
+
+Fun61(r) -> r.Total + 61
+
+public int Fun62(R r)
+
+Fun62(r) -> r.Total + 62
+
+public int Fun63(R r)
+
+Fun63(r) -> r.Total + 63
+
+public int Fun64(R r)
+
+Fun64(r) -> r.Total + 64
+
+public int Fun65(R r)
+
+Fun65(r) -> r.Total + 65
+
+public int Fun66(R r)
+
+Fun66(r) -> r.Total + 66
+
+public int Fun67(R r)
+
+Fun67(r) -> r.Total + 67
+
+public int Fun68(R r)
+
+Fun68(r) -> r.Total + 68
+
+public int Fun69(R r)
+
+Fun69(r) -> r.Total + 69
+
+public int Fun70(R r)
+
+Fun70(r) -> r.Total + 70
+
+public int Fun71(R r)
+
+Fun71(r) -> r.Total + 71
+
+public int Fun72(R r)
+
+Fun72(r) -> r.Total + 72
+
+public int Fun73(R r)
+
+Fun73(r) -> r.Total + 73
+
+public int Fun74(R r)
+
+Fun74(r) -> r.Total + 74
+
+public int Fun75(R r)
+
+Fun75(r) -> r.Total + 75
+
+public int Fun76(R r)
+
+Fun76(r) -> r.Total + 76
+
+public int Fun77(R r)
+
+Fun77(r) -> r.Total + 77
+
+public int Fun78(R r)
+
+Fun78(r) -> r.Total + 78
+
+public int Fun79(R r)
+
+Fun79(r) -> r.Total + 79
+
+public int Fun80(R r)
+
+Fun80(r) -> r.Total + 80
+
+public int Fun81(R r)
+
+Fun81(r) -> r.Total + 81
+
+public int Fun82(R r)
+
+Fun82(r) -> r.Total + 82
+
+public int Fun83(R r)
+
+Fun83(r) -> r.Total + 83
+
+public int Fun84(R r)
+
+Fun84(r) -> r.Total + 84
+
+public int Fun85(R r)
+
+Fun85(r) -> r.Total + 85
+
+public int Fun86(R r)
+
+Fun86(r) -> r.Total + 86
+
+public int Fun87(R r)
+
+Fun87(r) -> r.Total + 87
+
+public int Fun88(R r)
+
+Fun88(r) -> r.Total + 88
+
+public int Fun89(R r)
+
+Fun89(r) -> r.Total + 89
+
+public int Fun90(R r)
+
+Fun90(r) -> r.Total + 90
+
+public int Fun91(R r)
+
+Fun91(r) -> r.Total + 91
+
+public int Fun92(R r)
+
+Fun92(r) -> r.Total + 92
+
+public int Fun93(R r)
+
+Fun93(r) -> r.Total + 93
+
+public int Fun94(R r)
+
+Fun94(r) -> r.Total + 94
+
+public int Fun95(R r)
+
+Fun95(r) -> r.Total + 95
+
+public int Fun96(R r)
+
+Fun96(r) -> r.Total + 96
+
+public int Fun97(R r)
+
+Fun97(r) -> r.Total + 97
+
+public int Fun98(R r)
+
+Fun98(r) -> r.Total + 98
+
+public int Fun99(R r)
+
+Fun99(r) -> r.Total + 99
+
+public int Fun100(R r)
+
+Fun100(r) -> r.Total + 100
+
+public int Fun101(R r)
+
+Fun101(r) -> r.Total + 101
+
+public int Fun102(R r)
+
+Fun102(r) -> r.Total + 102
+
+public int Fun103(R r)
+
+Fun103(r) -> r.Total + 103
+
+public int Fun104(R r)
+
+Fun104(r) -> r.Total + 104
+
+public int Fun105(R r)
+
+Fun105(r) -> r.Total + 105
+
+public int Fun106(R r)
+
+Fun106(r) -> r.Total + 106
+
+public int Fun107(R r)
+
+Fun107(r) -> r.Total + 107
+
+public int Fun108(R r)
+
+Fun108(r) -> r.Total + 108
+
+public int Fun109(R r)
+
+Fun109(r) -> r.Total + 109
+
+public int Fun110(R r)
+
+Fun110(r) -> r.Total + 110
+
+public int Fun111(R r)
+
+Fun111(r) -> r.Total + 111
+
+public int Fun112(R r)
+
+Fun112(r) -> r.Total + 112
+
+public int Fun113(R r)
+
+Fun113(r) -> r.Total + 113
+
+public int Fun114(R r)
+
+Fun114(r) -> r.Total + 114
+
+public int Fun115(R r)
+
+Fun115(r) -> r.Total + 115
+
+public int Fun116(R r)
+
+Fun116(r) -> r.Total + 116
+
+public int Fun117(R r)
+
+Fun117(r) -> r.Total + 117
+
+public int Fun118(R r)
+
+Fun118(r) -> r.Total + 118
+
+public int Fun119(R r)
+
+Fun119(r) -> r.Total + 119
+
+public int Fun120(R r)
+
+Fun120(r) -> r.Total + 120
+
+public int Fun121(R r)
+
+Fun121(r) -> r.Total + 121
+
+public int Fun122(R r)
+
+Fun122(r) -> r.Total + 122
+
+public int Fun123(R r)
+
+Fun123(r) -> r.Total + 123
+
+public int Fun124(R r)
+
+Fun124(r) -> r.Total + 124
+
+public int Fun125(R r)
+
+Fun125(r) -> r.Total + 125
+
+public int Fun126(R r)
+
+Fun126(r) -> r.Total + 126
+
+public int Fun127(R r)
+
+Fun127(r) -> r.Total + 127
+
+public int Fun128(R r)
+
+Fun128(r) -> r.Total + 128
+
+public int Fun129(R r)
+
+Fun129(r) -> r.Total + 129
+
+public int Fun130(R r)
+
+Fun130(r) -> r.Total + 130
+
+public int Fun131(R r)
+
+Fun131(r) -> r.Total + 131
+
+public int Fun132(R r)
+
+Fun132(r) -> r.Total + 132
+
+public int Fun133(R r)
+
+Fun133(r) -> r.Total + 133
+
+public int Fun134(R r)
+
+Fun134(r) -> r.Total + 134
+
+public int Fun135(R r)
+
+Fun135(r) -> r.Total + 135
+
+public int Fun136(R r)
+
+Fun136(r) -> r.Total + 136
+
+public int Fun137(R r)
+
+Fun137(r) -> r.Total + 137
+
+public int Fun138(R r)
+
+Fun138(r) -> r.Total + 138
+
+public int Fun139(R r)
+
+Fun139(r) -> r.Total + 139
+
+public int Fun140(R r)
+
+Fun140(r) -> r.Total + 140
+
+public int Fun141(R r)
+
+Fun141(r) -> r.Total + 141
+
+public int Fun142(R r)
+
+Fun142(r) -> r.Total + 142
+
+public int Fun143(R r)
+
+Fun143(r) -> r.Total + 143
+
+public int Fun144(R r)
+
+Fun144(r) -> r.Total + 144
+
+public int Fun145(R r)
+
+Fun145(r) -> r.Total + 145
+
+public int Fun146(R r)
+
+Fun146(r) -> r.Total + 146
+
+public int Fun147(R r)
+
+Fun147(r) -> r.Total + 147
+
+public int Fun148(R r)
+
+Fun148(r) -> r.Total + 148
+
+public int Fun149(R r)
+
+Fun149(r) -> r.Total + 149
+
+public int Fun150(R r)
+
+Fun150(r) -> r.Total + 150
+
+public int Fun151(R r)
+
+Fun151(r) -> r.Total + 151
+
+public int Fun152(R r)
+
+Fun152(r) -> r.Total + 152
+
+public int Fun153(R r)
+
+Fun153(r) -> r.Total + 153
+
+public int Fun154(R r)
+
+Fun154(r) -> r.Total + 154
+
+public int Fun155(R r)
+
+Fun155(r) -> r.Total + 155
+
+public int Fun156(R r)
+
+Fun156(r) -> r.Total + 156
+
+public int Fun157(R r)
+
+Fun157(r) -> r.Total + 157
+
+public int Fun158(R r)
+
+Fun158(r) -> r.Total + 158
+
+public int Fun159(R r)
+
+Fun159(r) -> r.Total + 159
+
+public int Fun160(R r)
+
+Fun160(r) -> r.Total + 160
+
+public int Fun161(R r)
+
+Fun161(r) -> r.Total + 161
+
+public int Fun162(R r)
+
+Fun162(r) -> r.Total + 162
+
+public int Fun163(R r)
+
+Fun163(r) -> r.Total + 163
+
+public int Fun164(R r)
+
+Fun164(r) -> r.Total + 164
+
+public int Fun165(R r)
+
+Fun165(r) -> r.Total + 165
+
+public int Fun166(R r)
+
+Fun166(r) -> r.Total + 166
+
+public int Fun167(R r)
+
+Fun167(r) -> r.Total + 167
+
+public int Fun168(R r)
+
+Fun168(r) -> r.Total + 168
+
+public int Fun169(R r)
+
+Fun169(r) -> r.Total + 169
+
+public int Fun170(R r)
+
+Fun170(r) -> r.Total + 170
+
+public int Fun171(R r)
+
+Fun171(r) -> r.Total + 171
+
+public int Fun172(R r)
+
+Fun172(r) -> r.Total + 172
+
+public int Fun173(R r)
+
+Fun173(r) -> r.Total + 173
+
+public int Fun174(R r)
+
+Fun174(r) -> r.Total + 174
+
+public int Fun175(R r)
+
+Fun175(r) -> r.Total + 175
+
+public int Fun176(R r)
+
+Fun176(r) -> r.Total + 176
+
+public int Fun177(R r)
+
+Fun177(r) -> r.Total + 177
+
+public int Fun178(R r)
+
+Fun178(r) -> r.Total + 178
+
+public int Fun179(R r)
+
+Fun179(r) -> r.Total + 179
+
+public int Fun180(R r)
+
+Fun180(r) -> r.Total + 180
+
+public int Fun181(R r)
+
+Fun181(r) -> r.Total + 181
+
+public int Fun182(R r)
+
+Fun182(r) -> r.Total + 182
+
+public int Fun183(R r)
+
+Fun183(r) -> r.Total + 183
+
+public int Fun184(R r)
+
+Fun184(r) -> r.Total + 184
+
+public int Fun185(R r)
+
+Fun185(r) -> r.Total + 185
+
+public int Fun186(R r)
+
+Fun186(r) -> r.Total + 186
+
+public int Fun187(R r)
+
+Fun187(r) -> r.Total + 187
+
+public int Fun188(R r)
+
+Fun188(r) -> r.Total + 188
+
+public int Fun189(R r)
+
+Fun189(r) -> r.Total + 189
+
+public int Fun190(R r)
+
+Fun190(r) -> r.Total + 190
+
+public int Fun191(R r)
+
+Fun191(r) -> r.Total + 191
+
+public int Fun192(R r)
+
+Fun192(r) -> r.Total + 192
+
+public int Fun193(R r)
+
+Fun193(r) -> r.Total + 193
+
+public int Fun194(R r)
+
+Fun194(r) -> r.Total + 194
+
+public int Fun195(R r)
+
+Fun195(r) -> r.Total + 195
+
+public int Fun196(R r)
+
+Fun196(r) -> r.Total + 196
+
+public int Fun197(R r)
+
+Fun197(r) -> r.Total + 197
+
+public int Fun198(R r)
+
+Fun198(r) -> r.Total + 198
+
+public int Fun199(R r)
+
+Fun199(r) -> r.Total + 199
+
+public int Fun200(R r)
+
+Fun200(r) -> r.Total + 200
+

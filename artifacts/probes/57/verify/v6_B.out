@@ -1,0 +1,77 @@
+== N1 minus-zero / bignum refinements
+rc=0  type T = int where value >= -0
+rc=0  type T = int where value >= -1000000000000000000000
+== N3 union with negative: runtime boundaries
+rc=1  type U = int where value >= -5 and value <= -2 or value == 100
+        compile: /tmp/tmp.NuZIKWpJhX/N3/a.bs:0: bad range type
+  Id(-6) -> compile: /tmp/tmp.JTYSD5nsL5/N3/a.bs:0: bad range type  
+
+  Id(-5) -> compile: /tmp/tmp.0Hks6szVBV/N3/a.bs:0: bad range type  
+
+  Id(-2) -> compile: /tmp/tmp.ES2STD8idJ/N3/a.bs:0: bad range type  
+
+  Id(-1) -> compile: /tmp/tmp.JRisFPkdcS/N3/a.bs:0: bad range type  
+
+  Id(99) -> compile: /tmp/tmp.jXaDNW3Jqm/N3/a.bs:0: bad range type  
+
+  Id(100) -> compile: /tmp/tmp.Q81yV7k21j/N3/a.bs:0: bad range type  
+
+== N4 negated forms
+rc=1  type T = int where value >= -(2 + 3)
+        /tmp/tmp.47Thmisqqw/N4a/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value >= - -5
+        /tmp/tmp.GycGYlAcp0/N4b/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+  Id(4) -> /tmp/tmp.kkJ3LgNCoQ/N4c/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able t
+
+  Id(5) -> /tmp/tmp.f0Xb7cajaz/N4c/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able t
+
+== N5 guards: exhaustive splits that MUST be accepted
+rc=0  public atom F(int n)
+rc=0  public atom F(int n)
+rc=0  public atom F(int n)
+== N5 guards that MUST be refused (gap)
+rc=1  public atom F(int n)
+        /tmp/tmp.0KaSKmVJbD/H1/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.ZSoqja8XCP/H2/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.m40BZQlNGA/H3/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=0  public atom F(int n)
+        /tmp/tmp.WePSwtIvAw/H4/a.bs:5:1: warning: clause 3 of F is unreachable
+          every value it matches is matched by an earlier clause.
+== N6 guard semantics at runtime
+  F(-6) -> :b 
+
+  F(-5) -> :a 
+
+  F(0) -> :a 
+
+  F(-6) -> :lo 
+
+  F(-5) -> :hi 
+
+== N7 ordinary arithmetic with negative literals (does A's fold change codegen?)
+  G(0) -> -1 
+
+  G(10) -> 9 
+
+  H() -> -2147483649 
+
+  K(-5) -> 1 
+
+  K(5) -> 2 
+
+== N8 literal singleton: pass a negative literal where a refinement is required
+rc=1  type Neg = int where value <= -1
+        /tmp/tmp.s381LSX4M0/N8/a.bs:6:9: error: Go hands Take an argument it does not accept
+          argument 1 is not covered by Take's declared type:
+rc=0  type Pos = int where value >= 1
+== N9 float in refinement/guard
+rc=1  public atom F(float x)
+        /tmp/tmp.pEjcAI5N8N/N9/a.bs:2:13: error: F is not exhaustive
+          no clause matches:

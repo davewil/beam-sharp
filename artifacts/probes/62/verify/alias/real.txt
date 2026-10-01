@@ -1,0 +1,6 @@
+int 10 real-bsc-beam=2012 10 base=2000 alias=2464 (+23.2%) dup=2668 (+33.4%)
+int 50 real-bsc-beam=6516 50 base=6512 alias=8820 (+35.4%) dup=10088 (+54.9%)
+int 200 real-bsc-beam=23592 200 base=23592 alias=33076 (+40.2%) dup=45180 (+91.5%)
+rec 10 real-bsc-beam=2268 10 base=2260 alias=2732 (+20.9%) dup=2952 (+30.6%)
+rec 50 real-bsc-beam=7356 50 base=7352 alias=9684 (+31.7%) dup=11492 (+56.3%)
+rec 200 real-bsc-beam=26780 200 base=26780 alias=36468 (+36.2%) dup=52492 (+96.0%)

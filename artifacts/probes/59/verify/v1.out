@@ -1,0 +1,30 @@
+#### head
+SumOct([5,6])                                  22
+SumOct([300])  out of range                    600
+SumOct([2.5])  float                           5.0
+DblOut(300) control                            {error,function_clause}
+DblOut(2.5) control                            {error,function_clause}
+ViaTuple({1,Good})                             8
+ViaTuple({1,Forged}) tuple field -> One        {error,function_clause}
+ViaField(#{O=>Good})                           7
+ViaField(#{O=>Forged}) nested field -> One     {error,function_clause}
+#### tag
+SumOct([5,6])                                  22
+SumOct([300])  out of range                    600
+SumOct([2.5])  float                           5.0
+DblOut(300) control                            {error,function_clause}
+DblOut(2.5) control                            {error,function_clause}
+ViaTuple({1,Good})                             8
+ViaTuple({1,Forged}) tuple field -> One        101
+ViaField(#{O=>Good})                           7
+ViaField(#{O=>Forged}) nested field -> One     100
+#### kind
+SumOct([5,6])                                  22
+SumOct([300])  out of range                    {error,function_clause}
+SumOct([2.5])  float                           {error,function_clause}
+DblOut(300) control                            {error,function_clause}
+DblOut(2.5) control                            {error,function_clause}
+ViaTuple({1,Good})                             8
+ViaTuple({1,Forged}) tuple field -> One        {error,function_clause}
+ViaField(#{O=>Good})                           7
+ViaField(#{O=>Forged}) nested field -> One     {error,function_clause}

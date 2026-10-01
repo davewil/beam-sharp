@@ -1,0 +1,28 @@
+head     Shop59.beam = 1516 bytes
+var      Shop59.beam = 1480 bytes
+head   SumAll over 100k orders: [18.73,54.2,87.87] ns/element (min/median/max of 7)
+var    SumAll over 100k orders: [16.9,25.17,85.55] ns/element (min/median/max of 7)
+head   SumAll over 100k orders: [19.47,39.85,77.5] ns/element (min/median/max of 7)
+var    SumAll over 100k orders: [16.0,43.4,167.11] ns/element (min/median/max of 7)
+--- disassembly: the private function One/1, HEAD vs variant (instruction count)
+head {'One',1}: 8 instructions
+var {'One',1}: 6 instructions
+---p5
+head   Kind59.beam = 1340 bytes
+var    Kind59.beam = 1376 bytes
+head   Total over 100k ints: [26.58,34.01,125.72] ns/element (min/median/max of 7)
+var    Total over 100k ints: [17.76,33.29,47.76] ns/element (min/median/max of 7)
+head   Total over 100k ints: [14.38,20.14,30.13] ns/element (min/median/max of 7)
+var    Total over 100k ints: [16.24,24.34,46.51] ns/element (min/median/max of 7)
+head   Total over 100k ints: [18.92,28.52,38.59] ns/element (min/median/max of 7)
+var    Total over 100k ints: [14.33,67.16,119.45] ns/element (min/median/max of 7)
+---p3
+== Elixir: defp with a struct pattern, forged map arrives nested in a list through def
+sum_all (struct pattern in defp): FunctionClauseError
+sum_untagged (projection only): 100
+== Gleam: no run-time test exists to ask -- types are erased and nothing guards a pub fn either
+   Compiled in 0.76s
+pub fn sum_all fed a forged 2-tuple of a different tag: {error,
+                                                         {case_clause,
+                                                          [{invoice,1,100}]}}
+pub fn sum_all fed a 3-tuple: {error,{case_clause,[{order,1,2,3}]}}

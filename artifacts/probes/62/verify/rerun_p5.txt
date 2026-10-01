@@ -1,0 +1,4 @@
+distinct PascalCase function names in the corpus: 158
+collisions under Macro.underscore: []
+sample: [{"Accented", "accented"}, {"Add", "add"}, {"AdminLink", "admin_link"}, {"Admit", "admit"}, {"Amount", "amount"}, {"Answers", "answers"}]
+acronym/digit cases (Macro.underscore): [{"ToJSON", "to_json"}, {"HTTPGet", "http_get"}, {"ParseURL", "parse_url"}, {"IPv4Addr", "i_pv4_addr"}, {"Get1", "get1"}, {"F2", "f2"}, {"OAuth", "o_auth"}, {"T

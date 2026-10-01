@@ -1,0 +1,33 @@
+module V1
+
+type Octet = int where value >= 0 and value <= 255
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Box     { O: Order }
+
+public int SumOct(list<Octet> xs)
+
+SumOct([])          -> 0
+SumOct([x, ..rest]) -> Dbl(x) + SumOct(rest)
+
+private int Dbl(Octet o)
+
+Dbl(o) -> o + o
+
+public int ViaTuple((int, Order) p)
+
+ViaTuple((n, o)) -> n + One(o)
+
+public int ViaField(Box b)
+
+ViaField(b) -> One(b.O)
+
+private int One(Order o)
+
+One(o) -> o.Total
+
+// control: exported octet
+public int DblOut(Octet o)
+
+DblOut(o) -> o + o

@@ -1,0 +1,88 @@
+== N1 minus-zero / bignum refinements
+rc=1  type T = int where value >= -0
+        /tmp/tmp.VBV67NyN3D/N1/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value >= -1000000000000000000000
+        /tmp/tmp.O27xvhJhIZ/N2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+== N3 union with negative: runtime boundaries
+rc=1  type U = int where value >= -5 and value <= -2 or value == 100
+        /tmp/tmp.daFH4saN8u/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+  Id(-6) -> /tmp/tmp.lioqdvocjA/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to
+
+  Id(-5) -> /tmp/tmp.bX5ZdsAjz8/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to
+
+  Id(-2) -> /tmp/tmp.mspi3CMQb6/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to
+
+  Id(-1) -> /tmp/tmp.fCWSkRtCzz/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to
+
+  Id(99) -> /tmp/tmp.OJd5vXQgJQ/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to
+
+  Id(100) -> /tmp/tmp.LhjJDW4pTJ/N3/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to
+
+== N4 negated forms
+rc=1  type T = int where value >= -(2 + 3)
+        /tmp/tmp.bOjAueXkxO/N4a/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=1  type T = int where value >= - -5
+        /tmp/tmp.yM31ZbigW7/N4b/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+  Id(4) -> /tmp/tmp.cOh4VJVVym/N4c/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able t
+
+  Id(5) -> /tmp/tmp.5JNIkTrmh2/N4c/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able t
+
+== N5 guards: exhaustive splits that MUST be accepted
+rc=1  public atom F(int n)
+        /tmp/tmp.U9Gu4m3vsG/G1/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.7wpR7sHm8R/G2/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.afw2kPXhiG/G3/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+== N5 guards that MUST be refused (gap)
+rc=1  public atom F(int n)
+        /tmp/tmp.temwJrvI35/H1/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.3fpr3lNzJq/H2/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.Z3j6Lnn3MD/H3/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+rc=1  public atom F(int n)
+        /tmp/tmp.6aoHlLisDc/H4/a.bs:2:13: error: F is not exhaustive
+          no clause matches:
+== N6 guard semantics at runtime
+  F(-6) -> /tmp/tmp.egg2igNCqy/N6/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+
+  F(-5) -> /tmp/tmp.nNSiPxdd7q/N6/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+
+  F(0) -> /tmp/tmp.qY6Rv6yFl0/N6/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+
+  F(-6) -> /tmp/tmp.0VsabF2kmB/N6b/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+
+  F(-5) -> /tmp/tmp.fQlhlMU6Kz/N6b/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+
+== N7 ordinary arithmetic with negative literals (does A's fold change codegen?)
+  G(0) -> -1 
+
+  G(10) -> 9 
+
+  H() -> -2147483649 
+
+  K(-5) -> 1 
+
+  K(5) -> 2 
+
+== N8 literal singleton: pass a negative literal where a refinement is required
+rc=1  type Neg = int where value <= -1
+        /tmp/tmp.29wh3L6wdg/N8/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
+rc=0  type Pos = int where value >= 1
+== N9 float in refinement/guard
+rc=1  public atom F(float x)
+        /tmp/tmp.5N9dmBKfOU/N9/a.bs:2:13: error: F is not exhaustive
+          no clause matches:

@@ -1,0 +1,54 @@
+module Mint10
+
+record R { Id: int, Total: int }
+
+public int Fun1(int n)
+
+Fun1(0) -> 0
+Fun1(n) -> n + 1
+
+public int Fun2(int n)
+
+Fun2(0) -> 0
+Fun2(n) -> n + 2
+
+public int Fun3(int n)
+
+Fun3(0) -> 0
+Fun3(n) -> n + 3
+
+public int Fun4(int n)
+
+Fun4(0) -> 0
+Fun4(n) -> n + 4
+
+public int Fun5(int n)
+
+Fun5(0) -> 0
+Fun5(n) -> n + 5
+
+public int Fun6(int n)
+
+Fun6(0) -> 0
+Fun6(n) -> n + 6
+
+public int Fun7(int n)
+
+Fun7(0) -> 0
+Fun7(n) -> n + 7
+
+public int Fun8(int n)
+
+Fun8(0) -> 0
+Fun8(n) -> n + 8
+
+public int Fun9(int n)
+
+Fun9(0) -> 0
+Fun9(n) -> n + 9
+
+public int Fun10(int n)
+
+Fun10(0) -> 0
+Fun10(n) -> n + 10
+

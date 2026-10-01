@@ -1,0 +1,254 @@
+module Mint50
+
+record R { Id: int, Total: int }
+
+public int Fun1(int n)
+
+Fun1(0) -> 0
+Fun1(n) -> n + 1
+
+public int Fun2(int n)
+
+Fun2(0) -> 0
+Fun2(n) -> n + 2
+
+public int Fun3(int n)
+
+Fun3(0) -> 0
+Fun3(n) -> n + 3
+
+public int Fun4(int n)
+
+Fun4(0) -> 0
+Fun4(n) -> n + 4
+
+public int Fun5(int n)
+
+Fun5(0) -> 0
+Fun5(n) -> n + 5
+
+public int Fun6(int n)
+
+Fun6(0) -> 0
+Fun6(n) -> n + 6
+
+public int Fun7(int n)
+
+Fun7(0) -> 0
+Fun7(n) -> n + 7
+
+public int Fun8(int n)
+
+Fun8(0) -> 0
+Fun8(n) -> n + 8
+
+public int Fun9(int n)
+
+Fun9(0) -> 0
+Fun9(n) -> n + 9
+
+public int Fun10(int n)
+
+Fun10(0) -> 0
+Fun10(n) -> n + 10
+
+public int Fun11(int n)
+
+Fun11(0) -> 0
+Fun11(n) -> n + 11
+
+public int Fun12(int n)
+
+Fun12(0) -> 0
+Fun12(n) -> n + 12
+
+public int Fun13(int n)
+
+Fun13(0) -> 0
+Fun13(n) -> n + 13
+
+public int Fun14(int n)
+
+Fun14(0) -> 0
+Fun14(n) -> n + 14
+
+public int Fun15(int n)
+
+Fun15(0) -> 0
+Fun15(n) -> n + 15
+
+public int Fun16(int n)
+
+Fun16(0) -> 0
+Fun16(n) -> n + 16
+
+public int Fun17(int n)
+
+Fun17(0) -> 0
+Fun17(n) -> n + 17
+
+public int Fun18(int n)
+
+Fun18(0) -> 0
+Fun18(n) -> n + 18
+
+public int Fun19(int n)
+
+Fun19(0) -> 0
+Fun19(n) -> n + 19
+
+public int Fun20(int n)
+
+Fun20(0) -> 0
+Fun20(n) -> n + 20
+
+public int Fun21(int n)
+
+Fun21(0) -> 0
+Fun21(n) -> n + 21
+
+public int Fun22(int n)
+
+Fun22(0) -> 0
+Fun22(n) -> n + 22
+
+public int Fun23(int n)
+
+Fun23(0) -> 0
+Fun23(n) -> n + 23
+
+public int Fun24(int n)
+
+Fun24(0) -> 0
+Fun24(n) -> n + 24
+
+public int Fun25(int n)
+
+Fun25(0) -> 0
+Fun25(n) -> n + 25
+
+public int Fun26(int n)
+
+Fun26(0) -> 0
+Fun26(n) -> n + 26
+
+public int Fun27(int n)
+
+Fun27(0) -> 0
+Fun27(n) -> n + 27
+
+public int Fun28(int n)
+
+Fun28(0) -> 0
+Fun28(n) -> n + 28
+
+public int Fun29(int n)
+
+Fun29(0) -> 0
+Fun29(n) -> n + 29
+
+public int Fun30(int n)
+
+Fun30(0) -> 0
+Fun30(n) -> n + 30
+
+public int Fun31(int n)
+
+Fun31(0) -> 0
+Fun31(n) -> n + 31
+
+public int Fun32(int n)
+
+Fun32(0) -> 0
+Fun32(n) -> n + 32
+
+public int Fun33(int n)
+
+Fun33(0) -> 0
+Fun33(n) -> n + 33
+
+public int Fun34(int n)
+
+Fun34(0) -> 0
+Fun34(n) -> n + 34
+
+public int Fun35(int n)
+
+Fun35(0) -> 0
+Fun35(n) -> n + 35
+
+public int Fun36(int n)
+
+Fun36(0) -> 0
+Fun36(n) -> n + 36
+
+public int Fun37(int n)
+
+Fun37(0) -> 0
+Fun37(n) -> n + 37
+
+public int Fun38(int n)
+
+Fun38(0) -> 0
+Fun38(n) -> n + 38
+
+public int Fun39(int n)
+
+Fun39(0) -> 0
+Fun39(n) -> n + 39
+
+public int Fun40(int n)
+
+Fun40(0) -> 0
+Fun40(n) -> n + 40
+
+public int Fun41(int n)
+
+Fun41(0) -> 0
+Fun41(n) -> n + 41
+
+public int Fun42(int n)
+
+Fun42(0) -> 0
+Fun42(n) -> n + 42
+
+public int Fun43(int n)
+
+Fun43(0) -> 0
+Fun43(n) -> n + 43
+
+public int Fun44(int n)
+
+Fun44(0) -> 0
+Fun44(n) -> n + 44
+
+public int Fun45(int n)
+
+Fun45(0) -> 0
+Fun45(n) -> n + 45
+
+public int Fun46(int n)
+
+Fun46(0) -> 0
+Fun46(n) -> n + 46
+
+public int Fun47(int n)
+
+Fun47(0) -> 0
+Fun47(n) -> n + 47
+
+public int Fun48(int n)
+
+Fun48(0) -> 0
+Fun48(n) -> n + 48
+
+public int Fun49(int n)
+
+Fun49(0) -> 0
+Fun49(n) -> n + 49
+
+public int Fun50(int n)
+
+Fun50(0) -> 0
+Fun50(n) -> n + 50
+

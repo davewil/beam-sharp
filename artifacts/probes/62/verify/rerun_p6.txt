@@ -1,0 +1,2 @@
+/tmp/tmp.SlpBOPut6S/Both/a.bs:6:12: error: syntax error before: get
+exit=1

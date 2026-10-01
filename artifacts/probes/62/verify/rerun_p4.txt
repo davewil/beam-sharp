@@ -1,0 +1,8 @@
+beam files: Shop59.abstr
+Shop59.beam
+module 'Shop59' exports [{'Direct',1},{'SumAll',1},{bs@type_atoms,0}]
+:Shop59.SumAll([])                             -> ** (SyntaxError) nofile:1:27: unexpected ( after alias SumAll. Function names and identifiers in Elixir start with lower
+:Shop59."SumAll"([])                           -> 0
+apply(:Shop59, :SumAll, [[]])                  -> 0
+Elixir struct to Direct/1                      -> FunctionClauseError
+map with the right Kind to Direct/1            -> 5

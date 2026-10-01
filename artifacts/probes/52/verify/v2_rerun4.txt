@@ -1,0 +1,14 @@
+otp: 27
+module                             HEAD     variant  diagnostic (variant)
+modules compared: 27   flipped from accepted to refused by the check: 0
+
+== every distinct foreign module the corpus names (examples AND exemplars; exemplars do not compile in their checked-in layout, ENG-446, so they are checked by lookup, not by compile)
+   8  erlang         present
+   2  maps           present
+   2  gen_server     present
+   1  lists          present
+   1  json           present
+   1  file           present
+   1  ets            present
+   1  epgsql         absent
+   1  binary         present
