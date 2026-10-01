@@ -1,0 +1,4 @@
+module L1
+
+public int get(int x)
+get(x) -> x

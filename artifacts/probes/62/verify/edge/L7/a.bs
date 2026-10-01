@@ -1,0 +1,7 @@
+module L7
+
+public int GetX(int x)
+GetX(x) -> x
+
+public int Get_x(int x)
+Get_x(x) -> x

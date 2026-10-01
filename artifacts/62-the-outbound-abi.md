@@ -9,7 +9,7 @@ which the sandbox cannot reach), so **no Elm claim in this brief is measured**.
 ## Headline: the ticket's central claim is wrong
 
 The ticket (§1) says *"Elixir cannot call a PascalCase export, and no module prefix fixes it"*, and
-`LANGUAGE.md` §12 (line 3098 on) repeats it: *"costs Elixir its call syntax… `apply/3` is the way in."*
+`LANGUAGE.md` §12 (lines ~3115-3126) repeats it: it says the PascalCase name *"costs Elixir its call syntax"* and, on a separate line of its code block, shows `apply(:Shop, :New, [1])` as *"the way in"*; it never mentions the quoted spelling.
 **Elixir can call it, with the function name quoted:**
 
 ```
@@ -40,7 +40,7 @@ changes what the three candidates are worth.
 | "Gleam downcases when it emits — PascalCase becomes snake_case" (ticket 10 §7, cited as precedent for candidate 2) | `p2` | **Misleading.** Gleam *refuses* a PascalCase function or module name in source (`warning: Invalid module name`, and functions must be snake_case). Only **type constructors** are lowercased in the term (`Order(7,0)` is the tuple `{order,7,0}`). Gleam never exports a PascalCase function, so it is **no precedent for emitting two exports**. |
 | A B# record reaches Elixir as a plain map, not a struct | `p4` | True. An Elixir struct with identical fields gives `FunctionClauseError`; a map with the right `Kind` returns `5`. |
 | The module atom needs no prefix | `p1`, `p4` | Consistent: `module 'Shop59'`, no prefix; the `:Shop."New"` form works with no prefix. |
-| (new) A derived snake_case alias could collide with a user's own export | `p6` | Cannot: a lowercase function name is a syntax error in B# (`syntax error before: get`). |
+| (new) A derived snake_case alias could collide with a user's own export | `p6`, verifier | Mostly cannot: a lowercase function name is a syntax error everywhere in B#. **But** distinct PascalCase names can derive the same alias (`Get` and `GET` both give `get`; `GetX` and `Get_x` both give `get_x`), and a public `ModuleInfo` would derive `module_info/0`, which collides with the compiler-generated export ("already defined"). Behaviour callbacks such as `HandleCall` and `Init` already export snake_case names. |
 
 ## Neighbour survey
 
@@ -61,11 +61,11 @@ changes what the three candidates are worth.
 | 50 | 9084 | 12388 (+36%) | 17768 (+96%) |
 | 200 | 34696 | 47956 (**+38%**) | 69760 (+101%) |
 
-About 66 bytes per aliased function. Call time: indistinguishable (`Fun1` 37.3–39.6 ns, alias
+About 66 bytes per aliased function. A verifier's forms-level prototype on real `bsc` output (not an `bs_emit.erl` change) measured **+21% to +40%**; its own hand-written generator gave +28/+39/+39%. Call time: indistinguishable (`Fun1` 37.3–39.6 ns, alias
 37.5–38.9 ns, 5 samples each, 20M calls; samples overlap). Name derivation: Elixir's own
 `Macro.underscore` over all **158** distinct function names the corpus declares gives **0
-collisions** (`p5`), but acronym and digit runs are ambiguous: `IPv4Addr` becomes `i_pv4_addr`,
-`OAuth` becomes `o_auth`, `HTTPGet` becomes `http_get`. Any alias needs a written rule, and that rule
+collisions** (`p5`; the verifier found the extraction regex misses signatures whose type contains `:` or `|`, so the corpus has 163 names, not 158, still 0 collisions among them), but acronym and digit runs are ambiguous: `IPv4Addr` becomes `i_pv4_addr`,
+`OAuth` becomes `o_auth`, `HTTPGet` becomes `http_get`; Gleam's own constructor rule gives `HTTPGet` -> `h_t_t_p_get`, so the two neighbours disagree. Any alias needs a written rule, and that rule
 becomes ABI.
 
 ## Options
@@ -112,4 +112,9 @@ the ABI on no evidence that anyone wants it.
 
 ## Verification
 
-See "Verifier result" appended below by the independent verifier run.
+An independent verifier (full report: `artifacts/probes/62/verify/REPORT.md`) re-ran p1, p4, p5 and p6
+(all match their captured output) and re-probed Gleam and the alias cost itself; it found no circular
+probe and the six corrections above are applied. It confirmed the quoted call also works through
+`alias`, a variable module, a pipeline, the `&:M."F"/1` capture and `defdelegate`, survives
+`mix format`, and that `import :Shop` cannot expose PascalCase names at all. p2 and p3 were not re-run
+verbatim by the verifier (p3 was regenerated independently).

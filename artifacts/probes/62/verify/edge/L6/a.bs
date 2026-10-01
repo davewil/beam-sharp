@@ -1,0 +1,7 @@
+module L6
+
+public int Get(int x)
+Get(x) -> x
+
+public int GET(int x)
+GET(x) -> x

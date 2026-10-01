@@ -3,21 +3,23 @@ rc=0  type T = int where value >= -0
 rc=0  type T = int where value >= -1000000000000000000000
 == N3 union with negative: runtime boundaries
 rc=1  type U = int where value >= -5 and value <= -2 or value == 100
-        compile: /tmp/tmp.gWOJfCZ7CU/N3/a.bs:0: bad range type
-  Id(-6) -> compile: /tmp/tmp.0y0siKtuVj/N3/a.bs:0: bad range type  
+        compile: N3/a.bs:0: bad range type
+  Id(-6) -> compile: N3/a.bs:0: bad range type  
 
-  Id(-5) -> compile: /tmp/tmp.cHiYJm0LSU/N3/a.bs:0: bad range type  
+  Id(-5) -> compile: N3/a.bs:0: bad range type  
 
-  Id(-2) -> compile: /tmp/tmp.SFjFq2aPJ9/N3/a.bs:0: bad range type  
+  Id(-2) -> compile: N3/a.bs:0: bad range type  
 
-  Id(-1) -> compile: /tmp/tmp.JqKscnqP9l/N3/a.bs:0: bad range type  
+  Id(-1) -> compile: N3/a.bs:0: bad range type  
 
-  Id(99) -> compile: /tmp/tmp.Zxen3phKGG/N3/a.bs:0: bad range type  
+  Id(99) -> compile: N3/a.bs:0: bad range type  
 
-  Id(100) -> compile: /tmp/tmp.gJlQe2y4c0/N3/a.bs:0: bad range type  
+  Id(100) -> compile: N3/a.bs:0: bad range type  
 
 == N4 negated forms
-rc=0  type T = int where value >= -(2 + 3)
+rc=1  type T = int where value >= -(2 + 3)
+        N4a/a.bs:2:1: error: this refinement is not a predicate the checker can read
+          a refinement narrows a type, so the compiler has to be able to
 rc=0  type T = int where value >= - -5
   Id(4) -> crashed: error:function_clause 
 
@@ -29,16 +31,16 @@ rc=0  public atom F(int n)
 rc=0  public atom F(int n)
 == N5 guards that MUST be refused (gap)
 rc=1  public atom F(int n)
-        /tmp/tmp.V9tDAXKR6Z/H1/a.bs:2:13: error: F is not exhaustive
+        H1/a.bs:2:13: error: F is not exhaustive
           no clause matches:
 rc=1  public atom F(int n)
-        /tmp/tmp.o4qBAvOxUM/H2/a.bs:2:13: error: F is not exhaustive
+        H2/a.bs:2:13: error: F is not exhaustive
           no clause matches:
 rc=1  public atom F(int n)
-        /tmp/tmp.ZAXNkbWzZJ/H3/a.bs:2:13: error: F is not exhaustive
+        H3/a.bs:2:13: error: F is not exhaustive
           no clause matches:
 rc=0  public atom F(int n)
-        /tmp/tmp.08YSfaH4yi/H4/a.bs:5:1: warning: clause 3 of F is unreachable
+        H4/a.bs:5:1: warning: clause 3 of F is unreachable
           every value it matches is matched by an earlier clause.
 == N6 guard semantics at runtime
   F(-6) -> :b 
@@ -64,10 +66,10 @@ rc=0  public atom F(int n)
 
 == N8 literal singleton: pass a negative literal where a refinement is required
 rc=1  type Neg = int where value <= -1
-        /tmp/tmp.6hssNqw5KR/N8/a.bs:6:9: error: Go hands Take an argument it does not accept
+        N8/a.bs:8:10: error: Bad hands Take an argument it does not accept
           argument 1 is not covered by Take's declared type:
 rc=0  type Pos = int where value >= 1
 == N9 float in refinement/guard
 rc=1  public atom F(float x)
-        /tmp/tmp.T1q0A5vo8e/N9/a.bs:2:13: error: F is not exhaustive
+        N9/a.bs:2:13: error: F is not exhaustive
           no clause matches:

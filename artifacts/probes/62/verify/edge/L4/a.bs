@@ -1,0 +1,7 @@
+module L4
+
+public int Get(int x)
+Get(x) -> x
+
+public int _get(int x)
+_get(x) -> x

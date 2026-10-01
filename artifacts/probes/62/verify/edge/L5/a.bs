@@ -1,0 +1,7 @@
+module L5
+
+public int Get(int x)
+Get(x) -> x
+
+public int Get_(int x)
+Get_(x) -> x

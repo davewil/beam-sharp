@@ -1,0 +1,9 @@
+module Edge
+
+public int ModuleInfo()
+
+ModuleInfo() -> 1
+
+public int Length(int x)
+
+Length(x) -> x
