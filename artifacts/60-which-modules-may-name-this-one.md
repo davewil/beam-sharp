@@ -19,7 +19,7 @@ they are cited by behaviour.
 
 | language | mechanism | enforced by the compiler? | evidence |
 |---|---|---|---|
-| **Gleam** 1.18.1 | `internal_modules = [...]` in `gleam.toml`, `@internal` | **No.** A consumer package that imports an "internal" module compiles clean, exit 0, no warning. The setting only removes the module from `gleam export package-interface`. | `p1`, `p2`: the same `lib/hidden` module built twice, listed and not listed: interface `['lib']` vs `['lib','lib/hidden']`; consumer exit 0 in both. `@internal` on a function: consumer compiles exit 0. |
+| **Gleam** 1.18.1 | `internal_modules = [...]` in `gleam.toml`, `@internal` (function or type) | **No.** A consumer package that imports an "internal" module compiles clean, exit 0, no warning. The setting only removes the module from `gleam export package-interface`. | `p1`, `p2`: the same `lib/hidden` module built twice, listed and not listed: interface `['lib']` vs `['lib','lib/hidden']`; consumer exit 0 in both. `@internal` on a function: consumer compiles exit 0 (verifier: also on a type). `gleam docs build` and `export package-interface` both hide the internal module; `gleam publish --dry-run` does not exist in 1.18.1, so publish-time behaviour is unchecked. |
 | **Elixir** 1.14 | `@moduledoc false` (convention), `defp` | No: `Lib.Internal.helper()` from another module compiles with no output. | `p1` (b) |
 | **Erlang** | `-export` only | Per function, nothing per caller. | `p1` (c) |
 | **Go** 1.24.7 | an `internal/` path element | **Yes, at compile time, by subtree**: the importer must sit under the *parent* of `internal`. | `p3`: `shop/pricing` and `shop/pricing/sub` build; `shop/reports` fails with `use of internal package ex.com/app/shop/pricing/internal/rates not allowed`, exit 1 |
@@ -49,10 +49,10 @@ module-tier `using`, and `using Shop.Pricing.Internal` plus `Rates.Rate(..)` wal
 closing it meant filtering `add_namespace_import`'s children. **Second, the diagnostic for that form is
 poor**: the namespace import silently drops the child, so the user sees *"`Rates` is called but never
 imported, add `using Rates`"*, which sends them back to the thing that is refused. A real
-implementation owes a dedicated message there. Compile-time cost not measured: the check is
+implementation owes a dedicated message there. Scope notes from the verifier: a foreign `using :'...'` route cannot name a B# module (the lexer rejects the quoted atom), so it sits outside the rule; `Internal` is reserved at any non-leading depth (a leading `Internal` segment is silently exempt); `Shop.PricingV2` is correctly refused and `Shop.Pricing.Internal` importing itself is allowed. Compile-time cost not measured: the check is
 O(path segments) per `using`.
 
-`rebar3 eunit` on this patch: see the appended note (run after the report was drafted).
+`rebar3 eunit` on this patch: 1299 passed, 4 failed, the same 4 that fail on unpatched HEAD in this sandbox (`every_aoc_program_still_compiles`, the cli batch test, the utf8 path test, the non-ASCII advice test); `every_example_still_compiles` passes. No failure attributable to the patch (two independent runs).
 
 ## Options
 
@@ -102,4 +102,4 @@ Do not build it *for* the 24 §2 consumer: it does not reach it. Reserve `Intern
 
 ## Verification
 
-See "Verifier result" appended below by the independent verifier run.
+An independent verifier (`artifacts/probes/60/verify/REPORT.md`) re-ran p1–p3, built the patch itself, reproduced the p4 table against both control and prototype, ran its own extra importer cases (no case handled wrongly), and found no circular probe. Its corrections are applied above. (The brief cites HEAD `0dddf8b`; the only later commits are these briefs.)
