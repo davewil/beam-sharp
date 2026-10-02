@@ -30,7 +30,7 @@ All probes OTP 25.3 (`erlang:system_info(emu_flavor)` = `jit`), not the repo's p
 | claim | probe / citation | result | status |
 |---|---|---|---|
 | bsc emits the tag test with no visibility check | `bs_emit.erl:267-275` (`guard_one`: `record_tag` branch never reads `Public`); `Public` is read only at 276 | confirmed; same as 46's measurement | read from source, not run |
-| bsc has **three** scopes, not two | `bs_emit.erl:276-280` int + float kinds + range: `none when Public`; tag 268-275: all; the narrowing test `kind_tested/2` at 194 and `strip_rels/2` at 175 never consult `Public` (F24 §6) | the asymmetry is wider than the ticket's table: the narrowing-site `is_integer` is also emitted on private functions | read, not run |
+| bsc has **three** scopes, not two | `bs_emit.erl:276-280` int + float kinds + range: `none when Public`; tag 268-275: all; | the asymmetry is wider than the ticket's table: `kind_tested/2` (def 693) and `strip_rels/2` (def 616; call sites 194, 175) never consult `Public`, but take `IntOnly`/`skips` from the declared type, so a private int-only parameter is skipped: the narrowing `is_integer` lands on private functions only for union parameters (F24 §6's `T = int | atom`) | read, not run |
 | "private: every call site is a checked B# call site" is the stated premise | `bs_emit.erl:170-173`, 321-325; F24 §2; F37.5; 46 §1 | premise is about static types | read |
 | one entry label serves local and remote calls | `p1_elision.sh` E1/E1b: `caller/1`'s `call_only,1,{f,2}` jumps to the label holding `is_integer` | **reproduces 18a §4(a)** | measured here |
 | "a non-exported function has the guard elided entirely" | P1 E2 (caller tests it), E4 (literal arg), E5 (arg is a guarded call's result), E6, E7 (private recursive loop): `is_integer=0` | true **only when an in-module caller's own test is visible to erlc** | measured here |
@@ -41,18 +41,18 @@ All probes OTP 25.3 (`erlang:system_info(emu_flavor)` = `jit`), not the repo's p
 | a forged **whole** value passed on is caught at the export, private test is dead | P3 row w1 | `function_clause` under both | measured here |
 | tag test is +14 B flat (26a) | P2 sizes, N=1/5/20 | **+12 B Code, +2 instrs, identical at N=1,5,20** (26a: +14 B on OTP 28.5; body differs) | measured here |
 | `is_integer` is +3-5 B (18a) | P2 | +5 B, +1 instr | measured here |
-| call cost "below ±0.09 ns resolution" (18a) | P2 timing, min of 15 x 10^7 | **not reproducible here**: three byte-identical-code modules differ by 0.25 ns in one run and 3.55 ns in the next. Tag test (`map_get ==`): +1.3..+4.0 ns at 5 fields, +5.9..+6.4 ns at 20 fields over three runs; `is_integer`: +0.05..+2.0 ns, inside the noise | measured here, VM noisy |
-| the tag test is flat in cost | P2 | flat in **bytes**, not in **time**: `map_get` scans a flat map's keys (OTP flat map up to 32 keys), and `Kind` sorts last among these atoms (worst case) | measured here, position caveat |
+| call cost "below ±0.09 ns resolution" (18a) | P2 timing, min of 15 x 10^7 | **not reproducible here**: byte-identical-code modules differ by 0.25 to 3.97 ns between runs (several runs, two sessions). Observed spread of the tag-test delta: N=5 -0.63..+4.0 (sign flips: UNRESOLVED); N=20 +1.95..+8.09, positive in every run (direction holds, magnitude does not). `is_integer`: -1.1..+2.2, UNRESOLVED | measured here, VM noisy |
+| the tag test is flat in cost | P2 | flat in **bytes**; in **time** it grows with fields as a direction at N=20 only: `map_get` scans a flat map's keys (OTP flat map up to 32 keys), and `Kind` sorts last among these atoms (worst case) | measured here, position caveat |
 | Elixir `defp` heads checked like `def` | `p4_elixir.sh` | `FunctionClauseError` for a forged `%Vendor{}` reaching a `defp %Customer{}` head, and for 1.5 at a `defp ... when is_integer` | measured here |
 | Gleam emits no guard for pub or private | `p5_gleam.sh` (Gleam 1.12.0): 0 `when` in generated `.erl`; both get `-spec` | forged `{vendor,...}` through `ship/1` returns `<<"v">>`; `add(1.5, 2.5)` returns `5.0` | measured here |
-| Erlang authors guard exported functions ~2x as often | `p6_erlang_practice.escript`: stdlib+kernel abstract code | exported 19.8% (760/3845), local 9.9% (768/7729) with a type test in some clause | measured here; a convention census only |
+| Erlang authors guard exported functions ~2x as often | `p6_erlang_practice.escript`: stdlib+kernel abstract code | exported 19.8% (760/3845), local 9.9% (768/7729) with a type test in some clause | measured here; counts guards only; "private callers already validated" (the premise in dispute) explains the 2x equally well, so it cannot arbitrate A vs B |
 
 ## 3. Neighbour survey
 
 **Erlang.** Emits nothing the author did not write; `-spec` is Dialyzer-only. Authors type-guard exported functions about
 twice as often as local ones (P6: 19.8% vs 9.9%, OTP 25 stdlib+kernel, from abstract code since the `.erl` sources are not
 installed here). erlc then removes a local guard only when it can see the caller prove it (P1 E2-E7), never for a map
-tag test or an integer range. Precedent for "private guards are rarer", none for "private guards are wrong".
+tag test or an integer range. Precedent for "private guards are rarer", none for "private guards are wrong"; the count cannot tell convention from "callers already validated".
 
 **Elixir 1.14.** No boundary concept. `defp` and `def` heads are the same clause machinery (P4): a `%Struct{}` pattern or
 `is_integer` guard in a `defp` raises `FunctionClauseError` exactly as in a `def`. The author chooses per function; the
@@ -91,7 +91,7 @@ Reading it: the private test changes the outcome from silent to a crash exactly 
 crashes (c4, c5, l3: outcome 2, the class changes from `badmap` to `function_clause` and nothing else). It does **not**
 catch payload forgery (c3), which 18 §3 already names as the limit of a tag test. Row f2 is the **int** guard: a private
 `int Dbl(int n)` handed out as a value (`Rule(:staff) -> Free` is F46's own example, `F46-function-as-a-value.md` lines
-55-57 and 65, and `List.Map(xs, Double/1)` with `private int Double` at 77) accepts `1.5` from a foreign caller today.
+56 (`Rule(:staff) -> Free`), 65 (`private int Free`), `Doubled(xs) -> List.Map(xs, Double/1)` at 72, `private int Double` at 77) accepts `1.5` from a foreign caller today.
 
 Why the exported boundary cannot cover rows c2/l2: `boundary_guards/6` zips over the **parameters** only
 (`bs_emit.erl:257-262`), so `o.Customer` is never tested; 46 §4 decided "a fixed number of projections" and F24 §5 lists it
@@ -107,10 +107,9 @@ tested at the boundary under any decided rule.
 | exact field set (control, grows) | +24 B | +28 B | +55 B | +4 |
 | `is_integer` | +5 B | | | +1 |
 
-Term size: the `Kind` key adds **2 words** at N=1, 5 and 20 (flat). Time: tag guard +1.3..+4.0 ns (N=5) and +5.9..+6.4 ns (N=20),
-three runs, VM too noisy to resolve `is_integer` (+0.05..+2.0 ns). The pattern form ranged -1.5..+4.1 ns across runs, i.e. unresolved. Side
-observation, not a recommendation: the head-pattern form fetches the key with the other fields in one instruction and may be
-cheaper in time while larger in bytes.
+Term size: the `Kind` key adds **2 words** at N=1, 5 and 20 (flat). Time, observed spread over the runs (noise between identical modules up to 3.97 ns): tag guard N=5 -0.63..+4.0 ns
+(unresolved); N=20 +1.95..+8.09 ns (positive every run: "costs more with more fields" holds as a direction only).
+`is_integer` -1.1..+2.2 ns (unresolved). The head-pattern form ranged -4.5..+4.5 ns: no claim about it.
 
 **Dead-weight cost of the private tag test when the caller already tested** (the ticket's "defect" side): real and
 unremovable by erlc (P1 T2). Per private call on a record parameter: the +12 B and one extra `map_get` lookup.
@@ -150,11 +149,10 @@ Compiles to (the shape in `forge_a.erl`): `notify(C) -> map_get('Email', C).`, `
 Compiler delta, concrete: `bs_emit.erl:268` becomes `{ok, Tag} when Public ->`, with a `{ok, _} -> {Pat, []}` private
 clause; the `none when Public` branch at 276 stays. Update `records_tests` (F3.9 text already says "exported record
 parameter", so the code is brought to the text), add a private-record test beside `boundary_kind_tests` F24.6 (line 88),
-rewrite F37.5's and F24 §3's "asymmetry" paragraphs. One line of code. Everything already written (18 §4, 46 §1, 58, F24,
-F37.5, F3.9) agrees with it, and the erlc cost it removes is real (P1 T2: not elided; +12 B, one lookup per private call).
+rewrite F37.5's and F24 §3's "asymmetry" paragraphs. One line of code. The texts that scope guards to exported (18 §4, 46 §1, 58, F24 §2, F37.5, F3.9 wording) agree with it. Two decided texts cut the other way: ticket 18 lines 194-195, *"Restricting omission to non-exported functions is not an alternative — a foreign value entering through an exported function reaches private ones unchallenged"* (said of the failure-arm saving; it states B's premise, so it cuts against A), and F24 §6 (lines 187-211), which documents a silent private-`Tag` hole in the int channel, patched at the narrowing site (a second instance of the same failure, against A). On A's side, 18 line 615 ("interior functions already pay nothing — the shape C wanted") rests on the conditional elision of section 2. The erlc cost it removes is real (P1 T2: not elided; +12 B, one lookup per private call).
 Evidence against: rows c2, l2, f1, f2 above are silent outcome 3 under A, which is the one outcome 18 exists to prevent
 (`18 "never silently"`), and A also leaves today's *int* hole (f2) open.
-**Strongest counterargument:** A is the only option that follows every decided text, and the holes it leaves are narrower
+**Strongest counterargument:** A follows the scoping texts above, and the holes it leaves are narrower
 than they look: they need a sub-term the exported guard skips, and those were already owed by 46 §4's projection guard.
 If projection guards are built, c2 closes; only collections (l2) and escaped funs (f1, f2) stay open, both rarer. That
 argues A *plus* the owed work, not the status quo.
@@ -169,12 +167,14 @@ Compiler delta: delete the `Public` argument threaded through `clause/4` (161), 
 `int_guard/6` (range included, F37) then run on private functions. Invert `boundary_kind_tests` F24.6 (88-97) and
 `boundary_range_tests` F37.5 (120-); amend 18 §4, 46 §1, F24 §2-3, F37.5 and F3.9's wording. Net new emitted code is the
 int/float/range tests on private parameters only; the tag test is unchanged.
-Cost, measured: the private `is_integer` is removed by erlc when an in-module caller's test or arithmetic proves it
-(P1 E2, E4-E7, including a private tail-recursive loop), else +5 B and one instruction (about 0 ns, unresolved). The
+Cost, measured: the private `is_integer` is removed by erlc only when **every** in-module caller proves it (P1 E2, E4-E7, including a
+private tail-recursive loop; the verifier's k1 probe: one proving and one untested caller keeps the test), and not when the
+function escapes as `fun f/N` (an unknown caller exists), which is exactly row f2, the case where B's int test matters. Otherwise
++5 B and one instruction (time unresolved). The
 **range** comparisons are *not* removed (P1 R1: `cmp=2`), so a private refined-int parameter pays two comparisons per call.
-The tag test is +12 B and a lookup per private call, flat in bytes, growing in time with field count (+1..6 ns here).
+The tag test is +12 B and a lookup per private call, flat in bytes, growing in time with field count (direction only at 20 fields; unresolved at 5).
 The corpus count of added tests (F24 §4 counted 34 `is_integer` insertions on exported-only) cannot be run here.
-**Strongest counterargument:** B reverses a rule five artefacts cite as settled and each of F24, F37 and 46 argued the
+**Strongest counterargument:** B reverses a rule five artefacts cite as settled (two others, 18:194-195 and F24 §6, point the other way) and each of F24, F37 and 46 argued the
 guard "dead weight" on private functions; it adds a visible cost to exactly the functions the author wrote as internal
 hot-path helpers (range comparisons are not elided), and it still does not close the payload channel (c3), so it
 claims no more than "the tag", and 18 §3 already refused to claim a defence one level deep.
@@ -187,9 +187,12 @@ radius for the same reason.
 ## 6. Recommendation
 
 **Option B.** The premise A needs ("private values were already examined") is false in three runnable ways (c2/l2, f1/f2),
-and the only rule that can be stated once and still honour 18's "never silently" is the one that does not scope by
-visibility. The cost evidence favours it for kinds (erlc erases the redundant `is_integer` it can prove; E7 shows the
-recursive private loop pays nothing) and it merely stops the tag test being the odd one out; the range test is the one
+and the only rule that can be stated once and come closer to 18's "never silently" is the one that does not scope by
+visibility. B reduces the holes; it does not close them (verifier's k2 probe: a forged float sub-term used inline, `o.Amount + 1`,
+stays silent under B and is caught only if handed to a private int function, so B's int coverage depends on how the author
+factored the code; closing it is 46 §4's owed projection guard). B's tag half is already today's behaviour: rows c2/l2/f1
+argue against *changing* the tag to A, and what B newly buys is the int/float/range tests (f2 and its sub-term analogue). The cost evidence favours it for kinds (erlc erases an `is_integer` only when every caller proves it, as in the private
+recursive loop E7; otherwise +5 B, time unresolved) and it merely stops the tag test being the odd one out; the range test is the one
 real new cost, and it is two comparisons. The ticket's own two arguments both fall short: "dead weight" is true only for a
 whole value passed on, and "caller analysis stops at its boundary" misreads 18 §4, which puts that guard on the exported
 function (row w1).
