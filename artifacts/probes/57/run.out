@@ -1,0 +1,275 @@
+=== A. AST shapes (real bs_lexer + bs_parser, base) ===
+refinement value >= -5             [{module,1,'M'},
+                                    {type_refined,2,'T',
+                                     {t_builtin,int},
+                                     {e_op,2,'>=',
+                                      {e_var,2,value},
+                                      {e_neg,2,{e_int,2,5}}}}]
+pattern rel  <= -1                 [{module,1,'M'},
+                                    {signature,2,'S',
+                                     {t_builtin,atom},
+                                     [{param,{t_builtin,int},n}],
+                                     public,[]},
+                                    {clause,3,'S',
+                                     [{p_rel,3,'<=',-1}],
+                                     none,
+                                     {e_atom,3,a}},
+                                    {clause,4,'S',
+                                     [{p_wild,4}],
+                                     none,
+                                     {e_atom,4,b}}]
+pattern lit  -1                    [{module,1,'M'},
+                                    {signature,2,'S',
+                                     {t_builtin,atom},
+                                     [{param,{t_builtin,int},n}],
+                                     public,[]},
+                                    {clause,3,'S',
+                                     [{p_int,3,-1}],
+                                     none,
+                                     {e_atom,3,a}},
+                                    {clause,4,'S',
+                                     [{p_wild,4}],
+                                     none,
+                                     {e_atom,4,b}}]
+refinement value >= 2 + 3          [{module,1,'M'},
+                                    {type_refined,2,'T',
+                                     {t_builtin,int},
+                                     {e_op,2,'>=',
+                                      {e_var,2,value},
+                                      {e_op,2,'+',{e_int,2,2},{e_int,2,3}}}}]
+refinement value >= -(5)           [{module,1,'M'},
+                                    {type_refined,2,'T',
+                                     {t_builtin,int},
+                                     {e_op,2,'>=',
+                                      {e_var,2,value},
+                                      {e_neg,2,{e_int,2,5}}}}]
+refinement value >= 0 - 5          [{module,1,'M'},
+                                    {type_refined,2,'T',
+                                     {t_builtin,int},
+                                     {e_op,2,'>=',
+                                      {e_var,2,value},
+                                      {e_op,2,'-',{e_int,2,0},{e_int,2,5}}}}]
+refinement value >= - -5           [{module,1,'M'},
+                                    {type_refined,2,'T',
+                                     {t_builtin,int},
+                                     {e_op,2,'>=',
+                                      {e_var,2,value},
+                                      {e_neg,2,{e_neg,2,{e_int,2,5}}}}}]
+refinement value >= -5.0 (float)   [{module,1,'M'},
+                                    {type_refined,2,'T',
+                                     {t_builtin,int},
+                                     {e_op,2,'>=',
+                                      {e_var,2,value},
+                                      {e_float,2,-5.0}}}]
+flat_size words: literal 0  {e_int,L,-5} 4  e_neg 8  old 0-5 14
+PASS  refinement -5 parses to {e_neg,_,{e_int,_,5}}, not {e_op,'-',{e_int,0},..}
+
+=== B. refinements and guards through the real bs_check, per variant ===
+base refinement value >= -5 {refused, opaque_refinement}
+base refinement value >= -5 and value <= 5 {refused, opaque_refinement}
+base refinement value >= 1 or value <= -1 {refused, opaque_refinement}
+base refinement value <= 3 or value >= 10 accepted
+base refinement value != 0 accepted
+base refinement value != -1 {refused, opaque_refinement}
+base refinement -5 <= value {refused, opaque_refinement}
+base refinement value >= -(5) {refused, opaque_refinement}
+base refinement value >= - -5 {refused, opaque_refinement}
+base refinement value >= 2 + 3 {refused, opaque_refinement}
+base refinement value >= 0 - 5 {refused, opaque_refinement}
+base refinement value >= -5 * 2 {refused, opaque_refinement}
+base refinement value >= 5 - 10 {refused, opaque_refinement}
+base refinement value >= -(2 + 3) {refused, opaque_refinement}
+base refinement value >= 3 * 4 {refused, opaque_refinement}
+base guard n < 0 accepted
+base guard n <= -1 accepted
+base exhaustive guards n < 0 / n >= 0 accepted
+base exhaustive guards n <= -1 / n >= 0 {diag,[inexhaustive]}
+base exhaustive guards n < 0 / n > -1 {diag,[inexhaustive]}
+base patterns accepted
+grammar refinement value >= -5 accepted
+grammar refinement value >= -5 and value <= 5 accepted
+grammar refinement value >= 1 or value <= -1 accepted
+grammar refinement value <= 3 or value >= 10 accepted
+grammar refinement value != 0 accepted
+grammar refinement value != -1 accepted
+grammar refinement -5 <= value accepted
+grammar refinement value >= -(5) accepted
+grammar refinement value >= - -5 accepted
+grammar refinement value >= 2 + 3 {refused, opaque_refinement}
+grammar refinement value >= 0 - 5 {refused, opaque_refinement}
+grammar refinement value >= -5 * 2 {refused, opaque_refinement}
+grammar refinement value >= 5 - 10 {refused, opaque_refinement}
+grammar refinement value >= -(2 + 3) {refused, opaque_refinement}
+grammar refinement value >= 3 * 4 {refused, opaque_refinement}
+grammar guard n < 0 accepted
+grammar guard n <= -1 accepted
+grammar exhaustive guards n < 0 / n >= 0 accepted
+grammar exhaustive guards n <= -1 / n >= 0 accepted
+grammar exhaustive guards n < 0 / n > -1 accepted
+grammar patterns accepted
+neg refinement value >= -5 accepted
+neg refinement value >= -5 and value <= 5 accepted
+neg refinement value >= 1 or value <= -1 accepted
+neg refinement value <= 3 or value >= 10 accepted
+neg refinement value != 0 accepted
+neg refinement value != -1 accepted
+neg refinement -5 <= value accepted
+neg refinement value >= -(5) accepted
+neg refinement value >= - -5 accepted
+neg refinement value >= 2 + 3 {refused, opaque_refinement}
+neg refinement value >= 0 - 5 {refused, opaque_refinement}
+neg refinement value >= -5 * 2 {refused, opaque_refinement}
+neg refinement value >= 5 - 10 {refused, opaque_refinement}
+neg refinement value >= -(2 + 3) {refused, opaque_refinement}
+neg refinement value >= 3 * 4 {refused, opaque_refinement}
+neg guard n < 0 accepted
+neg guard n <= -1 accepted
+neg exhaustive guards n < 0 / n >= 0 accepted
+neg exhaustive guards n <= -1 / n >= 0 accepted
+neg exhaustive guards n < 0 / n > -1 accepted
+neg patterns accepted
+arith refinement value >= -5 accepted
+arith refinement value >= -5 and value <= 5 accepted
+arith refinement value >= 1 or value <= -1 accepted
+arith refinement value <= 3 or value >= 10 accepted
+arith refinement value != 0 accepted
+arith refinement value != -1 accepted
+arith refinement -5 <= value accepted
+arith refinement value >= -(5) accepted
+arith refinement value >= - -5 accepted
+arith refinement value >= 2 + 3 accepted
+arith refinement value >= 0 - 5 accepted
+arith refinement value >= -5 * 2 accepted
+arith refinement value >= 5 - 10 accepted
+arith refinement value >= -(2 + 3) accepted
+arith refinement value >= 3 * 4 accepted
+arith guard n < 0 accepted
+arith guard n <= -1 accepted
+arith exhaustive guards n < 0 / n >= 0 accepted
+arith exhaustive guards n <= -1 / n >= 0 accepted
+arith exhaustive guards n < 0 / n > -1 accepted
+arith patterns accepted
+PASS  base refuses value >= -5 (ticket's repro)
+PASS  base accepts the disjoint union (ticket's control)
+PASS  base: guard 'n <= -1' earns no coverage (NEW: not only refinements)
+PASS  base: the same guards spelled 'n < 0' are exhaustive
+PASS  grammar fold accepts -5..5
+PASS  grammar fold stops at -(2 + 3)
+PASS  checker fold (neg) accepts -5..5
+PASS  checker fold (neg) stops at 2 + 3
+PASS  checker fold (arith) folds 5 - 10
+
+=== C. does the accepted refinement mean it; what types the literal -1 (per variant) ===
+base Take(-100 ) over Delta {refused,opaque_refinement}
+base Take(-101 ) over Delta {refused,opaque_refinement}
+base Take(100 ) over Delta {refused,opaque_refinement}
+base Take(101 ) over Delta {refused,opaque_refinement}
+base Take(0 ) over Delta {refused,opaque_refinement}
+base residual-as-type NonZero + clauses missing 0 {refused, opaque_refinement}
+base -10..-1|1..10 spelled; Take(0) {refused,opaque_refinement}
+base NonZero spelled with -1; Div(a, 0) {refused,opaque_refinement}
+base Take(-1) over (value <= 5) {diag,[arg_not_accepted]}
+base return -1 as (value <= 5) {diag,[return_not_declared]}
+grammar Take(-100 ) over Delta accepted
+grammar Take(-101 ) over Delta {diag,[arg_not_accepted]}
+grammar Take(100 ) over Delta accepted
+grammar Take(101 ) over Delta {diag,[arg_not_accepted]}
+grammar Take(0 ) over Delta accepted
+grammar residual-as-type NonZero + clauses missing 0 {diag,[inexhaustive]}
+grammar -10..-1|1..10 spelled; Take(0) {diag,[arg_not_accepted]}
+grammar NonZero spelled with -1; Div(a, 0) {diag,[arg_not_accepted]}
+grammar Take(-1) over (value <= 5) accepted
+grammar return -1 as (value <= 5) accepted
+neg Take(-100 ) over Delta {diag,[arg_not_accepted]}
+neg Take(-101 ) over Delta {diag,[arg_not_accepted]}
+neg Take(100 ) over Delta accepted
+neg Take(101 ) over Delta {diag,[arg_not_accepted]}
+neg Take(0 ) over Delta accepted
+neg residual-as-type NonZero + clauses missing 0 {diag,[inexhaustive]}
+neg -10..-1|1..10 spelled; Take(0) {diag,[arg_not_accepted]}
+neg NonZero spelled with -1; Div(a, 0) {diag,[arg_not_accepted]}
+neg Take(-1) over (value <= 5) {diag,[arg_not_accepted]}
+neg return -1 as (value <= 5) {diag,[return_not_declared]}
+negt Take(-100 ) over Delta accepted
+negt Take(-101 ) over Delta {diag,[arg_not_accepted]}
+negt Take(100 ) over Delta accepted
+negt Take(101 ) over Delta {diag,[arg_not_accepted]}
+negt Take(0 ) over Delta accepted
+negt residual-as-type NonZero + clauses missing 0 {diag,[inexhaustive]}
+negt -10..-1|1..10 spelled; Take(0) {diag,[arg_not_accepted]}
+negt NonZero spelled with -1; Div(a, 0) {diag,[arg_not_accepted]}
+negt Take(-1) over (value <= 5) accepted
+negt return -1 as (value <= 5) accepted
+PASS  grammar: Take(-100) over -100..100 accepted
+PASS  grammar: Take(-101) refused (the bound is real)
+PASS  checker fold alone: Take(-100) over -100..100 is REFUSED
+PASS  checker fold + type_of fold: accepted (two sites)
+PASS  base: literal -1 is typed int, not -1..-1 (pre-existing)
+PASS  grammar fold fixes that too
+
+=== D. repo eunit slice: failing set identical across variants (OTP 25: many fail at base) ===
+Failed: 41.  Skipped: 0.  Passed: 248.
+PASS  grammar: same failing set as base
+PASS  neg: same failing set as base
+PASS  negt: same failing set as base
+PASS  arith: same failing set as base
+
+=== E. Erlang ===
+-- erl_parse: the PARSER does not fold; it emits {op,_,'-',{integer,_,5}} in guard, pattern and type range
+guard   {op,1,'>=',{var,1,'N'},{op,1,'-',{integer,1,5}}}
+pattern [{op,1,'-',{integer,1,5}}]
+range   {type,1,range,[{op,1,'-',{integer,1,5}},{integer,1,5}]}
+flat_size words: {op,1,'-',{integer,1,5}} 9   {integer,1,-5} 4
+-- erlc +to_core: guards and patterns hold -5 / 5 as constants (folded after parsing)
+guard comparands in core (ge: N >= -5; calc: N >= 2 + 3, -(5), 0 - 5):
+ -5) ->; 5) ->; -5) ->; -5) ->;
+-- type ranges: Erlang accepts arithmetic and macros, rejects variables and empty ranges
+g.erl (-5..5, (1+1)..(2*3), -(5)..5, (0-5)..5, ?LO..5): compiles
+bad.erl 'bad range type' errors: 2
+-- abstract {integer,1,-5} compiles and behaves like {op,1,'-',{integer,1,5}}
+{integer,1,-5}      -> {true,false,-5,532}
+{op,1,'-',{integer,1,5}} -> {true,false,-5,532}
+beam bytes equal: true
+PASS  erlang probe
+
+=== F. Elixir ===
+n >= -5     : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [5]}]}
+n >= -(5)   : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [5]}]}
+n >= 0 - 5  : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [0, 5]}]}
+n >= 2 + 3  : {:>=, [line: 1], [{:n, [line: 1], nil}, {:+, [line: 1], [2, 3]}]}
+-5          : {:-, [line: 1], [5]}
+f(-5)       : {:f, [line: 1], [{:-, [line: 1], [5]}]}
+typespec: {:@, [line: 1],
+typespec -(5): {:@, [line: 1],
+flat_size unary AST: 11
+flat_size literal: 0
+typespec -5..5                    accepted
+typespec -(5)..5                  accepted
+typespec (0 - 5)..5               refused: nofile:2: type -/2 undefined (no such type in T36)
+typespec (1 + 1)..(2 * 3)         refused: nofile:2: type +/2 undefined (no such type in T258)
+typespec -5..-1                   accepted
+typespec -(2 + 3)..5              refused: nofile:2: type +/2 undefined (no such type in T37)
+Q.g(-1), h(6), h(-3), h(-9): {:neg, :y, :z, :n}
+PASS  elixir probe
+
+=== G. Gleam ===
+ok  const lo = -5                      accepted (expected accepted)
+ok  const s = 2 + 3                    refused (expected refused)
+ok  const s = -{5}                     refused (expected refused)
+ok  pattern -1                         accepted (expected accepted)
+ok  pattern -{1}                       refused (expected refused)
+ok  pattern 2 + 3                      refused (expected refused)
+ok  guard x >= -5                      accepted (expected accepted)
+ok  guard x >= -{5}                    refused (expected refused)
+ok  guard x >= 2 + 3                   accepted (expected accepted)
+ok  guard x >= named const (-5)        accepted (expected accepted)
+ok  expr n - -5                        accepted (expected accepted)
+lit() ->
+    -5.
+arith() ->
+    2 + 3.
+negate(N) ->
+    - N.
+PASS  gleam probe
+
+Elm 0.19.2: NOT RUN (package registry unreachable from this sandbox; see brief).
