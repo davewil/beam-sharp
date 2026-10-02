@@ -1,0 +1,39 @@
+--- X/compiler/src/bs_check.erl	2026-10-02 23:08:43.098022215 +0000
++++ X/compiler/src/bs_check.erl	2026-10-02 23:10:43.450029540 +0000
+@@ -2864,6 +2864,8 @@
+ %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
++%% PROBE (second checker site): a negated integer literal is that singleton.
++type_of({e_neg, _, {e_int, _, N}}, _S, _C) -> {bs_types:range(-N, -N), []};
+ type_of({e_neg, L, E}, S, C) ->
+     {Ty, D} = type_of(E, S, C),
+     case operand_verdict(Ty, C) of
+@@ -4938,13 +4940,22 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison({e_op, L, Op, A, B}) when Op =/= 'and', Op =/= 'or' ->
++    comparison1({e_op, L, Op, fold(A), fold(B)});
++comparison(E) -> comparison1(E).
++
++%% PROBE: a literal-only integer expression is its value.
++fold({e_neg, L, E}) ->
++    case fold(E) of {e_int, _, N} -> {e_int, L, -N}; E1 -> {e_neg, L, E1} end;
++fold(E) -> E.
++
++comparison1({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
++comparison1({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison1({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison1({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+-comparison(_) ->
++comparison1(_) ->
+     unknown.
+ 
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};

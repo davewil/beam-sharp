@@ -1,0 +1,59 @@
+== toolchain
+OTP 25 erts-13.2.2.5 flavor=jit arch=x86_64-pc-linux-gnu
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+
+== 1. disassembly of the hot loop
+PASS  wrap/hit/spin asm (incl. {tr,..} annotations) IDENTICAL for: remote rem, bs_emit return-guard, widened spec, narrowed spec, bsc build path (OTP 25)
+PASS  plain Erlang spin carries {tr,{x,0},{t_integer,{-99,99}}} on OTP 25 (OTP 28 prints {0,99}; cited)
+PASS  v_noanno (spin exported): bare {x,0},{x,1} operands, as in beam-sharp's reported disassembly
+PASS  range guards on Left/Zeros did NOT narrow the type (still any) on OTP 25
+PASS  range guards cost >=6 runtime is_ge tests per iteration
+PASS  Gleam emits -compile([..., inline])  (generated bench_gleam.erl line 2)
+PASS  bs_emit return guard + default -compile(inline): wrap/1 is NOT inlined (guard grows it past inline_size)
+PASS  plain -compile(inline): wrap/1 and hit/1 inlined into spin
+PASS  explicit -compile({inline,[{wrap,1},{hit,1}]}) inlines the guarded wrap
+
+== 2. compile options recorded in each beam
+v_erl              []
+v_erl_bsc          [debug_info,from_abstr]
+v_inline_bsc       [debug_info,from_abstr]
+bench_gleam        [debug_info]
+Elixir.BenchEx     [no_spawn_compiler_process,from_core,no_core_prepare,
+                    no_auto_import]
+
+== 3. timing (60 rounds, round-robin, rotated order)
+clicks=673364 part_two=6770 spin_only={14,6734}
+variant                full min   median      p90   spin min   median      p90
+v_erl                      8.96    11.63    13.64       8.86    11.38    15.51   rel 1.137 / 1.145
+v_erl_bsc                  8.97    11.65    14.38       8.85    11.38    15.15   rel 1.139 / 1.143
+v_retguard_bsc             9.01    11.77    13.62       8.86    11.37    15.64   rel 1.144 / 1.144
+v_spec_bsc                 9.02    11.55    13.47       8.84    11.41    15.55   rel 1.145 / 1.142
+v_narrowspec               8.99    11.66    13.69       8.87    11.40    15.49   rel 1.141 / 1.145
+v_guard                    9.10    11.78    13.77       8.97    11.56    15.86   rel 1.155 / 1.159
+v_noanno                   8.88    11.48    13.67       8.76    11.25    15.70   rel 1.127 / 1.131
+v_inline                   7.93    10.19    10.71       7.82    10.02    10.51   rel 1.007 / 1.010
+v_inline_bsc               7.90    10.14    10.40       7.81     9.98    10.39   rel 1.003 / 1.009
+v_rginline_bsc             8.06    10.38    10.86       7.92    10.16    10.85   rel 1.023 / 1.023
+v_rgexplicit_bsc           7.88    10.13    10.79       7.82    10.03    10.53   rel 1.000 / 1.010
+v_noanno_inline            7.88    10.07    10.65       7.74     9.96    10.38   rel 1.001 / 1.000
+Elixir.BenchEx             8.99    11.71    14.87       8.91    11.41    15.15   rel 1.141 / 1.150
+bench_gleam                7.92    10.13    10.40       7.82    10.02    10.32   rel 1.005 / 1.010
+
+PASS  plain Erlang / -compile(inline) Erlang = 1.130 (>1.05: a real gap)
+PASS  guarded wrap + explicit inline list vs plain inline: 0.997
+INFO  guarded wrap + default inline vs plain inline: 1.020  (borderline: see README of brief; not asserted)
+PASS  stripping {tr,..} from spin: 0.991 (within 3% noise => annotations do not cause the gap on OTP 25)
+PASS  stripping {tr,..} with inlining: 0.994
+PASS  bs_emit return guard on rem (no inline): 1.006
+PASS  narrow vs no spec: 1.003
+PASS  range guards are not faster than plain: 1.016
+PASS  Elixir/Erlang: 1.003
+PASS  Gleam/Erlang+inline: 0.999
+
+== 4. what inlining costs the author: stack frames
+st_plain   frames: [h,g,do_apply]
+st_inline  frames: [f,do_apply,try_clauses]
+PASS  inlined helper h/1 and g/1 vanish from the stack trace
+PASS  explicit inline list naming a self-recursive function still compiles and terminates
+
+ALL OBSERVATIONS HOLD

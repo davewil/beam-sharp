@@ -1,0 +1,4 @@
+-module(bad).
+-export_type([t/0, u/0]).
+-type t() :: (N+1)..5.
+-type u() :: 5..1.

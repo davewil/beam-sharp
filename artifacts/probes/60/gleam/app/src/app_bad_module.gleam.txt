@@ -1,0 +1,5 @@
+import lib/internal/secret
+
+pub fn main() -> Int {
+  secret.recompute(3)
+}
