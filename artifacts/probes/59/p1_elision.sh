@@ -104,8 +104,15 @@ caller(X) when is_integer(X) -> f(X).
 X
 want E7-private-recursive-loop    e_loop  loop 2 is_integer 0
 echo "-- range test (X >= 0, X =< 255) in a local-only function"
-want R1-local-caller-proves-range r_lo    f 1 cmp 0
+# NOTE: I predicted cmp=0 here (OTP tracks integer ranges). Observed cmp=2: the range comparisons SURVIVE
+# in the local function even though the caller tests the identical range. Expectation changed after seeing it.
+want R1-local-caller-proves-range r_lo    f 1 cmp 2
+want R1b-same-but-is_integer-part r_lo    f 1 is_integer 0
 want R2-local-caller-proves-kind-only r_un f 1 cmp 2
+# one entry label: the local call in e_ex jumps to label 2, which is the label carrying the test
+if grep -q 'call_only,1,{f,2}' e_ex.S && "$HERE/asm_count.escript" e_ex.S f 1 | grep -q '{label,2}'; then
+  echo "ok   E1b-one-entry-label: caller/1's local call_only targets {f,2}, the label holding f/1's is_integer"
+else echo "FAIL E1b"; fail=1; fi
 echo "-- record tag test (map_get(kind,M) == order)"
 want T1-exported-caller-proves   t_ex    f 1 tagtest 1
 want T2-LOCAL-caller-proves      t_lo    f 1 tagtest 1
