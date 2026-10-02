@@ -7,7 +7,7 @@
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd); w=$(mktemp -d); trap 'rm -rf "$w"' EXIT; fail=0
 ok() { if [ "$1" = 0 ]; then echo "PASS  $2"; else echo "FAIL  $2"; fail=1; fi; }
-for v in base grammar neg negt arith; do "$here/build.sh" "$w/b_$v" $v >/dev/null 2>&1 || { echo "build $v failed"; exit 2; }; done
+for v in base grammar neg negt arith mutant; do "$here/build.sh" "$w/b_$v" $v >/dev/null 2>&1 || { echo "build $v failed"; exit 2; }; done
 
 echo "=== A. AST shapes (real bs_lexer + bs_parser, base) ==="
 escript "$here/ast.escript" "$w/b_base"; ok $? "refinement -5 parses to {e_neg,_,{e_int,_,5}}, not {e_op,'-',{e_int,0},..}"
@@ -35,6 +35,19 @@ hs neg     "Take(-100 ) over Delta {diag,[arg_not_accepted]}";        ok $? "che
 hs negt    "Take(-100 ) over Delta accepted";                         ok $? "checker fold + type_of fold: accepted (two sites)"
 hs base    "Take(-1) over (value <= 5) {diag,[arg_not_accepted]}";     ok $? "base: literal -1 is typed int, not -1..-1 (pre-existing)"
 hs grammar "Take(-1) over (value <= 5) accepted";                     ok $? "grammar fold fixes that too"
+
+hs grammar "Take(0 ) over Delta accepted";                           ok $? "grammar: Take(0) over -100..100 accepted (bound keeps its sign)"
+hs grammar "Take(-1 ) over Delta accepted";                          ok $? "grammar: Take(-1) over -100..100 accepted"
+hs grammar "bare match -1 = a {diag,[bind_may_fail]}";               ok $? "grammar fold SPILLS: bare '-1 = a' parse error -> bind_may_fail (to_match, yrl:882)"
+hs base    "bare match -1 = a {parse,error}";                        ok $? "base: bare '-1 = a' is a parse error"
+hs base    "divisor a / -0 accepted";                                ok $? "base: a / -0 accepted"
+hs grammar "divisor a / -0 {diag,[divide_by_zero]}";                 ok $? "grammar fold SPILLS: a / -0 becomes divide_by_zero"
+# oracle self-test: a sign-dropping mutant of the grammar fold must turn the sem assertions red
+escript "$here/sem.escript" "$w/b_mutant" mutant | tr -s ' ' | sed 'N;s/\n opaque/ opaque/;P;D' > "$w/mut.txt"
+mut_red=0
+for row in "mutant Take(0 ) over Delta accepted" "mutant Take(-1 ) over Delta accepted" "mutant Take(-1) over (value <= 5) accepted"; do
+  grep -Fxq -- "$row" "$w/mut.txt" || mut_red=1; done
+ok $((1 - mut_red)) "oracle goes red under a sign-dropping mutant (Take(0)/Take(-1) assertions fail on it)"
 
 echo; echo "=== D. repo eunit slice: failing set identical across variants (OTP 25: many fail at base) ==="
 for v in base grammar neg negt arith; do "$here/suite.sh" "$w/b_$v" > "$w/suite_$v.txt"; done

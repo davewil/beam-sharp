@@ -15,7 +15,7 @@ main([Ebin, Label]) ->
     Delta = "module D\ntype Delta = int where value >= -100 and value <= 100\npublic atom Take(Delta d)\nTake(d) -> :ok\n",
     Call = fun(Arg) -> io:format("~-8s Take(~-6s) over Delta   ~p~n", [Label, Arg,
         Run(Delta ++ "public atom Go()\nGo() -> Take(" ++ Arg ++ ")\n")]) end,
-    [Call(A) || A <- ["-100", "-101", "100", "101", "0"]],
+    [Call(A) || A <- ["-100", "-101", "100", "101", "0", "-1"]],
     %% the surface can now accept what the compiler prints as a residual
     Res = "module R\ntype Delta = int where value >= -10 and value <= 10\ntype NonZero = int where value <= -1 or value >= 1\n"
           "public atom Sign(Delta d)\nSign(<= -1) -> :neg\nSign(>= 1) -> :pos\n",
@@ -28,4 +28,8 @@ main([Ebin, Label]) ->
     Up = "module U\ntype Up = int where value <= 5\npublic atom Take(Up u)\nTake(u) -> :ok\npublic atom Go()\nGo() -> Take(-1)\n",
     io:format("~-8s Take(-1) over (value <= 5)   ~p~n", [Label, Run(Up)]),
     Ret = "module Rt\ntype Up = int where value <= 5\npublic Up Neg()\nNeg() -> -1\n",
-    io:format("~-8s return -1 as (value <= 5)    ~p~n", [Label, Run(Ret)]).
+    io:format("~-8s return -1 as (value <= 5)    ~p~n", [Label, Run(Ret)]),
+    %% spill-over of the grammar fold into to_match/to_param (bs_parser.yrl:882,930) and the divisor check
+    io:format("~-8s bare match  -1 = a            ~p~n", [Label, Run("module B\npublic int F(int a)\nF(a) ->\n    -1 = a\n    a\n")]),
+    io:format("~-8s divisor a / -0                ~p~n", [Label, Run("module Dv\npublic int F(int a)\nF(a) -> a / -0\n")]),
+    io:format("~-8s divisor a / 0                 ~p~n", [Label, Run("module Dz\npublic int F(int a)\nF(a) -> a / 0\n")]).

@@ -165,111 +165,69 @@ base Take(-101 ) over Delta {refused,opaque_refinement}
 base Take(100 ) over Delta {refused,opaque_refinement}
 base Take(101 ) over Delta {refused,opaque_refinement}
 base Take(0 ) over Delta {refused,opaque_refinement}
+base Take(-1 ) over Delta {refused,opaque_refinement}
 base residual-as-type NonZero + clauses missing 0 {refused, opaque_refinement}
 base -10..-1|1..10 spelled; Take(0) {refused,opaque_refinement}
 base NonZero spelled with -1; Div(a, 0) {refused,opaque_refinement}
 base Take(-1) over (value <= 5) {diag,[arg_not_accepted]}
 base return -1 as (value <= 5) {diag,[return_not_declared]}
+base bare match -1 = a {parse,error}
+base divisor a / -0 accepted
+base divisor a / 0 {diag,[divide_by_zero]}
 grammar Take(-100 ) over Delta accepted
 grammar Take(-101 ) over Delta {diag,[arg_not_accepted]}
 grammar Take(100 ) over Delta accepted
 grammar Take(101 ) over Delta {diag,[arg_not_accepted]}
 grammar Take(0 ) over Delta accepted
+grammar Take(-1 ) over Delta accepted
 grammar residual-as-type NonZero + clauses missing 0 {diag,[inexhaustive]}
 grammar -10..-1|1..10 spelled; Take(0) {diag,[arg_not_accepted]}
 grammar NonZero spelled with -1; Div(a, 0) {diag,[arg_not_accepted]}
 grammar Take(-1) over (value <= 5) accepted
 grammar return -1 as (value <= 5) accepted
+grammar bare match -1 = a {diag,[bind_may_fail]}
+grammar divisor a / -0 {diag,[divide_by_zero]}
+grammar divisor a / 0 {diag,[divide_by_zero]}
 neg Take(-100 ) over Delta {diag,[arg_not_accepted]}
 neg Take(-101 ) over Delta {diag,[arg_not_accepted]}
 neg Take(100 ) over Delta accepted
 neg Take(101 ) over Delta {diag,[arg_not_accepted]}
 neg Take(0 ) over Delta accepted
+neg Take(-1 ) over Delta {diag,[arg_not_accepted]}
 neg residual-as-type NonZero + clauses missing 0 {diag,[inexhaustive]}
 neg -10..-1|1..10 spelled; Take(0) {diag,[arg_not_accepted]}
 neg NonZero spelled with -1; Div(a, 0) {diag,[arg_not_accepted]}
 neg Take(-1) over (value <= 5) {diag,[arg_not_accepted]}
 neg return -1 as (value <= 5) {diag,[return_not_declared]}
+neg bare match -1 = a {parse,error}
+neg divisor a / -0 accepted
+neg divisor a / 0 {diag,[divide_by_zero]}
 negt Take(-100 ) over Delta accepted
 negt Take(-101 ) over Delta {diag,[arg_not_accepted]}
 negt Take(100 ) over Delta accepted
 negt Take(101 ) over Delta {diag,[arg_not_accepted]}
 negt Take(0 ) over Delta accepted
+negt Take(-1 ) over Delta accepted
 negt residual-as-type NonZero + clauses missing 0 {diag,[inexhaustive]}
 negt -10..-1|1..10 spelled; Take(0) {diag,[arg_not_accepted]}
 negt NonZero spelled with -1; Div(a, 0) {diag,[arg_not_accepted]}
 negt Take(-1) over (value <= 5) accepted
 negt return -1 as (value <= 5) accepted
+negt bare match -1 = a {parse,error}
+negt divisor a / -0 {diag,[divide_by_zero]}
+negt divisor a / 0 {diag,[divide_by_zero]}
 PASS  grammar: Take(-100) over -100..100 accepted
 PASS  grammar: Take(-101) refused (the bound is real)
 PASS  checker fold alone: Take(-100) over -100..100 is REFUSED
 PASS  checker fold + type_of fold: accepted (two sites)
 PASS  base: literal -1 is typed int, not -1..-1 (pre-existing)
 PASS  grammar fold fixes that too
+PASS  grammar: Take(0) over -100..100 accepted (bound keeps its sign)
+PASS  grammar: Take(-1) over -100..100 accepted
+PASS  grammar fold SPILLS: bare '-1 = a' parse error -> bind_may_fail (to_match, yrl:882)
+PASS  base: bare '-1 = a' is a parse error
+PASS  base: a / -0 accepted
+PASS  grammar fold SPILLS: a / -0 becomes divide_by_zero
+PASS  oracle goes red under a sign-dropping mutant (Take(0)/Take(-1) assertions fail on it)
 
 === D. repo eunit slice: failing set identical across variants (OTP 25: many fail at base) ===
-Failed: 41.  Skipped: 0.  Passed: 248.
-PASS  grammar: same failing set as base
-PASS  neg: same failing set as base
-PASS  negt: same failing set as base
-PASS  arith: same failing set as base
-
-=== E. Erlang ===
--- erl_parse: the PARSER does not fold; it emits {op,_,'-',{integer,_,5}} in guard, pattern and type range
-guard   {op,1,'>=',{var,1,'N'},{op,1,'-',{integer,1,5}}}
-pattern [{op,1,'-',{integer,1,5}}]
-range   {type,1,range,[{op,1,'-',{integer,1,5}},{integer,1,5}]}
-flat_size words: {op,1,'-',{integer,1,5}} 9   {integer,1,-5} 4
--- erlc +to_core: guards and patterns hold -5 / 5 as constants (folded after parsing)
-guard comparands in core (ge: N >= -5; calc: N >= 2 + 3, -(5), 0 - 5):
- -5) ->; 5) ->; -5) ->; -5) ->;
--- type ranges: Erlang accepts arithmetic and macros, rejects variables and empty ranges
-g.erl (-5..5, (1+1)..(2*3), -(5)..5, (0-5)..5, ?LO..5): compiles
-bad.erl 'bad range type' errors: 2
--- abstract {integer,1,-5} compiles and behaves like {op,1,'-',{integer,1,5}}
-{integer,1,-5}      -> {true,false,-5,532}
-{op,1,'-',{integer,1,5}} -> {true,false,-5,532}
-beam bytes equal: true
-PASS  erlang probe
-
-=== F. Elixir ===
-n >= -5     : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [5]}]}
-n >= -(5)   : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [5]}]}
-n >= 0 - 5  : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [0, 5]}]}
-n >= 2 + 3  : {:>=, [line: 1], [{:n, [line: 1], nil}, {:+, [line: 1], [2, 3]}]}
--5          : {:-, [line: 1], [5]}
-f(-5)       : {:f, [line: 1], [{:-, [line: 1], [5]}]}
-typespec: {:@, [line: 1],
-typespec -(5): {:@, [line: 1],
-flat_size unary AST: 11
-flat_size literal: 0
-typespec -5..5                    accepted
-typespec -(5)..5                  accepted
-typespec (0 - 5)..5               refused: nofile:2: type -/2 undefined (no such type in T36)
-typespec (1 + 1)..(2 * 3)         refused: nofile:2: type +/2 undefined (no such type in T258)
-typespec -5..-1                   accepted
-typespec -(2 + 3)..5              refused: nofile:2: type +/2 undefined (no such type in T37)
-Q.g(-1), h(6), h(-3), h(-9): {:neg, :y, :z, :n}
-PASS  elixir probe
-
-=== G. Gleam ===
-ok  const lo = -5                      accepted (expected accepted)
-ok  const s = 2 + 3                    refused (expected refused)
-ok  const s = -{5}                     refused (expected refused)
-ok  pattern -1                         accepted (expected accepted)
-ok  pattern -{1}                       refused (expected refused)
-ok  pattern 2 + 3                      refused (expected refused)
-ok  guard x >= -5                      accepted (expected accepted)
-ok  guard x >= -{5}                    refused (expected refused)
-ok  guard x >= 2 + 3                   accepted (expected accepted)
-ok  guard x >= named const (-5)        accepted (expected accepted)
-ok  expr n - -5                        accepted (expected accepted)
-lit() ->
-    -5.
-arith() ->
-    2 + 3.
-negate(N) ->
-    - N.
-PASS  gleam probe
-
-Elm 0.19.2: NOT RUN (package registry unreachable from this sandbox; see brief).

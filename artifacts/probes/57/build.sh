@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: build.sh OUTDIR [base|grammar|neg|arith]
+# Usage: build.sh OUTDIR [base|grammar|neg|negt|arith|mutant]
 # Build the REAL B# lexer/parser/checker on OTP 25 into $1 (scratch).
 # bsc itself is not buildable here (needs OTP 26 leex); the parser, lexer and
 # checker modules are. Two probe-only shims, applied to the SCRATCH copy only:
@@ -15,6 +15,7 @@ cp "$src"/*.erl "$src"/*.xrl "$src"/*.yrl .
 case $variant in
   base) ;;
   grammar) patch -s bs_parser.yrl "$here/grammar-fold.patch" ;;
+  mutant) patch -s bs_parser.yrl "$here/grammar-fold.patch"; sed -i 's/{e_int, IL, -N}/{e_int, IL, N}/' bs_parser.yrl ;;  # sign-dropping mutant: oracle self-test
   neg|arith|negt) patch -s bs_check.erl "$here/checker-fold-$variant.patch" ;;
   *) echo "unknown variant $variant"; exit 2 ;;
 esac
