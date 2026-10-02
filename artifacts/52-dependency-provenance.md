@@ -12,32 +12,33 @@ Everything else follows from the answer: if no, there is no syntax and nothing i
 per-`using` vs per-module, name-only vs version, and what bsc does with it are questions about a clause that
 exists. Ticket 51 decided there is no manifest of beam-sharp's own, so a single-file exemplar has nowhere else to say it.
 
-Two things the ticket states that the probes contradict (section 2, rows 2 and 6):
+Two things the probes sharpen in the ticket's wording (section 2, rows 2, 6 and 7):
 
-- **"Compile it … and it fails at the call site with `error:undef`."** The *compile* succeeds, silently, even under
-  `erlc -Wall`; only the *run* fails.
-- **"Checking the application is on the code path is one line … that may be the whole feature."** The one line
-  (`code:lib_dir(App)`) answers `{error,bad_name}` for a dependency that is on the path, if its directory is not
-  named `app` or `app-vsn`. And the check that catches the `undef` needs no application name at all: it is a
-  *module* presence check, which bsc can already make from the `{foreign, _, Mod, _}` declarations it holds.
+- **"fails at the call site with `error:undef`"** is consistent with the probes, but it is the *run* that fails: the
+  compile succeeds silently, even under `erlc -Wall`. Nothing at compile time notices.
+- **"Checking that the application is on the code path at compile time is one line."** The ticket does not name
+  `code:lib_dir`; that is the obvious one-liner, and it fails (`{error,bad_name}`) only for a directory named neither
+  `app` nor `app-vsn` (a clone called `elixir-req`; `ERL_LIBS`, mix and rebar3 layouts all work). More important, the check that
+  catches the `undef` needs no application name: a *module* presence check, which bsc can make from the
+  `{foreign, _, Mod, _}` declarations it already holds.
 
 ## 2. Evidence
 
 | # | claim | probe | result | status |
 |---|---|---|---|---|
-| 1 | Source can't say which app; today nothing does | grep `wayfinder/issues/*.md` for `ERL_LIBS`, `provenance`, `\.app`, `app:` | 51 and 52 only; no ticket decides it. `bs_parser.yrl:170` `foreign_decl -> 'using' atom_lit '{' foreign_sigs '}'` has no slot for it | cited, not re-run |
+| 1 | Source can't say which app; today nothing does | grep `wayfinder/issues/*.md` for `ERL_LIBS`, `provenance`, `\.app`, `app:` | `ERL_LIBS` in 50, 51, 52, 67; no ticket decides provenance. `bs_parser.yrl:170` `foreign_decl -> 'using' atom_lit '{' foreign_sigs '}'` has no slot for it | cited, not re-run |
 | 2 | Compiling a call to an absent module is silent; run is `error:undef` | [p1](probes/52/p1_undef_and_tools.sh) | `erlc -Wall +debug_info`: exit 0, no output. Run: `error:undef` | measured here |
 | 3 | The `.beam` already records the remote MFA | p1 | `beam_lib:chunks(F,[imports])` -> `[{'Elixir.Req',new,1},…]` | measured here |
 | 4 | A stock `.beam` names no application | p1 | `lists`, `gen_server` attributes carry `vsn`/`dialyzer` only; no `app`/`application`/`applications` key | measured here |
 | 5 | xref flags it, but only with debug info | p1 | with `+debug_info`: `[{{uses_missing,go,0},{'Elixir.Req',new,1}}]`. **First run, without it: `Skipping ./uses_missing.beam (no debug information)` and `[]`** — a silent green. bsc passes `debug_info` (`bsc.erl` `build/3`, `Options = [from_abstr, debug_info, …]`) so xref would work on bsc output | measured here |
-| 6 | `code:lib_dir(App)` is not a reliable presence test | [p3](probes/52/p3_presence_checks.sh) | `ERL_LIBS` with `req-0.7.3/ebin`: ok. rebar3 layout `_build/default/lib/req/ebin`: ok. `-pa libC/anything/ebin` (module reachable): **`{error,bad_name}`**. `code:which(Mod)` is right in all three | measured here |
+| 6 | `code:lib_dir(App)` fails for a path dir named neither `app` nor `app-vsn` | [p3](probes/52/p3_presence_checks.sh) | `ERL_LIBS` with `req-0.7.3/ebin`: ok. rebar3 layout `_build/default/lib/req/ebin`: ok. `-pa libC/anything/ebin` (module reachable): **`{error,bad_name}`**. `code:which(Mod)` right in all three. Gate: the assertion reads the `-pa` block only (the no-path control also prints `bad_name`; the first version grepped the whole output and stayed green when the dir was renamed `req`, found by the verifier). Now `P3_LIBC_NAME=req bash p3_presence_checks.sh` goes red (rc 1), default green | measured here; narrow case |
 | 7 | Compile-time `code:ensure_loaded` runs foreign code | p3 | module with `-on_load` printed `ON_LOAD RAN` on `ensure_loaded`; `code:which` and `beam_lib:chunks(F,[exports])` ran nothing and returned `[{module_info,0},{module_info,1},{new,1}]`. `function_exported` is `false` until loaded | measured here |
 | 8 | A compiled module can carry an app attribute via the route bsc already uses | [p2](probes/52/p2_attribute_cost.sh) | `{attribute,1,bs_app,req}` in `.abstr` -> `compile:file(…,[from_abstr,debug_info])` clean; `m1:module_info(attributes)` -> `[{bs_app,[req]}]`; readable from the file without loading | measured here |
-| 9 | Module name does not give the app | [p4](probes/52/p4_module_to_app.sh) | 925 modules in 24 installed apps: name equals app for **11 (1.2%)**; rule "lowercase first `Elixir.` segment" right for 140 of 388 Elixir modules. Biased sample (core Elixir, `Elixir.Access` is in app `elixir`); it shows no rule exists, not what hex looks like | measured here, sample caveat |
+| 9 | Without any `.app` on disk, the module name does not give the app | [p4](probes/52/p4_module_to_app.sh) | 938 modules in 25 apps: name equals app for 12 (1.3%); first-segment rule right for 152 (16%). Biased sample (core Elixir). **Relevant only to a derivation that has no `.app` to read**, i.e. the dependency-absent machine and a reader of the bare source. It says nothing against option 3's tooling, which reads `.app` files when the dependency is present | measured here, narrow relevance |
 | 10 | The BEAM's dependency vocabulary is names | [p8](probes/52/p8_app_files_are_name_only.sh) | 25 `.app` files, 52 dependency entries, **0 carry a version**. OTP's own `runtime_dependencies` does carry versions ("stdlib-4.1"), is advisory, on 19 of 25 files, **none of the Elixir ones** | measured here |
 | 11 | The VM reports a missing app by app name | [p5](probes/52/p5_vm_speaks_app_names.sh) | `ensure_all_started(req)` -> `{error,{req,{"no such file or directory","req.app"}}}`; with req present, dep absent -> `{error,{mint,…"mint.app"}}` | measured here |
-| 12 | Corpus: what B# programs `using` today | [p9](probes/52/p9_corpus_usings.sh) | 27 `using` blocks, 14 distinct modules: 11 owned by OTP/Elixir apps, **3 owned by nothing installed** — `Elixir.Req`, `epgsql`, and `json` (stdlib only from OTP 27; the repo pins 28.5, this box is 25) | measured here |
-| 13 | bsc today does no environment query in the checker | grep `code:`/`file:`/`filelib:` in `compiler/src/bs_check.erl` | no hits; `code:` appears only in `bs_batch.erl`, `bs_repl.erl` | read from source |
+| 12 | Corpus: what B# programs `using` today (a census; asserts only that the same three come out absent) | [p9](probes/52/p9_corpus_usings.sh) | 27 `using` blocks, 14 distinct modules: 11 owned by OTP/Elixir apps, **3 owned by nothing installed** — `Elixir.Req`, `epgsql`, and `json` (stdlib only from OTP 27; the repo pins 28.5, this box is 25) | measured here |
+| 13 | bsc today does no environment query in the checker | grep `code:`/`file:`/`filelib:` in `compiler/src/bs_check.erl` | no hits; `code:` appears in `bs_batch.erl`, `bs_repl.erl` and `bs_run.erl:19-20` (`code:add_patha`, `code:ensure_loaded`) | read from source |
 | 14 | A `using` of an absent module compiles | ticket 51 table (`50a` against `'Elixir.String'.upcase/1`: compiles, "crashed: error:undef") | cited, not re-run | cited |
 
 ## 3. Neighbour survey
@@ -53,8 +54,7 @@ Separately, mix **infers the application from the used module and checks it agai
 with `extra_applications: []` gives `Logger.info/1 defined in application :logger is used by the current
 application but the current application does not depend on :logger`; with `[:logger]` in a separate project, 0
 warnings. Only `ebin` is installed for Elixir, so no file:line. *Original p6 run:* editing `mix.exs` in the same
-directory and recompiling still warned; cause not isolated (stale build state is my guess), so p6 now uses two
-directories.
+directory and recompiling still warned, and the verifier found that case nondeterministic (stale `_build`); it was not reproducible, and the two-directory design is the evidence.
 
 **Gleam.** [p7](probes/52/p7_gleam.sh): `@external(erlang, "Elixir.Req", "new")` naming a module that does not exist
 builds clean (`Compiled in 0.42s`), emits `'Elixir.Req':new([])`, runs to `error:undef`. The declaration names the module only,
@@ -80,7 +80,7 @@ All from p2/p3/p10, OTP 25, this box.
 | `code:lib_dir(absent)` | 1-3 µs | p3, p10 |
 | `code:which(absent)` | 115 µs (short path), **965 µs** (36 path entries) | p3, p10 |
 | `beam_lib:chunks(F,[exports])` | 67-92 µs | p3 |
-| scan every `.app` on the path once (module->app map, 25 apps) | 11-13 ms | p10 |
+| scan every `.app` on the path once (module->app map, 25 apps) | 11-25 ms across reruns | p10 |
 
 The attribute lives in the abstract-code chunk as well as the attributes chunk, which is why bytes exceed twice the
 words. A 14-module program checked in full is about 14 ms for the `which` form and one ~12 ms scan for the `.app`
@@ -126,16 +126,18 @@ and ticket 65 says B# reserves no identifier, so `from` would be the first one.*
    on a Req module; option 3 cannot make it).
 5. One descriptor in `bs_diag` (F16: the diagnostic is a term), and a `bsc --uses` listing read from the attribute.
 
+**Further limits of the membership check (item 4).** It can only run when the app is installed, which is when module presence has already passed, so **no wrong-app instance appears in this brief's evidence**: its value is argued, not measured. It would also false-warn on a path directory holding beams and no `.app` (how `bs_run.erl:19-20`'s `code:add_patha` leaves a directory), so it should skip a dir with no `.app`. And "a module has exactly one owning application" was never measured (no overlap check was run, even across the 25 installed apps).
+
 **Counterargument.** It is a second statement of a fact the project's `rebar.config` or `mix.exs` already holds
 (ticket 51 made a project a rebar3 or mix project). The two can drift, and bsc has no way to compare `in :req`
-with `rebar.config`; Erlang's `.app.src` against `rebar.config` is the same shape. Also, 24 of the corpus's 27
-`using` blocks would not need it, so the clause is noise for most readers and is only meaningful when present.
+with `rebar.config`; Erlang's `.app.src` against `rebar.config` is the same shape. Also, 25 of the corpus's 27
+`using` blocks (json is stdlib on the pinned OTP 28) would not need it, so the clause is noise for most readers and is only meaningful when present.
 
 ### Option 2: once per module
 
 ```csharp
 module Fetch
-needs :req            // like `behaviour GenServer`: one line, module level (bs_parser.yrl:165)
+needs :req            // like `behaviour GenServer`: one line, module level (bs_parser.yrl:164)
 using :'Elixir.Req' { … }
 using :'Elixir.Req.Request' { … }
 ```
@@ -172,7 +174,7 @@ cost is a few tokens on the lines that need them, which the standing constraint 
 full weight) prices as a reader seeing where a foreign thing comes from, which is the same bargain ticket 32 took
 for the declaration. **Name only** because the whole BEAM vocabulary is names (row 10: 0 of 52 entries carry a
 version) and Elixir's own check (p6) is by name; a version is resolution, which 51 refused. **Per-`using`** because a
-module has exactly one owning application, so the unit is the module, and that is the unit a check can verify.
+module has exactly one owning application, so the unit is the module, and that is the unit a check can verify (the one-owner premise is assumed, see item 4's limits). **The decisive step is the handoff argument, which no probe tests**: the evidence only shows that a module-presence warning is cheap and suffices to turn `undef` into a diagnostic.
 
 What would change my mind: if the audition's tickets always arrive as a rebar3/mix project with a manifest (then
 row 14's gap is already closed and option 3 costs less); if the `in :app` line is observed drifting against

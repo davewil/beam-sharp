@@ -14,5 +14,5 @@ Rs=[{M,Own(M)}||M<-Mods],
 io:format("using blocks=~p~n",[length(Rs)]),
 [io:format("  ~-28w -> ~w~n",[M,O])||{M,O}<-lists:usort(Rs)],
 Abs=[M||{M,absent}<-Rs], io:format("owned by no installed app (third-party or newer OTP): ~p~n",[lists:usort(Abs)]),
-halt().' 2>&1
-MODS="${TMPDIR:-/tmp}/p9.$$.mods"; rm -f "$MODS"
+halt(case lists:usort(Abs) =:= [list_to_atom("Elixir.Req"),epgsql,json] of true -> 0; false -> 1 end).' 2>&1  # asserts the census still finds exactly these three absent
+rc=$?; rm -f "${TMPDIR:-/tmp}/p9.$$.mods"; exit $rc
