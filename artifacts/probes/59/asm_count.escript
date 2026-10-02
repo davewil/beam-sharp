@@ -16,8 +16,9 @@ main([File, Name, Arity]) ->
     IsInt = length([x || {test, is_integer, _, _} <- Real]),
     Tag = length([x || {test, is_eq_exact, _, [_, {atom, _}]} <- Real]),
     IsMap = length([x || {test, is_map, _, _} <- Real]),
-    io:format("COUNT is_integer=~p tagtest=~p is_map=~p instrs=~p~n",
-              [IsInt, Tag, IsMap, length(Real)]).
+    Cmp = length([x || {test, Op, _, _} <- Real, Op =:= is_ge orelse Op =:= is_lt]),
+    io:format("COUNT is_integer=~p tagtest=~p is_map=~p cmp=~p instrs=~p~n",
+              [IsInt, Tag, IsMap, Cmp, length(Real)]).
 
 %% a .S file is a flat list of terms: {function,N,A,Entry}. then that function's
 %% instructions, up to the next {function,...} term.

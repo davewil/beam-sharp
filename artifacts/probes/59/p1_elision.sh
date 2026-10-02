@@ -83,6 +83,29 @@ want E4-local-literal-arg        e_lit   f 1 is_integer 0
 want E5-local-arg-is-guarded-res e_res   f 1 is_integer 0
 want E6a-local-chain-g           e_chain g 1 is_integer 0
 want E6b-local-chain-h           e_chain h 1 is_integer 0
+mk e_loop <<'X'
+-module(e_loop).
+-export([main/1]).
+loop(N, A) when is_integer(N), is_integer(A), N > 0 -> loop(N - 1, A + N);
+loop(_, A) -> A.
+main(N) when is_integer(N) -> loop(N, 0).
+X
+mk r_lo <<'X'
+-module(r_lo).
+-export([caller/1]).
+f(X) when is_integer(X), X >= 0, X =< 255 -> X.
+caller(X) when is_integer(X), X >= 0, X =< 255 -> f(X).
+X
+mk r_un <<'X'
+-module(r_un).
+-export([caller/1]).
+f(X) when is_integer(X), X >= 0, X =< 255 -> X.
+caller(X) when is_integer(X) -> f(X).
+X
+want E7-private-recursive-loop    e_loop  loop 2 is_integer 0
+echo "-- range test (X >= 0, X =< 255) in a local-only function"
+want R1-local-caller-proves-range r_lo    f 1 cmp 0
+want R2-local-caller-proves-kind-only r_un f 1 cmp 2
 echo "-- record tag test (map_get(kind,M) == order)"
 want T1-exported-caller-proves   t_ex    f 1 tagtest 1
 want T2-LOCAL-caller-proves      t_lo    f 1 tagtest 1
