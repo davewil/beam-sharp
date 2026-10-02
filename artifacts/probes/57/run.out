@@ -231,3 +231,68 @@ PASS  grammar fold SPILLS: a / -0 becomes divide_by_zero
 PASS  oracle goes red under a sign-dropping mutant (Take(0)/Take(-1) assertions fail on it)
 
 === D. repo eunit slice: failing set identical across variants (OTP 25: many fail at base) ===
+Failed: 41.  Skipped: 0.  Passed: 248.
+PASS  grammar: same failing set as base
+PASS  neg: same failing set as base
+PASS  negt: same failing set as base
+PASS  arith: same failing set as base
+
+=== E. Erlang ===
+-- erl_parse: the PARSER does not fold; it emits {op,_,'-',{integer,_,5}} in guard, pattern and type range
+guard   {op,1,'>=',{var,1,'N'},{op,1,'-',{integer,1,5}}}
+pattern [{op,1,'-',{integer,1,5}}]
+range   {type,1,range,[{op,1,'-',{integer,1,5}},{integer,1,5}]}
+flat_size words: {op,1,'-',{integer,1,5}} 9   {integer,1,-5} 4
+-- erlc +to_core: guards and patterns hold -5 / 5 as constants (folded after parsing)
+guard comparands in core (ge: N >= -5; calc: N >= 2 + 3, -(5), 0 - 5):
+ -5) ->; 5) ->; -5) ->; -5) ->;
+-- type ranges: Erlang accepts arithmetic and macros, rejects variables and empty ranges
+g.erl (-5..5, (1+1)..(2*3), -(5)..5, (0-5)..5, ?LO..5): compiles
+bad.erl 'bad range type' errors: 2
+-- abstract {integer,1,-5} compiles and behaves like {op,1,'-',{integer,1,5}}
+{integer,1,-5}      -> {true,false,-5,532}
+{op,1,'-',{integer,1,5}} -> {true,false,-5,532}
+beam bytes equal: true
+PASS  erlang probe
+
+=== F. Elixir ===
+n >= -5     : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [5]}]}
+n >= -(5)   : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [5]}]}
+n >= 0 - 5  : {:>=, [line: 1], [{:n, [line: 1], nil}, {:-, [line: 1], [0, 5]}]}
+n >= 2 + 3  : {:>=, [line: 1], [{:n, [line: 1], nil}, {:+, [line: 1], [2, 3]}]}
+-5          : {:-, [line: 1], [5]}
+f(-5)       : {:f, [line: 1], [{:-, [line: 1], [5]}]}
+typespec: {:@, [line: 1],
+typespec -(5): {:@, [line: 1],
+flat_size unary AST: 11
+flat_size literal: 0
+typespec -5..5                    accepted
+typespec -(5)..5                  accepted
+typespec (0 - 5)..5               refused: nofile:2: type -/2 undefined (no such type in T3)
+typespec (1 + 1)..(2 * 3)         refused: nofile:2: type +/2 undefined (no such type in T36)
+typespec -5..-1                   accepted
+typespec -(2 + 3)..5              refused: nofile:2: type +/2 undefined (no such type in T35)
+Q.g(-1), h(6), h(-3), h(-9): {:neg, :y, :z, :n}
+PASS  elixir probe
+
+=== G. Gleam ===
+ok  const lo = -5                      accepted (expected accepted)
+ok  const s = 2 + 3                    refused (expected refused)
+ok  const s = -{5}                     refused (expected refused)
+ok  pattern -1                         accepted (expected accepted)
+ok  pattern -{1}                       refused (expected refused)
+ok  pattern 2 + 3                      refused (expected refused)
+ok  guard x >= -5                      accepted (expected accepted)
+ok  guard x >= -{5}                    refused (expected refused)
+ok  guard x >= 2 + 3                   accepted (expected accepted)
+ok  guard x >= named const (-5)        accepted (expected accepted)
+ok  expr n - -5                        accepted (expected accepted)
+lit() ->
+    -5.
+arith() ->
+    2 + 3.
+negate(N) ->
+    - N.
+PASS  gleam probe
+
+Elm 0.19.2: NOT RUN (package registry unreachable from this sandbox; see brief).

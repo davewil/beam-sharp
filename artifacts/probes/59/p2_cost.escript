@@ -56,7 +56,7 @@ main([W | Rest]) ->
     io:format("N=0   is_integer - int-none (arg is an integer) = ~s ns/call~n", [fsgn(Mins({0, ig}) - Mins({0, i}))]),
     [io:format("N=~-3w guard delta (~s - unguarded) = ~s ns/call   ~s~n",
         [N, vname(V), fsgn(Mins({N, V}) - Mins({N, u})),
-         case abs(Mins({N, V}) - Mins({N, u})) =< Noise of true -> "(<= noise floor: not resolved)"; false -> "(above noise floor)" end])
+         case abs(Mins({N, V}) - Mins({N, u})) =< 2 * Noise of true -> "(within 2x identical-module spread: UNRESOLVED)"; false -> "(exceeds 2x identical-module spread; one run, not proof)" end])
      || N <- [5, 20], V <- [g, p]],
     halt(0).
 

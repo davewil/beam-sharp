@@ -1,7 +1,7 @@
 # Brief: ticket 57 / ENG-239, "A refinement cannot say `-5`, though a pattern can"
 
 Not a resolution. Nothing under `wayfinder/` or `compiler/` was edited. Probes: `artifacts/probes/57/`
-(`bash artifacts/probes/57/run.sh`, 23 PASS, rc 0, 74 s; captured in `run.out`).
+(`bash artifacts/probes/57/run.sh`, 30 PASS, rc 0, 74 s; captured in `run.out`).
 
 ## 1. Question and the gating sub-decision
 
@@ -30,10 +30,14 @@ formatter or LSP must round-trip `-(5)`. Neither is asked here.
 | Grammar fold (1 line in `negate/2`) fixes refinement, guard and literal typing | `grammar-fold.patch` + `table.escript` + `sem.escript` | `-100..100` accepted; `Take(-100)` ok, `Take(-101)` refused; guards exhaustive; `Take(-1)` over `<= 5` ok | measured here |
 | Checker fold in `comparison/1` alone fixes refinement and guard but **not** the literal | `checker-fold-neg.patch`, variant `neg` | `type Delta = int where value >= -100 and value <= 100` accepted, then `Take(-100)` is `arg_not_accepted` | measured here |
 | Checker fold needs a second site (`type_of`) to be usable | `checker-fold-negt.patch`, variant `negt` | `Take(-100)` accepted | measured here |
-| Neither fix changes the repo's own tests | `suite.sh`: 12 test modules, 289 tests, eunit on OTP 25 | 41 fail at base (CLI/escript, OTP-28 and float tests); **the failing set is identical** across base/grammar/neg/negt/arith | measured here, weak (see 7) |
+| Neither fix changes the repo's own tests | `suite.sh`: 12 test modules, 289 tests, eunit on OTP 25 | 41 fail at base (mostly CLI/escript and OTP-27+ float tests; `pipe_tests` fails because of my shim's integer locations); **the failing set is identical** across base/grammar/neg/negt/arith | measured here, weak (see 7) |
 | `{integer,L,-5}` (what `bs_emit` would get) compiles to the same beam as `{op,L,'-',{integer,L,5}}` | `erl/neglit.escript` | both 532 bytes, byte-identical; `bs_emit.erl:1049` handles `e_neg` as `{op,L,'-',..}` | measured here |
 | Ticket 57: "F2's five scenarios are all non-negative" | read F2, not re-run | not contradicted | cited |
-| Ticket 20 §5: refinements are "one BEAM guard" | `20-untheorised-term-shapes.md:249-251,460` | the tier line is guard-decidability, and Erlang's guard folds `-5` | cited |
+| Ticket 20 §5: refinements are "one BEAM guard" | `wayfinder/issues/20-untheorised-term-shapes.md:182,221,364` (the phrase "what one BEAM guard decides in O(1)"; the refinement tier is :249-251,460) | the tier line is guard-decidability, and Erlang's guard folds `-5` | cited |
+
+Oracle self-test (`run.sh`, variant `mutant`): a grammar patch that drops the sign passes the original
+`Take(-100)`/`Take(-101)` rows (both bound and argument lose it) but is red on the added `Take(0)` and
+`Take(-1)` rows; `run.sh` asserts that.
 
 ## 3. Neighbour survey
 
@@ -95,8 +99,16 @@ re-run); the emitted guard literal is `{integer,L,-100}`, which `compile:forms` 
 beam as `{op,L,'-',{integer,L,5}}` (`erl/neglit.escript`).
 
 Compiler delta: one clause in `negate/2`, `bs_parser.yrl:944`:
-`negate(_L, {e_int, IL, N}) -> {e_int, IL, -N};`. No checker, emitter or diagnostic change. A test row
-for each of F2's scenarios with a negative bound, and one for guard coverage.
+`negate(_L, {e_int, IL, N}) -> {e_int, IL, -N};`. No emitter or diagnostic-text change, but it is not
+a refinement-only change: `-5` is now an `e_int` everywhere, so the two parser narrowing functions that
+already accept `e_int` (`to_match`, `bs_parser.yrl:882`; `to_param`, `:930`) accept it too. Measured
+(`sem.escript`, base vs grammar): bare `-1 = a` goes from a parse error to a parsed bind that the
+checker then reports as `bind_may_fail`; and the divisor check sees a literal, so `a / -0` goes from
+accepted to `divide_by_zero`, as `a / 0` already is. A lambda parameter `-1` should now pass `to_param`
+too, but my probe syntax for it was malformed and parse-errors at base and grammar, so that one is
+reasoned, not measured. All three match the float precedent (`-1.5 = 1.5` already binds) and read as
+improvements, but each needs a test row. Also a test row per F2 scenario with a negative bound, and one
+for guard coverage.
 
 Strongest counterargument: the AST no longer records that the author wrote `-(5)` or `- -5`, since both
 fold; the diagnostic line comes from the literal rather than the minus, and a formatter or LSP that wants
@@ -147,8 +159,10 @@ them at once while the ticket as written names only refinements.
   `TokenLoc` renamed `TokenLine`, and a hand-written `adjust_col/3` (OTP 26 leex generates it; it is
   used only inside `$"..{hole}.."`, which no probe uses). Tokens carry integer lines, not `{L,C}`.
   Diagnostics are read as tags (`inexhaustive`, `arg_not_accepted`), not rendered text.
-- The eunit slice is **weak evidence**: 41 of 289 tests fail on OTP 25 at base (they shell out to the
-  `bsc` escript or need OTP 28), including 5 of `intervals_tests` and 4 of `negation_tests`. The claim
+- The eunit slice is **weak evidence**: 41 of 289 tests fail at base. Most shell out to the `bsc` escript
+  or need OTP 27+ float semantics, but at least one (`pipe_tests`, expects `{Line,Col}` locations) fails
+  because of the shim, not OTP 25. The failures include 5 of `intervals_tests` and 4 of `negation_tests`,
+  so **the slice cannot see the tests nearest this change** (e.g. the negative-zero head, residual printing). The claim
   is only that the failing set is identical across variants, so the patches add no failure in what runs.
   `./bin/verify.sh` and the gates were not run. CLAUDE.md requires them twice from a clean checkout.
 - Emission of a declared refinement (F37's boundary guard) was not re-run; Option A's emission claim
