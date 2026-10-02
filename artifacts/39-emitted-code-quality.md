@@ -7,8 +7,8 @@ Decision brief only. Nothing under `wayfinder/` or `compiler/` was touched. Prob
 
 The ticket asks for a cause and a ceiling. Its working hypothesis is that `bs_emit` throws away interval
 facts at the emission boundary, so the JIT sees a bare `{x,0}` where Erlang has `{tr,{x,0},{t_integer,{0,99}}}`.
-**On OTP 25 / x86-64 JIT that hypothesis did not survive the ticket's own §3.2 experiment** (annotations
-stripped, 0.98-0.99x of baseline, i.e. noise), and **the one lever that moved the hot loop was not type
+**On my OTP 25 / x86-64 JIT replica, annotations are not the lever** (the §3.2 experiment, annotations
+stripped by exporting `spin/4`, gave 0.98-0.99x of baseline, i.e. noise; but real `bsc` output showed bare `{x,0}` on a private Spin, and my replica keeps `{tr,..}`, so the symptom itself was NOT reproduced), and **the one lever that moved the hot loop was not type
 information at all: `-compile(inline)`** (1.14x faster, and it is exactly what Gleam emits). Nothing here
 reproduces beam-sharp's reported 20%: `bsc` cannot run in this sandbox.
 
@@ -28,11 +28,11 @@ whether guards should ever carry intervals (measured: no); the ticket-04 "tensio
 |---|---|---|---|
 | This host is a JIT VM | `run.sh` header | `OTP 25 erts-13.2.2.5 flavor=jit x86_64`, Elixir 1.14.0 | measured here |
 | The hot loop is where the time is (ticket §3.1) | `bench.erl` `spin_only/1` vs `part_two/1` | spin-only 8.88 ms vs full 9.03 ms (plain Erlang): ~98% of the run | measured here |
-| `bsc` build path loses nothing in `wrap/hit/spin` | `pipe.escript` replays `bsc.erl:833-846` (all annotations 0, `~p` `.abstr`, `from_abstr`+`debug_info`) on hand-written forms | asm of `wrap`, `hit`, `spin` incl. `{tr,..}` byte-identical to plain `erlc` | measured here (forms hand-written, not bsc output) |
+| On the replica, bsc's build path keeps the `{tr,..}` annotations in `wrap/hit/spin` (the ticket saw them bare in real bsc output: not reproduced) | `pipe.escript` replays `bsc.erl:833-846` (all annotations 0, `~p` `.abstr`, `from_abstr`+`debug_info`) on hand-written forms | asm of `wrap`, `hit`, `spin` incl. `{tr,..}` byte-identical to plain `erlc` | measured here (forms hand-written, not bsc output) |
 | `erlang:rem` remote call = `rem` operator | `v_remote.erl` | identical asm (`bs_emit.erl:1045`: `e_op` is a plain `{op,..}`; foreign call is `{call,{remote,erlang,rem}}`, `:1120`) | measured here |
 | `-spec` (wide or narrow) is invisible to the optimiser | `v_spec.erl`, `v_narrowspec.erl` (`-spec wrap(integer()) -> 0..99`, `spin(0..99,-1..1,0..2^27-1,..)`) | asm identical to no-spec; time 0.998-1.00x | measured here |
 | Ticket's refutation of the spec holds | same | 6.51 vs 6.54 ms cited by ticket; here 1.00x | measured here (agrees) |
-| Stripping `{tr,..}` from spin does not slow it (ticket §3.2 causation test) | `v_noanno.erl` (`spin/4` exported, so arg types unknowable: asm shows bare `[{x,0},{x,1}]` exactly as ticket reports for beam-sharp) | 0.984-0.992x of baseline (noise); with inlining 0.989-1.000x | measured here; **contradicts the ticket's mechanism on OTP 25** |
+| Stripping `{tr,..}` from spin does not slow it (ticket §3.2 causation test) | `v_noanno.erl` (`spin/4` exported, so arg types unknowable: asm shows bare `[{x,0},{x,1}]` exactly as ticket reports for beam-sharp) | 0.984-0.992x of baseline (noise); with inlining 0.989-1.000x | measured here; on the replica annotations are not the lever. Caveat: real private Spin is not exported, so this strips them by a route bsc's output does not take |
 | bs_emit return-guard (`case rem(..) of V when is_integer(V) -> V end`) is free without inlining | `v_retguard.erl` from `bs_emit.erl:1120-1131, 1241-1247, 1282-1283` | asm of wrap/hit/spin identical, time 0.999-1.009x | measured here |
 | That return guard did not exist when the ticket was written | `compiler/features/F42-...md` Status "done 2026-09-11", F52 "done 2026-09-19"; ticket raised 2026-08-15 | the 20% measured a `bsc` that emitted no guard on `:erlang.rem` | cited (repo history is squashed, no git log to confirm) |
 | Range guards do **not** hand the optimiser an interval | `v_guard.erl` (`Left >= 0, Left =< 16#7FFFFFF` etc.) | operand still `{tr,{y,2},{t_integer,any}}`; 6+ extra `is_ge` tests per iteration; time 1.01-1.03x (slower) | measured here (OTP 25; relop narrowing may exist in 28: not verified) |
@@ -85,7 +85,7 @@ threshold 3% per the brief.
 
 Variance: min-to-median spread is 25% (9.0 vs 11.7) on this sandbox, with p90 up to 15.5; only min and
 round-robin comparisons are trustworthy. Run-to-run, min is stable to ~1% across five invocations.
-Code size: `v_erl.beam` 1288 B, bsc-path 1792 B, inline+bsc 1668 B (`wc -c`). Compile time was not measured
+Code size: `v_erl.beam` 1288 B reproduced by the verifier; the `*_bsc` sizes differ between machines (1792/1868/1668 here vs 1872/1948/1748 for the verifier), so no size claim is made (`run.sh` prints them). Compile time was not measured
 (modules this small do not discriminate).
 
 ## 5. Options
@@ -146,7 +146,7 @@ public-adjacent code the author may not expect to vanish from traces.
 
 ## 6. Recommendation
 
-**Option 2 is the cheap, measured lever, but I would not decide it yet.** The ticket's 20% is unreproduced here (no `bsc`,
+**Do not decide yet: run the ticket's harness on OTP 28 first.** Option 2 is the cheap, measured lever on the replica. The ticket's 20% is unreproduced here (no `bsc`,
 OTP 25 not 28, and the measured `bsc` pre-dates F42/F52). The decision that does not depend on the missing
 measurement is narrow: **allow `bs_emit` to emit a `compile` directive, scoped to an explicit list of private
 functions**, because it is the only lever that moved a number here and it composes with the guards the emitter already

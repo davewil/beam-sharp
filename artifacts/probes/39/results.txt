@@ -24,30 +24,38 @@ Elixir.BenchEx     [no_spawn_compiler_process,from_core,no_core_prepare,
 == 3. timing (60 rounds, round-robin, rotated order)
 clicks=673364 part_two=6770 spin_only={14,6734}
 variant                full min   median      p90   spin min   median      p90
-v_erl                      8.96    11.63    13.64       8.86    11.38    15.51   rel 1.137 / 1.145
-v_erl_bsc                  8.97    11.65    14.38       8.85    11.38    15.15   rel 1.139 / 1.143
-v_retguard_bsc             9.01    11.77    13.62       8.86    11.37    15.64   rel 1.144 / 1.144
-v_spec_bsc                 9.02    11.55    13.47       8.84    11.41    15.55   rel 1.145 / 1.142
-v_narrowspec               8.99    11.66    13.69       8.87    11.40    15.49   rel 1.141 / 1.145
-v_guard                    9.10    11.78    13.77       8.97    11.56    15.86   rel 1.155 / 1.159
-v_noanno                   8.88    11.48    13.67       8.76    11.25    15.70   rel 1.127 / 1.131
-v_inline                   7.93    10.19    10.71       7.82    10.02    10.51   rel 1.007 / 1.010
-v_inline_bsc               7.90    10.14    10.40       7.81     9.98    10.39   rel 1.003 / 1.009
-v_rginline_bsc             8.06    10.38    10.86       7.92    10.16    10.85   rel 1.023 / 1.023
-v_rgexplicit_bsc           7.88    10.13    10.79       7.82    10.03    10.53   rel 1.000 / 1.010
-v_noanno_inline            7.88    10.07    10.65       7.74     9.96    10.38   rel 1.001 / 1.000
-Elixir.BenchEx             8.99    11.71    14.87       8.91    11.41    15.15   rel 1.141 / 1.150
-bench_gleam                7.92    10.13    10.40       7.82    10.02    10.32   rel 1.005 / 1.010
+v_erl                      8.99    11.66    13.33       8.94    11.45    15.75   rel 1.140 / 1.153
+v_erl_bsc                  9.05    11.65    13.77       8.89    11.41    14.55   rel 1.148 / 1.146
+v_retguard_bsc             9.00    11.69    13.53       8.84    11.45    15.11   rel 1.141 / 1.140
+v_spec_bsc                 9.07    11.64    13.37       8.90    11.42    15.72   rel 1.150 / 1.148
+v_narrowspec               9.01    11.70    13.38       9.08    11.52    15.73   rel 1.142 / 1.171
+v_guard                    9.13    11.93    14.04       9.01    11.67    15.95   rel 1.158 / 1.162
+v_noanno                   8.90    11.63    13.75       8.77    11.51    15.74   rel 1.128 / 1.131
+v_inline                   7.95    10.23    10.56       7.83    10.05    10.33   rel 1.007 / 1.009
+v_inline_bsc               7.95    10.22    11.04       7.85    10.07    10.24   rel 1.008 / 1.013
+v_rginline_bsc             8.07    10.43    10.98       7.96    10.22    10.52   rel 1.023 / 1.026
+v_rgexplicit_bsc           7.92    10.19    10.45       7.87    10.06    10.54   rel 1.004 / 1.015
+v_noanno_inline            7.89    10.16    10.44       7.75    10.01    10.40   rel 1.000 / 1.000
+Elixir.BenchEx             8.99    11.63    13.79       8.93    11.41    15.68   rel 1.140 / 1.152
+bench_gleam                7.94    10.18    10.45       7.84    10.05    10.32   rel 1.007 / 1.012
+PASS  all variants agree on the answer
+sizes (bytes):
+  v_erl              1288
+  v_erl_bsc          1792
+  v_retguard_bsc     1868
+  v_inline_bsc       1668
+  v_rginline_bsc     1752
+  v_rgexplicit_bsc   1836
 
-PASS  plain Erlang / -compile(inline) Erlang = 1.130 (>1.05: a real gap)
-PASS  guarded wrap + explicit inline list vs plain inline: 0.997
-INFO  guarded wrap + default inline vs plain inline: 1.020  (borderline: see README of brief; not asserted)
-PASS  stripping {tr,..} from spin: 0.991 (within 3% noise => annotations do not cause the gap on OTP 25)
-PASS  stripping {tr,..} with inlining: 0.994
-PASS  bs_emit return guard on rem (no inline): 1.006
-PASS  narrow vs no spec: 1.003
+PASS  plain Erlang / -compile(inline) Erlang = 1.131 (>1.05: a real gap)
+PASS  guarded wrap + explicit inline list vs plain inline: 0.996
+INFO  guarded wrap + default inline vs plain inline: 1.015  (borderline: see README of brief; not asserted)
+PASS  stripping {tr,..} from spin: 0.990 (within 3% noise => annotations do not cause the gap on OTP 25)
+PASS  stripping {tr,..} with inlining: 0.992
+PASS  bs_emit return guard on rem (no inline): 1.001
+PASS  narrow vs no spec: 1.002
 PASS  range guards are not faster than plain: 1.016
-PASS  Elixir/Erlang: 1.003
+PASS  Elixir/Erlang: 1.000
 PASS  Gleam/Erlang+inline: 0.999
 
 == 4. what inlining costs the author: stack frames

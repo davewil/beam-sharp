@@ -51,6 +51,8 @@ echo; echo "== 3. timing ($RUNS rounds, round-robin, rotated order)"
 MODS="v_erl,v_erl_bsc,v_retguard_bsc,v_spec_bsc,v_narrowspec,v_guard,v_noanno,v_inline,v_inline_bsc,v_rginline_bsc,v_rgexplicit_bsc,v_noanno_inline,'Elixir.BenchEx'"
 [ $HAVE_GLEAM = 1 ] && MODS="$MODS,bench_gleam"
 erl -noshell -pa "$W" -eval "bench:main(\"$D/input.txt\", $RUNS, [$MODS]), halt()." | tee "$W/timing.txt"
+grep -q "ANSWER MISMATCH" "$W/timing.txt" && bad "a variant returned a different answer (ANSWER MISMATCH)" || ok "all variants agree on the answer"
+echo "sizes (bytes):"; for m in v_erl v_erl_bsc v_retguard_bsc v_inline_bsc v_rginline_bsc v_rgexplicit_bsc; do printf "  %-18s %s\n" $m $(wc -c < "$W/$m.beam"); done
 # min-over-rounds, full-run column 2, relative cols printed at the end of each row
 rel(){ awk -v v="$1" '$1==v{print $2}' "$W/timing.txt"; }
 cmp(){ awk -v a="$(rel $1)" -v b="$(rel $2)" 'BEGIN{printf "%.3f", a/b}'; }
