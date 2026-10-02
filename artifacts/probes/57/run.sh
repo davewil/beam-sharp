@@ -15,7 +15,7 @@ escript "$here/ast.escript" "$w/b_base"; ok $? "refinement -5 parses to {e_neg,_
 echo; echo "=== B. refinements and guards through the real bs_check, per variant ==="
 for v in base grammar neg arith; do escript "$here/table.escript" "$w/b_$v" $v | sed 'N;s/\n *\(opaque\)/ \1/;P;D' | tr -s ' '; done > "$w/table.txt"
 cat "$w/table.txt"
-has() { grep -q -- "^$1 $2 *$" "$w/table.txt"; }
+has() { grep -Fxq -- "$1 $2" "$w/table.txt"; }
 has base    "refinement value >= -5 {refused, opaque_refinement}";               ok $? "base refuses value >= -5 (ticket's repro)"
 has base    "refinement value <= 3 or value >= 10 accepted";                      ok $? "base accepts the disjoint union (ticket's control)"
 has base    "exhaustive guards n <= -1 / n >= 0 {diag,[inexhaustive]}";           ok $? "base: guard 'n <= -1' earns no coverage (NEW: not only refinements)"
@@ -28,7 +28,7 @@ has arith   "refinement value >= 5 - 10 accepted";                              
 
 echo; echo "=== C. does the accepted refinement mean it; what types the literal -1 (per variant) ==="
 for v in base grammar neg negt; do escript "$here/sem.escript" "$w/b_$v" $v | tr -s ' ' | sed 'N;s/\n opaque/ opaque/;P;D'; done > "$w/sem.txt"; cat "$w/sem.txt"
-hs() { grep -q -- "^$1 $2 *$" "$w/sem.txt"; }
+hs() { grep -Fxq -- "$1 $2" "$w/sem.txt"; }
 hs grammar "Take(-100 ) over Delta accepted";                         ok $? "grammar: Take(-100) over -100..100 accepted"
 hs grammar "Take(-101 ) over Delta {diag,[arg_not_accepted]}";        ok $? "grammar: Take(-101) refused (the bound is real)"
 hs neg     "Take(-100 ) over Delta {diag,[arg_not_accepted]}";        ok $? "checker fold alone: Take(-100) over -100..100 is REFUSED"
