@@ -1,0 +1,20 @@
+== A. ERL_LIBS unset: compile+run
+crashed: error:undef
+exit=1
+== B. ERL_LIBS=elixir libs: compile+run
+"HI"
+exit=0
+== C. compile on machine WITH elixir; run beam on machine WITHOUT
+Probe.beam
+{'EXIT',{undef,[{'Elixir.String',upcase,[<<"hi">>],[]},
+                {'Probe','Shout',1,[{file,"Probe/probe.bs"},{line,9}]},
+                {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,1044}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,780}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},
+                {erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,1664}]},
+                {erl_eval,expr_list,5,[{file,"erl_eval.erl"},{line,1660}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,754}]}]}}
+== D. -pa . and what module name did it emit?
+Probe
+Probe.abstr
+Probe.beam

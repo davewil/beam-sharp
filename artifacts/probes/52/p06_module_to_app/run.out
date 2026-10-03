@@ -1,0 +1,17 @@
+derive.escript:16:33: Warning: variable 'M' is unused
+%   16|               [length([1 || {A, M} <- RX, A =/= elixir]), length([1 || {A, _} <- Ex, A =/= elixir])]),
+%     |                                 ^
+
+applications scanned: 41   modules: 1736 (erlang-style 1323, Elixir 413)
+rule 'first _ segment of module == app' holds for 434 of 1323 erlang-style modules (32.8%)
+rule 'Elixir.<First> lowercased == app' holds for 148 of 413 Elixir modules (35.8%)
+  ...excluding app 'elixir' (String, Enum, Map, Kernel... all live in app elixir): 148 of 176
+modules of app elixir that rule X gets wrong: 237 of 237  e.g. ['Elixir.Access',
+                                                                'Elixir.Agent.Server',
+                                                                'Elixir.Agent']
+  lists        lives in app stdlib
+  ets          lives in app stdlib
+  file         lives in app kernel
+  gen_server   lives in app stdlib
+  public_key   lives in app public_key
+  erlang       lives in app erts

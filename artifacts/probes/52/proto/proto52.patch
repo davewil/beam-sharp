@@ -1,0 +1,135 @@
+diff -u orig/bs_parser.yrl src/bs_parser.yrl
+--- orig/bs_parser.yrl	2026-10-03 23:11:08.191698341 +0000
++++ src/bs_parser.yrl	2026-10-03 23:11:34.597459105 +0000
+@@ -170,6 +170,10 @@
+ foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+     {foreign, line('$1'), value('$2'), '$4'}.
+ 
++%% PROTOTYPE 52: `using :'Elixir.Req' in :req { ... }` names the application.
++foreign_decl -> 'using' atom_lit 'in' atom_lit '{' foreign_sigs '}' :
++    {foreign, line('$1'), value('$2'), '$6', value('$4')}.
++
+ foreign_sigs -> foreign_sig              : ['$1'].
+ foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
+ 
+diff -u orig/bsc.erl src/bsc.erl
+--- orig/bsc.erl	2026-10-03 23:11:08.192089017 +0000
++++ src/bsc.erl	2026-10-03 23:12:17.102417594 +0000
+@@ -755,11 +755,78 @@
+                 %% the file and a yecc action has nowhere to keep a
+                 %% counter. No later stage sees an unlowered `e_valve`.
+                 %% Rationale: compiler/features/F14-pipe-and-valve.md.
+-                {ok, Decls} ->
++                {ok, Decls0} ->
++                    Decls = bs52_strip(Path, Decls0),
+                     {ok, bs_lower:valves(Decls)}
+             end
+     end.
+ 
++%% ---- PROTOTYPE 52 -----------------------------------------------------------
++%% A 5-tuple foreign decl carries the application. Strip it back to the 4-tuple
++%% every later pass already matches and park {App, Mod, Line} per file.
++bs52_strip(Path, Decls) ->
++    Needs = [{A, M, L} || {foreign, L, M, _, A} <- Decls],
++    put({bs52_needs, Path}, Needs),
++    [case D of {foreign, L, M, S, _} -> {foreign, L, M, S}; _ -> D end || D <- Decls].
++
++bs52_mode() -> case os:getenv("BS52") of "" -> false; "off" -> false; V -> V end.
++bs52_ln({L,_}) -> L; bs52_ln(L) -> L.   %% false | "module" | "app" | "attr"
++
++%% Returns ok | {error, [Msg]}. Messages are prose, printed by the caller.
++bs52_check(Sources) ->
++    Mode = bs52_mode(),
++    Errs = lists:append([bs52_check1(Mode, P, D) || {P, D} <- Sources]),
++    case Errs of [] -> ok; _ -> {error, Errs} end.
++
++bs52_check1(false, _, _) -> [];
++bs52_check1("attr", _, _) -> [];
++bs52_check1(Mode, Path, Decls) ->
++    Needs = case get({bs52_needs, Path}) of undefined -> []; N -> N end,
++    Declared = maps:from_list([{M, {A, L}} || {A, M, L} <- Needs]),
++    lists:append(
++      [begin
++           Where = case Path of P when is_list(P) -> P; _ -> "<string>" end,
++           case {Mode, maps:find(M, Declared)} of
++               {"module", _} -> bs52_mod(Where, L, M);
++               {"app", {ok, {A, _}}} -> bs52_app(Where, L, M, A);
++               {"app", error} -> []
++           end
++       end || {foreign, L, M, _} <- Decls]).
++
++bs52_mod(Where, L, M) ->
++    case code:which(M) of
++        non_existing ->
++            [io_lib:format("~s:~p: error: module '~s' is not on the code path~n"
++                           "  `using :'~s'` promises it; nothing here says which application provides it.~n",
++                           [Where, bs52_ln(L), M, M])];
++        _ -> []
++    end.
++
++bs52_app(Where, L, M, A) ->
++    case code:lib_dir(A) of
++        {error, _} ->
++            [io_lib:format("~s:~p: error: application '~s' (declared for module '~s') is not on the code path~n"
++                           "  put its directory on ERL_LIBS, or fix the name after `in`.~n",
++                           [Where, bs52_ln(L), A, M])];
++        Dir ->
++            case code:which(M) of
++                non_existing ->
++                    [io_lib:format("~s:~p: error: application '~s' is present (~s) but does not contain module '~s'~n",
++                                   [Where, bs52_ln(L), A, Dir, M])];
++                Beam ->
++                    case lists:prefix(Dir ++ "/", Beam) of
++                        true -> [];
++                        false -> [io_lib:format("~s:~p: error: module '~s' resolves to ~s, outside application '~s' (~s)~n",
++                                                [Where, bs52_ln(L), M, Beam, A, Dir])]
++                    end
++            end
++    end.
++
++bs52_attr(Sources) ->
++    lists:usort(lists:append([case get({bs52_needs, P}) of undefined -> []; N -> [{A, M} || {A, M, _} <- N] end
++                              || {P, _} <- Sources])).
++%% ---- END PROTOTYPE 52 -------------------------------------------------------
++
+ parse_path(Path) ->
+     case file:read_file(Path) of
+         {ok, Bin}  -> parse_string(Path, binary_to_list(Bin));
+@@ -774,7 +841,7 @@
+             case bs_lexer:string(binary_to_list(Bin)) of
+                 {ok, Tokens, _} ->
+                     case bs_parser:parse(Tokens) of
+-                        {ok, Decls} -> {ok, bs_lower:valves(Decls)};
++                        {ok, Decls} -> {ok, bs_lower:valves([case D of {foreign,L,M,S,_} -> {foreign,L,M,S}; _ -> D end || D <- Decls])};
+                         _           -> error
+                     end;
+                 _ -> error
+@@ -786,6 +853,13 @@
+     %% The checker raises conditions found while resolving types, below the
+     %% level that carries a line and a function name. They are caught here so
+     %% they reach the author as a diagnostic, not a stack trace.
++    put(bs52_sources, Sources),
++    case bs52_check(Sources) of
++        {error, Msgs} -> io:format(standard_error, "~s", [Msgs]), {error, check};
++        ok -> check_and_emit1(Dir, Sources, Opts, World)
++    end.
++
++check_and_emit1(Dir, Sources, Opts, World) ->
+     try bs_check:check_dir(Sources, World, expect(Dir, Opts)) of
+         {error, Diags} ->
+             %% Each diagnostic arrives tagged with the file it came from,
+@@ -824,7 +898,13 @@
+     end.
+ 
+ emit(_Path, Opts = #opts{outdir = Dir}, Module) ->
+-    Forms = bs_emit:forms(Module),
++    Forms0 = bs_emit:forms(Module),
++    Forms = case {bs52_mode(), bs52_attr(get(bs52_sources))} of
++                {false, _} -> Forms0;
++                {_, []}    -> Forms0;
++                {_, Ns}    -> [ModA | Rest] = Forms0,
++                              [ModA, {attribute, 0, bs_needs, Ns} | Rest]
++            end,
+     Mod = maps:get(module, Module),
+     %% The file must be named for the module atom: `erlc` enforces
+     %% module-name/filename matching on the `from_abstr` path.

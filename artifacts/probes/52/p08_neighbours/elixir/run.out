@@ -1,0 +1,42 @@
+## 1. real 'mix new demo' -> where the manifest says it (mix.exs lines)
+6:      app: :demo,
+10:      deps: deps()
+17:      extra_applications: [:logger]
+21:  # Run "mix help deps" to learn about dependencies.
+22:  defp deps do
+## 2. elixirc on the SAME source with no manifest (what the compiler alone says)
+    warning: Req.get!/1 is undefined (module Req is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+  3 │   def b, do: Req.get!("http://x")              # module in no available app, NOT in deps
+    │                  ~
+    │
+    └─ lib/demo.ex:3:18: Demo.b/0
+
+elixirc rc=0
+## 3. mix compile: the manifest is checked against the source's remote calls
+Compiling 1 file (.ex)
+    warning: Req.get!/1 is undefined (module Req is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+  3 │   def b, do: Req.get!("http://x")              # module in no available app, NOT in deps
+    │                  ~
+    │
+    └─ lib/demo.ex:3:18: Demo.b/0
+
+Generated demo app
+mix rc=0
+## 4. after adding :crypto to extra_applications
+Compiling 1 file (.ex)
+    warning: Req.get!/1 is undefined (module Req is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+  3 │   def b, do: Req.get!("http://x")              # module in no available app, NOT in deps
+    │                  ~
+    │
+    └─ lib/demo.ex:3:18: Demo.b/0
+
+Generated demo app
+mix rc=0
+## 5. a dep declared in mix.exs but absent on disk (path dep; Hex itself is unreachable here - see Limits)
+Unchecked dependencies for environment dev:
+* req (../req_missing)
+  the dependency is not available
+** (Mix) Can't continue due to errors on dependencies

@@ -1,0 +1,38 @@
+B# files scanned: 161 in 120 directories; 16 directories have >=1 foreign using block
+aoc/2019/Day01                                                           blocks=1 modules=1 apps=1 ["erts"]
+aoc/2025/Day01                                                           blocks=1 modules=1 apps=1 ["erts"]
+aoc/bench/Day01                                                          blocks=1 modules=1 apps=1 ["erts"]
+compiler/examples/Foreign                                                blocks=2 modules=2 apps=2 ["erts",
+                                                                                                    "kernel"]
+compiler/examples/Interop                                                blocks=3 modules=3 apps=2 ["erts",
+                                                                                                    "stdlib"]
+compiler/examples/Label                                                  blocks=1 modules=1 apps=1 ["erts"]
+compiler/examples/Names                                                  blocks=1 modules=1 apps=1 ["erts"]
+compiler/examples/exemplars/25d-database-querying                        blocks=2 modules=2 apps=2 ["(absent)",
+                                                                                                    "stdlib"]
+compiler/examples/exemplars/25e-dynamic-web-page                         blocks=2 modules=2 apps=2 ["erts",
+                                                                                                    "stdlib"]
+compiler/examples/exemplars/25f-llm-evaluation-client                    blocks=3 modules=3 apps=2 ["erts",
+                                                                                                    "stdlib"]
+compiler/examples/exemplars/25g-jev-server                               blocks=4 modules=3 apps=2 ["erts",
+                                                                                                    "stdlib"]
+wayfinder/prototypes/50a-elixir-ffi/Elx                                  blocks=2 modules=2 apps=2 ["erts",
+                                                                                                    "stdlib"]
+wayfinder/prototypes/51a-code-path/Elx                                   blocks=2 modules=2 apps=1 ["elixir"]
+wayfinder/prototypes/51a-code-path/Req                                   blocks=3 modules=3 apps=3 ["(absent)",
+                                                                                                    "elixir",
+                                                                                                    "stdlib"]
+wayfinder/prototypes/63d_erlc_leak_sweep/G03ForeignBif                   blocks=1 modules=1 apps=1 ["erts"]
+wayfinder/prototypes/63d_erlc_leak_sweep/G04ForeignNonBif                blocks=1 modules=1 apps=1 ["stdlib"]
+
+total blocks=30; blocks in a directory where >1 block shares an app: 12
+blocks naming a module outside erts/kernel/stdlib (a real dependency): 5 [{'Elixir.Application',
+                                                                           "elixir"},
+                                                                          {'Elixir.Enum',
+                                                                           "elixir"},
+                                                                          {'Elixir.Req',
+                                                                           "(absent)"},
+                                                                          {'Elixir.String',
+                                                                           "elixir"},
+                                                                          {epgsql,
+                                                                           "(absent)"}]

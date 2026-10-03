@@ -1,0 +1,49 @@
+## 1. real 'gleam new demo' -> gleam.toml
+	gleam test
+
+     1	name = "demo"
+     2	version = "1.0.0"
+    15	[dependencies]
+    16	gleam_stdlib = ">= 1.0.0 and < 2.0.0"
+    18	[dev_dependencies]
+    19	gleeunit = ">= 1.0.0 and < 2.0.0"
+## 2. 'gleam add' (needs hex)
+
+An error occurred while choosing the version of gleam_http: error sending
+request for url (https://repo.hex.pm/packages/gleam_http)
+
+## 3. the SOURCE says only module paths: import gleam/io (package gleam_stdlib is in gleam.toml [dependencies])
+import gleam/io
+
+pub fn main() -> Nil {
+  io.println("Hello from demo!")
+}
+## 4. strip the dependency from gleam.toml, keep the import: compile-time diagnostic
+  Resolving versions
+  Compiling demo
+error: Unknown module
+  ┌─ /tmp/tmp.1j3d7phYmT/demo/src/demo.gleam:1:1
+  │
+1 │ import gleam/io
+  │ ^^^^^^^^^^^^^^^
+
+No module has been found with the name `gleam/io`.
+
+error: Unknown module
+  ┌─ /tmp/tmp.1j3d7phYmT/demo/src/demo.gleam:4:3
+  │
+4 │   io.println("hi")
+  │   ^^
+
+No module has been found with the name `io`.
+
+## 5. an @external names module+function, never a package
+  Compiling demo
+   Compiled in 0.62s
+gleam build rc=0
+## 6. where Gleam records an OTP app that only @external reaches: gleam.toml [erlang] extra_applications -> generated .app
+   Compiled in 0.65s
+-- demo.app WITH extra_applications = [crypto]:
+3:    {applications, [crypto]},
+-- without extra_applications:
+3:    {applications, []},

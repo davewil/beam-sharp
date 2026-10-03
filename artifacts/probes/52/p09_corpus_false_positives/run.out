@@ -1,0 +1,10 @@
+compiler/examples/*: same result under the check: 21   different: 0
+--- the two corpus modules that name a library not on this machine:
+DIFFERS: /home/user/beam-sharp/wayfinder/prototypes/51a-code-path/Req baseline rc=0  module-check rc=1
+    /home/user/beam-sharp/wayfinder/prototypes/51a-code-path/Req/req.bs:37: error: module 'Elixir.Req' is not on the code path
+      `using :'Elixir.Req'` promises it; nothing here says which application provides it.
+    /home/user/beam-sharp/wayfinder/prototypes/51a-code-path/Req/req.bs:43: error: module 'Elixir.Application' is not on the code path
+DIFFERS: /home/user/beam-sharp/wayfinder/prototypes/51a-code-path/Elx baseline rc=0  module-check rc=1
+    /home/user/beam-sharp/wayfinder/prototypes/51a-code-path/Elx/elx.bs:13: error: module 'Elixir.String' is not on the code path
+      `using :'Elixir.String'` promises it; nothing here says which application provides it.
+    /home/user/beam-sharp/wayfinder/prototypes/51a-code-path/Elx/elx.bs:17: error: module 'Elixir.Enum' is not on the code path

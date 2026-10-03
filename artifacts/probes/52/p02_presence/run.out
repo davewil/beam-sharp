@@ -1,0 +1,83 @@
+######## 1. ERL_LIBS=elixir libs
+ERL_LIBS="/tmp/otp/lib/elixir/lib"
+mode=interactive  path entries=42
+-- code:lib_dir(App)   [path lookup by app name, no load]
+  eex        "/tmp/otp/lib/elixir/lib/eex"
+  elixir     "/tmp/otp/lib/elixir/lib/elixir"
+  req        {error,bad_name}
+  logger     "/tmp/otp/lib/elixir/lib/logger"
+  nosuchapp  {error,bad_name}
+-- code:which(Mod)     [path lookup by module, no load]
+  'Elixir.String'  "/tmp/otp/lib/elixir/lib/elixir/ebin/Elixir.String.beam"
+  'Elixir.EEx'     "/tmp/otp/lib/elixir/lib/eex/ebin/Elixir.EEx.beam"
+  'Elixir.Req'     non_existing
+  lists            "/tmp/otp/lib/erlang/lib/stdlib-8.1/ebin/lists.beam"
+-- code:where_is_file("<app>.app")
+  eex        "/tmp/otp/lib/elixir/lib/eex/ebin/eex.app"
+  elixir     "/tmp/otp/lib/elixir/lib/elixir/ebin/elixir.app"
+  req        non_existing
+  logger     "/tmp/otp/lib/elixir/lib/logger/ebin/logger.app"
+  nosuchapp  non_existing
+-- application:load(App)  [reads .app, SIDE EFFECT: registers app in app controller]
+  eex        ok
+  elixir     ok
+  req        {error,"no such file or directory"}
+  logger     ok
+  nosuchapp  {error,"no such file or directory"}
+-- application:get_key(eex, modules) / applications
+  {ok,['Elixir.EEx','Elixir.EEx.Compiler','Elixir.EEx.Engine',
+       'Elixir.EEx.SmartEngine','Elixir.EEx.SyntaxError']}
+  {ok,[kernel,stdlib,elixir]}
+-- application:get_application(Mod)  [needs app loaded]
+  'Elixir.String'  {ok,elixir}
+  'Elixir.EEx'     {ok,eex}
+  lists            {ok,stdlib}
+-- erl_prim_loader:list_dir on each path entry's parent
+  {ok,["elixir","mix","eex","iex","ex_unit","logger"]}
+-- does code:lib_dir lie when only .beam is on -pa (no app dir)? see p02 run.sh part 2
+
+######## 2. ERL_LIBS unset
+ERL_LIBS=false
+mode=interactive  path entries=36
+-- code:lib_dir(App)   [path lookup by app name, no load]
+  eex        {error,bad_name}
+  elixir     {error,bad_name}
+  req        {error,bad_name}
+  logger     {error,bad_name}
+  nosuchapp  {error,bad_name}
+-- code:which(Mod)     [path lookup by module, no load]
+  'Elixir.String'  non_existing
+  'Elixir.EEx'     non_existing
+  'Elixir.Req'     non_existing
+  lists            "/tmp/otp/lib/erlang/lib/stdlib-8.1/ebin/lists.beam"
+-- code:where_is_file("<app>.app")
+  eex        non_existing
+  elixir     non_existing
+  req        non_existing
+  logger     non_existing
+  nosuchapp  non_existing
+-- application:load(App)  [reads .app, SIDE EFFECT: registers app in app controller]
+  eex        {error,"no such file or directory"}
+  elixir     {error,"no such file or directory"}
+  req        {error,"no such file or directory"}
+  logger     {error,"no such file or directory"}
+  nosuchapp  {error,"no such file or directory"}
+-- application:get_key(eex, modules) / applications
+  undefined
+  undefined
+-- application:get_application(Mod)  [needs app loaded]
+  'Elixir.String'  undefined
+  'Elixir.EEx'     undefined
+  lists            {ok,stdlib}
+-- erl_prim_loader:list_dir on each path entry's parent
+  {ok,["elixir","mix","eex","iex","ex_unit","logger"]}
+-- does code:lib_dir lie when only .beam is on -pa (no app dir)? see p02 run.sh part 2
+
+######## 3. module -> app directory, ERL_LIBS set
+'Elixir.String'  /tmp/otp/lib/elixir/lib/elixir/ebin/Elixir.String.beam -> appdir elixir
+'Elixir.EEx'     /tmp/otp/lib/elixir/lib/eex/ebin/Elixir.EEx.beam -> appdir eex
+lists            /tmp/otp/lib/erlang/lib/stdlib-8.1/ebin/lists.beam -> appdir stdlib-8.1
+
+######## 4. versioned dir (hex style: req-0.7.3/ebin) and bare -pa (no app dir)
+versioned dir: lib_dir(eex)="/tmp/tmp.67HNFdh3os/libs/eex-9.9.9" which(EEx)="/tmp/tmp.67HNFdh3os/libs/eex-9.9.9/ebin/Elixir.EEx.beam"
+bare -pa: lib_dir(elixir)={error,bad_name} which(String)="/tmp/tmp.67HNFdh3os/bare/Elixir.String.beam"

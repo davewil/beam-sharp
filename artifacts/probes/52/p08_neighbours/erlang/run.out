@@ -1,0 +1,19 @@
+## 1. OTP's own ssl: apps its .app declares vs how many times ssl_cipher.erl mentions crypto
+101:    {applications, [crypto, public_key, kernel, stdlib]},
+ssl_cipher.erl calls to crypto: 26; lines naming an application (-include_lib/-application): 
+38:-include_lib("public_key/include/public_key.hrl").
+## 2. erlc on a call into a module that exists nowhere (a.erl)
+erlc rc=0
+## 3. erlc on -include_lib naming an absent application (b.erl)
+b.erl:3:14: can't find include lib "nosuch_app/include/x.hrl"
+%    3| -include_lib("nosuch_app/include/x.hrl").   %% the ONE place Erlang source names an application
+%     |              ^
+
+erlc rc=1
+## 4. erlc on -include_lib naming a present one, then absent from path (c.erl)
+erlc rc=0 (public_key on default path)
+## 5. runtime: start ssl with its declared dependency 'crypto' removed from the code path
+ensure_all_started(ssl) -> {error,
+                               {crypto,
+                                   {"no such file or directory",
+                                    "crypto.app"}}}

@@ -1,0 +1,37 @@
+######## 0. BASELINE (unpatched semantics: no BS52): compile only vs run, lib missing
+$ BS52=off ERL_LIBS=<unset> bsc Probe 
+    exit=0
+$ BS52=off ERL_LIBS=<unset> bsc Probe Shout "hi"
+    crashed: error:undef
+    exit=1
+######## 1. module-presence check, no new syntax (BS52=module)
+$ BS52=module ERL_LIBS=<unset> bsc Probe 
+    Probe/probe.bs:3: error: module 'Elixir.String' is not on the code path
+      `using :'Elixir.String'` promises it; nothing here says which application provides it.
+    exit=1
+$ BS52=module ERL_LIBS=/tmp/otp/lib/elixir/lib bsc Probe Shout "hi"
+    "HI"
+    exit=0
+######## 2. app named, correct (BS52=app)
+$ BS52=app ERL_LIBS=<unset> bsc Probe 
+    Probe/probe.bs:3: error: application 'elixir' (declared for module 'Elixir.String') is not on the code path
+      put its directory on ERL_LIBS, or fix the name after `in`.
+    exit=1
+$ BS52=app ERL_LIBS=/tmp/otp/lib/elixir/lib bsc Probe Shout "hi"
+    "HI"
+    exit=0
+######## 3. app named, WRONG application (module lives in elixir, declared eex)
+$ BS52=app ERL_LIBS=/tmp/otp/lib/elixir/lib bsc Probe Shout "hi"
+    Probe/probe.bs:3: error: module 'Elixir.String' resolves to /tmp/otp/lib/elixir/lib/elixir/ebin/Elixir.String.beam, outside application 'eex' (/tmp/otp/lib/elixir/lib/eex)
+    exit=1
+######## 4. app named, application absent (req), module present elsewhere
+$ BS52=app ERL_LIBS=/tmp/otp/lib/elixir/lib bsc Probe Shout "hi"
+    Probe/probe.bs:3: error: application 'req' (declared for module 'Elixir.String') is not on the code path
+      put its directory on ERL_LIBS, or fix the name after `in`.
+    exit=1
+######## 5. false positive: module reachable by bare -pa (no app dir), app check refuses
+$ BS52=module  erl -pa bare  (module check)
+    "HI"
+$ BS52=app     erl -pa bare  (app check)
+    Probe/probe.bs:3: error: application 'elixir' (declared for module 'Elixir.String') is not on the code path
+      put its directory on ERL_LIBS, or fix the name after `in`.

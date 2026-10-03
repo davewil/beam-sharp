@@ -1,0 +1,74 @@
+################ (a) primitives
+#### path padded by 0 dirs (ERL_LIBS=elixir libs)
+path entries=42
+  code:which(hit  'Elixir.String')                 6.02 us/call
+  code:which(miss 'Elixir.Req')                    9.70 us/call
+  code:lib_dir(hit  elixir)                        2.42 us/call
+  code:lib_dir(miss req)                           1.63 us/call
+  code:where_is_file(hit  elixir.app)              3.00 us/call
+  code:where_is_file(miss req.app)                 8.57 us/call
+  application:load+unload(hit elixir)            595.04 us/call
+  application:load(miss req)                      18.56 us/call
+#### path padded by 100 dirs (ERL_LIBS=elixir libs)
+path entries=142
+  code:which(hit  'Elixir.String')                 6.32 us/call
+  code:which(miss 'Elixir.Req')                  569.76 us/call
+  code:lib_dir(hit  elixir)                        2.63 us/call
+  code:lib_dir(miss req)                           1.74 us/call
+  code:where_is_file(hit  elixir.app)              3.59 us/call
+  code:where_is_file(miss req.app)               657.31 us/call
+  application:load+unload(hit elixir)            569.01 us/call
+  application:load(miss req)                     809.57 us/call
+#### path padded by 500 dirs (ERL_LIBS=elixir libs)
+path entries=542
+  code:which(hit  'Elixir.String')                 6.74 us/call
+  code:which(miss 'Elixir.Req')                 2682.22 us/call
+  code:lib_dir(hit  elixir)                        2.36 us/call
+  code:lib_dir(miss req)                           1.75 us/call
+  code:where_is_file(hit  elixir.app)              3.02 us/call
+  code:where_is_file(miss req.app)              2732.23 us/call
+  application:load+unload(hit elixir)            553.66 us/call
+  application:load(miss req)                    2026.02 us/call
+################ (b) inside the prototype bsc (noise is ~+-1 ms; compare medians AND mins)
+#### 1 foreign blocks, annotated=0  (1 blocks, 9 lines)
+  BS52=off     median    3.26 ms  min    3.00 ms  result=ok
+  BS52=module  median    3.30 ms  min    2.73 ms  result=ok
+  BS52=app     median    3.71 ms  min    2.98 ms  result=ok
+  BS52=off     median    3.07 ms  min    2.73 ms  result=ok
+  BS52=module  median    3.28 ms  min    2.73 ms  result=ok
+  BS52=app     median    3.73 ms  min    2.60 ms  result=ok
+#### 1 foreign blocks, annotated=1  (1 blocks, 9 lines)
+  BS52=off     median    4.45 ms  min    3.24 ms  result=ok
+  BS52=module  median    4.61 ms  min    3.79 ms  result=ok
+  BS52=app     median    5.85 ms  min    4.91 ms  result=ok
+  BS52=off     median    5.01 ms  min    3.10 ms  result=ok
+  BS52=module  median    3.78 ms  min    3.28 ms  result=ok
+  BS52=app     median    5.24 ms  min    3.13 ms  result=ok
+#### 20 foreign blocks, annotated=0  (20 blocks, 85 lines)
+  BS52=off     median    4.20 ms  min    3.23 ms  result=ok
+  BS52=module  median    5.51 ms  min    4.23 ms  result=ok
+  BS52=app     median    4.97 ms  min    3.87 ms  result=ok
+  BS52=off     median    3.82 ms  min    3.37 ms  result=ok
+  BS52=module  median    5.18 ms  min    3.45 ms  result=ok
+  BS52=app     median    3.96 ms  min    3.34 ms  result=ok
+#### 20 foreign blocks, annotated=1  (20 blocks, 85 lines)
+  BS52=off     median    4.08 ms  min    3.38 ms  result=ok
+  BS52=module  median    4.74 ms  min    4.21 ms  result=ok
+  BS52=app     median    5.32 ms  min    4.00 ms  result=ok
+  BS52=off     median    4.82 ms  min    3.59 ms  result=ok
+  BS52=module  median    5.42 ms  min    4.37 ms  result=ok
+  BS52=app     median    5.40 ms  min    4.74 ms  result=ok
+#### 60 foreign blocks, annotated=0  (60 blocks, 245 lines)
+  BS52=off     median    5.07 ms  min    4.06 ms  result=ok
+  BS52=module  median    5.99 ms  min    5.11 ms  result=ok
+  BS52=app     median    5.69 ms  min    4.62 ms  result=ok
+  BS52=off     median    7.11 ms  min    5.15 ms  result=ok
+  BS52=module  median    7.15 ms  min    5.18 ms  result=ok
+  BS52=app     median    5.57 ms  min    4.40 ms  result=ok
+#### 60 foreign blocks, annotated=1  (60 blocks, 245 lines)
+  BS52=off     median    7.00 ms  min    5.13 ms  result=ok
+  BS52=module  median    8.81 ms  min    6.34 ms  result=ok
+  BS52=app     median    8.38 ms  min    6.55 ms  result=ok
+  BS52=off     median    8.25 ms  min    5.19 ms  result=ok
+  BS52=module  median    8.06 ms  min    6.05 ms  result=ok
+  BS52=app     median    7.51 ms  min    6.41 ms  result=ok

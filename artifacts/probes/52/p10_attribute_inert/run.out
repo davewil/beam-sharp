@@ -1,0 +1,13 @@
+1. attribute only (.app lists kernel,stdlib): ensure_all_started(dm) -> {ok,
+                                                                         [dm]}
+   crypto started? false
+=INFO REPORT==== 3-Oct-2026::23:28:32.147358 ===
+    application: dm
+    exited: stopped
+    type: temporary
+
+2. .app lists absent app req: ensure_all_started(dm) -> {error,
+                                                         {req,
+                                                          {"no such file or directory",
+                                                           "req.app"}}}
+   dm:f() still callable (module loads fine): ok

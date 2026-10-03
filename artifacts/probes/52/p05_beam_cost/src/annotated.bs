@@ -1,0 +1,14 @@
+module Probe
+
+using :'Elixir.String' in :elixir {
+    binary upcase(binary s)
+    binary downcase(binary s)
+}
+
+using :'Elixir.Path' in :elixir {
+    binary basename(binary s)
+}
+
+public binary Shout(binary s)
+
+Shout(s) -> :'Elixir.String'.upcase(s)

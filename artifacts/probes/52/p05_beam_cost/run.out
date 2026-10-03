@@ -1,0 +1,68 @@
+#### A. attribute survives bsc's real path (.abstr -> compile:file from_abstr -> .beam)?
+-- plain: files: Probe
+Probe.abstr
+Probe.beam
+   .abstr bs_needs line: <none>
+-- annotated: files: Probe
+Probe.abstr
+Probe.beam
+   .abstr bs_needs line: {attribute,0,bs_needs,[{elixir,'Elixir.Path'},{elixir,'Elixir.String'}]}.
+-- annotated .beam read back with beam_lib (no VM load needed for the first two):
+   beam_lib attributes of 'Probe': [{bs_needs,
+                                     [{elixir,'Elixir.Path'},
+                                      {elixir,'Elixir.String'}]}]
+   Dbgi abstract_code carries bs_needs: [[{elixir,'Elixir.Path'},
+                                          {elixir,'Elixir.String'}]]
+   module_info(attributes) at run time (module loaded): [{bs_needs,[{elixir,'Elixir.Path'},{elixir,'Elixir.String'}]}]
+-- plain .beam (no annotation, BS52=attr):
+   beam_lib attributes of 'Probe': []
+   Dbgi abstract_code carries bs_needs: []
+   module_info(attributes) at run time (module loaded): []
+
+#### B. what the same source costs in bytes (real .beam from bsc, debug_info as bsc builds it)
+baseline plain (no BS52): 920 bytes
+BS52=attr   plain: 920 bytes
+baseline annotated (no BS52): 924 bytes
+BS52=attr   annotated: 1016 bytes
+
+#### C. variants built from the SAME .abstr (compile:forms, debug_info; second figure without)
+none                                                 total=  856 (stripped of debug_info:   560)  Attr=  39 Dbgi= 327 Code=  96 AtU8=  86
+attr: [elixir]  (once per module, apps only)         total=  900 (stripped of debug_info:   588)  Attr=  65 Dbgi= 342 Code=  96 AtU8=  86
+attr: [{elixir,Mod}x2]  (per block, app+module)      total=  948 (stripped of debug_info:   628)  Attr= 105 Dbgi= 351 Code=  96 AtU8=  86
+attr x2 + on_load check fun (2 code:which)           total= 1364 (stripped of debug_info:   896)  Attr= 105 Dbgi= 497 Code= 156 AtU8= 140
+scale: attr with 1 pairs                             total=  916 (stripped of debug_info:   600)  Attr=  77 Dbgi= 348 Code=  96 AtU8=  86
+scale: attr with 10 pairs                            total= 1132 (stripped of debug_info:   780)  Attr= 258 Dbgi= 384 Code=  96 AtU8=  86
+scale: attr with 50 pairs                            total= 2080 (stripped of debug_info:  1620)  Attr=1098 Dbgi= 489 Code=  96 AtU8=  86
+
+#### D. on_load variant: failure text with lib missing (module load, not call site)
+onload.escript:10:36: Warning: 'catch ...' is deprecated; please use 'try ... catch ... end' instead.
+Compile directive 'nowarn_deprecated_catch' can be used to suppress
+warnings in selected modules.
+%   10|     io:format("call result: ~p~n",[catch Mod:'Shout'(<<"hi">>)]).
+%     |                                    ^
+
+load result: {error,on_load_failure}
+=WARNING REPORT==== 3-Oct-2026::23:27:47.937848 ===
+The on_load function for module Probe returned:
+{{bs_missing_dependency,elixir,'Elixir.String'},
+ [{'Probe',bs@needs,0,[]},
+  {code_server,'-schedule_on_load/4-fun-0-',1,[{...}|...]}]}
+
+=ERROR REPORT==== 3-Oct-2026::23:27:47.934723 ===
+Error in process <0.86.0> with exit value:
+{{bs_missing_dependency,elixir,'Elixir.String'},
+ [{'Probe',bs@needs,0,[]},
+  {code_server,'-schedule_on_load/4-fun-0-',1,
+               [{file,"code_server.erl"},{line,1392}]}]}
+
+call result: {'EXIT',
+                 {undef,
+                     [{'Probe','Shout',[<<"hi">>],[]},
+                      {onload_escript__escript__1791__70067__760715__1123,
+                          main,1,
+                          [{file,"onload.escript"},{line,10}]},
+                      {escript,run,2,[{file,"escript.erl"},{line,908}]},
+                      {escript,start,1,[{file,"escript.erl"},{line,422}]},
+                      {init,start_it,1,[]},
+                      {init,start_em,1,[]},
+                      {init,do_boot,3,[]}]}}
