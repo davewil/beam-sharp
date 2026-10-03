@@ -50,18 +50,18 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             %% Which foreign calls are owed a `try` is decided in `bs_check`
             %% and only looked up here.
             foreigns => maps:get(foreigns, Module, #{}),
-            %% A bare name's resolved arity, keyed by the token's position;
-            %% decided by the checker, written as `fun Name/Arity` here.
+            %% What the checker decided about a node, each keyed by the node's
+            %% file and position: see `note/3`.
+            %% A bare name's resolved arity, written as `fun Name/Arity` here.
             fnames => maps:get(fnames, Module, #{}),
-            %% The `/` sites between two floats, keyed by the operator's
-            %% position; decided by the checker, which has the operand types
-            %% this module never sees, and lowered here to the BEAM's `/`.
+            %% The `/` sites between two floats; the checker has the operand
+            %% types this module never sees. Lowered here to the BEAM's `/`.
             fdivs => maps:get(fdivs, Module, #{}),
             %% F60: projections onto a view's tuple position.
             vprojs => maps:get(vprojs, Module, #{}),
-            %% F64: each protocol call's implementations, by the call's position.
+            %% F64: each protocol call's implementations.
             pcalls => maps:get(pcalls, Module, #{}),
-            %% F66: each template hole's part, by the hole's file and `{`.
+            %% F66: each template hole's part.
             iholes => maps:get(iholes, Module, #{})},
     %% A crash names the `.bs` file the function was written in. A module is a
     %% directory, so one `.beam` holds functions from several files, and a
@@ -94,7 +94,7 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
 %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
 %% have no path to attribute to; no attribute is emitted for them.
 %% The context names the file being emitted: a position is unique only within
-%% one file, and a note keyed by position alone would reach a sibling's node.
+%% one file, so every note the checker left is keyed by its file as well.
 file_group(undefined, Fns, Env, Behaviours, Ctx0) ->
     Ctx = Ctx0#{file => undefined},
     lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] || F <- Fns]);
@@ -103,6 +103,10 @@ file_group(Path, Fns, Env, Behaviours, Ctx0) ->
     [{attribute, ?A, file, {Path, 1}}
      | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
                      || F <- Fns])].
+
+%% The checker's note for the node at `L` in the file being emitted. A missing
+%% one is a compiler fault, so this crashes rather than guessing.
+note(Kind, L, C) -> maps:get({maps:get(file, C), L}, maps:get(Kind, C)).
 
 %% The one place a B# function name becomes an Erlang one. The export list,
 %% the `-spec`, the definition and every local call go through it, so they
@@ -1011,11 +1015,12 @@ expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
 %% subject is bound once; the other arguments are written in each branch and
 %% evaluated in the one taken.
 %% Rationale: compiler/features/F64-implements.md.
-expr({e_qcall, L, _Mod, _Fn, As}, C) when is_map_key(L, map_get(pcalls, C)) ->
+expr({e_qcall, L, _Mod, _Fn, As}, C)
+  when is_map_key({map_get(file, C), L}, map_get(pcalls, C)) ->
     [Subject | Rest] = As,
     RestEs = [expr(A, C) || A <- Rest],
     Call = fun(M, F, S) -> {call, L, {remote, L, {atom, L, M}, {atom, L, F}}, [S | RestEs]} end,
-    case maps:get(L, maps:get(pcalls, C)) of
+    case note(pcalls, L, C) of
         [{_Tag, M, F}] ->
             Call(M, F, expr(Subject, C));
         Targets ->
@@ -1061,7 +1066,7 @@ expr({e_lambda, L, Params, Body}, C) ->
     {'fun', L, {clauses, [{clause, L, [pattern(P, Used) || P <- Params], [],
                            [expr(Body, C)]}]}};
 expr({e_fname, L, Name, _}, C) ->
-    case maps:get(L, maps:get(fnames, C, #{})) of
+    case note(fnames, L, C) of
         {Name, Arity} ->
             {'fun', L, {function, emitted_name(Name, Arity, maps:get(behaviours, C, [])),
                         Arity}};
@@ -1101,7 +1106,7 @@ expr({e_with, L, Base, Fields}, C) ->
 
 %% `map_get` is guard-safe, including for boundary tag tests.
 expr({e_proj, L, V, Field}, C) ->
-    case maps:find(L, maps:get(vprojs, C, #{})) of
+    case maps:find({maps:get(file, C), L}, maps:get(vprojs, C)) of
         %% F60: the checker resolved this projection onto a view's position.
         {ok, Pos} ->
             {call, L, {remote, L, {atom, L, erlang}, {atom, L, element}},
@@ -1355,7 +1360,7 @@ interp_segment({hole, L, E}, _L, C) ->
     V = expr(E, C),
     %% Every hole the checker passed has a note; a missing one is a compiler
     %% fault, and printing it as a `string` would build a `badarg` crash.
-    Printed = case maps:get({maps:get(file, C), L}, maps:get(iholes, C)) of
+    Printed = case note(iholes, L, C) of
                   string -> V;
                   int    -> bif(integer_to_binary, [V], L);
                   float  -> bif(float_to_binary, [V, {cons, L, {atom, L, short}, {nil, L}}], L);
@@ -1415,7 +1420,7 @@ erl_op(Op)   -> Op.                              % + - * < > >=
 %% Only checker-marked float pairs use `/`. Unmarked sites use `div`, so a
 %% missing mark raises `badarith` on floats instead of returning a float.
 erl_op('/', L, C) ->
-    case maps:is_key(L, maps:get(fdivs, C, #{})) of
+    case maps:is_key({maps:get(file, C), L}, maps:get(fdivs, C)) of
         true  -> '/';
         false -> 'div'
     end;

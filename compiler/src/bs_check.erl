@@ -98,7 +98,6 @@ check_dir1(Sources0, World, Expect) ->
     Decls = lists:append([D || {_, D} <- Sources]),
     Module = module_name(Decls),
     PerFile = [{P, collect(D)} || {P, D} <- Sources],
-    Fns = lists:append([F || {_, F} <- PerFile]),
     Foreigns = foreign_wrappers(Decls, Env),
     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                polys = polys(Decls, Env, Imports),
@@ -112,22 +111,30 @@ check_dir1(Sources0, World, Expect) ->
     {Notes, Tagged} = lists:partition(
                         fun({_, D}) -> is_note(D) end,
                         Tagged0),
-    Prunes = maps:from_list([{B, Dead} || {_, {prune, B, Dead}} <- Notes]),
-    %% Token positions uniquely key bare names' resolved arities; the emitter
-    %% uses them for `fun Name/Arity`.
-    Fnames = maps:from_list([{Loc, Key} || {_, {fname, Loc, Key}} <- Notes]),
-    %% The emitter lowers these float-operand sites to BEAM `/`; other `/`
-    %% sites lower to `div`. Keys are operator positions.
-    Fdivs = maps:from_list([{Loc, float} || {_, {fdiv, Loc, float}} <- Notes]),
+    %% A module is a directory, so a note is keyed by its file as well as by
+    %% what names the node within it: two files may hold a node at one line and
+    %% column, and each numbers its valves from one. A note keyed without its
+    %% file reaches the sibling's node (ENG-576).
+    Keyed = fun(Kind) ->
+                    maps:from_list([{{Path, K}, V}
+                                    || {Path, {Kind1, K, V}} <- Notes, Kind1 =:= Kind])
+            end,
+    %% The dead stop arms of each valve, by the valve's error binder.
+    Prunes = Keyed(prune),
+    %% A bare name's resolved arity, by the token's position; the emitter
+    %% writes `fun Name/Arity` from it.
+    Fnames = Keyed(fname),
+    %% The `/` sites between two floats, by the operator's position. The
+    %% emitter lowers these to BEAM `/` and every other `/` to `div`.
+    Fdivs = Keyed(fdiv),
     %% F60: projections the checker resolved onto a view's tuple position.
-    Vprojs = maps:from_list([{Loc, Pos} || {_, {vproj, Loc, Pos}} <- Notes]),
+    Vprojs = Keyed(vproj),
     %% F64: each protocol call's targets, `[{Tag, Module, Function}]`.
-    Pcalls = maps:from_list([{Loc, Ts} || {_, {pcall, Loc, Ts}} <- Notes]),
-    %% F66: each template hole's part, keyed by the hole's file and its `{`: a
-    %% module is a directory, so two files may hold a hole at one position.
-    Iholes = maps:from_list([{{Path, Loc}, P} || {Path, {ihole, Loc, P}} <- Notes]),
-    Fns1 = prune_valves(Fns, Prunes),
-    PerFile1 = [{P, prune_valves(Fs, Prunes)} || {P, Fs} <- PerFile],
+    Pcalls = Keyed(pcall),
+    %% F66: each template hole's part, by the hole's `{`.
+    Iholes = Keyed(ihole),
+    PerFile1 = [{P, prune_valves(Fs, P, Prunes)} || {P, Fs} <- PerFile],
+    Fns1 = lists:append([Fs || {_, Fs} <- PerFile1]),
     case [D || {_, D} <- Tagged, element(1, D) =:= error] of
         []     -> behaviours_satisfied(Decls),
                   {ok, #{module => Module, functions => Fns1, env => Env,
@@ -3855,8 +3862,9 @@ bind_at(S, Domain, Binds) ->
 
 %%% --- Pruning the valve's dead stop arms ---
 
-%% Key dead stop arms by the error binder, unique per stage across the module
-%% in `bs_lower`. Line numbers collide for nested valves on one line.
+%% Key dead stop arms by the error binder, which `bs_lower` makes unique per
+%% stage within one file; `check_dir` adds the file. Line numbers collide for
+%% nested valves on one line.
 %% Rationale: compiler/features/F30-valve-short-circuit-set.md.
 prune_note(Arms = [ErrArm | _], SubjTy, C) ->
     Stop = lists:droplast(Arms),
@@ -3875,24 +3883,24 @@ binder(_) -> undefined.
 
 %% Valves can occur in any expression position. Prune the tree before `bs_emit`
 %% consumes it; the emitter needs no type information.
-prune_valves(T, Prunes) when map_size(Prunes) =:= 0 -> T;
-prune_valves({e_valve, L, {e_switch, SL, Subj, Arms}}, Prunes) ->
+prune_valves(T, _Path, Prunes) when map_size(Prunes) =:= 0 -> T;
+prune_valves({e_valve, L, {e_switch, SL, Subj, Arms}}, Path, Prunes) ->
     Arms1 = case binder(hd(Arms)) of
                 undefined -> Arms;
                 B ->
-                    Dead = maps:get(B, Prunes, []),
+                    Dead = maps:get({Path, B}, Prunes, []),
                     Stop = lists:droplast(Arms),
                     Val  = lists:last(Arms),
                     [A || {I, A} <- lists:enumerate(Stop),
                           not lists:member(I, Dead)] ++ [Val]
             end,
-    {e_valve, L, {e_switch, SL, prune_valves(Subj, Prunes),
-                  prune_valves(Arms1, Prunes)}};
-prune_valves(T, Prunes) when is_tuple(T) ->
-    list_to_tuple(prune_valves(tuple_to_list(T), Prunes));
-prune_valves([H | T], Prunes) ->
-    [prune_valves(H, Prunes) | prune_valves(T, Prunes)];
-prune_valves(X, _) -> X.
+    {e_valve, L, {e_switch, SL, prune_valves(Subj, Path, Prunes),
+                  prune_valves(Arms1, Path, Prunes)}};
+prune_valves(T, Path, Prunes) when is_tuple(T) ->
+    list_to_tuple(prune_valves(tuple_to_list(T), Path, Prunes));
+prune_valves([H | T], Path, Prunes) ->
+    [prune_valves(H, Path, Prunes) | prune_valves(T, Path, Prunes)];
+prune_valves(X, _, _) -> X.
 
 %% A hole prints one way per part, chosen here from its static type and handed
 %% to the emitter as an `ihole` note keyed by the hole's `{`. Any other type is
