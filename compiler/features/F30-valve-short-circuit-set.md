@@ -269,7 +269,9 @@ test `arms/9` applies to the arm's *type*, and the comment at each site says so,
 copies of one rule are two rules waiting to drift.
 
 * **Keyed on the error arm's binder, never on the line.** `bs_lower` makes `bs@eN` unique per
-  stage across the module, and F30.8 puts two valves on one line.
+  stage within one file, and F30.8 puts two valves on one line. *Corrected 2026-10-03
+  ([ENG-576](https://linear.app/davewil/issue/ENG-576)): this read "across the module", and a module
+  is a directory whose files are each numbered afresh, so the key is the file and the binder (F15.19).*
 * **It prunes in both directions.** Over `int | :nothing` the dead arm is the *error* one, and it
   goes too. Stage 35 only Dialyzes `compiler/examples`, where no valve subject carries `:nothing`
   yet — so that half is not yet load-bearing there, and it is built now rather than the day an
