@@ -1,0 +1,22 @@
+-- with elm/core as a dependency:
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+-- with no dependencies (does Elm compile a core-free package?):
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/core" dependency your elm.json file. The default imports
+of `List` and `Maybe` do not work without it.
+
+If you modified your elm.json by hand, try to change it back! And if you are
+-- what the installed binary says about the field (strings only, not behaviour):
+Which modules do you want users of the package to have access to? Add their names to the "exposed-modules" list.

@@ -1,0 +1,4 @@
+module Other.Thing
+
+public int Use(int x)
+Use(x) -> Get(x)

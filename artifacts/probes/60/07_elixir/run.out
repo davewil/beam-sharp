@@ -1,0 +1,35 @@
+== A. outsider calls @moduledoc false module and @doc false function (warnings-as-errors on)
+exit=0
+== B. runs
+1003
+== C. outsider calls a defp
+    warning: Acme.Billing.round_/1 is undefined or private
+    │
+  3 │   def peek(c), do: Acme.Billing.round_(c)
+    │                                 ~
+    │
+    └─ lib/orders_private.ex:3:33: Acme.Spy.peek/1
+
+exit=0
+== D. what the marks DO: the Docs chunk (hidden = documentation only)
+Ledger moduledoc (:hidden means @moduledoc false): :hidden
+Billing function docs {name, arity, doc}: [{:charge, 1, :none}, {:sneaky, 1, :hidden}, {:use_round, 1, :none}]
+== E. is anything else exported/enforced? Module.get_attribute / tracer hooks exist, but the default compiler:
+Billing exports (sneaky is exported; round_ is not): [
+  __info__: 1,
+  charge: 1,
+  module_info: 0,
+  module_info: 1,
+  sneaky: 1,
+  use_round: 1
+]
+== F. the installed Elixir's own words on @moduledoc false / @doc false (Module docs chunk; text only)
+  Module moduledoc line 98: You may pass either `false`, `true`, or a specific behaviour to `@impl`.
+  Module moduledoc line 115: idea, `@impl true` automatically marks the function as `@doc false`, disabling
+  Module moduledoc line 186: * `false`, which will make the entity invisible to documentation-extraction
+  Module moduledoc line 316: Accepts a string (often a heredoc) or `false` where `@moduledoc false`
+  Module moduledoc line 582: * `@compile {:debug_info, false}` - disables `:debug_info` regardless
+  Module moduledoc line 594: loaded after definition. It defaults to `false` when compiling modules
+== G. defmodule nesting: an outsider names Acme.Pay.Store (nested, @moduledoc false)
+exit=0
+Outsider.go(1): 101

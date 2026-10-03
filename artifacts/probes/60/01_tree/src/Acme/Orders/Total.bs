@@ -1,0 +1,4 @@
+module Acme.Orders
+
+public int Total(int cents)
+Total(c) -> Post(c)

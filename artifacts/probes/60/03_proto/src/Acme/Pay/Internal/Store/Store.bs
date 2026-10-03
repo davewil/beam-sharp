@@ -1,0 +1,4 @@
+module Acme.Pay.Internal.Store
+
+public int Put(int x)
+Put(x) -> x + 100

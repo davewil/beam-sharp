@@ -1,0 +1,4 @@
+module Acme.Spy
+
+public int PeekQ(int cents)
+PeekQ(c) -> Acme.Billing.Round(c)

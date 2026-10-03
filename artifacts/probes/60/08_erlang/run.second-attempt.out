@@ -1,0 +1,23 @@
+== A. erlc, +warnings_as_errors, both modules
+exit=0
+== B. runtime
+orders:total(1) = 2
+orders:peek(1)  = {error,undef}
+== C. xref, the one analyser that sees across modules; WITH and WITHOUT the -ignore_xref attribute
+-- with -ignore_xref
+   undefined_function_calls: {ok,[]}
+-- without -ignore_xref
+   undefined_function_calls: {ok,[]}
+== D. what -moduledoc false / -doc false record (docs chunk)
+{docs_v1,{2,2},
+         erlang,<<"text/markdown">>,hidden,
+         #{otp_doc_vsn => {1,0,0},
+           behaviours => [],
+           source_anno => {1,2},
+           source_path =>
+               "/home/user/beam-sharp/artifacts/probes/60/08_erlang/src/src/billing.erl"},
+         [{{function,charge,1},
+           {6,1},
+           [<<"charge(C)">>],
+           none,
+           #{source_anno => {6,1}}},

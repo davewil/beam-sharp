@@ -1,0 +1,4 @@
+module Acme.Orders3
+
+public int Use(int x)
+Use(x) -> Get(x)

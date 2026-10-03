@@ -1,0 +1,14 @@
+201 modules, 402 files
+-- sanity: tree compiles under all three (exit codes, then the result of Main 1)
+101 [base]
+101 [proto]
+101 [proto2]
+[base] wall ms: n=12 min=1389 median=1640 max=1920 mean=1656.9
+[base] in-VM ms: n=12 min=1114 median=1288 max=1511 mean=1322.3
+[proto] wall ms: n=12 min=1405 median=1627 max=2168 mean=1673.3
+[proto] in-VM ms: n=12 min=1094 median=1322 max=1615 mean=1350.0
+[proto2] wall ms: n=12 min=1307 median=1739 max=2176 mean=1746.6
+[proto2] in-VM ms: n=12 min=1083 median=1378 max=1632 mean=1426.4
+[base] raw wall: 1803 1626 1389 1659 1497 1526 1720 1549 1651 1640 1920 1903 
+[proto] raw wall: 1598 1587 1659 1865 1405 1583 1458 1627 1632 1829 2168 1669 
+[proto2] raw wall: 1677 1537 1739 1576 1307 1960 1587 1858 1888 1749 1905 2176 

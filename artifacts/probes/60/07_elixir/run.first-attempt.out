@@ -1,0 +1,28 @@
+== A. outsider calls @moduledoc false module and @doc false function (warnings-as-errors on)
+exit=0
+== B. runs
+1003
+== C. outsider calls a defp
+    warning: Acme.Billing.round_/1 is undefined or private
+    │
+  3 │   def peek(c), do: Acme.Billing.round_(c)
+    │                                 ~
+    │
+    └─ lib/orders_private.ex:3:33: Acme.Spy.peek/1
+
+exit=0
+== D. what the marks DO: Docs chunk
+error: unsupported option :label given to for
+└─ nofile:5
+
+** (CompileError) nofile: cannot compile file (errors have been logged)
+
+== E. is anything else exported/enforced? Module.get_attribute / tracer hooks exist, but the default compiler:
+Billing exports (sneaky is exported; round_ is not): [
+  __info__: 1,
+  charge: 1,
+  module_info: 0,
+  module_info: 1,
+  sneaky: 1,
+  use_round: 1
+]

@@ -1,0 +1,3 @@
+module Acme.Orders3
+
+using Acme.Internal.Shared

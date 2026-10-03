@@ -1,0 +1,4 @@
+module Acme.Billing.Internal.Ledger
+
+public Entry Post(int cents)
+Post(c) -> Entry { Amount = c + 1 }

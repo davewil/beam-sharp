@@ -1,0 +1,8 @@
+== --api of Acme.Billing (public Charge, private Round)
+module Acme.Billing
+int Charge(int)
+exit=0
+== --api of Acme.Billing.Ledger (public Post: the helper Billing wants to keep to itself)
+module Acme.Billing.Ledger
+int Post(int)
+exit=0

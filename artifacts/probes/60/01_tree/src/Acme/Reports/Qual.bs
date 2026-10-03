@@ -1,0 +1,5 @@
+module Acme.Reports
+
+// Qualified, no `using` at all.
+public int Qual(int cents)
+Qual(c) -> Acme.Billing.Ledger.Post(c)

@@ -1,0 +1,4 @@
+module Acme.Peeker2
+
+using Acme.Billing
+using Acme.Billing.Internal

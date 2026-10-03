@@ -1,0 +1,36 @@
+gleam gleam 1.18.1
+
+lib/gleam.toml:
+  name = "lib"
+  version = "1.0.0"
+  description = "probe"
+  licences = ["MIT"]
+  internal_modules = ["lib/hidden", "lib/hidden/*"]
+  
+  [dependencies]
+
+== app imports lib/internal/store: a directory NAMED internal, NOT listed in internal_modules
+  Compiling lib
+  Compiling app
+   Compiled in 0.75s
+
+== app imports lib/hidden/vault: LISTED in internal_modules = ["lib/hidden", "lib/hidden/*"]
+  Compiling app
+   Compiled in 0.71s
+
+== app calls lib.sneaky, an @internal pub fn in a public module
+  Compiling app
+   Compiled in 0.71s
+
+== app uses lib.exposes_hidden/0, which returns an @internal type
+  Compiling app
+   Compiled in 0.80s
+
+== docs: which functions/modules are rendered
+function ids in lib.html: id="charge" id="exposes_hidden" id="use_sneaky" 
+module pages: ./index.html ./lib.html ./lib/internal/store.html ./lib/leak.html 
+
+== publish (answering n at the prompt; leak check)
+Version: 1.0.0
+
+Do you wish to publish this package? [y/n]: Not publishing.

@@ -1,0 +1,74 @@
+diff -u src.orig/bs_check.erl src.new/bs_check.erl
+--- src.orig/bs_check.erl	2026-10-03 23:10:37.240573403 +0000
++++ src.new/bs_check.erl	2026-10-03 23:10:37.258106856 +0000
+@@ -495,6 +495,9 @@
+                 Imports).
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
++    %% PROTOTYPE (ticket 60, option A): a module under `P.Internal` may be
++    %% named only by `P` and what sits below `P`. One list-prefix test per `using`.
++    internal_ok(M, Self, L),
+     case maps:is_key(M, World) of
+         true  -> add_module_import(M, World, Acc);
+         false ->
+@@ -503,10 +506,35 @@
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children0, _} ->
++                    Children = [C || C <- Children0, internal_visible(C, Self)],
++                    add_namespace_import(M, Children, Acc)
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60): the `Internal` path-segment rule.
++internal_ok(M, Self, L) ->
++    case internal_visible(M, Self) of
++        true  -> ok;
++        false -> erlang:error({internal_module, M, internal_parent(M), L})
++    end.
++
++internal_visible(M, Self) ->
++    case internal_parent(M) of
++        none   -> true;
++        Parent -> Self =:= Parent orelse lists:prefix(atom_to_list(Parent) ++ ".", atom_to_list(Self))
++    end.
++
++%% The module path above the FIRST `Internal` segment, `none` when absent or when
++%% `Internal` is the first segment (its parent is the source root: everyone).
++internal_parent(M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}      -> none;
++        {[], _}      -> none;
++        {Above, _}   -> list_to_atom(lists:flatten(lists:join(".", Above)))
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+diff -u src.orig/bs_diag.erl src.new/bs_diag.erl
+--- src.orig/bs_diag.erl	2026-10-03 23:10:37.240721861 +0000
++++ src.new/bs_diag.erl	2026-10-03 23:10:37.259001368 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {internal_module, Mod, Parent, Line}) ->
++    #{tag => internal_module, severity => error, file => Path, line => Line,
++      module => Mod, parent => Parent};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2029,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := internal_module, file := P, line := L, column := C, module := Mod, parent := Par}) ->
++    {"~s:~p:~p: error: `using ~s` names an internal module~n"
++     "  a module under `Internal` is for ~s and the modules beneath it.~n",
++     [P, L, C, Mod, Par]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

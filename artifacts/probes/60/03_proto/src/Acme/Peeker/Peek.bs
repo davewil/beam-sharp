@@ -1,0 +1,7 @@
+module Acme.Peeker
+
+public int Peek(int cents)
+Peek(c) -> Amount(Post(c))
+
+private int Amount(Entry e)
+Amount(e) -> e.Amount

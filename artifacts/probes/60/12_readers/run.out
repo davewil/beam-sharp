@@ -1,0 +1,21 @@
+commit 5133d97
+== readers of the visibility value (=:= public / =/= public / =/= private / =:= private):
+bs_api.erl:149:          %% `=:= public`, not `=/= private`: an unmarked signature carries
+bs_check.erl:299:    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public],
+bs_check.erl:364:                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
+bs_check.erl:375:                       V =:= public, TV =/= []]).
+bs_check.erl:478:                                       V =/= public],
+bs_emit.erl:139:%% Private is the default, so the test is `=:= public` and not `=/= private`;
+bs_emit.erl:141:is_public(F) -> element(7, F) =:= public.       % #fn.vis
+== the grammar's own productions:
+23:  switch_arms switch_arm modpath using_decl visibility call
+297:%% only well posed against a declared input type (ticket 04). The visibility
+308:signature -> visibility type_expr uident '(' params ')' :
+320:signature -> visibility type_expr uident '<' type_params '>' '(' params ')' :
+323:visibility -> 'public'  : public.
+324:visibility -> 'private' : private.
+== where the add_module_import the ticket names lives now, and its arity:
+499:        true  -> add_module_import(M, World, Acc);
+511:add_module_import(M, World, Acc) ->
+== the single caller's Self parameter (what a caller-side rule needs):
+497:add_import(L, M, Self, World, Known, Mode, Acc) ->

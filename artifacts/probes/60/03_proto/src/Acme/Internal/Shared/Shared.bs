@@ -1,0 +1,4 @@
+module Acme.Internal.Shared
+
+public int Get(int x)
+Get(x) -> x + 7

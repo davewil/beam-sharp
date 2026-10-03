@@ -1,0 +1,24 @@
+bsc Billing exit=0
+bsc Ledger exit=0
+Acme.Billing.Ledger.abstr
+Acme.Billing.Ledger.beam
+Acme.Billing.abstr
+Acme.Billing.beam
+module_info(exports) w/o module_info: [{bs@type_atoms,0},{'Charge',1}]
+beam_lib exports chunk: [{'Charge',1},
+                         {bs@type_atoms,0},
+                         {module_info,0},
+                         {module_info,1}]
+beam_lib locals chunk : [{'Round',1}]
+disasm exports: [{'Charge',1,4},
+                 {bs@type_atoms,0,2},
+                 {module_info,0,8},
+                 {module_info,1,10}]
+function bs@type_atoms/0 entry-label 2  (labels inside body: [1,2])
+function 'Charge'/1 entry-label 4  (labels inside body: [3,4])
+function 'Round'/1 entry-label 6  (labels inside body: [5,6])
+Charge/1 calls (local call vs call_ext):
+   {call_only,1,{'Acme.Billing','Round',1}}
+apply from outside the module, private name: {error,undef}
+apply from outside the module, public name : 120
+exported Ledger.Post called by an arbitrary shell process (no caller check exists): 42

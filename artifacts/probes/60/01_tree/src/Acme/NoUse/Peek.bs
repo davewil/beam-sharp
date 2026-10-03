@@ -1,0 +1,4 @@
+module Acme.NoUse
+
+public int Peek(int cents)
+Peek(c) -> Acme.Billing.Round(c)

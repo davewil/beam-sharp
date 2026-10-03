@@ -1,0 +1,27 @@
+diff -u src.orig/bs_check.erl src.new/bs_check.erl
+--- src.orig/bs_check.erl	2026-10-03 23:10:37.258106856 +0000
++++ src.new/bs_check.erl	2026-10-03 23:12:39.164547149 +0000
+@@ -1285,7 +1285,7 @@
+     Records = [{N, record_surface(Mod, L, N, Fs)}
+                || {record_decl, L, N, Fs} <- Decls],
+     Local = maps:from_list(Aliases ++ Refined ++ Records),
+-    Imported = imported_types(Imports, World),
++    Imported = imported_types(Imports, World, Mod),
+     Env = maps:merge(maps:merge(prelude(), Imported), Local),
+     %% Ground entries resolve once; parametric templates wait for substitution.
+     %% Resolve under each entry's name to tie recursive references at its root.
+@@ -1328,9 +1328,12 @@
+ %% Reachable modules supply `Mod.Name`; namespace imports supply `Short.Name`;
+ %% module imports supply bare names. Ambiguities are refused at use sites. Full
+ %% names win over short names, so `Orders` is not hidden by `Shop.Orders`.
+-imported_types(no_imports, _World) ->
++imported_types(no_imports, _World, _Mod) ->
+     #{};
+-imported_types(Imports, World) ->
++imported_types(Imports, World0, Mod) ->
++    %% PROTOTYPE v2 (ticket 60): `Full` is built from the WHOLE world, so a qualified
++    %% type name needs no `using`. Filter it by the same Internal rule.
++    World = maps:filter(fun(M, _) -> internal_visible(M, Mod) end, World0),
+     Full = maps:fold(fun(M, Entry, Acc) ->
+                              maps:fold(fun(N, T, In) ->
+                                                In#{qualified(M, N) => T}

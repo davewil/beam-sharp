@@ -1,0 +1,120 @@
+-- [base] Billing (the parent) uses its own Internal.Ledger: accepted either way
+42
+exit=0
+-- [proto] Billing (the parent) uses its own Internal.Ledger: accepted either way
+42
+exit=0
+-- [proto2] Billing (the parent) uses its own Internal.Ledger: accepted either way
+42
+exit=0
+-- [base] Billing.Reconcile (a descendant of the parent) uses it: accepted either way
+42
+exit=0
+-- [proto] Billing.Reconcile (a descendant of the parent) uses it: accepted either way
+42
+exit=0
+-- [proto2] Billing.Reconcile (a descendant of the parent) uses it: accepted either way
+42
+exit=0
+-- [base] Orders (outsider) uses only Billing's public face: accepted
+42
+exit=0
+-- [proto] Orders (outsider) uses only Billing's public face: accepted
+42
+exit=0
+-- [proto2] Orders (outsider) uses only Billing's public face: accepted
+42
+exit=0
+-- [base] Orders passes the internal TYPE through Billing's public Open/Amt, never importing it
+42
+exit=0
+-- [proto] Orders passes the internal TYPE through Billing's public Open/Amt, never importing it
+42
+exit=0
+-- [proto2] Orders passes the internal TYPE through Billing's public Open/Amt, never importing it
+42
+exit=0
+-- [base] Orders2 NAMES the internal type qualified, no using of its module
+5
+exit=0
+-- [proto] Orders2 NAMES the internal type qualified, no using of its module
+5
+exit=0
+-- [proto2] Orders2 NAMES the internal type qualified, no using of its module
+src/Acme/Orders2/index.bs:4:12: error: Acme.Billing.Internal.Ledger declares no type named Entry
+  a qualified type is spelled as the module that declares it spells
+  it: a `record` or `type` line in Acme.Billing.Internal.Ledger.
+exit=1
+-- [base] Peeker (outsider) says using Acme.Billing.Internal.Ledger: REFUSED by proto
+42
+exit=0
+-- [proto] Peeker (outsider) says using Acme.Billing.Internal.Ledger: REFUSED by proto
+src/Acme/Peeker/index.bs:3:1: error: `using Acme.Billing.Internal.Ledger` names an internal module
+  a module under `Internal` is for Acme.Billing and the modules beneath it.
+exit=1
+-- [proto2] Peeker (outsider) says using Acme.Billing.Internal.Ledger: REFUSED by proto
+src/Acme/Peeker/index.bs:3:1: error: `using Acme.Billing.Internal.Ledger` names an internal module
+  a module under `Internal` is for Acme.Billing and the modules beneath it.
+exit=1
+-- [base] Peeker2 (outsider) imports the Internal NAMESPACE: REFUSED by proto
+42
+exit=0
+-- [proto] Peeker2 (outsider) imports the Internal NAMESPACE: REFUSED by proto
+src/Acme/Peeker2/index.bs:4:1: error: `using Acme.Billing.Internal` names an internal module
+  a module under `Internal` is for Acme.Billing and the modules beneath it.
+exit=1
+-- [proto2] Peeker2 (outsider) imports the Internal NAMESPACE: REFUSED by proto
+src/Acme/Peeker2/index.bs:4:1: error: `using Acme.Billing.Internal` names an internal module
+  a module under `Internal` is for Acme.Billing and the modules beneath it.
+exit=1
+-- [base] Wide imports namespace Acme.Pay, calls the non-internal Core.Get
+7
+exit=0
+-- [proto] Wide imports namespace Acme.Pay, calls the non-internal Core.Get
+7
+exit=0
+-- [proto2] Wide imports namespace Acme.Pay, calls the non-internal Core.Get
+7
+exit=0
+-- [base] Wide2 imports the same namespace, calls Internal.Store.Put (outsider)
+107
+exit=0
+-- [proto] Wide2 imports the same namespace, calls Internal.Store.Put (outsider)
+src/Acme/Wide2/Use.bs:4:30: error: Internal.Store is called but never imported
+  add `using Internal.Store` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+-- [proto2] Wide2 imports the same namespace, calls Internal.Store.Put (outsider)
+src/Acme/Wide2/Use.bs:4:30: error: Internal.Store is called but never imported
+  add `using Internal.Store` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+-- [base] Acme.Orders3 uses Acme.Internal.Shared (wanted)
+8
+exit=0
+-- [proto] Acme.Orders3 uses Acme.Internal.Shared (wanted)
+8
+exit=0
+-- [proto2] Acme.Orders3 uses Acme.Internal.Shared (wanted)
+8
+exit=0
+-- [base] Acme.Reports3 uses Acme.Internal.Shared (NOT wanted, but it is under Acme: cannot be refused)
+8
+exit=0
+-- [proto] Acme.Reports3 uses Acme.Internal.Shared (NOT wanted, but it is under Acme: cannot be refused)
+8
+exit=0
+-- [proto2] Acme.Reports3 uses Acme.Internal.Shared (NOT wanted, but it is under Acme: cannot be refused)
+8
+exit=0
+-- [base] Other.Thing (outside Acme) uses Acme.Internal.Shared: refused
+8
+exit=0
+-- [proto] Other.Thing (outside Acme) uses Acme.Internal.Shared: refused
+src/Other/Thing/index.bs:3:1: error: `using Acme.Internal.Shared` names an internal module
+  a module under `Internal` is for Acme and the modules beneath it.
+exit=1
+-- [proto2] Other.Thing (outside Acme) uses Acme.Internal.Shared: refused
+src/Other/Thing/index.bs:3:1: error: `using Acme.Internal.Shared` names an internal module
+  a module under `Internal` is for Acme and the modules beneath it.
+exit=1

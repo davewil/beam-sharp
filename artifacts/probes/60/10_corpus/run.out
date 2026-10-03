@@ -1,0 +1,10 @@
+commit: 5133d97
+.bs files outside artifacts/ and _build/: 161
+distinct module names: 113
+`using` lines name (module or namespace): 7 edges across 5 importing modules
+modules named by at least one other module: 4
+  Jev                      public fns=0  named by ['Triage']
+  Shop                     public fns=8  named by ['Shop.Billing']
+  Shop.Collections.Ints    public fns=2  named by ['Shop.Reports']
+  Support.Triage           public fns=0  named by ['Jev', 'Triage']
+namespace-only `using` targets (not a module): ['Shop.Collections']

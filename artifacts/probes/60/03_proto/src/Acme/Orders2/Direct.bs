@@ -1,0 +1,5 @@
+module Acme.Orders2
+
+// Names the internal type, qualified, with no `using` of its module.
+public int Direct(Acme.Billing.Internal.Ledger.Entry e)
+Direct(e) -> e.Amount

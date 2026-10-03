@@ -1,0 +1,7 @@
+module Acme.Billing
+
+public int Charge(int cents)
+Charge(c) -> Round(c)
+
+private int Round(int cents)
+Round(c) -> c - c % 5

@@ -1,0 +1,4 @@
+module Acme.Wide
+
+public int UseCore(int x)
+UseCore(x) -> Core.Get(x)

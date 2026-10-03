@@ -1,0 +1,4 @@
+module Acme.Peeker2
+
+public int Peek(int cents)
+Peek(c) -> Amt(Ledger.Post(c))

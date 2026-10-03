@@ -1,0 +1,5 @@
+module Acme.Billing.Ledger
+
+// A helper Billing wants to keep to itself. Nothing in the language says so.
+public int Post(int cents)
+Post(c) -> c + 1

@@ -1,0 +1,3 @@
+module Acme.Wide
+
+using Acme.Pay

@@ -1,0 +1,11 @@
+module Acme.Billing
+
+public int Charge(int cents)
+Charge(c) -> Amt(Post(c))
+
+// The public signatures name an internal type.
+public Entry Open(int cents)
+Open(c) -> Post(c)
+
+public int Amt(Entry e)
+Amt(e) -> e.Amount

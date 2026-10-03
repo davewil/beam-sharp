@@ -1,0 +1,4 @@
+module Acme.Wide2
+
+public int UseStore(int x)
+UseStore(x) -> Internal.Store.Put(x)

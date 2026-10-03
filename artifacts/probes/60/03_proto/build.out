@@ -1,0 +1,6 @@
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+base: 15 beams
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+proto: 15 beams
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+proto2: 15 beams

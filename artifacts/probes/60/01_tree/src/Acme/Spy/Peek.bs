@@ -1,0 +1,4 @@
+module Acme.Spy
+
+public int Peek(int cents)
+Peek(c) -> Round(c)

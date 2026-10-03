@@ -1,0 +1,7 @@
+module Acme.Billing.Reconcile
+
+public int Run(int cents)
+Run(c) -> Amount(Post(c))
+
+private int Amount(Entry e)
+Amount(e) -> e.Amount

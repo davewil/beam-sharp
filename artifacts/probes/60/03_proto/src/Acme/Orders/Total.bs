@@ -1,0 +1,9 @@
+module Acme.Orders
+
+// Only Billing's public face: accepted.
+public int Total(int cents)
+Total(c) -> Charge(c)
+
+// Passes the internal TYPE through Billing's public Open/Amt without ever importing or naming it.
+public int Opened(int cents)
+Opened(c) -> Amt(Open(c))

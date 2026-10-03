@@ -1,0 +1,8 @@
+internal_visible/2: 100000 calls in 162 ms = 1.63 us/call
+one tree compile has 740 using-lines (201 modules): 1.20 ms total at the using site
+v2 world filter, one module, world of 200: 285.5 us per module; x201 modules = 57.4 ms per compile
+
+--- N=500 (1001-module world)
+internal_visible/2: 500000 calls in 914 ms = 1.83 us/call
+one tree compile has 740 using-lines (201 modules): 1.35 ms total at the using site
+v2 world filter, one module, world of 1000: 1653.8 us per module; x201 modules = 332.4 ms per compile

@@ -1,0 +1,56 @@
+-- [base] Billing (the parent) uses its own Internal.Ledger: accepted either way
+src/Acme/Billing/Charge.bs:4:21: error: syntax error before: '.'
+exit=1
+-- [proto] Billing (the parent) uses its own Internal.Ledger: accepted either way
+src/Acme/Billing/Charge.bs:4:21: error: syntax error before: '.'
+exit=1
+-- [base] Billing.Reconcile (a descendant of the parent) uses it: accepted either way
+src/Acme/Billing/Reconcile/Run.bs:4:18: error: syntax error before: '.'
+exit=1
+-- [proto] Billing.Reconcile (a descendant of the parent) uses it: accepted either way
+src/Acme/Billing/Reconcile/Run.bs:4:18: error: syntax error before: '.'
+exit=1
+-- [base] Orders (outsider) uses only Billing's public face: accepted
+src/Acme/Orders/Total.bs:9:21: error: syntax error before: '.'
+exit=1
+-- [proto] Orders (outsider) uses only Billing's public face: accepted
+src/Acme/Orders/Total.bs:9:21: error: syntax error before: '.'
+exit=1
+-- [base] Orders uses the internal TYPE Billing.Open/1 returns, never importing it
+src/Acme/Orders/Total.bs:9:21: error: syntax error before: '.'
+exit=1
+-- [proto] Orders uses the internal TYPE Billing.Open/1 returns, never importing it
+src/Acme/Orders/Total.bs:9:21: error: syntax error before: '.'
+exit=1
+-- [base] Peeker (outsider) says using Acme.Billing.Internal.Ledger: REFUSED by proto
+src/Acme/Peeker/Peek.bs:4:19: error: syntax error before: '.'
+exit=1
+-- [proto] Peeker (outsider) says using Acme.Billing.Internal.Ledger: REFUSED by proto
+src/Acme/Peeker/Peek.bs:4:19: error: syntax error before: '.'
+exit=1
+-- [base] Peeker2 (outsider) imports the Internal NAMESPACE: REFUSED by proto
+src/Acme/Peeker2/Peek.bs:4:26: error: syntax error before: '.'
+exit=1
+-- [proto] Peeker2 (outsider) imports the Internal NAMESPACE: REFUSED by proto
+src/Acme/Peeker2/Peek.bs:4:26: error: syntax error before: '.'
+exit=1
+-- [base] Wide imports namespace Acme.Pay (Core visible, Internal.Store filtered)
+src/Acme/Wide/Use.bs:7:21: error: Store is called but never imported
+  add `using Store` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+-- [proto] Wide imports namespace Acme.Pay (Core visible, Internal.Store filtered)
+src/Acme/Wide/Use.bs:7:21: error: Store is called but never imported
+  add `using Store` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+-- [base] Wide calls Store.Put through the namespace
+src/Acme/Wide/Use.bs:7:21: error: Store is called but never imported
+  add `using Store` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+-- [proto] Wide calls Store.Put through the namespace
+src/Acme/Wide/Use.bs:7:21: error: Store is called but never imported
+  add `using Store` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1

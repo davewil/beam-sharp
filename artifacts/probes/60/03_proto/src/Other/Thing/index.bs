@@ -1,0 +1,3 @@
+module Other.Thing
+
+using Acme.Internal.Shared

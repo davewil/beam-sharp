@@ -1,0 +1,44 @@
+bsc Billing exit=0
+bsc Ledger exit=0
+Acme.Billing.Ledger.abstr
+Acme.Billing.Ledger.beam
+Acme.Billing.abstr
+Acme.Billing.beam
+module_info(exports) w/o module_info: [{bs@type_atoms,0},{'Charge',1}]
+beam_lib exports chunk: [{'Charge',1},
+                         {bs@type_atoms,0},
+                         {module_info,0},
+                         {module_info,1}]
+beam_lib locals chunk : [{'Round',1}]
+disasm exports: [{'Charge',1,4},
+                 {bs@type_atoms,0,2},
+                 {module_info,0,8},
+                 {module_info,1,10}]
+function bs@type_atoms/0 entry-label 2  (labels inside body: [1,2])
+function 'Charge'/1 entry-label 4  (labels inside body: [3,4])
+function 'Round'/1 entry-label 6  (labels inside body: [5,6])
+Error! Failed to eval: 
+  M = (list_to_atom("Acme.Billing")),
+  F = "beams/Acme.Billing.beam",
+  io:format("module_info(exports) w/o module_info: ~p~n",
+            [[E || {N,_}=E <- M:module_info(exports), N =/= module_info]]),
+  {ok, {M, [{exports, Ex}, {locals, Lo}]}} = beam_lib:chunks(F, [exports, locals]),
+  io:format("beam_lib exports chunk: ~p~nbeam_lib locals chunk : ~p~n", [Ex, Lo]),
+  {beam_file, M, Exp, _Attr, _CI, Code} = beam_disasm:file(F),
+  io:format("disasm exports: ~p~n", [Exp]),
+  [io:format("function ~p/~p entry-label ~p  (labels inside body: ~p)~n",
+     [N, A, E, [L || {label, L} <- Is]]) || {function, N, A, E, Is} <- Code, N =/= module_info],
+  Charge = hd([Is || {function, charge, 1, _, Is} <- Code]),
+  io:format("Charge/1 calls (local call vs call_ext):~n"),
+  [io:format("   ~p~n", [I]) || I <- Charge, element(1, I) =:= call orelse element(1,I) =:= call_only orelse element(1,I) =:= call_ext orelse element(1,I) =:= call_ext_only orelse element(1, I) =:= call_last orelse element(1,I)=:= call_ext_last],
+  io:format("apply from outside the module, private name: ~p~n",
+     [catch apply(M, list_to_atom("Round"), [123])]),
+  io:format("apply from outside the module, public name : ~p~n",
+     [catch apply(M, list_to_atom("Charge"), [123])]),
+  io:format("exported Ledger.Post called by an arbitrary shell process (no caller check exists): ~p~n",
+     [apply(list_to_atom("Acme.Billing.Ledger"), list_to_atom("Post"), [41])]),
+  halt().
+
+Runtime terminating during boot ({badarg,[{erlang,hd,[[]],[{error_info,#{module=>erl_erts_errors}}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,1044}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,792}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done

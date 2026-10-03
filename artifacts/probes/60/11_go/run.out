@@ -1,0 +1,13 @@
+== go build ./billing
+exit=0
+== go build ./billing/reconcile
+exit=0
+== go build ./orders
+exit=0
+== go build ./spy
+package acme/spy
+	spy/spy.go:3:8: use of internal package acme/billing/internal/ledger not allowed
+exit=1
+== the rule, from the installed source: cmd/go/internal/load/pkg.go
+1475:	// is disallowed if the importing code is outside the tree
+1564:		if str.HasPathPrefix(importerPath, parentOfInternal) {

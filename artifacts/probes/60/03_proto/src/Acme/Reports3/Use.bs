@@ -1,0 +1,4 @@
+module Acme.Reports3
+
+public int Use(int x)
+Use(x) -> Get(x)

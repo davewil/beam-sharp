@@ -1,0 +1,22 @@
+== A. Orders names Billing.Ledger.Post via using (nothing declares Ledger internal)
+42
+exit=0
+== B. Reports names Billing.Ledger.Post fully qualified, no using
+src/Acme/Reports/Peek.bs:4:24: error: Acme.Billing is called but never imported
+  add `using Acme.Billing` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+== C. Reports names Billing's PRIVATE Round across modules
+src/Acme/Reports/Peek.bs:4:24: error: Acme.Billing is called but never imported
+  add `using Acme.Billing` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+== D. same, machine-readable
+{"line":4,"module":"Acme.Billing","tag":"module_not_imported","file":"src/Acme/Reports/Peek.bs","column":24,"severity":"error"}
+src/Acme/Reports/Peek.bs:4:24: error: Acme.Billing is called but never imported
+  add `using Acme.Billing` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+== E. Billing alone, positive control
+120
+exit=0

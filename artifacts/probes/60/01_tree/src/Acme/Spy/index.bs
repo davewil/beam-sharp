@@ -1,0 +1,3 @@
+module Acme.Spy
+
+using Acme.Billing

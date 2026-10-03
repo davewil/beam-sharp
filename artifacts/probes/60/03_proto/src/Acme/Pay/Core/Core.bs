@@ -1,0 +1,4 @@
+module Acme.Pay.Core
+
+public int Get(int x)
+Get(x) -> x

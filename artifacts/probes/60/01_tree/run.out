@@ -1,0 +1,30 @@
+== A. Orders: using Acme.Billing.Ledger, calls Post. Nothing declares Ledger internal
+42
+exit=0
+== B. Reports: no using, calls Acme.Billing.Ledger.Post qualified
+src/Acme/Reports/Qual.bs:5:31: error: Acme.Billing.Ledger is called but never imported
+  add `using Acme.Billing.Ledger` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+== C. NoUse: no using, calls Acme.Billing.Round qualified
+src/Acme/NoUse/Peek.bs:4:24: error: Acme.Billing is called but never imported
+  add `using Acme.Billing` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+== D. Spy: using Acme.Billing, calls Billing's private Round unqualified
+src/Acme/Spy/Peek.bs:4:12: error: Peek calls Round/1, which Acme.Billing declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Acme.Billing, or move the call inside it.
+src/Acme/Spy/PeekQ.bs:4:25: error: PeekQ calls Acme.Billing.Round/1, which Acme.Billing declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Acme.Billing, or move the call inside it.
+exit=1
+== F. diagnostics json for the Spy module
+{"arity":1,"function":"Peek","line":4,"module":"Acme.Billing","tag":"private_function","file":"src/Acme/Spy/Peek.bs","column":12,"severity":"error","callee":"Round"}
+src/Acme/Spy/Peek.bs:4:12: error: Peek calls Round/1, which Acme.Billing declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Acme.Billing, or move the call inside it.
+{"arity":1,"function":"PeekQ","line":4,"module":"Acme.Billing","tag":"private_function","file":"src/Acme/Spy/PeekQ.bs","column":25,"severity":"error","callee":"Acme.Billing.Round"}
+== G. Billing alone, positive control
+120
+exit=0
