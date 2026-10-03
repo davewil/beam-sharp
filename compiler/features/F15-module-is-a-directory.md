@@ -106,6 +106,16 @@ have to declare `module examples.Fib`.
 | F15.12 | a diagnostic on `Length/2` where `Length/1` and `Length/2` are in **different files** of one directory | names `Length2.bs` — the file the clause is actually in | 1 |
 | F15.13 | a sibling file with **no** `module` declaration | the two existing defaults disagree today; F15 makes them agree (see below) | — |
 | F15.14 | the whole `examples/` **and** `aoc/` corpora after the rewrite | every module compiles and runs; both gates loop over **directories** | 0 |
+| F15.15 | two files of one module, a `/` between two floats in one and between two ints in the other, at the same line and column | the int pair divides whole: `Boxes(7, 2)` is `3`, `Ratio(7.0, 2.0)` is `3.5` | 0 |
+| F15.16 | `d.Reason` on a `Down` in one file and `j.Reason` on a record in the other, at the same position | the record's projection reads its key: `"late"` | 0 |
+| F15.17 | `Enumerable.Reduce(s, …)` over one implementing record in each file, at the same position | each call reaches its own record's implementation | 0 |
+| F15.18 | a bare function name in value position in each file, at the same position | each resolves to the function its own file names | 0 |
+| F15.19 | a valve in each file, the first in its file, whose subjects differ in which stop arm they can reach | each keeps the stop arm its own subject reaches: `:nothing` and `(:error, :bad)` both stop | 0 |
+
+F15.15 to F15.19 were added 2026-10-03 ([ENG-576](https://linear.app/davewil/issue/ENG-576)). What the
+checker decides about a node travels to the emitter as a note, and a note is keyed by its file as well
+as by the node's position or generated name, since neither is unique across a module's files. Before
+that, F15.15's `Boxes` answered `3.5`.
 
 ## The corpus rewrite is a scenario, not cleanup
 

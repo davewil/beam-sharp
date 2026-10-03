@@ -51,7 +51,7 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
             %% and only looked up here.
             foreigns => maps:get(foreigns, Module, #{}),
             %% What the checker decided about a node, each keyed by the node's
-            %% file and position: see `note/3`.
+            %% file and position: see `find_note/3`.
             %% A bare name's resolved arity, written as `fun Name/Arity` here.
             fnames => maps:get(fnames, Module, #{}),
             %% The `/` sites between two floats; the checker has the operand
@@ -104,9 +104,13 @@ file_group(Path, Fns, Env, Behaviours, Ctx0) ->
      | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
                      || F <- Fns])].
 
-%% The checker's note for the node at `L` in the file being emitted. A missing
-%% one is a compiler fault, so this crashes rather than guessing.
-note(Kind, L, C) -> maps:get({maps:get(file, C), L}, maps:get(Kind, C)).
+%% The checker's note for the node at `L` in the file being emitted, where the
+%% checker leaves one only for some nodes of that form.
+find_note(Kind, L, C) -> maps:find({maps:get(file, C), L}, maps:get(Kind, C)).
+
+%% The same where every node of the form has a note: a missing one is a
+%% compiler fault, so this crashes rather than guessing.
+note(Kind, L, C) -> {ok, Note} = find_note(Kind, L, C), Note.
 
 %% The one place a B# function name becomes an Erlang one. The export list,
 %% the `-spec`, the definition and every local call go through it, so they
@@ -1106,7 +1110,7 @@ expr({e_with, L, Base, Fields}, C) ->
 
 %% `map_get` is guard-safe, including for boundary tag tests.
 expr({e_proj, L, V, Field}, C) ->
-    case maps:find({maps:get(file, C), L}, maps:get(vprojs, C)) of
+    case find_note(vprojs, L, C) of
         %% F60: the checker resolved this projection onto a view's position.
         {ok, Pos} ->
             {call, L, {remote, L, {atom, L, erlang}, {atom, L, element}},
@@ -1420,9 +1424,9 @@ erl_op(Op)   -> Op.                              % + - * < > >=
 %% Only checker-marked float pairs use `/`. Unmarked sites use `div`, so a
 %% missing mark raises `badarith` on floats instead of returning a float.
 erl_op('/', L, C) ->
-    case maps:is_key({maps:get(file, C), L}, maps:get(fdivs, C)) of
-        true  -> '/';
-        false -> 'div'
+    case find_note(fdivs, L, C) of
+        {ok, float} -> '/';
+        error       -> 'div'
     end;
 erl_op(Op, _L, _C) -> erl_op(Op).
 

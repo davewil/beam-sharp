@@ -22,8 +22,9 @@
                 a record hole through `Formattable` (ticket 113)
 **Leaves**      a template in pattern position, format specifiers and an iodata builder (ticket 112,
                 *not decided*); a record hole, which is ENG-565; braces nested more than two deep
-                inside a hole, the lexer's limit; the same file-and-position keying for `fdiv`, `vproj`,
-                `pcall` and `fname`, whose collision the review found and ENG-576 carries
+                inside a hole, the lexer's limit. The same file-and-position keying for `fdiv`, `vproj`,
+                `pcall` and `fname`, whose collision the review found, was built 2026-10-03 as F15.15–F15.19
+                ([ENG-576](https://linear.app/davewil/issue/ENG-576))
 
 ## The program
 

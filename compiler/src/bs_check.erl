@@ -113,11 +113,11 @@ check_dir1(Sources0, World, Expect) ->
                         Tagged0),
     %% A module is a directory, so a note is keyed by its file as well as by
     %% what names the node within it: two files may hold a node at one line and
-    %% column, and each numbers its valves from one. A note keyed without its
+    %% column, and each numbers its valves afresh. A note keyed without its
     %% file reaches the sibling's node (ENG-576).
     Keyed = fun(Kind) ->
                     maps:from_list([{{Path, K}, V}
-                                    || {Path, {Kind1, K, V}} <- Notes, Kind1 =:= Kind])
+                                    || {Path, {NoteKind, K, V}} <- Notes, NoteKind =:= Kind])
             end,
     %% The dead stop arms of each valve, by the valve's error binder.
     Prunes = Keyed(prune),
@@ -3863,7 +3863,7 @@ bind_at(S, Domain, Binds) ->
 %%% --- Pruning the valve's dead stop arms ---
 
 %% Key dead stop arms by the error binder, which `bs_lower` makes unique per
-%% stage within one file; `check_dir` adds the file. Line numbers collide for
+%% stage within one file; `check_dir1` adds the file. Line numbers collide for
 %% nested valves on one line.
 %% Rationale: compiler/features/F30-valve-short-circuit-set.md.
 prune_note(Arms = [ErrArm | _], SubjTy, C) ->

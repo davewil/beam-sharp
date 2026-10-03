@@ -1,6 +1,8 @@
-%%% ENG-576 — a module is a directory, so two of its files may hold a node at
-%%% the same line and column, and each file numbers its valves from one. What
-%%% the checker decides about a node in one file must not reach its sibling's.
+%%% Scenarios: compiler/features/F15-module-is-a-directory.md
+%%% F15.15 to F15.19 (ENG-576) — a module is a directory, so two of its files
+%%% may hold a node at the same line and column, and each file numbers its
+%%% valves afresh. What the checker decides about a node in one file must not
+%%% reach its sibling's.
 %%%
 %%% Each program below is one module in two files, written so that a node in
 %%% the second file sits where the first file's does. Every test runs the
@@ -19,7 +21,7 @@ run(Files, Call) ->
 %% The whole of what a run printed before its exit status.
 prints(Got, Value) -> ?assertEqual(Value ++ "\nrc:0\n", Got).
 
-%% `/` between two floats is the BEAM's `/`, and between two ints its `div`.
+%% F15.15 — `/` between two floats is the BEAM's `/`, and between two ints its `div`.
 %% The float pair in one file left the int pair in the other dividing as
 %% floats: `Boxes`, declared `int`, answered `3.5`.
 an_int_division_beside_a_float_one_stays_whole_test() ->
@@ -34,7 +36,7 @@ an_int_division_beside_a_float_one_stays_whole_test() ->
     prints(run(Files, "Boxes 7 2"), "3"),
     prints(run(Files, "Ratio 7.0 2.0"), "3.5").
 
-%% `d.Reason` on a `Down` reads a tuple position; on a record it reads a key.
+%% F15.16 — `d.Reason` on a `Down` reads a tuple position; on a record it reads a key.
 %% The view's position reached the record's projection in the sibling file.
 a_record_projection_beside_a_views_reads_its_key_test() ->
     Files = [{"watch.bs",
@@ -51,7 +53,7 @@ a_record_projection_beside_a_views_reads_its_key_test() ->
               "Demo() -> Got(Job { Reason = \"late\" })\n"}],
     prints(run(Files, "Demo"), "\"late\"").
 
-%% A protocol call goes to the implementation of the record it is given. Two
+%% F15.17 — a protocol call goes to the implementation of the record it is given. Two
 %% calls at one position, over two records, both went to one implementation.
 a_protocol_call_reaches_its_own_records_implementation_test() ->
     Files = [{"basket.bs",
@@ -75,7 +77,7 @@ a_protocol_call_reaches_its_own_records_implementation_test() ->
               " + InCrates(Crate { Boxes = [10] })\n"}],
     prints(run(Files, "Demo"), "13").
 
-%% A bare name in value position is the function it resolves to. Two names at
+%% F15.18 — a bare name in value position is the function it resolves to. Two names at
 %% one position, in two files, resolved to one function.
 a_bare_name_resolves_in_its_own_file_test() ->
     Files = [{"double.bs",
@@ -93,7 +95,7 @@ a_bare_name_resolves_in_its_own_file_test() ->
     prints(run(Files, "Doubled '[1,2]'"), "[2, 4]"),
     prints(run(Files, "Tripled '[1,2]'"), "[3, 6]").
 
-%% The valve drops a stop arm its subject can never reach. The first valve of
+%% F15.19 — the valve drops a stop arm its subject can never reach. The first valve of
 %% each file carries the same generated name, so the arm one file's subject
 %% cannot reach was dropped from the other's, whose subject can.
 a_valve_keeps_the_stop_arm_its_own_subject_reaches_test() ->
