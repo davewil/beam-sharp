@@ -1,0 +1,205 @@
+Day01.abstr
+Day01.beam
+beamsharp.S
+dumpforms.beam
+elixir.S
+elixir.forms
+erlang.S
+gleam.S
+
+######## erlang.S: function spin/'Spin' (4 args) ########
+{function, spin, 4, 7}.
+  {label,6}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/bench_erl.erl",9}]}.
+    {func_info,{atom,bench_erl},{atom,spin},4}.
+  {label,7}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {'%',{var_info,{x,1},[{type,{t_integer,{-1,1}}}]}}.
+    {'%',{var_info,{x,3},[{type,{t_integer,{0,'+inf'}}}]}}.
+    {test,is_eq_exact,{f,8},[{x,2},{integer,0}]}.
+    {test_heap,3,4}.
+    {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}.
+    return.
+  {label,8}.
+    {allocate,4,4}.
+    {init_yregs,{list,[{y,0}]}}.
+    {move,{x,3},{y,1}}.
+    {move,{x,2},{y,2}}.
+    {move,{x,1},{y,3}}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/bench_erl.erl",11}]}.
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            {x,0}}.
+    {call,1,{f,2}}. % wrap/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/bench_erl.erl",12}]}.
+    {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
+    {move,{x,0},{y,0}}.
+    {call,1,{f,4}}. % hit/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,1}}}]}}.
+    {gc_bif,'+',
+            {f,0},
+            1,
+            [{tr,{y,1},{t_integer,{0,'+inf'}}},{tr,{x,0},{t_integer,{0,1}}}],
+            {x,3}}.
+    {move,{y,2},{x,2}}.
+    {move,{y,3},{x,1}}.
+    {move,{y,0},{x,0}}.
+    {call_last,4,{f,7},4}. % spin/4
+
+
+{function, sign, 1, 10}.
+
+######## elixir.S: function spin/'Spin' (4 args) ########
+{function, spin, 4, 26}.
+  {label,25}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/bench_ex.ex",7}]}.
+    {func_info,{atom,'Elixir.BenchEx'},{atom,spin},4}.
+  {label,26}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {'%',{var_info,{x,1},[{type,{t_integer,{-1,1}}}]}}.
+    {'%',{var_info,{x,3},[{type,{t_integer,{0,'+inf'}}}]}}.
+    {test,is_eq_exact,{f,27},[{x,2},{integer,0}]}.
+    {test_heap,3,4}.
+    {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}.
+    return.
+  {label,27}.
+    {allocate,4,4}.
+    {init_yregs,{list,[{y,0}]}}.
+    {move,{x,3},{y,1}}.
+    {move,{x,2},{y,2}}.
+    {move,{x,1},{y,3}}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/bench_ex.ex",10}]}.
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            {x,0}}.
+    {call,1,{f,29}}. % wrap/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {line,[{location,"/home/user/beam-sharp/aoc/bench/bench_ex.ex",11}]}.
+    {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
+    {move,{x,0},{y,0}}.
+    {call,1,{f,14}}. % hit/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,1}}}]}}.
+    {gc_bif,'+',
+            {f,0},
+            1,
+            [{tr,{y,1},{t_integer,{0,'+inf'}}},{tr,{x,0},{t_integer,{0,1}}}],
+            {x,3}}.
+    {move,{y,2},{x,2}}.
+    {move,{y,3},{x,1}}.
+    {move,{y,0},{x,0}}.
+    {call_last,4,{f,26},4}. % spin/4
+
+
+{function, wrap, 1, 29}.
+
+######## gleam.S: function spin/'Spin' (4 args) ########
+{function, spin, 4, 2}.
+  {label,1}.
+    {line,[{location,"src/bench_gleam.gleam",14}]}.
+    {func_info,{atom,bench_gleam},{atom,spin},4}.
+  {label,2}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {'%',{var_info,{x,1},[{type,{t_integer,{-1,1}}}]}}.
+    {'%',{var_info,{x,3},[{type,{t_integer,{0,'+inf'}}}]}}.
+    {test,is_eq_exact,{f,3},[{x,2},{integer,0}]}.
+    {test_heap,3,4}.
+    {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}.
+    return.
+  {label,3}.
+    {line,[{location,"src/bench_gleam.gleam",20}]}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            {x,0}}.
+    {line,[{location,"src/bench_gleam.gleam",4}]}.
+    {gc_bif,'rem',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,{-100,100}}},{integer,100}],
+            {x,0}}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,0},{t_integer,{-99,99}}},{integer,100}],{x,0}}.
+    {gc_bif,'rem',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,{1,199}}},{integer,100}],
+            {x,0}}.
+    {line,[{location,"src/bench_gleam.gleam",21}]}.
+    {gc_bif,'-',{f,0},4,[{x,2},{integer,1}],{x,2}}.
+    {test,is_eq_exact,{f,4},[{tr,{x,0},{t_integer,{0,99}}},{integer,0}]}.
+    {move,{integer,1},{x,4}}.
+    {jump,{f,5}}.
+  {label,4}.
+    {move,{integer,0},{x,4}}.
+  {label,5}.
+    {gc_bif,'+',
+            {f,0},
+            5,
+            [{tr,{x,3},{t_integer,{0,'+inf'}}},{tr,{x,4},{t_integer,{0,1}}}],
+            {x,3}}.
+    {call_only,4,{f,2}}. % spin/4
+
+
+{function, clicks, 3, 7}.
+
+######## beamsharp.S: function spin/'Spin' (4 args) ########
+{function, 'Spin', 4, 9}.
+  {label,8}.
+    {line,[{location,"aoc/bench/Day01/bench_bs.bs",19}]}.
+    {func_info,{atom,'Day01'},{atom,'Spin'},4}.
+  {label,9}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {'%',{var_info,{x,1},[{type,{t_integer,{-1,1}}}]}}.
+    {'%',{var_info,{x,3},[{type,{t_integer,{0,'+inf'}}}]}}.
+    {test,is_eq_exact,{f,10},[{x,2},{integer,0}]}.
+    {test_heap,3,4}.
+    {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}.
+    return.
+  {label,10}.
+    {allocate,4,4}.
+    {init_yregs,{list,[{y,0}]}}.
+    {move,{x,3},{y,1}}.
+    {move,{x,2},{y,2}}.
+    {move,{x,1},{y,3}}.
+    {line,[{location,"aoc/bench/Day01/bench_bs.bs",21}]}.
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,{-99,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            {x,0}}.
+    {call,1,{f,4}}. % 'Wrap'/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {line,[{location,"aoc/bench/Day01/bench_bs.bs",22}]}.
+    {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
+    {move,{x,0},{y,0}}.
+    {call,1,{f,6}}. % 'Hit'/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,1}}}]}}.
+    {gc_bif,'+',
+            {f,0},
+            1,
+            [{tr,{y,1},{t_integer,{0,'+inf'}}},{tr,{x,0},{t_integer,{0,1}}}],
+            {x,3}}.
+    {move,{y,2},{x,2}}.
+    {move,{y,3},{x,1}}.
+    {move,{y,0},{x,0}}.
+    {call_last,4,{f,9},4}. % 'Spin'/4
+
+
+{function, 'Sign', 1, 12}.
+
+######## counts of {tr, annotations in Spin/Wrap per front end ########
+erlang: tr-annotations-in-Spin=2  instruction-lines-in-Spin=25
+elixir: tr-annotations-in-Spin=2  instruction-lines-in-Spin=25
+gleam: tr-annotations-in-Spin=6  instruction-lines-in-Spin=24
+beamsharp: tr-annotations-in-Spin=2  instruction-lines-in-Spin=25
+
+######## functions present (shows inlining removed wrap/hit?) ########
+erlang: function,wrap,1 function,hit,1 function,spin,4 function,sign,1 function,size_,1 function,clicks,3 function,part_two,1 function,module_info,0 function,module_info,1 
+elixir: function,'__info__',1 function,clicks,3 function,hit,1 function,part_two,1 function,sign,1 function,size_,1 function,spin,4 function,wrap,1 function,module_info,0 function,module_info,1 function,'-inlined-__info__/1-',1 
+gleam: function,spin,4 function,clicks,3 function,part_two,1 function,module_info,0 function,module_info,1 
+beamsharp: function,bs@type_atoms,0 function,'Wrap',1 function,'Hit',1 function,'Spin',4 function,'Sign',1 function,'Size',1 function,'Clicks',3 function,'PartTwo',1 function,module_info,0 function,module_info,1 

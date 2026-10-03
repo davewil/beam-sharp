@@ -1,0 +1,10 @@
+module Pub
+
+type Digit = int where value >= 0 and value <= 99
+
+// A refined parameter on an EXPORTED function: F37 emits the range as a guard at the boundary.
+public int Twice(Digit d)
+Twice(d) -> d + d
+
+public int Plain(int d)
+Plain(d) -> d + d

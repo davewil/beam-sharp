@@ -1,0 +1,16 @@
+wrap    instrs erlang=7   beam-sharp=7    identical=true
+hit     instrs erlang=9   beam-sharp=9    identical=true
+spin    instrs erlang=27  beam-sharp=27   identical=true
+sign    instrs erlang=11  beam-sharp=8    identical=false
+size    instrs erlang=7   beam-sharp=7    identical=false
+    differs: {test,is_ge,{f,3},[{x,0},{integer,0}]}  vs  {test,is_lt,{f,3},[{x,0},{integer,0}]}
+    differs: return  vs  {gc_bif,'-',{f,0},1,[{tr,{x,0},{t_number,{'-inf',0}}}],{x,0}}
+    differs: {label,3}  vs  return
+    differs: {gc_bif,'-',{f,0},1,[{tr,{x,0},{t_number,{'-inf',0}}}],{x,0}}  vs  {label,3}
+clicks  instrs erlang=30  beam-sharp=30   identical=true
+pt      instrs erlang=5   beam-sharp=5    identical=true
+(sign differs by SOURCE: bench_erl.erl's sign/1 has a third clause, bench_bs.bs's has two)
+
+-- raw chunks (Type chunk = what the loader reads for {tr,..}/var_info)
+erlang     Code=404 bytes  Type=00000004000000081FFF00206020FFFFFFFFFFFFFF9D00000000000000636020000000000000000100000000000000C76020FFFFFFFFFFFFFFFF00000000000000012020000000000000000060200000000000000000000000000000000140280000000000000000
+beam-sharp Code=406 bytes  Type=00000004000000081FFF00206020FFFFFFFFFFFFFF9D00000000000000636020000000000000000100000000000000C76020FFFFFFFFFFFFFFFF00000000000000012020000000000000000060200000000000000000000000000000000140280000000000000000

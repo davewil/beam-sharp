@@ -1,0 +1,12 @@
+bsc: exemplars is a namespace, not a module
+  it holds no `.bs` files of its own, so there is
+  nothing to compile and nothing to emit — a
+  namespace is erased entirely (41 §5). Name one of
+  the modules under it:
+      exemplars/25a-http-api-server
+      exemplars/25b-websocket-handler
+      exemplars/25c-event-queue-consumer
+      exemplars/25d-database-querying
+      exemplars/25e-dynamic-web-page
+      exemplars/25f-llm-evaluation-client
+      exemplars/25g-jev-server

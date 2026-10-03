@@ -1,0 +1,63 @@
+== (1) build
+built s0_none            2168 bytes
+built s1_wrap_only       2172 bytes
+built s2_hit_only        2156 bytes
+built s3_wrap_hit        2140 bytes
+built s4_all_inline      2064 bytes
+built s5_inline_size100  2292 bytes
+--- invocation 1
+OTP 29, 40 runs per variant, rotated order
+variant                    min ms       q1   median       q3      IQR    med/e0
+e0_erlang                   16.78    17.16    17.80    18.75     1.59     1.00x
+s0_none                     16.66    16.90    17.37    18.72     1.82     0.98x
+s1_wrap_only                11.87    11.98    12.19    12.73     0.75     0.68x
+s2_hit_only                 10.02    10.19    10.40    11.49     1.30     0.58x
+s3_wrap_hit                 10.81    10.93    11.19    11.59     0.66     0.63x
+s4_all_inline               10.63    10.97    11.30    12.69     1.72     0.63x
+s5_inline_size100            9.63     9.73     9.92    10.34     0.61     0.56x
+--- invocation 2
+OTP 29, 40 runs per variant, rotated order
+variant                    min ms       q1   median       q3      IQR    med/e0
+e0_erlang                   16.83    17.00    17.59    19.42     2.43     1.00x
+s0_none                     16.64    17.17    17.91    19.16     1.99     1.02x
+s1_wrap_only                11.83    12.07    12.26    13.71     1.65     0.70x
+s2_hit_only                 10.03    10.26    10.49    11.57     1.32     0.60x
+s3_wrap_hit                 10.80    10.91    11.11    12.04     1.13     0.63x
+s4_all_inline               10.68    11.08    11.51    12.78     1.70     0.65x
+s5_inline_size100            9.61     9.77     9.92    10.71     0.94     0.56x
+--- invocation 3
+OTP 29, 40 runs per variant, rotated order
+variant                    min ms       q1   median       q3      IQR    med/e0
+e0_erlang                   16.85    17.10    17.59    18.76     1.66     1.00x
+s0_none                     16.70    17.02    17.37    18.14     1.11     0.99x
+s1_wrap_only                12.01    12.14    12.63    13.65     1.51     0.72x
+s2_hit_only                 10.14    10.35    10.80    11.41     1.06     0.61x
+s3_wrap_hit                 10.83    11.04    11.37    12.22     1.18     0.65x
+s4_all_inline               10.83    11.03    11.41    12.88     1.85     0.65x
+s5_inline_size100            9.65     9.78    10.03    10.24     0.46     0.57x
+
+== (2) compile options recorded in each shipped .beam (module_info(compile))
+bench_erl        []
+bench_gleam      [debug_info]
+Elixir.BenchEx   [no_spawn_compiler_process,from_core,no_core_prepare,
+                  no_auto_import]
+Day01            [debug_info,from_abstr]
+
+== (3) crash shape with and without inline
+plain        {error,function_clause,
+                    [{f,[2]},
+                     {go,1},
+                     {'-run/0-lc$^0/1-0-',2},
+                     {run,0},
+                     {do_apply,7},
+                     {start_it,1},
+                     {start_em,1},
+                     {do_boot,3}]}
+inlined      {error,function_clause,
+                    [{'-inlined-f/1-',[2]},
+                     {'-run/0-lc$^0/1-0-',2},
+                     {run,0},
+                     {do_apply,7},
+                     {start_it,1},
+                     {start_em,1},
+                     {do_boot,3}]}

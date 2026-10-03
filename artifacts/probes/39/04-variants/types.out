@@ -1,0 +1,65 @@
+variant                  beam_B tr_annot var_info instrs functions
+b0_bs_as_is                2176        9     11     70 bs@type_atoms/0 'Wrap'/1 'Hit'/1 'Spin'/4 'Sign'/1 'Size'/1 'Clicks'/3 'PartTwo'/1 
+b1_bs_no_specs             2068        9     11     70 bs@type_atoms/0 'Wrap'/1 'Hit'/1 'Spin'/4 'Sign'/1 'Size'/1 'Clicks'/3 'PartTwo'/1 
+b2_bs_no_type              2220        0      0     74 bs@type_atoms/0 'Wrap'/1 'Hit'/1 'Spin'/4 'Sign'/1 'Size'/1 'Clicks'/3 'PartTwo'/1 
+b3_bs_inline               2064        9      8     53 bs@type_atoms/0 'Wrap'/1 'Spin'/4 'Clicks'/3 'PartTwo'/1 
+b4_bs_narrow_spec          2204        9     11     70 bs@type_atoms/0 'Wrap'/1 'Hit'/1 'Spin'/4 'Sign'/1 'Size'/1 'Clicks'/3 'PartTwo'/1 
+b5_bs_guard_fact           2264       10     11     71 bs@type_atoms/0 'Wrap'/1 'Hit'/1 'Spin'/4 'Sign'/1 'Size'/1 'Clicks'/3 'PartTwo'/1 
+e0_erlang                  1784       10     11     70 wrap/1 hit/1 spin/4 sign/1 size_/1 clicks/3 part_two/1 
+e1_erlang_no_type          1824        0      0     72 wrap/1 hit/1 spin/4 sign/1 size_/1 clicks/3 part_two/1 
+e2_erlang_inline           1712       10      6     47 spin/4 clicks/3 part_two/1 '-inlined-sign/1-'/1 
+g0_gleam_as_is             2080        9      6     43 spin/4 clicks/3 part_two/1 
+g1_gleam_minus_inline      2236        9     11     68 wrap/1 hit/1 spin/4 sign/1 size_/1 clicks/3 part_two/1 
+
+== Spin/4 in b0 (beam-sharp) vs e1 (Erlang, no_type_opt): are annotations really gone?
+-- e1_erlang_no_type
+    {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}.
+    {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
+    {gc_bif,'+',{f,0},1,[{y,1},{x,0}],{x,3}}.
+-- b2_bs_no_type
+    {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}.
+    {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
+    {gc_bif,'+',{f,0},1,[{y,1},{x,0}],{x,3}}.
+
+== b5_bs_guard_fact: Spin after the guard-fact edit
+{function, 'Spin', 4, 9}.
+  {label,8}.
+    {line,[{location,"aoc/bench/Day01/bench_bs.bs",19}]}.
+    {func_info,{atom,b5_bs_guard_fact},{atom,'Spin'},4}.
+  {label,9}.
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,99}}}]}}.
+    {'%',{var_info,{x,1},[{type,{t_integer,{-1,1}}}]}}.
+    {'%',{var_info,{x,3},[{type,{t_integer,{0,'+inf'}}}]}}.
+    {test,is_eq_exact,{f,10},[{x,2},{integer,0}]}.
+    {test_heap,3,4}.
+    {put_tuple2,{x,0},{list,[{x,0},{x,3}]}}.
+    return.
+  {label,10}.
+    {allocate,4,4}.
+    {init_yregs,{list,[{y,0}]}}.
+    {move,{x,3},{y,1}}.
+    {move,{x,2},{y,2}}.
+    {move,{x,1},{y,3}}.
+    {line,[{location,"aoc/bench/Day01/bench_bs.bs",21}]}.
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,{0,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            {x,0}}.
+    {call,1,{f,4}}. % 'Wrap'/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+    {move,{x,0},{y,0}}.
+    {test,is_ge,{f,11},[{tr,{x,0},{t_integer,{-99,99}}},{integer,0}]}.
+    {line,[{location,"aoc/bench/Day01/bench_bs.bs",22}]}.
+    {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}.
+    {call,1,{f,6}}. % 'Hit'/1
+    {'%',{var_info,{x,0},[{type,{t_integer,{0,1}}}]}}.
+    {gc_bif,'+',
+            {f,0},
+            1,
+            [{tr,{y,1},{t_integer,{0,'+inf'}}},{tr,{x,0},{t_integer,{0,1}}}],
+            {x,3}}.
+    {move,{y,2},{x,2}}.
+    {move,{y,3},{x,1}}.
+    {move,{y,0},{x,0}}.
+    {call_last,4,{f,9},4}. % 'Spin'/4

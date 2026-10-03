@@ -1,0 +1,51 @@
+== (a) the repo's own harness, unmodified (25 runs, min/median) x3 invocations
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         16.83     17.18    1.56x
+Elixir       6770         16.64     16.80    1.54x
+Gleam        6770         10.78     10.84    1.00x
+beam-sharp   6770         16.64     17.10    1.54x
+
+all four agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         16.81     17.12    1.56x
+Elixir       6770         16.62     16.85    1.54x
+Gleam        6770         10.78     10.96    1.00x
+beam-sharp   6770         16.73     17.12    1.55x
+
+all four agree on 6770
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         16.85     17.07    1.56x
+Elixir       6770         16.63     16.92    1.54x
+Gleam        6770         10.79     10.86    1.00x
+beam-sharp   6770         16.64     16.84    1.54x
+
+all four agree on 6770
+
+== (b) rotated-order harness, 60 runs each (min / quartiles / IQR)
+OTP 29 erts 17.1, 60 runs/impl, order rotated per round
+               min ms       q1   median       q3      IQR rel(med)
+Erlang          16.83    16.99    17.20    17.95     0.96    1.00x
+Elixir          16.69    16.81    16.97    17.29     0.48    0.99x
+Gleam           10.79    10.87    10.97    11.11     0.24    0.64x
+beam-sharp      16.68    16.80    16.99    17.74     0.94    0.99x
+
+OTP 29 erts 17.1, 60 runs/impl, order rotated per round
+               min ms       q1   median       q3      IQR rel(med)
+Erlang          16.84    17.01    17.17    17.69     0.67    1.00x
+Elixir          16.67    16.85    17.03    17.30     0.45    0.99x
+Gleam           10.80    10.89    10.96    11.09     0.20    0.64x
+beam-sharp      16.70    16.87    17.02    17.26     0.39    0.99x
+
+OTP 29 erts 17.1, 60 runs/impl, order rotated per round
+               min ms       q1   median       q3      IQR rel(med)
+Erlang          16.81    16.98    17.27    17.81     0.82    1.00x
+Elixir          16.61    16.87    17.19    18.20     1.32    1.00x
+Gleam           10.81    10.90    10.98    11.29     0.39    0.64x
+beam-sharp      16.66    16.89    17.10    17.93     1.04    0.99x
+

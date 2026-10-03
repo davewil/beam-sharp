@@ -1,0 +1,32 @@
+[a0_control] erlc +from_asm: accepted (1300 bytes)
+[a1_true_fact] erlc +from_asm: accepted (1316 bytes)
+[a2_LIE_step] erlc +from_asm: accepted (1312 bytes)
+-- diff of a0_control vs control (Spin header only):
+-- diff of a1_true_fact vs control (Spin header only):
+3c3
+< 54:    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+---
+> 54:    {'%',{var_info,{x,0},[{type,{t_integer,{0,99}}}]}}.
+6c6
+< 74:    {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+---
+> 74:    {'%',{var_info,{x,0},[{type,{t_integer,{0,99}}}]}}.
+-- diff of a2_LIE_step vs control (Spin header only):
+4c4
+< 55:    {'%',{var_info,{x,1},[{type,{t_integer,{-1,1}}}]}}.
+---
+> 55:    {'%',{var_info,{x,1},[{type,{t_integer,{1,1}}}]}}.
+t.erl:9:57: Warning: 'catch ...' is deprecated; please use 'try ... catch ... end' instead.
+Compile directive 'nowarn_deprecated_catch' can be used to suppress
+warnings in selected modules.
+%    9|     [io:format("~-14s answer=~p (expected 6770)~n", [M, catch M:'PartTwo'(Ds)]) || M <- Ms],
+%     |                                                         ^
+
+a0_control     answer=6770 (expected 6770)
+a1_true_fact   answer=6770 (expected 6770)
+a2_LIE_step    answer=6770 (expected 6770)
+
+40 rotated runs, ms:  min / median / IQR
+a0_control       16.70   17.03    0.61
+a1_true_fact     16.66   16.98    0.52
+a2_LIE_step      16.65   17.10    0.90

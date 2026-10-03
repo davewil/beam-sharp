@@ -1,0 +1,11 @@
+module Narrow
+
+using :erlang {
+    int rem(int a, int b)
+}
+
+type Digit = int where value >= 0 and value <= 99
+
+// Does the checker know that ((n rem 100) + 100) rem 100 lies in 0..99?
+public Digit Wrap(int n)
+Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)

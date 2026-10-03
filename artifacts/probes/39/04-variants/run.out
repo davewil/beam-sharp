@@ -1,0 +1,53 @@
+built e0_erlang                kind=erl warnings=0 size=1784
+built e1_erlang_no_type        kind=erl warnings=0 size=1824
+built e2_erlang_inline         kind=erl warnings=0 size=1712
+built b0_bs_as_is              kind=bs warnings=0 size=2176
+built b1_bs_no_specs           kind=bs warnings=0 size=2068
+built b2_bs_no_type            kind=bs warnings=0 size=2220
+built b3_bs_inline             kind=bs warnings=0 size=2064
+built b4_bs_narrow_spec        kind=bs warnings=0 size=2204
+built b5_bs_guard_fact         kind=bs warnings=0 size=2264
+built g0_gleam_as_is           kind=gl warnings=0 size=2080
+built g1_gleam_minus_inline    kind=gl warnings=0 size=2236
+--- invocation 1
+OTP 29, 40 runs per variant, rotated order
+variant                    min ms       q1   median       q3      IQR    med/e0
+b0_bs_as_is                 16.66    16.76    16.96    18.27     1.51     1.00x
+b1_bs_no_specs              16.64    16.82    16.98    17.27     0.45     1.00x
+b2_bs_no_type               17.16    17.35    17.46    17.95     0.60     1.03x
+b3_bs_inline                10.63    10.85    10.97    11.20     0.35     0.64x
+b4_bs_narrow_spec           16.65    16.75    16.86    17.23     0.48     0.99x
+b5_bs_guard_fact            17.54    17.70    17.89    18.23     0.54     1.05x
+e0_erlang                   16.77    16.90    17.04    17.34     0.44     1.00x
+e1_erlang_no_type           16.59    16.74    17.01    17.72     0.98     1.00x
+e2_erlang_inline            10.78    10.83    10.95    11.16     0.33     0.64x
+g0_gleam_as_is              10.80    10.86    10.97    11.35     0.49     0.64x
+g1_gleam_minus_inline       16.80    16.89    16.98    17.39     0.51     1.00x
+--- invocation 2
+OTP 29, 40 runs per variant, rotated order
+variant                    min ms       q1   median       q3      IQR    med/e0
+b0_bs_as_is                 16.67    16.86    17.07    17.91     1.05     0.99x
+b1_bs_no_specs              16.69    16.88    17.12    17.65     0.77     1.00x
+b2_bs_no_type               17.23    17.39    17.79    18.55     1.16     1.04x
+b3_bs_inline                10.67    11.11    11.26    11.52     0.41     0.66x
+b4_bs_narrow_spec           16.70    16.85    17.27    17.66     0.82     1.01x
+b5_bs_guard_fact            17.59    17.75    17.98    18.81     1.06     1.05x
+e0_erlang                   16.79    17.06    17.18    17.76     0.69     1.00x
+e1_erlang_no_type           16.61    16.91    17.28    18.10     1.19     1.01x
+e2_erlang_inline            10.78    10.95    11.10    11.34     0.39     0.65x
+g0_gleam_as_is              10.76    10.87    10.99    11.34     0.46     0.64x
+g1_gleam_minus_inline       16.80    17.02    17.16    18.00     0.97     1.00x
+--- invocation 3
+OTP 29, 40 runs per variant, rotated order
+variant                    min ms       q1   median       q3      IQR    med/e0
+b0_bs_as_is                 16.65    16.80    16.96    17.53     0.73     0.99x
+b1_bs_no_specs              16.69    16.82    16.94    17.07     0.26     0.99x
+b2_bs_no_type               17.24    17.37    17.50    17.71     0.34     1.02x
+b3_bs_inline                10.59    10.86    10.96    11.21     0.35     0.64x
+b4_bs_narrow_spec           16.70    16.82    16.91    17.58     0.76     0.99x
+b5_bs_guard_fact            17.62    17.70    17.89    18.40     0.70     1.05x
+e0_erlang                   16.84    16.96    17.08    17.41     0.45     1.00x
+e1_erlang_no_type           16.55    16.81    17.00    17.69     0.88     0.99x
+e2_erlang_inline            10.79    10.85    10.90    11.12     0.27     0.64x
+g0_gleam_as_is              10.81    10.88    10.94    11.16     0.28     0.64x
+g1_gleam_minus_inline       16.79    16.92    17.10    17.82     0.90     1.00x

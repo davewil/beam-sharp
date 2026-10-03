@@ -1,0 +1,32 @@
+== (1) declaring Wrap's result 0..99, body = the benchmark's arithmetic
+Narrow/narrow.bs:11:1: error: Wrap returns a value its signature does not declare
+  not covered by the declared return type:
+    int <= -1 | int >= 100
+  If `Digit` is what you meant, fix the clause, not the signature.
+  no signature is offered: what the clauses return has no spelling as a type yet.
+
+== bs_check source, the arithmetic rule (compiler/src/bs_check.erl)
+2917:%% Arithmetic synthesises numeric types, not exact result intervals.
+2918-type_of({e_op, L, Op, A, B}, S, C) ->
+--
+4138:%% Arithmetic returns `int`, not an exact interval.
+4139-op_type('/') -> bs_types:int();
+4135:op_type('+') -> bs_types:int();
+4140:op_type('%') -> bs_types:int();
+
+== (2) exported Twice(Digit) vs Plain(int): emitted forms and assembler
+3:4-{function,0,bs@type_atoms,0,[{clause,0,[],[],[{nil,0}]}]}.
+11:12:{function,0,'Twice',1,
+15:16-         [[{op,{7,1},
+21:22-               {op,{7,1},
+23:24-                   {op,{7,1},'>=',{var,{7,1},'D'},{integer,{7,1},0}},
+-- Twice
+    {test,is_integer,{f,3},[{x,0}]}.
+    {test,is_ge,{f,3},[{tr,{x,0},{t_integer,any}},{integer,0}]}.
+    {test,is_ge,{f,3},[{integer,99},{tr,{x,0},{t_integer,{0,'+inf'}}}]}.
+    {gc_bif,'+',
+            [{tr,{x,0},{t_integer,{0,99}}},{tr,{x,0},{t_integer,{0,99}}}],
+-- Plain
+    {test,is_integer,{f,5},[{x,0}]}.
+    {gc_bif,'+',
+            [{tr,{x,0},{t_integer,any}},{tr,{x,0},{t_integer,any}}],

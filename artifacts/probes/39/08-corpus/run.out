@@ -1,0 +1,25 @@
+skip exemplars (bsc refused: bsc: exemplars is a namespace, not a module)
+module                     B plain   B inl     d%  ms plain    ms inl
+Aliasing                       816     784  -3.9%      3.40      4.43
+Counter                        880     880   0.0%      3.12      3.73
+Escalate                       716     716   0.0%      2.34      3.94
+Fib                            716     716   0.0%      6.24      9.63
+Foreign                       1208    1172  -3.0%     18.91     17.13
+Frame                         1604    1604   0.0%      7.74      6.94
+Intake                        2204    2204   0.0%     12.07     16.05
+Interop                        708     708   0.0%      2.25      3.12
+Label                          980     980   0.0%      1.57      1.68
+Ledger                         788     788   0.0%      2.59      2.97
+Levels                         868     868   0.0%      2.32      2.51
+Math                           964     964   0.0%      5.13      5.61
+Names                          788     840   6.6%     11.96      7.32
+Parcel                         856     856   0.0%      2.85      3.25
+Pipeline                      1188    1028 -13.5%      5.30      5.80
+Shop.Collections.Ints          700     700   0.0%      2.43      2.51
+Queue                          972     972   0.0%      3.60      4.58
+Readings                       700     700   0.0%      1.87      1.96
+Shop                          1144    1144   0.0%      4.85      5.38
+Signalbox                     1512    1512   0.0%      4.81      8.48
+Stats                          876     956   9.1%      3.52      4.41
+Wire                          1008    1008   0.0%      6.32      6.04
+total                        22196   22100  -0.4%     576.1     637.4   (22 modules)
