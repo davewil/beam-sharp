@@ -1466,8 +1466,9 @@ message(#{tag := validate_collapses, file := P, line := L, column := C, function
      "  write the failure clause. Validate against the type you actually~n"
      "  expect.~n",
      [P, L, C, Fn, Ty]};
-%% The declaration is legal; the objection is to validating into it, so the
-%% repair is a different target rather than a different type.
+%% The declaration is legal; the objection is to validating into it, so both
+%% repairs are a different target rather than a different type. Neither is
+%% preferred: which one applies turns on who owns the wire.
 message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
           function := Fn, type := Ty, member := M, beside := B}) ->
     {"~s:~p:~p: error: ~s validates into a union whose members no clause head can tell apart~n"

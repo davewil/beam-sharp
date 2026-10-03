@@ -448,7 +448,7 @@ the_untagged_payload_is_still_legal_to_declare_test() ->
     M = build_and_load(Src, 'VaPayloadDecl'),
     ?assertEqual([], M:'Pass'([])).
 
-the_refusal_names_both_members_and_the_repair_test() ->
+the_refusal_names_both_members_and_both_repairs_test() ->
     ?assert(filelib:is_regular(bs_test_support:escript())),
     bs_test_support:with_src(
       "in.bs", payload_src("Batch<int> | Batch<binary>"),
@@ -492,7 +492,10 @@ validating_each_member_in_turn_tags_untagged_data_test() ->
     M = build_and_load(Src, 'VaInTurn'),
     ?assertEqual({nums, [#{<<"a">> => 1}]}, M:'Decode'([#{<<"a">> => 1}])),
     ?assertEqual({text, [#{<<"a">> => <<"b">>}]}, M:'Decode'([#{<<"a">> => <<"b">>}])),
-    ?assertMatch({error, _}, M:'Decode'([#{<<"a">> => 1.5}])).
+    %% `[]` is in both members and lands in whichever is tried first; a row
+    %% in neither is blamed against the last validator tried.
+    ?assertEqual({nums, []}, M:'Decode'([])),
+    ?assertMatch({error, #{'Expected' := <<"binary">>}}, M:'Decode'([#{<<"a">> => 1.5}])).
 
 %% An inline target bypasses declaration checks.
 an_undeclared_target_is_refused_test() ->

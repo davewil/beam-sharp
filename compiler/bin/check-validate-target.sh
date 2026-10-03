@@ -26,6 +26,13 @@
 # by an `is_integer` guard on its first slot; V6 is `list<int> | list<atom>`,
 # told apart by a guard on the first element; V7 differs only in its second
 # slot and is told apart there.
+#
+# WHY V8 (ENG-369). The refusal names two repairs, and V4 runs only the first.
+# V8 is the second, in the spelling LANGUAGE.md prints: the untagged pair
+# validated a member at a time, the tag written in the arm that succeeds. It is
+# handed an untagged list of binary rows, which the first validator must reject
+# and the second accept, so a message advising a form that no longer compiles,
+# or one that never reaches the second member, lands here.
 
 set -euo pipefail
 
@@ -36,7 +43,7 @@ BSC="$HERE/_build/default/bin/bsc"
 MARK="validates into a union whose members no clause head can tell apart"
 
 REFUSE="V1 V2 V3"
-ACCEPT="V4 V5 V6 V7"
+ACCEPT="V4 V5 V6 V7 V8"
 
 expected_value() {
   case "$1" in
@@ -44,6 +51,16 @@ expected_value() {
     V5) echo '(1, 2)' ;;
     V6) echo '[:a]' ;;
     V7) echo '(1, :a)' ;;
+    V8) echo '(:text, [{"a" = "b"}])' ;;
+  esac
+}
+
+# Each accept is handed the value it must return, a valid term validating to
+# itself, except V8, whose whole point is that the sender sent no tag.
+argument() {
+  case "$1" in
+    V8) echo '[#{<<"a">> => <<"b">>}]' ;;
+    *)  expected_value "$1" ;;
   esac
 }
 
@@ -94,49 +111,70 @@ probe() {
   emit V5 'type Pair = (int, int) | (atom, atom)' 'result<Pair, ValidationError>' 'Pair'
   emit V6 '' 'term' 'list<int> | list<atom>'
   emit V7 '' 'term' '(int, int) | (int, atom)'
-  # Each accept is handed the value it must return: a valid term validates to
-  # itself.
+  mkdir -p "$dir/V8"
+  cat > "$dir/V8/v8.bs" <<'BS'
+module V8
+
+type Payload = (:nums, list<map<string, int>>) | (:text, list<map<string, binary>>)
+
+public result<Payload, ValidationError> Decode(term t)
+Decode(t) -> ValidateAs<list<map<string, int>>>(t) switch {
+    (:error, _) => AsText(t),
+    rows        => (:nums, rows)
+}
+
+result<Payload, ValidationError> AsText(term t)
+AsText(t) -> ValidateAs<list<map<string, binary>>>(t) switch {
+    (:error, e) => (:error, e),
+    rows        => (:text, rows)
+}
+BS
   (cd "$dir" &&
      for v in $REFUSE; do "$BSC" "$v" > "$v.out" 2>&1 || true; done &&
      for v in $ACCEPT; do
-       "$BSC" "$v" Decode "$(expected_value "$v")" > "$v.out" 2>&1 || true
+       "$BSC" "$v" Decode "$(argument "$v")" > "$v.out" 2>&1 || true
      done)
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — three defects and one correct form.
+# --self-test — four defects and one correct form.
 #
 #   silent        nothing is refused - the state of master before ENG-347
 #   reachability  the declaration predicate reused at the obligation site: V2
 #                 is refused, V1 and V3 compile, because a list or a tuple
 #                 pattern REACHES both members without separating them
-#   cry_wolf      every union target is refused, V4-V7 too
+#   cry_wolf      every union target is refused, V4-V8 too
+#   first_only    the second repair never reaches its second member: V8's
+#                 binary rows come back as the first validator's error
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   fail=0
   ERR="X/x.bs:4:14: error: Decode $MARK"
 
-  stub() { # name, then a verdict per case V1..V7
+  stub() { # name, then a verdict per case V1..V8
     local d="$W/$1"; shift
     mkdir -p "$d"
     local i=1 v
-    for v in V1 V2 V3 V4 V5 V6 V7; do
+    for v in V1 V2 V3 V4 V5 V6 V7 V8; do
       eval "printf '%s' \"\${$i}\"" > "$d/$v.out"
       i=$((i + 1))
     done
   }
   A4="$(expected_value V4)"; A5="$(expected_value V5)"
   A6="$(expected_value V6)"; A7="$(expected_value V7)"
+  A8="$(expected_value V8)"
+  E8="(:error, {Kind = :'ValidationError', Expected = \"int\", Path = [\"[0]\"]})"
   # What a refused case prints when it is compiled and not refused: nothing.
   C=''
 
-  stub good         "$ERR" "$ERR" "$ERR" "$A4"  "$A5"  "$A6"  "$A7"
-  stub silent       "$C"   "$C"   "$C"   "$A4"  "$A5"  "$A6"  "$A7"
-  stub reachability "$C"   "$ERR" "$C"   "$A4"  "$A5"  "$A6"  "$A7"
-  stub cry_wolf     "$ERR" "$ERR" "$ERR" "$ERR" "$ERR" "$ERR" "$ERR"
+  stub good         "$ERR" "$ERR" "$ERR" "$A4"  "$A5"  "$A6"  "$A7"  "$A8"
+  stub silent       "$C"   "$C"   "$C"   "$A4"  "$A5"  "$A6"  "$A7"  "$A8"
+  stub reachability "$C"   "$ERR" "$C"   "$A4"  "$A5"  "$A6"  "$A7"  "$A8"
+  stub cry_wolf     "$ERR" "$ERR" "$ERR" "$ERR" "$ERR" "$ERR" "$ERR" "$ERR"
+  stub first_only   "$ERR" "$ERR" "$ERR" "$A4"  "$A5"  "$A6"  "$A7"  "$E8"
 
-  for bad in silent reachability cry_wolf; do
+  for bad in silent reachability cry_wolf first_only; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -149,7 +187,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: three defects seen, correct form accepted"
+  echo "self-test passed: four defects seen, correct form accepted"
   exit 0
 fi
 
@@ -158,4 +196,4 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
 out="$(judge "$W")"
 if [ -n "$out" ]; then echo "$out"; exit 1; fi
-echo "  ok         3 targets no clause head can take apart refused, 4 that one can run unchanged"
+echo "  ok         3 targets no clause head can take apart refused, 4 that one can run unchanged, the untagged pair tagged in the arm"

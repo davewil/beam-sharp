@@ -2610,8 +2610,10 @@ them. Both repairs tag the members. Where you control the sender, tag them on th
 `(:nums, list<map<string, int>>) | (:text, list<map<string, binary>>)`, and validate against that.
 Where you do not, validate against each member in turn and write the tag in the arm that succeeds:
 `ValidateAs<list<map<string, int>>>(t) switch { (:error, _) => AsText(t), rows => (:nums, rows) }`,
-with `AsText` doing the same for the second member. `list<int> | list<atom>` is accepted, because a
-guard on the first element tells the two apart.
+with `AsText` doing the same for the second member. That form walks a term once for each member
+tried, puts a term both members hold (`[]` here) in the first, and blames a term neither holds
+against the last. `list<int> | list<atom>` is accepted, because a guard on the first element tells
+the two apart.
 
 **`ValidationError` is a path into the term plus the type expected there** — the compiler-known
 record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module, so a

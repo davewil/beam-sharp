@@ -29,6 +29,11 @@
                 refused for collapsing reports only that. **One site**: `bsc --api` reads no function
                 body, and already printed an API for a module whose body F18.9's `ValidateAs<term>`
                 refuses (measured 2026-09-13). Gate: `compiler/bin/check-validate-target.sh`
+**Amended**     2026-10-03, [ENG-369](https://linear.app/davewil/issue/ENG-369): F18.22's refusal names
+                both repairs and prefers neither, since which applies turns on who owns the wire: tag
+                the members on the wire, or validate against each member in turn and write the tag in
+                the arm that succeeds. The second is F18.23 and the gate's V8, run so the message
+                cannot advise a form that has stopped compiling
 
 ## Why this one now
 
