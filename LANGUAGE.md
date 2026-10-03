@@ -2606,9 +2606,12 @@ so `<T>` never becomes a runtime value and no type variable survives into the al
 `T` a term belongs to and returns a `T`, so where no head can separate two members the answer is
 lost. `ValidateAs<list<map<string, int>> | list<map<string, binary>>>` is an error even though that
 type is legal to declare: a list pattern reaches both members and nothing at the element separates
-them. Tag the members, `(:nums, list<map<string, int>>) | (:text, list<map<string, binary>>)`, and
-validate against that. `list<int> | list<atom>` is accepted, because a guard on the first element
-tells the two apart.
+them. Both repairs tag the members. Where you control the sender, tag them on the wire,
+`(:nums, list<map<string, int>>) | (:text, list<map<string, binary>>)`, and validate against that.
+Where you do not, validate against each member in turn and write the tag in the arm that succeeds:
+`ValidateAs<list<map<string, int>>>(t) switch { (:error, _) => AsText(t), rows => (:nums, rows) }`,
+with `AsText` doing the same for the second member. `list<int> | list<atom>` is accepted, because a
+guard on the first element tells the two apart.
 
 **`ValidationError` is a path into the term plus the type expected there** — the compiler-known
 record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module, so a

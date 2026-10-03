@@ -1475,8 +1475,11 @@ message(#{tag := validate_indiscriminable, file := P, line := L, column := C,
      "  the type is: ~s~n"
      "  The validator works out which member arrived, then returns a type~n"
      "  with nowhere to keep the answer: a caller can pass the value on but~n"
-     "  never dispatch on it. Tag the members - `(:a, ...) | (:b, ...)` -~n"
-     "  and validate against that.~n",
+     "  never dispatch on it. Both repairs tag the members:~n"
+     "    - where you control the sender, tag them on the wire -~n"
+     "      `(:a, ...) | (:b, ...)` - and validate against that;~n"
+     "    - where you do not, validate against each member in turn and~n"
+     "      write the tag in the arm that succeeds.~n",
      [P, L, C, Fn, M, B, Ty]};
 %% Says the compiler is not ready, not that the pattern is wrong:
 %% `{ Status: s }` is a member of `map<atom, term>`, so "matches no value"

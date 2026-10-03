@@ -458,7 +458,8 @@ the_refusal_names_both_members_and_the_repair_test() ->
               ?assertNotEqual(nomatch, string:find(Out, "rc:1")),
               ?assertNotEqual(nomatch, string:find(Out, "`[map<string, int>, ..]`")),
               ?assertNotEqual(nomatch, string:find(Out, "`[map<string, binary>, ..]`")),
-              ?assertNotEqual(nomatch, string:find(Out, "Tag the members"))
+              ?assertNotEqual(nomatch, string:find(Out, "tag them on the wire")),
+              ?assertNotEqual(nomatch, string:find(Out, "validate against each member in turn"))
       end).
 
 a_tagged_payload_validates_test() ->
@@ -469,6 +470,29 @@ a_tagged_payload_validates_test() ->
     ?assertEqual(Nums, M:'Decode'(Nums)),
     ?assertEqual(Text, M:'Decode'(Text)),
     ?assertMatch({error, _}, M:'Decode'({nums, [#{<<"a">> => <<"b">>}]})).
+
+%%% F18.23 — the repair for a sender that cannot be made to tag.
+
+%% The other repair the refusal names: each member is validated in turn and
+%% the tag is written in the arm that knows the answer.
+validating_each_member_in_turn_tags_untagged_data_test() ->
+    Src = "module VaInTurn\n"
+          "type Batch<T> = list<map<string, T>>\n"
+          "type Payload = (:nums, Batch<int>) | (:text, Batch<binary>)\n"
+          "public result<Payload, ValidationError> Decode(term t)\n"
+          "Decode(t) -> ValidateAs<Batch<int>>(t) switch {\n"
+          "    (:error, _) => AsText(t),\n"
+          "    rows        => (:nums, rows)\n"
+          "}\n"
+          "result<Payload, ValidationError> AsText(term t)\n"
+          "AsText(t) -> ValidateAs<Batch<binary>>(t) switch {\n"
+          "    (:error, e) => (:error, e),\n"
+          "    rows        => (:text, rows)\n"
+          "}\n",
+    M = build_and_load(Src, 'VaInTurn'),
+    ?assertEqual({nums, [#{<<"a">> => 1}]}, M:'Decode'([#{<<"a">> => 1}])),
+    ?assertEqual({text, [#{<<"a">> => <<"b">>}]}, M:'Decode'([#{<<"a">> => <<"b">>}])),
+    ?assertMatch({error, _}, M:'Decode'([#{<<"a">> => 1.5}])).
 
 %% An inline target bypasses declaration checks.
 an_undeclared_target_is_refused_test() ->
