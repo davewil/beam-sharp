@@ -1,0 +1,78 @@
+[B] RESULT absent_option_tests            ok
+[B] RESULT absorbed_member_tests          ok
+[B] RESULT aggregate_tests                ok
+[B] RESULT api_tests                      ok
+[B] binary_tests: the_grammar_has_exactly_its_named_conflicts_test...*failed*
+[B]   Failed: 1.  Skipped: 0.  Passed: 31.
+[B] RESULT binary_tests                   error
+[B] RESULT bindings_tests                 ok
+[B] body_check_tests: every_aoc_program_still_compiles_test...*failed*
+[B]   Failed: 1.  Skipped: 0.  Passed: 53.
+[B] RESULT body_check_tests               error
+[B] RESULT boundary_kind_tests            ok
+[B] RESULT boundary_range_tests           ok
+[B] RESULT clause_block_tests             ok
+[B] cli_tests: escript_entry_point_exists_test...*failed*
+[B]   Failed: 1.  Skipped: 0.  Passed: 20.
+[B] RESULT cli_tests                      error
+[B] RESULT collapse_tests                 ok
+[B] RESULT columns_tests                  ok
+[B] RESULT comprehension_tests            ok
+[B] RESULT construct_union_tests          ok
+[B] RESULT corpus_tests                   ok
+[B] corrected_signature_tests: a_declared_form_nothing_can_write_is_named_as_printed_test...*failed*
+[B] corrected_signature_tests: an_unnamed_paste_back_failure_is_reported_as_a_defect_test...*failed*
+[B] corrected_signature_tests: a_refused_declaration_is_reported_as_a_defect_test...*failed*
+[B]   Failed: 3.  Skipped: 0.  Passed: 32.
+[B] RESULT corrected_signature_tests      error
+[B] RESULT diagnostic_json_tests          ok
+[B] diagnostic_term_tests: every_contractual_tag_is_rendered_test...*failed*
+[B] diagnostic_term_tests: the_diagnostics_gate_passes_test...*failed*
+[B]   Failed: 2.  Skipped: 0.  Passed: 11.
+[B] RESULT diagnostic_term_tests          error
+[B] RESULT division_tests                 ok
+[B] RESULT down_view_tests                ok
+[B] RESULT ffi_tests                      ok
+[B] RESULT float_tests                    ok
+[B] RESULT foreign_guard_tests            ok
+[B] RESULT foreign_return_tests           ok
+[B] RESULT foreign_wrapper_tests          ok
+[B] RESULT function_value_tests           ok
+[B] RESULT generics_tests                 ok
+[B] RESULT guard_call_tests               ok
+[B] RESULT guard_kind_tests               ok
+[B] RESULT heads_tests                    ok
+[B] RESULT implements_tests               ok
+[B] RESULT intervals_tests                ok
+[B] RESULT lists_tests                    ok
+[B] RESULT map_construction_tests         ok
+[B] RESULT map_type_tests                 ok
+[B] RESULT map_validate_tests             ok
+[B] RESULT modules_tests                  ok
+[B] RESULT negation_tests                 ok
+[B] RESULT non_numeric_operand_tests      ok
+[B] RESULT open_field_set_tests           ok
+[B] RESULT otp_tests                      ok
+[B] RESULT parse_atom_tests               ok
+[B] RESULT pipe_tests                     ok
+[B] RESULT poly_signature_tests           ok
+[B] RESULT raise_tests                    ok
+[B] RESULT record_pattern_tests           ok
+[B] RESULT records_tests                  ok
+[B] RESULT repl_tests                     ok
+[B] RESULT reserved_qualifier_tests       ok
+[B] RESULT sibling_notes_tests            ok
+[B] RESULT string_key_tests               ok
+[B] RESULT strings_tests                  ok
+[B] RESULT switch_tests                   ok
+[B] RESULT template_tests                 ok
+[B] RESULT to_existing_atom_tests         ok
+[B] RESULT to_json_tests                  ok
+[B] RESULT type_import_tests              ok
+[B] RESULT type_prefix_tests              ok
+[B] RESULT type_redeclared_tests          ok
+[B] RESULT types_tests                    ok
+[B] RESULT validate_as_tests              ok
+[B] RESULT validation_error_record_tests  ok
+[B] RESULT valve_tests                    ok
+[B] RESULT visibility_tests               ok

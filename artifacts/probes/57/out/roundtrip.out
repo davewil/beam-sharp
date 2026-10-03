@@ -1,0 +1,46 @@
+## base
+Unb: printed [F(<= -1) ; F(>= 1)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(<= -1) -> ...","F(>= 1) -> ..."]
+    json: "residual":"(int <= -1 | int >= 1)"
+Sgn: no residual printed: error: this refinement is not a predicate the checker can read
+Sgn2: no residual printed: error: this refinement is not a predicate the checker can read
+Sgn3: no residual printed: error: this refinement is not a predicate the checker can read
+## A
+Unb: printed [F(<= -1) ; F(>= 1)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(<= -1) -> ...","F(>= 1) -> ..."]
+    json: "residual":"(int <= -1 | int >= 1)"
+Sgn: printed [F(>= -10 and <= -1) ; F(>= 1 and <= 10)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -10 and <= -1) -> ...","F(>= 1 and <= 10) -> ..."]
+    json: "residual":"(-10..-1 | 1..10)"
+Sgn2: printed [F(>= -10 and <= 3)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -10 and <= 3) -> ..."]
+    json: "residual":"(-10..3)"
+Sgn3: printed [F(>= -8 and <= -4) ; F(>= -2)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -8 and <= -4) -> ...","F(>= -2) -> ..."]
+    json: "residual":"(-8..-4 | int >= -2)"
+## B
+Unb: printed [F(<= -1) ; F(>= 1)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(<= -1) -> ...","F(>= 1) -> ..."]
+    json: "residual":"(int <= -1 | int >= 1)"
+Sgn: printed [F(>= -10 and <= -1) ; F(>= 1 and <= 10)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -10 and <= -1) -> ...","F(>= 1 and <= 10) -> ..."]
+    json: "residual":"(-10..-1 | 1..10)"
+Sgn2: printed [F(>= -10 and <= 3)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -10 and <= 3) -> ..."]
+    json: "residual":"(-10..3)"
+Sgn3: printed [F(>= -8 and <= -4) ; F(>= -2)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -8 and <= -4) -> ...","F(>= -2) -> ..."]
+    json: "residual":"(-8..-4 | int >= -2)"
+## C
+Unb: printed [F(<= -1) ; F(>= 1)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(<= -1) -> ...","F(>= 1) -> ..."]
+    json: "residual":"(int <= -1 | int >= 1)"
+Sgn: printed [F(>= -10 and <= -1) ; F(>= 1 and <= 10)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -10 and <= -1) -> ...","F(>= 1 and <= 10) -> ..."]
+    json: "residual":"(-10..-1 | 1..10)"
+Sgn2: printed [F(>= -10 and <= 3)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -10 and <= 3) -> ..."]
+    json: "residual":"(-10..3)"
+Sgn3: printed [F(>= -8 and <= -4) ; F(>= -2)] ; pasted back -> COMPILES (exhaustive)
+    json: "pasteable":["F(>= -8 and <= -4) -> ...","F(>= -2) -> ..."]
+    json: "residual":"(-8..-4 | int >= -2)"

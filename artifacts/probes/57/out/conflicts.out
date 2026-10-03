@@ -1,0 +1,4 @@
+base  conflicts: 6 shift/reduce, 0 reduce/reduce | precedence-resolved blocks: 226
+A     conflicts: 6 shift/reduce, 0 reduce/reduce | precedence-resolved blocks: 230
+B     conflicts: 6 shift/reduce, 0 reduce/reduce | precedence-resolved blocks: 226
+C     conflicts: 6 shift/reduce, 0 reduce/reduce | precedence-resolved blocks: 226

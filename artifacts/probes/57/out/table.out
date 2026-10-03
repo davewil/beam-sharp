@@ -1,0 +1,196 @@
+## BASELINE
+REFUSED   value >= -5                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= -5 and value <= 5         error: this refinement is not a predicate the checker can read
+REFUSED   value >= 1 or value <= -1          error: this refinement is not a predicate the checker can read
+ACCEPTED  value <= 3 or value >= 10          domain: <= 3 | >= 10 and <= 123456788 | >= 123456790
+ACCEPTED  value != 0                         domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+REFUSED   value != -3                        error: this refinement is not a predicate the checker can read
+REFUSED   value == -1                        error: this refinement is not a predicate the checker can read
+REFUSED   -5 <= value                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= - 5                       error: this refinement is not a predicate the checker can read
+REFUSED   value >= (-5)                      error: this refinement is not a predicate the checker can read
+REFUSED   value >= -(5)                      error: this refinement is not a predicate the checker can read
+REFUSED   value >= 2 + 3                     error: this refinement is not a predicate the checker can read
+REFUSED   value >= 0 - 5                     error: this refinement is not a predicate the checker can read
+REFUSED   value >= -5 + 1                    error: this refinement is not a predicate the checker can read
+REFUSED   value >= --5                       error: this refinement is not a predicate the checker can read
+REFUSED   value >= -0                        error: this refinement is not a predicate the checker can read
+REFUSED   value > -1 and value < 1           error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= 5                         domain: >= 5 and <= 123456788 | >= 123456790
+REFUSED   value >= -n                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= (2 + 3) * 4               error: this refinement is not a predicate the checker can read
+REFUSED   value >= -2147483648 and value <= 2147483647 error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= 0 and value <= 255        domain: >= 0 and <= 255
+ACCEPTED  (value >= 0) and (value <= 5)      domain: >= 0 and <= 5
+REFUSED   WellFormed(value)                  error: this refinement is not a predicate the checker can read
+REFUSED   value >= n                         error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= 0 and value <= 5 and value != 3 domain: >= 0 and <= 2 | >= 4 and <= 5
+REFUSED   value == 5                         A27/a.bs:0: bad range type
+REFUSED   value > 4 and value < 6            A28/a.bs:0: bad range type
+## pattern + guard sites (same literal)
+ACCEPTED  pattern <= -1 / >= 0              
+REFUSED   guard n >= 0 / n <= -1             S2/a.bs:2:13: error: Sign is not exhaustive~  no clause matches:~    Sign(<= -1) -> ...
+ACCEPTED  guard n < 0 (no literal -)        
+## guard agreement (the same predicate as a clause guard and as a refinement)
+REFUSED   G1 guard n>=-5 ; n<-5 (both clauses) S4/a.bs:2:13: error: F is not exhaustive~  no clause matches:~    F(n) -> ...
+REFUSED   G2 refinement -5, guard n>=-5 only S5/a.bs:2:1: error: this refinement is not a predicate the checker can read~  a refinement narrows a type, so the compiler has to be able to~  reason about it: comparisons on `value`, joined with `and`/`or`.~
+ACCEPTED  G3 refinement 0, guard n>=0 only (control)
+REFUSED   G4 refinement -5, pattern >= -5 only S7/a.bs:2:1: error: this refinement is not a predicate the checker can read~  a refinement narrows a type, so the compiler has to be able to~  reason about it: comparisons on `value`, joined with `and`/`or`.~
+REFUSED   G5 guard n>=-5 and n<=5 / rest     S8/a.bs:2:13: error: F is not exhaustive~  no clause matches:~    F(n) -> ...
+## what the guard credits: residual of a single guard clause
+guard n >= -5                      residual: S9/a.bs:2:13: error: F is not exhaustive | F(n)
+guard n >= 5  (control)            residual: S10/a.bs:2:13: error: F is not exhaustive | F(<= 4)
+pattern >= -5                      residual: S11/a.bs:2:13: error: F is not exhaustive | F(<= -6)
+## run time: the compiled program, for programs that compiled
+guard n>=-5 ; n<-5                 F(-5) = S12/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+guard n>=-5 ; n<-5                 F(-6) = S13/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+guard n>=-5 ; n<-5                 F(7) = S14/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+public Id(D) D=int where >= -5     F(-5) = S15/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+public Id(D) D=int where >= -5     F(-6) = S16/a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+## PROTOTYPE A
+ACCEPTED  value >= -5                        domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -5 and value <= 5         domain: >= -5 and <= 5
+ACCEPTED  value >= 1 or value <= -1          domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+ACCEPTED  value <= 3 or value >= 10          domain: <= 3 | >= 10 and <= 123456788 | >= 123456790
+ACCEPTED  value != 0                         domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+ACCEPTED  value != -3                        domain: <= -4 | >= -2 and <= 123456788 | >= 123456790
+REFUSED   value == -1                        A7/a.bs:0: bad range type
+ACCEPTED  -5 <= value                        domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= - 5                       domain: >= -5 and <= 123456788 | >= 123456790
+REFUSED   value >= (-5)                      error: syntax error before: '('
+REFUSED   value >= -(5)                      error: syntax error before: '('
+REFUSED   value >= 2 + 3                     error: syntax error before: '+'
+REFUSED   value >= 0 - 5                     error: syntax error before: '-'
+REFUSED   value >= -5 + 1                    error: syntax error before: '+'
+REFUSED   value >= --5                       error: syntax error before: '-'
+ACCEPTED  value >= -0                        domain: >= 0 and <= 123456788 | >= 123456790
+REFUSED   value > -1 and value < 1           A17/a.bs:0: bad range type
+ACCEPTED  value >= 5                         domain: >= 5 and <= 123456788 | >= 123456790
+REFUSED   value >= -n                        error: syntax error before: n
+REFUSED   value >= (2 + 3) * 4               error: syntax error before: '('
+ACCEPTED  value >= -2147483648 and value <= 2147483647 domain: >= -2147483648 and <= 123456788 | >= 123456790 and <= 2147483647
+ACCEPTED  value >= 0 and value <= 255        domain: >= 0 and <= 255
+ACCEPTED  (value >= 0) and (value <= 5)      domain: >= 0 and <= 5
+REFUSED   WellFormed(value)                  error: syntax error before: 'WellFormed'
+REFUSED   value >= n                         error: syntax error before: n
+ACCEPTED  value >= 0 and value <= 5 and value != 3 domain: >= 0 and <= 2 | >= 4 and <= 5
+REFUSED   value == 5                         A27/a.bs:0: bad range type
+REFUSED   value > 4 and value < 6            A28/a.bs:0: bad range type
+## pattern + guard sites (same literal)
+ACCEPTED  pattern <= -1 / >= 0              
+REFUSED   guard n >= 0 / n <= -1             S2/a.bs:2:13: error: Sign is not exhaustive~  no clause matches:~    Sign(<= -1) -> ...
+ACCEPTED  guard n < 0 (no literal -)        
+## guard agreement (the same predicate as a clause guard and as a refinement)
+REFUSED   G1 guard n>=-5 ; n<-5 (both clauses) S4/a.bs:2:13: error: F is not exhaustive~  no clause matches:~    F(n) -> ...
+REFUSED   G2 refinement -5, guard n>=-5 only S5/a.bs:3:13: error: F is not exhaustive~  no clause matches:~    F(>= -5) -> ...
+ACCEPTED  G3 refinement 0, guard n>=0 only (control)
+ACCEPTED  G4 refinement -5, pattern >= -5 only
+REFUSED   G5 guard n>=-5 and n<=5 / rest     S8/a.bs:2:13: error: F is not exhaustive~  no clause matches:~    F(n) -> ...
+## what the guard credits: residual of a single guard clause
+guard n >= -5                      residual: S9/a.bs:2:13: error: F is not exhaustive | F(n)
+guard n >= 5  (control)            residual: S10/a.bs:2:13: error: F is not exhaustive | F(<= 4)
+pattern >= -5                      residual: S11/a.bs:2:13: error: F is not exhaustive | F(<= -6)
+## run time: the compiled program, for programs that compiled
+guard n>=-5 ; n<-5                 F(-5) = S12/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+guard n>=-5 ; n<-5                 F(-6) = S13/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+guard n>=-5 ; n<-5                 F(7) = S14/a.bs:2:13: error: F is not exhaustive   no clause matches: 
+public Id(D) D=int where >= -5     F(-5) = -5 
+public Id(D) D=int where >= -5     F(-6) = crashed: error:function_clause 
+## PROTOTYPE B
+ACCEPTED  value >= -5                        domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -5 and value <= 5         domain: >= -5 and <= 5
+ACCEPTED  value >= 1 or value <= -1          domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+ACCEPTED  value <= 3 or value >= 10          domain: <= 3 | >= 10 and <= 123456788 | >= 123456790
+ACCEPTED  value != 0                         domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+ACCEPTED  value != -3                        domain: <= -4 | >= -2 and <= 123456788 | >= 123456790
+REFUSED   value == -1                        A7/a.bs:0: bad range type
+ACCEPTED  -5 <= value                        domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= - 5                       domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= (-5)                      domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -(5)                      domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= 2 + 3                     domain: >= 5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= 0 - 5                     domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -5 + 1                    domain: >= -4 and <= 123456788 | >= 123456790
+ACCEPTED  value >= --5                       domain: >= 5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -0                        domain: >= 0 and <= 123456788 | >= 123456790
+REFUSED   value > -1 and value < 1           A17/a.bs:0: bad range type
+ACCEPTED  value >= 5                         domain: >= 5 and <= 123456788 | >= 123456790
+REFUSED   value >= -n                        error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= (2 + 3) * 4               domain: >= 20 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -2147483648 and value <= 2147483647 domain: >= -2147483648 and <= 123456788 | >= 123456790 and <= 2147483647
+ACCEPTED  value >= 0 and value <= 255        domain: >= 0 and <= 255
+ACCEPTED  (value >= 0) and (value <= 5)      domain: >= 0 and <= 5
+REFUSED   WellFormed(value)                  error: this refinement is not a predicate the checker can read
+REFUSED   value >= n                         error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= 0 and value <= 5 and value != 3 domain: >= 0 and <= 2 | >= 4 and <= 5
+REFUSED   value == 5                         A27/a.bs:0: bad range type
+REFUSED   value > 4 and value < 6            A28/a.bs:0: bad range type
+## pattern + guard sites (same literal)
+ACCEPTED  pattern <= -1 / >= 0              
+ACCEPTED  guard n >= 0 / n <= -1            
+ACCEPTED  guard n < 0 (no literal -)        
+## guard agreement (the same predicate as a clause guard and as a refinement)
+ACCEPTED  G1 guard n>=-5 ; n<-5 (both clauses)
+ACCEPTED  G2 refinement -5, guard n>=-5 only
+ACCEPTED  G3 refinement 0, guard n>=0 only (control)
+ACCEPTED  G4 refinement -5, pattern >= -5 only
+ACCEPTED  G5 guard n>=-5 and n<=5 / rest    
+## what the guard credits: residual of a single guard clause
+guard n >= -5                      residual: S9/a.bs:2:13: error: F is not exhaustive | F(<= -6)
+guard n >= 5  (control)            residual: S10/a.bs:2:13: error: F is not exhaustive | F(<= 4)
+pattern >= -5                      residual: S11/a.bs:2:13: error: F is not exhaustive | F(<= -6)
+## run time: the compiled program, for programs that compiled
+guard n>=-5 ; n<-5                 F(-5) = :in 
+guard n>=-5 ; n<-5                 F(-6) = :out 
+guard n>=-5 ; n<-5                 F(7) = :in 
+public Id(D) D=int where >= -5     F(-5) = -5 
+public Id(D) D=int where >= -5     F(-6) = crashed: error:function_clause 
+## PROTOTYPE C
+ACCEPTED  value >= -5                        domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -5 and value <= 5         domain: >= -5 and <= 5
+ACCEPTED  value >= 1 or value <= -1          domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+ACCEPTED  value <= 3 or value >= 10          domain: <= 3 | >= 10 and <= 123456788 | >= 123456790
+ACCEPTED  value != 0                         domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+ACCEPTED  value != -3                        domain: <= -4 | >= -2 and <= 123456788 | >= 123456790
+REFUSED   value == -1                        A7/a.bs:0: bad range type
+ACCEPTED  -5 <= value                        domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= - 5                       domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= (-5)                      domain: >= -5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -(5)                      domain: >= -5 and <= 123456788 | >= 123456790
+REFUSED   value >= 2 + 3                     error: this refinement is not a predicate the checker can read
+REFUSED   value >= 0 - 5                     error: this refinement is not a predicate the checker can read
+REFUSED   value >= -5 + 1                    error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= --5                       domain: >= 5 and <= 123456788 | >= 123456790
+ACCEPTED  value >= -0                        domain: >= 0 and <= 123456788 | >= 123456790
+REFUSED   value > -1 and value < 1           A17/a.bs:0: bad range type
+ACCEPTED  value >= 5                         domain: >= 5 and <= 123456788 | >= 123456790
+REFUSED   value >= -n                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= (2 + 3) * 4               error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= -2147483648 and value <= 2147483647 domain: >= -2147483648 and <= 123456788 | >= 123456790 and <= 2147483647
+ACCEPTED  value >= 0 and value <= 255        domain: >= 0 and <= 255
+ACCEPTED  (value >= 0) and (value <= 5)      domain: >= 0 and <= 5
+REFUSED   WellFormed(value)                  error: this refinement is not a predicate the checker can read
+REFUSED   value >= n                         error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= 0 and value <= 5 and value != 3 domain: >= 0 and <= 2 | >= 4 and <= 5
+REFUSED   value == 5                         A27/a.bs:0: bad range type
+REFUSED   value > 4 and value < 6            A28/a.bs:0: bad range type
+## pattern + guard sites (same literal)
+ACCEPTED  pattern <= -1 / >= 0              
+ACCEPTED  guard n >= 0 / n <= -1            
+ACCEPTED  guard n < 0 (no literal -)        
+## guard agreement (the same predicate as a clause guard and as a refinement)
+ACCEPTED  G1 guard n>=-5 ; n<-5 (both clauses)
+ACCEPTED  G2 refinement -5, guard n>=-5 only
+ACCEPTED  G3 refinement 0, guard n>=0 only (control)
+ACCEPTED  G4 refinement -5, pattern >= -5 only
+ACCEPTED  G5 guard n>=-5 and n<=5 / rest    
+## what the guard credits: residual of a single guard clause
+guard n >= -5                      residual: S9/a.bs:2:13: error: F is not exhaustive | F(<= -6)
+guard n >= 5  (control)            residual: S10/a.bs:2:13: error: F is not exhaustive | F(<= 4)
+pattern >= -5                      residual: S11/a.bs:2:13: error: F is not exhaustive | F(<= -6)
+## run time: the compiled program, for programs that compiled
+guard n>=-5 ; n<-5                 F(-5) = :in 
+guard n>=-5 ; n<-5                 F(-6) = :out 
+guard n>=-5 ; n<-5                 F(7) = :in 
+public Id(D) D=int where >= -5     F(-5) = -5 
+public Id(D) D=int where >= -5     F(-6) = crashed: error:function_clause 

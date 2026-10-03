@@ -1,0 +1,1399 @@
+  Parse action conflict scanning symbol '|' in state 4:
+     Reduce to type_union_members from type_prim (rule 48 at location 236:1)
+        vs.
+     shift to state 425, adding right sisters to type_prim.
+  Conflict resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '{' in state 7:
+     Reduce to decl from signature (rule 7 at location 85:1)
+        vs.
+     shift to state 403, adding right sisters to signature.
+  Conflict resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '(' in state 185:
+     Reduce to expr_low from lident (rule 147 at location 595:1)
+        vs.
+     shift to state 199, adding right sisters to lident.
+  Conflict resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '(' in state 188:
+     Reduce to expr_low from uident (rule 165 at location 709:1)
+        vs.
+     shift to state 238, adding right sisters to uident.
+  Conflict resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '{' in state 188:
+     Reduce to expr_low from uident (rule 165 at location 709:1)
+        vs.
+     shift to state 288, adding right sisters to uident.
+  Conflict resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '(' in state 198:
+     Reduce to expr_low from lident (rule 147 at location 595:1)
+        vs.
+     shift to state 199, adding right sisters to lident.
+  Conflict resolved in favor of shift.
+  
+  
+  *** Conflicts resolved by operator precedences:
+  
+  Parse action conflict scanning symbol '/' in state 188:
+     Reduce to expr_low from uident (rule 165 at location 709:1)
+        vs.
+     shift to state 287, adding right sisters to uident.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 188:
+     Reduce to expr_low from uident (rule 165 at location 709:1)
+        vs.
+     shift to state 239, adding right sisters to uident.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 195:
+     Reduce to expr from expr_low (rule 164 at location 699:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '!=' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<=' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '==' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '>' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '>=' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol or in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 269:
+     Reduce to expr_low from expr_low or expr_low (rule 204 at location 808:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '!=' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<=' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '==' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '>' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '>=' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 270:
+     Reduce to expr_low from expr_low and expr_low (rule 203 at location 807:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 271:
+     Reduce to expr_low from expr_low '>=' expr_low (rule 202 at location 806:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 272:
+     Reduce to expr_low from expr_low '>' expr_low (rule 200 at location 804:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 273:
+     Reduce to expr_low from expr_low '==' expr_low (rule 197 at location 801:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 274:
+     Reduce to expr_low from expr_low '<=' expr_low (rule 201 at location 805:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 275:
+     Reduce to expr_low from expr_low '<' expr_low (rule 199 at location 803:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '!=' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '*' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '+' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '-' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '/' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<=' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '==' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>=' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '|?>' in state 276:
+     Reduce to expr_low from expr_low '/' expr_low (rule 195 at location 799:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '!=' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '-' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '/' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<=' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '==' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>=' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '|?>' in state 277:
+     Reduce to expr_low from expr_low '-' expr_low (rule 193 at location 797:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '!=' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '-' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '/' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<=' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '==' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>=' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '|?>' in state 278:
+     Reduce to expr_low from expr_low '+' expr_low (rule 192 at location 796:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '!=' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '*' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '+' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '-' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '/' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<=' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '==' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>=' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '|?>' in state 279:
+     Reduce to expr_low from expr_low '*' expr_low (rule 194 at location 798:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '!=' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '*' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '+' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '-' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '/' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<=' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '==' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>=' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '|?>' in state 280:
+     Reduce to expr_low from expr_low '%' expr_low (rule 196 at location 800:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 281:
+     Reduce to expr_low from expr_low '!=' expr_low (rule 198 at location 802:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '!=' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '%' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '-' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '/' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<=' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '==' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '>' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '>=' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol and in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol or in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol switch in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|?>' in state 292:
+     Reduce to expr_low from raise expr_low (rule 149 at location 606:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '!=' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 217, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '%' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 218, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '*' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 219, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '+' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 220, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '-' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 221, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '/' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 222, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '<' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 223, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '<=' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 224, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '==' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 225, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 226, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '>=' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 227, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 228, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 229, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol switch in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 230, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol with in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 231, adding right sisters to expr_low.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol '|>' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 232, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol '|?>' in state 316:
+     Reduce to expr_low from '-' expr_low (rule 143 at location 589:1)
+        vs.
+     shift to state 233, adding right sisters to expr_low.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 339:
+     Reduce to rel_pattern from rel_pattern or rel_pattern (rule 110 at location 458:1)
+        vs.
+     shift to state 337, adding right sisters to rel_pattern.
+  Resolved in favor of shift.
+  
+  Parse action conflict scanning symbol or in state 339:
+     Reduce to rel_pattern from rel_pattern or rel_pattern (rule 110 at location 458:1)
+        vs.
+     shift to state 338, adding right sisters to rel_pattern.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol and in state 340:
+     Reduce to rel_pattern from rel_pattern and rel_pattern (rule 109 at location 456:1)
+        vs.
+     shift to state 337, adding right sisters to rel_pattern.
+  Resolved in favor of reduce.
+  
+  Parse action conflict scanning symbol or in state 340:
+     Reduce to rel_pattern from rel_pattern and rel_pattern (rule 109 at location 456:1)
+        vs.
+     shift to state 338, adding right sisters to rel_pattern.
+  Resolved in favor of reduce.
+  
+  *** End of resolved conflicts
+  
+  bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+  yecc: {ok,"bs_parser.erl"}

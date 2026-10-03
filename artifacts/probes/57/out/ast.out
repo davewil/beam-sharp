@@ -1,0 +1,120 @@
+######## base
+refinement  value >= -5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},5}}}}
+refinement  value >= 5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,29},5}}}
+refinement  value >= - 5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,31},5}}}}
+refinement  value >= (-5)
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','(','-',{integer,5},')']
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,30},{e_int,{2,31},5}}}}
+refinement  value >= 2 + 3
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=',{integer,2},'+',{integer,3}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_op,{2,31},'+',{e_int,{2,29},2},{e_int,{2,33},3}}}}
+refinement  value >= --5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_neg,{2,30},{e_int,{2,31},5}}}}}
+refinement  value >= -n
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{lident,n}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_var,{2,30},n}}}}
+refinement  -5 <= value
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,'-',{integer,5},'<=',{lident,value}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,23},'<=',{e_neg,{2,20},{e_int,{2,21},5}},{e_var,{2,26},value}}}
+refinement  value >= -5.0
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{float,5.0}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_float,{2,30},-5.0}}}
+pattern     Sign(<= -1)
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(','<=','-',{integer,1},')','->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_rel,{3,6},'<=',-1}],none,{e_atom,{3,16},neg}}
+pattern     Sign(-1)
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(','-',{integer,1},')','->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_int,{3,6},-1}],none,{e_atom,{3,13},neg}}
+guard       when n >= -5
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(',{lident,n},')','when',{lident,n},'>=','-',{integer,5},'->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_var,{3,6},n}],{guard,{e_op,{3,16},'>=',{e_var,{3,14},n},{e_neg,{3,19},{e_int,{3,20},5}}}},{e_atom,{3,25},neg}}
+expr        x = -5
+   tokens: [module,{uident,'M'},{uident,'F'},'(',')','->','-',{integer,5}]
+   ast:    {clause,{2,1},'F',[],none,{e_neg,{2,8},{e_int,{2,9},5}}}
+######## A
+refinement  value >= -5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,29},-5}}}
+refinement  value >= 5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,29},5}}}
+refinement  value >= - 5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,29},-5}}}
+refinement  value >= (-5)
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','(','-',{integer,5},')']
+   parse:  {error,{{2,29},bs_parser,["syntax error before: ","'('"]}}
+refinement  value >= 2 + 3
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=',{integer,2},'+',{integer,3}]
+   parse:  {error,{{2,31},bs_parser,["syntax error before: ","'+'"]}}
+refinement  value >= --5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-','-',{integer,5}]
+   parse:  {error,{{2,30},bs_parser,["syntax error before: ","'-'"]}}
+refinement  value >= -n
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{lident,n}]
+   parse:  {error,{{2,30},bs_parser,["syntax error before: ",["n"]]}}
+refinement  -5 <= value
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,'-',{integer,5},'<=',{lident,value}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,23},'<=',{e_int,{2,20},-5},{e_var,{2,26},value}}}
+refinement  value >= -5.0
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{float,5.0}]
+   parse:  {error,{{2,30},bs_parser,["syntax error before: ","5.0"]}}
+pattern     Sign(<= -1)
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(','<=','-',{integer,1},')','->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_rel,{3,6},'<=',-1}],none,{e_atom,{3,16},neg}}
+pattern     Sign(-1)
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(','-',{integer,1},')','->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_int,{3,6},-1}],none,{e_atom,{3,13},neg}}
+guard       when n >= -5
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(',{lident,n},')','when',{lident,n},'>=','-',{integer,5},'->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_var,{3,6},n}],{guard,{e_op,{3,16},'>=',{e_var,{3,14},n},{e_neg,{3,19},{e_int,{3,20},5}}}},{e_atom,{3,25},neg}}
+expr        x = -5
+   tokens: [module,{uident,'M'},{uident,'F'},'(',')','->','-',{integer,5}]
+   ast:    {clause,{2,1},'F',[],none,{e_neg,{2,8},{e_int,{2,9},5}}}
+######## C
+refinement  value >= -5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,30},-5}}}
+refinement  value >= 5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,29},5}}}
+refinement  value >= - 5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,31},-5}}}
+refinement  value >= (-5)
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','(','-',{integer,5},')']
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,31},-5}}}
+refinement  value >= 2 + 3
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=',{integer,2},'+',{integer,3}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_op,{2,31},'+',{e_int,{2,29},2},{e_int,{2,33},3}}}}
+refinement  value >= --5
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-','-',{integer,5}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,31},5}}}
+refinement  value >= -n
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{lident,n}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_var,{2,30},n}}}}
+refinement  -5 <= value
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,'-',{integer,5},'<=',{lident,value}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,23},'<=',{e_int,{2,21},-5},{e_var,{2,26},value}}}
+refinement  value >= -5.0
+   tokens: [module,{uident,'M'},type,{uident,'T'},'=',{lident,int},where,{lident,value},'>=','-',{float,5.0}]
+   ast:    {type_refined,{2,1},'T',{t_builtin,int},{e_op,{2,26},'>=',{e_var,{2,20},value},{e_float,{2,30},-5.0}}}
+pattern     Sign(<= -1)
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(','<=','-',{integer,1},')','->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_rel,{3,6},'<=',-1}],none,{e_atom,{3,16},neg}}
+pattern     Sign(-1)
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(','-',{integer,1},')','->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_int,{3,6},-1}],none,{e_atom,{3,13},neg}}
+guard       when n >= -5
+   tokens: [module,{uident,'M'},public,{lident,atom},{uident,'Sign'},'(',{lident,int},{lident,n},')',{uident,'Sign'},'(',{lident,n},')','when',{lident,n},'>=','-',{integer,5},'->',{atom_lit,neg}]
+   ast:    {clause,{3,1},'Sign',[{p_var,{3,6},n}],{guard,{e_op,{3,16},'>=',{e_var,{3,14},n},{e_int,{3,20},-5}}},{e_atom,{3,25},neg}}
+expr        x = -5
+   tokens: [module,{uident,'M'},{uident,'F'},'(',')','->','-',{integer,5}]
+   ast:    {clause,{2,1},'F',[],none,{e_int,{2,9},-5}}

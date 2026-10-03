@@ -1,0 +1,20 @@
+== elm 0.19.2: attempt to compile a negative-literal pattern
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+== source: pattern numbers (Parse/Pattern.hs) -- Number.number only accepts a DIGIT first, no '-' branch
+63:      do  number <- Number.number E.PStart E.PNumber
+64-          end <- getPosition
+65-          case number of
+66-            Number.Int int ->
+== source: the diagnostic for '-' in a pattern (Reporting/Error/Syntax.hs)
+4787-                D.reflow $
+4788:                  "It is not possible to pattern match on negative numbers at this\
+4789-                  \ time. Try using an `if` expression for that sort of thing for now."
+== source: expressions get a Negate node (Parse/Expression.hs possiblyNegativeTerm) and it is never folded in the parser
+336:possiblyNegativeTerm :: A.Position -> Parser E.Expr Src.Expr
+337-possiblyNegativeTerm start =
+338-  oneOf E.Start
+339-    [ do  word1 0x2D {---} E.Start
+340-          expr <- term
+341-          addEnd start (Src.Negate expr)
+342-    , term

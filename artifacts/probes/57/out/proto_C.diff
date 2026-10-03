@@ -1,0 +1,10 @@
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-09-30 23:03:17.145021845 +0000
++++ proto/C/bs_parser.yrl	2026-10-03 23:11:16.664482283 +0000
+@@ -942,6 +942,7 @@
+ %% A negated float literal is the literal; anything else is the BEAM's unary
+ %% minus, typed by its operand (F51).
+ negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
++negate(_L, {e_int, IL, I})     -> {e_int, IL, -I};   %% PROTOTYPE 57-C
+ negate(L, E)                 -> {e_neg, L, E}.
+ 
+ to_param_rest(_L, nil)               -> nil;

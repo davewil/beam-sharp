@@ -1,0 +1,40 @@
+## BASELINE
+REFUSED   return a negative literal as Delta       a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+REFUSED   return a positive literal as Delta (control) a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+REFUSED   pass -5 to a Delta parameter             a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+REFUSED   pass 5 to a Delta parameter (control)    a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+REFUSED   pass -50 (outside the domain)            a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+REFUSED   return -0 as Delta                       a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+REFUSED   Nz (value != 0): Neg() -> -5 and Pos() -> 5 :: a.bs:4:1: error: Neg returns a value its signature does not declare   not covered by the declared return type: 
+ACCEPTED  x / -0 (ticket 38: a provably-zero divisor is an error) :: 
+REFUSED   pass 2 + 3 to a `>= 5` parameter         a.bs:2:1: error: this refinement is not a predicate the checker can read   a refinement narrows a type, so the compiler has to be able to 
+## PROTOTYPE A
+REFUSED   return a negative literal as Delta       a.bs:4:1: error: Low returns a value its signature does not declare   not covered by the declared return type: 
+ACCEPTED  return a positive literal as Delta (control)
+REFUSED   pass -5 to a Delta parameter             a.bs:6:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+ACCEPTED  pass 5 to a Delta parameter (control)
+REFUSED   pass -50 (outside the domain)            a.bs:6:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+REFUSED   return -0 as Delta                       a.bs:4:1: error: Z returns a value its signature does not declare   not covered by the declared return type: 
+REFUSED   Nz (value != 0): Neg() -> -5 and Pos() -> 5 :: a.bs:4:1: error: Neg returns a value its signature does not declare   not covered by the declared return type: 
+ACCEPTED  x / -0 (ticket 38: a provably-zero divisor is an error) :: 
+REFUSED   pass 2 + 3 to a `>= 5` parameter         a.bs:7:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+## PROTOTYPE B
+REFUSED   return a negative literal as Delta       a.bs:4:1: error: Low returns a value its signature does not declare   not covered by the declared return type: 
+ACCEPTED  return a positive literal as Delta (control)
+REFUSED   pass -5 to a Delta parameter             a.bs:6:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+ACCEPTED  pass 5 to a Delta parameter (control)
+REFUSED   pass -50 (outside the domain)            a.bs:6:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+REFUSED   return -0 as Delta                       a.bs:4:1: error: Z returns a value its signature does not declare   not covered by the declared return type: 
+REFUSED   Nz (value != 0): Neg() -> -5 and Pos() -> 5 :: a.bs:4:1: error: Neg returns a value its signature does not declare   not covered by the declared return type: 
+ACCEPTED  x / -0 (ticket 38: a provably-zero divisor is an error) :: 
+REFUSED   pass 2 + 3 to a `>= 5` parameter         a.bs:7:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+## PROTOTYPE C
+ACCEPTED  return a negative literal as Delta
+ACCEPTED  return a positive literal as Delta (control)
+ACCEPTED  pass -5 to a Delta parameter
+ACCEPTED  pass 5 to a Delta parameter (control)
+REFUSED   pass -50 (outside the domain)            a.bs:6:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 
+ACCEPTED  return -0 as Delta
+ACCEPTED  Nz (value != 0): Neg() -> -5 and Pos() -> 5 :: 
+REFUSED   x / -0 (ticket 38: a provably-zero divisor is an error) :: a.bs:3:11: error: the right-hand side of `/` in D is always zero
+REFUSED   pass 2 + 3 to a `>= 5` parameter         a.bs:7:9: error: Go hands Take an argument it does not accept   argument 1 is not covered by Take's declared type: 

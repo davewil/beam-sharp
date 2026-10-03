@@ -1,0 +1,49 @@
+OTP 29
+
+f(-5) -> a.
+  parse: {function,f,1,[{clause,[{op,'-',{integer,5}}],[],[{atom,a}]}]}
+  lint:  {ok,1}
+
+f(2+3) -> a.
+  parse: {function,f,1,[{clause,[{op,'+',{integer,2},{integer,3}}],[],[{atom,a}]}]}
+  lint:  {ok,1}
+
+f(-(5)) -> a.
+  parse: {function,f,1,[{clause,[{op,'-',{integer,5}}],[],[{atom,a}]}]}
+  lint:  {ok,1}
+
+f(X) when X >= -5 -> a.
+  parse: {function,f,1,[{clause,[{var,'X'}],[[{op,'>=',{var,'X'},{op,'-',{integer,5}}}]],[{atom,a}]}]}
+  lint:  {ok,1}
+
+f(X) when X >= 2+3 -> a.
+  parse: {function,f,1,[{clause,[{var,'X'}],[[{op,'>=',{var,'X'},{op,'+',{integer,2},{integer,3}}}]],[{atom,a}]}]}
+  lint:  {ok,1}
+
+f(X) when X >= -N -> a.
+  parse: {function,f,1,[{clause,[{var,'X'}],[[{op,'>=',{var,'X'},{op,'-',{var,'N'}}}]],[{atom,a}]}]}
+  lint:  {error,[{1,erl_lint,{unbound_var,'N'}}]}
+
+f(-N) -> a.
+  parse: {function,f,1,[{clause,[{op,'-',{var,'N'}}],[],[{atom,a}]}]}
+  lint:  {error,[{1,erl_lint,illegal_pattern}]}
+
+f() -> -5.
+  parse: {function,f,0,[{clause,[],[],[{op,'-',{integer,5}}]}]}
+  lint:  {ok,1}
+
+partial_eval (erl_lint's pattern-constant test, i.e. the CHECKER-side fold):
+  -5         -> {integer,-5}
+  2+3        -> {integer,5}
+  -(2+3)*4   -> {integer,-20}
+  - -5       -> {integer,5}
+  7 div 2    -> {integer,3}
+  -N         -> {op,'-',{var,'N'}}
+
+TYPE-attribute position (erl_parse:normalise/1, erl_parse.yrl:1984, folds - over a literal after the parse):
+  -type t() :: -5..5.                parse: {attribute,type,{t,[]}}
+                                     lint:  ok
+  -type t() :: -5..-1 | 1..5.        parse: {attribute,type,{t,[]}}
+                                     lint:  ok
+  -type t() :: 1..1.                 parse: {attribute,type,{t,[]}}
+                                     lint:  [{"nofile",[{1,erl_lint,{type_syntax,range}}]}]

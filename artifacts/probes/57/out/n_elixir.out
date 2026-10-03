@@ -1,0 +1,41 @@
+Elixir 1.20.4 on OTP 29
+  quoted  -5         -> {:-, [line: 1], [5]}
+  quoted  - 5        -> {:-, [line: 1], [5]}
+  quoted  -(5)       -> {:-, [line: 1], [5]}
+  quoted  2 + 3      -> {:+, [line: 1], [2, 3]}
+  quoted  x >= -5    -> {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+  quoted  -x         -> {:-, [line: 1], [{:x, [line: 1], nil}]}
+  quoted  - -5       -> {:-, [line: 1], [{:-, [line: 1], [5]}]}
+  quoted  -5.0       -> {:-, [line: 1], [5.0]}
+
+Pattern / guard / module-attribute sites (compiled for real):
+results: {:minus_five, :other, :in, :out, :in, :in, :in, :out}
+error: cannot invoke remote function :erlang.-/1 inside a match
+└─ nofile:1:23: N1.f/1
+
+  REFUSED:  defmodule N1 do def f(-x), do: x end
+            nofile: cannot compile module N1 (errors have been logged)
+error: cannot invoke remote function :erlang.+/2 inside a match
+└─ nofile:1:25: N2.f/1
+
+  REFUSED:  defmodule N2 do def f(2 + 3), do: 1 end
+            nofile: cannot compile module N2 (errors have been logged)
+error: undefined variable "y"
+└─ nofile:1:37: N3.f/1
+
+  REFUSED:  defmodule N3 do def f(x) when x >= -y, do: x end
+            nofile: cannot compile module N3 (errors have been logged)
+build_unary_op({_Kind, {Line, Column, _}, '//'}, Expr) ->
+    {Outer, Inner} =
+        case get(elixir_parser_columns) of
+            true ->
+                {[{column, Column + 1}], [{column, Column}]};
+            false ->
+                {[], []}
+        end,
+    {'/',
+     [{line, Line} | Outer],
+     [{'/', [{line, Line} | Inner], nil}, Expr]};
+build_unary_op({_Kind, Location, Op}, Expr) ->
+    {Op, meta_from_location(Location), [Expr]}.
+

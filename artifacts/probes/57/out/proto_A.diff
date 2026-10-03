@@ -1,0 +1,45 @@
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-09-30 23:03:17.145021845 +0000
++++ proto/A/bs_parser.yrl	2026-10-03 23:11:35.335609504 +0000
+@@ -15,7 +15,7 @@
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+   patterns pattern_list pattern plist_items pat_fields pat_field
+-  rel_pattern rel_test int_lit refinement
++  rel_pattern rel_test int_lit refinement ref_int ref_op
+   bin_segments bin_segment bin_size
+   guard guard_expr
+   body binding
+@@ -218,7 +218,24 @@
+ %% The predicate is an ordinary expression, read back by the same
+ %% `alternatives/1` a guard goes through, so a refinement and a guard cannot
+ %% disagree about what `value >= 0` means (F2.5).
+-refinement -> expr_low : '$1'.
++%% PROTOTYPE 57-A: a refinement is NOT an expression any more. It is a boolean
++%% combination of comparisons of `value` (or any lident) against an int literal
++%% or an atom literal, the way `rel_test` takes an `int_lit`.
++refinement -> refinement 'or'  refinement : {e_op, line('$2'), 'or',  '$1', '$3'}.
++refinement -> refinement 'and' refinement : {e_op, line('$2'), 'and', '$1', '$3'}.
++refinement -> '(' refinement ')' : '$2'.
++refinement -> lident ref_op ref_int : {e_op, line('$2'), op_of('$2'), {e_var, line('$1'), value('$1')}, '$3'}.
++refinement -> ref_int ref_op lident : {e_op, line('$2'), op_of('$2'), '$1', {e_var, line('$3'), value('$3')}}.
++refinement -> lident '==' atom_lit : {e_op, line('$2'), '==', {e_var, line('$1'), value('$1')}, {e_atom, line('$3'), value('$3')}}.
++refinement -> lident '!=' atom_lit : {e_op, line('$2'), '!=', {e_var, line('$1'), value('$1')}, {e_atom, line('$3'), value('$3')}}.
++ref_int -> integer     : {e_int, line('$1'), value('$1')}.
++ref_int -> '-' integer : {e_int, line('$1'), -value('$2')}.
++ref_op -> '==' : '$1'.
++ref_op -> '!=' : '$1'.
++ref_op -> '<=' : '$1'.
++ref_op -> '>=' : '$1'.
++ref_op -> '<'  : '$1'.
++ref_op -> '>'  : '$1'.
+ 
+ %% A parametric alias binds its variables here and substitutes them at the
+ %% use, so `Pair<int>` resolves to the tuple before `bs_types` sees it. A
+@@ -815,6 +832,7 @@
+ Erlang code.
+ 
+ line(T) -> element(2, T).
++op_of(T) -> element(1, T).
+ 
+ %% Each hole's tokens are parsed as an expression through the second root, and
+ %% a hole that does not parse is this template's syntax error, at the hole.

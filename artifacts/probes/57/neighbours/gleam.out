@@ -1,0 +1,19 @@
+gleam 1.18.1
+ACCEPTED  pattern  case x { -5 -> ..}
+REFUSED   pattern  case x { - 5 -> ..} (space)                 error: Syntax error   │                             ^ I was not expecting this Found `-`, expected one of:  
+REFUSED   pattern  case x { 2 + 3 -> ..}                       error: Syntax error   │                               ^ I was not expecting this Found `+`, expected one of:  
+REFUSED   pattern  case x { -(5) -> ..}                        error: Syntax error   │                             ^ I was not expecting this Found `-`, expected one of:  
+ACCEPTED  pattern  tuple #(-1, b)
+ACCEPTED  guard    n if n >= -5
+ACCEPTED  guard    n if n >= 2 + 3
+REFUSED   guard    n if n >= -y (unary minus on name)          error: Syntax error 
+ACCEPTED  const    const lo = -5
+REFUSED   const    const s = 2 + 3                             error: Syntax error   │                 ^ I was not expecting this Found `+`, expected one of:  
+REFUSED   const    const lo = - 5 (space)                      error: Syntax error 
+REFUSED   const    const lo = --5                              error: Syntax error 
+REFUSED   const    const lo = -(5)                             error: Syntax error 
+ACCEPTED  expr     let a = -5
+ACCEPTED  expr     let a = - -5
+ACCEPTED  expr     let a = 0 - 5
+ACCEPTED  pattern  -5.0 float pattern
+ACCEPTED  bit-array pattern <<-1>>

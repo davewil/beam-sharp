@@ -1,0 +1,33 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-03 23:03:22.508830448 +0000
++++ proto/B/bs_check.erl	2026-10-03 23:11:16.666181213 +0000
+@@ -4946,8 +4946,12 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++%% PROTOTYPE 57-B: the comparand is read through const/1, which folds literal
++%% integer arithmetic, instead of matching `{e_int,_,K}` directly.
++comparison({e_op, _, Op, {e_var, _, V}, R}) when Op =/= 'and', Op =/= 'or', element(1, R) =/= e_atom ->
++    case const(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when Op =/= 'and', Op =/= 'or', element(1, L) =/= e_atom ->
++    case const(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -4955,6 +4959,15 @@
+ comparison(_) ->
+     unknown.
+ 
++const({e_int, _, K})        -> {ok, K};
++const({e_neg, _, E})        -> case const(E) of {ok, K} -> {ok, -K}; error -> error end;
++const({e_op, _, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const(A), const(B)} of
++        {{ok, X}, {ok, Y}} -> {ok, case Op of '+' -> X + Y; '-' -> X - Y; '*' -> X * Y end};
++        _                  -> error
++    end;
++const(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

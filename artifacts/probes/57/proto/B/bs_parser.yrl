@@ -1,0 +1,951 @@
+%%% beam-sharp parser.
+%%%
+%%% A program is a list of declarations: `module`, `using`, `type`, `record`,
+%%% `behaviour`, a signature, or a clause. A function is a signature followed
+%%% by clauses that repeat its name, and each clause head carries patterns in
+%%% the parameter position, so N clauses stand where C# allows one (ticket 01).
+%%% The clauses may instead sit in a braced block after the signature
+%%% (ticket 110), which the parser expands into the same declarations.
+
+Nonterminals
+  program decls decl
+  comp_quals comp_qual
+  module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
+  behaviour_decl record_decl field_decls field_decl open_field_decls
+  type_expr type_union_members type_prim type_list type_params
+  params param_list param
+  patterns pattern_list pattern plist_items pat_fields pat_field
+  rel_pattern rel_test int_lit refinement
+  bin_segments bin_segment bin_size
+  guard guard_expr
+  body binding
+  expr expr_low expr_list elist_items assign_fields assign_field
+  switch_arms switch_arm modpath using_decl visibility call
+  block_clauses block_clause implements_decl impl_clauses impl_for
+  .
+
+Terminals
+  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+  uident lident atom_lit integer float string_lit interp hole_root '_'
+  '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+  '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+  .
+
+Rootsymbol program.
+
+%% Guards and expressions share one operator table, with `and`/`or` as the
+%% conjunctions; a guard over typed values cannot fail, so there is no
+%% fail-to-false (ticket 08, amended by 44). `=` is not an expression
+%% operator, a binding is a body form (ticket 34), but it needs the lowest
+%% precedence so `x = 1 + 2` shifts the operator instead of reducing the bind.
+%% `raise` takes the whole expression to its right: it is looser than every
+%% operator, so `raise (:bad, n + 1)` needs no bracket around the arithmetic and
+%% `raise x switch { ... }` raises the switch's value rather than switching on a
+%% crash. Lowest in the table is what buys that — every operator's precedence
+%% exceeds it, so yecc shifts the operator instead of reducing the raise. There
+%% is no reading in which a raise should stop early: its operand is a reason,
+%% and a reason is whatever expression the author wrote (ticket 12 §5).
+Nonassoc  40 'raise'.
+Nonassoc  50 '='.
+Left  100 'or'.
+Left  200 'and'.
+Nonassoc 300 '==' '!=' '<' '>' '<=' '>='.
+%% The pipe is looser than arithmetic, so `a + b |> F()` is `(a + b) |> F()`,
+%% and tighter than comparison and `=`, so `var x = a |> F()` shifts the pipe
+%% before the binding reduces; that is Elixir's position. `Left`, so
+%% `a |> F() |> G()` is `G(F(a))`, and both operators share the level so
+%% `a |?> F() |> G()` needs no bracket (ticket 17 §1 and §4, F14.5).
+Left 350 '|>' '|?>'.
+Left  400 '+' '-'.
+%% `/` and `%` sit at `*`'s level and associate left, so `a / b / c` is
+%% `(a / b) / c`; regrouping changes a truncating division (F26, ticket 38).
+Left  500 '*' '/' '%'.
+%% `with` binds tighter than any operator: `o with { Total = 1 } == x` reads as
+%% a comparison of the updated record, which is the only sensible parse.
+Nonassoc 600 'with'.
+%% A switch subject binds tighter still, as in C#: `a + b switch { … }` is
+%% `a + (b switch { … })`. Nonassoc, because a chained switch has no reading
+%% worth having.
+Nonassoc 700 'switch'.
+
+%% A clause block is the one declaration that stands for several, so it arrives
+%% as a list and is spliced in here.
+program -> decls : lists:append([if is_list(D) -> D; true -> [D] end || D <- '$1']).
+%% A template's hole is parsed by a second entry to this grammar: the lexer
+%% hands each hole's tokens over whole, and `hole_root` is a token no source
+%% can spell, so this alternative adds no conflict (F66).
+program -> hole_root expr : {hole_expr, '$2'}.
+
+decls -> decl       : ['$1'].
+decls -> decl decls : ['$1' | '$2'].
+
+decl -> module_decl : '$1'.
+decl -> type_decl   : '$1'.
+decl -> signature   : '$1'.
+decl -> clause      : '$1'.
+%% Ticket 110. The block is sugar: it expands into the signature and one named
+%% clause per arm, in order, so nothing downstream can tell the forms apart.
+%% A `clause_block` marker records the arms' positions, which is how the
+%% checker refuses a named clause beside a block and prints arms for one.
+%% Commas separate the arms because a body has no terminator: without one,
+%% `(0, n) -> n` above `(1, n) -> 2` reads as the call `n(1, n)` (F46), measured.
+%% The only new conflict is `'{'` after a signature, shifted into the block;
+%% its rival reading, a signature with no clauses, is already refused.
+decl -> signature '{' block_clauses '}' : clause_block('$1', '$3').
+
+block_clauses -> block_clause                   : ['$1'].
+block_clauses -> block_clause ',' block_clauses : ['$1' | '$3'].
+
+block_clause -> '(' patterns ')' guard '->' body :
+    {line('$1'), '$2', '$4', '$6'}.
+decl -> foreign_decl : '$1'.
+decl -> behaviour_decl : '$1'.
+decl -> record_decl : '$1'.
+decl -> using_decl  : '$1'.
+decl -> implements_decl : '$1'.
+
+%% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+%% signature, so the checker reads the operation's name from each clause. It
+%% stays its own node rather than a signature, which keeps it out of `--api`'s
+%% operations and lets `declared/4` refuse it by kind.
+implements_decl -> 'implements' uident 'for' impl_for '{' '}' :
+    {implements, line('$1'), value('$2'), [], '$4', []}.
+implements_decl -> 'implements' uident 'for' impl_for '{' impl_clauses '}' :
+    {implements, line('$1'), value('$2'), [], '$4', '$6'}.
+implements_decl -> 'implements' uident '<' type_list '>' 'for' impl_for '{' '}' :
+    {implements, line('$1'), value('$2'), '$4', '$7', []}.
+implements_decl -> 'implements' uident '<' type_list '>' 'for' impl_for '{' impl_clauses '}' :
+    {implements, line('$1'), value('$2'), '$4', '$7', '$9'}.
+
+%% Ticket 99 Q4 writes the refused case qualified, `for Shop.Tree.Node`, so
+%% it parses and reaches the refusal rather than stopping at the `.`.
+impl_for -> modpath : modatom('$1').
+
+impl_clauses -> clause              : ['$1'].
+impl_clauses -> clause impl_clauses : ['$1' | '$2'].
+
+%% --- records ----------------------------------------------------------------
+%% A record erases to a map carrying a tag minted from its qualified type
+%% name. The tag is an ordinary field, so a hand-written `type` with the same
+%% tag is the same type (ticket 26 §1).
+record_decl -> 'record' uident '{' field_decls '}' :
+    record_fields(line('$1'), value('$2'), '$4').
+
+field_decls -> field_decl                 : ['$1'].
+field_decls -> field_decl ',' field_decls : ['$1' | '$3'].
+
+field_decl -> uident ':' type_expr : {field, value('$1'), '$3'}.
+
+%% F58 (ticket 78 Q2): a field-set key may be the wire's own string, held as a
+%% binary so it never meets a name key. `record_fields/3` refuses it in a record.
+field_decl -> string_lit ':' type_expr : {field, key('$1'), '$3'}.
+
+%% There are no optional fields: `Notes?: int` is refused by name, and the
+%% message says to write `Notes: option<int>` instead (ticket 26 §4, F6).
+field_decl -> uident '?' ':' type_expr :
+    return_error(line('$2'),
+                 "no optional fields: a record's field set is exact, so '" ++
+                 atom_to_list(value('$1')) ++ "?' is not a thing it can have -- "
+                 "write `" ++ atom_to_list(value('$1')) ++ ": option<T>`").
+
+%% `Id:int` lexes `:int` as an atom, because longest-match prefers the sigil.
+%% Catching the shape here turns what would be an opaque syntax error into the
+%% one-character fix.
+field_decl -> uident atom_lit :
+    return_error(line('$2'),
+                 "write 'Id: int' with a space -- ':" ++
+                 atom_to_list(value('$2')) ++ "' lexes as an atom literal").
+
+%% --- behaviours -------------------------------------------------------------
+%% `behaviour GenServer` uses the platform's own word and is emitted as
+%% written. Not `using GenServer`, which is the same tokens as a one-segment
+%% import and would need a symbol table to tell apart.
+behaviour_decl -> 'behaviour' uident : {behaviour, line('$1'), value('$2')}.
+
+%% --- foreign modules --------------------------------------------------------
+%% A foreign module is written as the atom it is on the BEAM, and the call
+%% site is `:ets.lookup(t, k)`. The declaration attaches types to the name
+%% Erlang already has; nothing is renamed and no case mapping exists.
+foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+    {foreign, line('$1'), value('$2'), '$4'}.
+
+foreign_sigs -> foreign_sig              : ['$1'].
+foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
+
+%% `type_expr` in the return position for the reason recorded at `param` below:
+%% ticket 68 Q7 took all three signature positions rather than parameters alone.
+foreign_sig -> type_expr lident '(' params ')' :
+    {foreign_sig, line('$2'), value('$2'), '$1', '$4'}.
+
+%% --- native imports ---------------------------------------------------------
+%% `using Shop.Orders` declares a dependency on a B# module and introduces no
+%% name, like the foreign form above; the two are one construct, told apart
+%% by the token class of what follows `using` (ticket 41 §1).
+using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
+
+%% --- module -----------------------------------------------------------------
+%% A module's atom is its full dotted path, because a record tag is minted as
+%% `Mod.Name` and only a unique module keeps two contexts from minting the
+%% same tag (ticket 40 §1). `modpath` is shared with `using` and with the
+%% qualified call site.
+module_decl -> 'module' modpath : {module, line('$1'), modatom('$2')}.
+
+%% `modpath` must be left-recursive. The right-recursive form builds with
+%% shift/reduce conflicts (3, measured by `47c_alias_grammar_conflicts.sh` on
+%% 2026-08-31) and misparses `List.Map(x)`, taking `List.Map` as the path and
+%% leaving no function name. Left-recursive, at `modpath '.' uident` with `(`
+%% ahead yecc shifts, so the last segment is the function name at a call site
+%% and part of the path everywhere else (ticket 41 §1).
+modpath -> uident               : [value('$1')].
+modpath -> modpath '.' uident   : '$1' ++ [value('$3')].
+
+%% --- type aliases -----------------------------------------------------------
+%% `type X = ...` is the single naming construct; the name never enters the
+%% algebra and there is no `union` keyword (ticket 09).
+type_decl -> 'type' uident '=' type_expr :
+    {type_alias, line('$1'), value('$2'), [], '$4'}.
+
+%% A refined type is the alias with a predicate on it:
+%% `type Octet = int where value >= 0 and value <= 255`. A guard-decidable
+%% predicate becomes an interval in the algebra; anything else is refused by
+%% the checker, not here (ticket 20 §5, as amended by 29). `value` is an
+%% ordinary identifier the refinement translator gives meaning to, so a
+%% parameter may still be named `value`.
+type_decl -> 'type' uident '=' type_expr 'where' refinement :
+    {type_refined, line('$1'), value('$2'), '$4', '$6'}.
+
+%% The predicate is an ordinary expression, read back by the same
+%% `alternatives/1` a guard goes through, so a refinement and a guard cannot
+%% disagree about what `value >= 0` means (F2.5).
+refinement -> expr_low : '$1'.
+
+%% A parametric alias binds its variables here and substitutes them at the
+%% use, so `Pair<int>` resolves to the tuple before `bs_types` sees it. A
+%% parameter is lexed as `uident` like any user type name, so this list alone
+%% distinguishes the two (ticket 27, F6.7).
+type_decl -> 'type' uident '<' type_params '>' '=' type_expr :
+    {type_alias, line('$1'), value('$2'), '$4', '$7'}.
+
+type_params -> uident                 : [value('$1')].
+type_params -> uident ',' type_params : [value('$1') | '$3'].
+
+type_expr -> type_union_members :
+    case '$1' of [One] -> One; Many -> {t_union, Many} end.
+
+type_union_members -> type_prim                          : ['$1'].
+type_union_members -> type_prim '|' type_union_members   : ['$1' | '$3'].
+
+type_prim -> atom_lit          : {t_atom, value('$1')}.
+type_prim -> lident            : {t_builtin, value('$1')}.
+type_prim -> uident            : {t_ref, value('$1')}.
+type_prim -> '(' type_list ')' : {t_tuple, '$2'}.
+
+%% The anonymous map type is what a record is: `type Spelled = { Kind:
+%% :'Shop.Order', Id: int }` is the same type as the record whose tag mints
+%% to that atom (ticket 09, F3.2).
+type_prim -> '{' field_decls '}' : {t_map, '$2'}.
+%% F59 (ticket 78 Q3): a trailing `..` names the keys a field set needs and
+%% admits any others. A record's field set is exact, so `record_decl` never
+%% reaches this rule.
+type_prim -> '{' open_field_decls '}' : {t_map_open, '$2'}.
+
+%% Right-recursive and ending in `..`, sharing `field_decl ','` with
+%% `field_decls`: a list that had to be reduced before `, ..` could be seen
+%% cost a shift/reduce conflict on `,` that shifted past the marker.
+open_field_decls -> field_decl ',' '..'              : ['$1'].
+open_field_decls -> field_decl ',' open_field_decls  : ['$1' | '$3'].
+
+%% `list<int>`, `result<Delivery, ConsumeError>`, `Pair<int>`. In type
+%% position nothing compares, so `<` is a bracket with no lookahead; the value
+%% side did not learn it (ticket 28, F6.9). Lowercase is the prelude namespace
+%% and PascalCase a user alias, both the same node. Arity is checked where the
+%% parameters are known, not here (F6.6).
+type_prim -> lident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
+type_prim -> uident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
+
+%% `fn(int, atom) -> int`, the arrow (ticket 75, F46). The codomain is a
+%% `type_expr`, so it runs as far as the type expression does:
+%% `fn(atom) -> int | :nothing` returns an option, and a union OF arrows is
+%% spelled through a named arrow — a parenthesised type is a 1-tuple, and the
+%% type grammar gains no grouping bracket (ticket 75 Q6). That is one
+%% shift/reduce conflict, at the `|` after the codomain, resolved as the shift
+%% every example means; measured with `yecc:file/2` `{report, true}`, 0
+%% before.
+type_prim -> 'fn' '(' type_list ')' '->' type_expr : {t_fun, '$3', '$6'}.
+type_prim -> 'fn' '(' ')' '->' type_expr           : {t_fun, [], '$5'}.
+
+%% `Orders.Order`, `Shop.Orders.Order`, `Orders.Box<int>` — a producer's record
+%% or alias named through the module that declares it, in ticket 41 §5's
+%% spelling for a function (ticket 73, F44). The node is the SAME `t_ref` the
+%% bare name produces, carrying the dotted atom: the type environment holds
+%% every reachable module's declarations under `'Mod.Name'`, so no walker over
+%% type nodes has a new kind to learn, and a qualified name prints back as it
+%% was written. Shares `modpath` with the qualified call, and for the same
+%% reason: left-recursive, so at `Shop.Orders.Order` with `<` or a binder
+%% ahead yecc shifts and the last segment is the type name. Measured conflict-
+%% free before and after with `yecc:file/2` `{report, true}` (0 and 0).
+type_prim -> modpath '.' uident : {t_ref, modatom('$1' ++ [value('$3')])}.
+type_prim -> modpath '.' uident '<' type_list '>' :
+    {t_generic, modatom('$1' ++ [value('$3')]), '$5'}.
+
+type_list -> type_expr               : ['$1'].
+type_list -> type_expr ',' type_list : ['$1' | '$3'].
+
+%% --- signatures -------------------------------------------------------------
+%% A multi-clause function must carry a signature, because exhaustiveness is
+%% only well posed against a declared input type (ticket 04). The visibility
+%% marker is optional and an unmarked signature is private: it carries `none`,
+%% and every reader tests `=:= public`, so `none` sorts as private by
+%% construction (F12, ticket 40 §3 as amended 2026-08-17).
+%% `type_expr` in the return position, so `public :ok | :error Pick(int n)` is
+%% legal — see `param` below for why all three positions moved together. In the
+%% unmarked form the union sits between nothing at all and the function name,
+%% which Q7 weighed as the hardest place in a C-family declaration to scan and
+%% took anyway, rather than ship the asymmetry.
+signature -> type_expr uident '(' params ')' :
+    {signature, line('$2'), value('$2'), '$1', '$4', none, []}.
+signature -> visibility type_expr uident '(' params ')' :
+    {signature, line('$3'), value('$3'), '$2', '$5', '$1', []}.
+
+%% A polymorphic signature declares its variables after the name, C#'s
+%% convention: `result<list<T>, E> Prepend<T, E>(T row, result<list<T>, E>
+%% rest)` (ticket 27 §1, §(c); F45). The list is `type_params`, the same
+%% nonterminal a parametric alias binds, so a variable is a `uident` like any
+%% user type name and this list alone tells the two apart. Nothing else can
+%% follow `type_expr uident` but `(` or this `<`, so the production adds no
+%% conflict: yecc measured 0 before and 0 after (ENG-295).
+signature -> type_expr uident '<' type_params '>' '(' params ')' :
+    {signature, line('$2'), value('$2'), '$1', '$7', none, '$4'}.
+signature -> visibility type_expr uident '<' type_params '>' '(' params ')' :
+    {signature, line('$3'), value('$3'), '$2', '$8', '$1', '$5'}.
+
+visibility -> 'public'  : public.
+visibility -> 'private' : private.
+
+params -> '$empty'    : [].
+params -> param_list  : '$1'.
+
+param_list -> param                : ['$1'].
+param_list -> param ',' param_list : ['$1' | '$3'].
+
+%% A parameter may be named or anonymous: `Order o` or just `Order`.
+%%
+%% `type_expr` AND NOT `type_prim`, WHICH IS WHAT MAKES `Handle(:ok | :error x)`
+%% legal (ticket 68 Q7, ENG-331). The union rule lives above `type_prim` — only
+%% `type_expr` reaches `type_union_members` — so every position wired to
+%% `type_prim` had silently lost the ability to spell a union, while the nested
+%% ones (record and map fields, tuple elements, generic arguments, alias bodies)
+%% kept it. The gap survived because the language LOOKED like it had inline
+%% unions everywhere a reader would try one first.
+%%
+%% Ticket 09 §1 argues "naming is aliasing" by showing the inline and named
+%% spellings as the same thing, and the inline one was a syntax error at the
+%% pipe: the argument was written in a syntax this grammar did not have. Q7
+%% answered (b) — `param`, `signature` and `foreign_sig` together — because (a),
+%% parameters alone, leaves the reader a rule with nothing behind it but the
+%% order this file happened to be written in.
+%%
+%% Nothing downstream changed. `check_fn/2` and the clause-head machinery
+%% receive a resolved parameter type either way, and F31's collapse refusal
+%% reached the newly writable site for free, because it is keyed on the resolved
+%% type rather than on the spelling. Measured conflict-free with `yecc:file/2`
+%% and `{report, true}` before and after, per the standing rule that conflicts
+%% are measured and not inferred.
+param -> type_expr lident : {param, '$1', value('$2')}.
+param -> type_expr        : {param, '$1', '_'}.
+
+%% --- clauses ----------------------------------------------------------------
+clause -> uident '(' patterns ')' guard '->' body :
+    {clause, line('$1'), value('$1'), '$3', '$5', '$7'}.
+
+%% A body is zero or more bindings followed by one expression, whose value is
+%% the body's value (ticket 34). No terminator is needed: only a binding puts
+%% `=` after a lowercase name, and `=` is not an expression operator, so one
+%% token of lookahead separates `x = 1` from a body that is the variable `x`.
+body -> expr : '$1'.
+body -> binding body :
+    case '$2' of
+        {e_block, BL, Binds, Final} -> {e_block, BL, ['$1' | Binds], Final};
+        Final -> {e_block, element(2, '$1'), ['$1'], Final}
+    end.
+
+%% `var` introduces and a bare `=` matches. The marker lets this rule take a
+%% `pattern` directly: without it `binding -> pattern '=' expr` has
+%% reduce/reduce conflicts (15 on 2026-08-16, `45a`'s control reproduces it)
+%% and yecc refuses to generate, since every pattern form shares its first
+%% token with an expression form. The marker also makes `var { Kind: k } = o`
+%% parse, since a record pattern is not an expression (F8).
+binding -> 'var' pattern '=' expr : bind(line('$3'), '$2', '$4').
+
+%% The bare form is a match only: its left is an expression, narrowed by
+%% `to_match/1`, which rejects anything that would introduce a name.
+binding -> expr_low '=' expr : {dbind, line('$2'), to_match('$1'), '$3'}.
+
+patterns -> '$empty'     : [].
+patterns -> pattern_list : '$1'.
+
+pattern_list -> pattern                  : ['$1'].
+pattern_list -> pattern ',' pattern_list : ['$1' | '$3'].
+
+pattern -> integer             : {p_int, line('$1'), value('$1')}.
+
+%% A pattern takes a negative literal and not a general negation, because a
+%% pattern is a value and `-x` is a computation.
+pattern -> '-' integer         : {p_int, line('$1'), -value('$2')}.
+%% A float literal in a head matches one value under `=:=` (F51, ticket 69);
+%% `-0.0` is a literal of its own, the platform's negative zero.
+pattern -> float               : {p_float, line('$1'), value('$1')}.
+pattern -> '-' float           : {p_float, line('$1'), -value('$2')}.
+pattern -> atom_lit            : {p_atom, line('$1'), value('$1')}.
+pattern -> lident              : {p_var, line('$1'), value('$1')}.
+pattern -> '_'                 : {p_wild, line('$1')}.
+
+%% `== name` matches the value a name already holds; `==` keeps the `=:=`
+%% meaning it has everywhere else (ticket 45, ticket 16). The relational
+%% family divides on the operand: a relational takes a literal and `==` takes
+%% a name, so `>= acc` and `== 4` are both refused. `==acc` and `== acc` are
+%% one token stream.
+pattern -> '==' lident         : {p_eqvar, line('$1'), value('$2')}.
+%% A relational pattern names a span of integers where a whole argument goes:
+%% `Classify(>= 4 and <= 7)` (ticket 42). `4..7` was refused because `..`
+%% already means "the rest" in pattern position: borrow the construct, or do
+%% not borrow the glyph. The combinator is restricted to relational tests, not
+%% patterns in general, because `pattern 'and' pattern` would put `and` after
+%% every pattern form while `and` is also an expression operator; the narrow
+%% nonterminal has zero yecc conflicts, measured.
+pattern -> rel_pattern : '$1'.
+
+%% A string literal in pattern position is a byte-string singleton
+%% (ticket 30 §4). Its residual is always open, so a set of these is never
+%% exhaustive and a catch-all beside them is required, as in Gleam.
+pattern -> string_lit : {p_str, line('$1'), value('$1')}.
+
+%% A binary pattern closes on two `'>'` tokens, not a `>>`: the lexer has no
+%% `>>` rule because `list<list<int>>` needs its close as two tokens (F13).
+%% The pattern does shape and a function head does value, so there are no
+%% relational patterns inside a segment; value dispatch belongs in a second
+%% head, where the residual is computed (ticket 30 §§1, 2 and 4).
+pattern -> '<<' bin_segments '>' '>' : {p_bin, line('$1'), '$2'}.
+
+bin_segments -> bin_segment                  : ['$1'].
+bin_segments -> bin_segment ',' bin_segments : ['$1' | '$3'].
+
+%% A segment binds a name, matches a literal, or discards; its size is a
+%% literal width, an earlier binding, or absent, and absent means the
+%% remainder, unlike Erlang where a bare segment is one byte (F13, ticket 30
+%% §2). `bs_check`, not the parser, refuses an unsized segment that is not
+%% last, a width that is not positive, a literal that does not fit, and a size
+%% not bound earlier in the same pattern.
+bin_segment -> lident bin_size        : {seg_bind, line('$1'), value('$1'), '$2'}.
+bin_segment -> '_' bin_size           : {seg_wild, line('$1'), '$2'}.
+bin_segment -> int_lit ':' integer    : {seg_int,  line('$2'), '$1', value('$3')}.
+bin_segment -> string_lit             : {seg_str,  line('$1'), value('$1')}.
+
+bin_size -> '$empty'         : rest.
+bin_size -> ':' integer      : {width, value('$2')}.
+%% `payload:size` lexes as `payload` then the atom `:size`, because the atom
+%% sigil wins by longest-match, while `payload:8` is three tokens. The atom is
+%% accepted here, the one position where an atom has no other meaning, rather
+%% than making the lexer context-sensitive; both productions are kept so that
+%% `payload:size` and `payload: size` mean the same thing.
+bin_size -> atom_lit         : {sized_by, value('$1')}.
+bin_size -> ':' lident       : {sized_by, value('$2')}.
+
+rel_pattern -> rel_test : '$1'.
+rel_pattern -> rel_pattern 'and' rel_pattern :
+    {p_and, line('$2'), '$1', '$3'}.
+rel_pattern -> rel_pattern 'or' rel_pattern :
+    {p_or, line('$2'), '$1', '$3'}.
+
+rel_test -> '>=' int_lit : {p_rel, line('$1'), '>=', '$2'}.
+rel_test -> '>'  int_lit : {p_rel, line('$1'), '>',  '$2'}.
+rel_test -> '<=' int_lit : {p_rel, line('$1'), '<=', '$2'}.
+rel_test -> '<'  int_lit : {p_rel, line('$1'), '<',  '$2'}.
+
+%% A bound is a literal and may be negative: `Classify(<= -1)` is the
+%% residual's own spelling for the negative half of `int`, so the parser must
+%% accept what the diagnostic prints (ticket 23 §2).
+int_lit -> integer     : value('$1').
+int_lit -> '-' integer : -value('$2').
+
+pattern -> '(' pattern_list ')' :
+    case '$2' of
+        [Single] -> Single;
+        Many     -> {p_tuple, line('$1'), Many}
+    end.
+
+%% A property pattern `{ Kind: :'Shop.Order' }` is open: it constrains the
+%% fields it names and says nothing about the rest, which is why the algebra
+%% carries `closed`/`open`. The tag is an ordinary field, so dispatching over
+%% a union of records needs no record-specific form (ticket 01, ticket 26 §1).
+pattern -> '{' pat_fields '}' : {p_map, line('$1'), '$2'}.
+
+pat_fields -> pat_field                : ['$1'].
+pat_fields -> pat_field ',' pat_fields : ['$1' | '$3'].
+
+pat_field -> uident ':' pattern : {value('$1'), '$3'}.
+pat_field -> string_lit ':' pattern : {key('$1'), '$3'}.
+
+%% `Order { Id: id }` names the type and lets the compiler mint the tag, so an
+%% erasure detail need not be written by hand. `p_rec` carries the name, not a
+%% resolved tag: `bs_check` and the emitter each resolve it through the one
+%% minting point (ticket 55, F22).
+pattern -> uident '{' pat_fields '}' :
+    {p_rec, line('$1'), value('$1'), '$3'}.
+
+%% The binder is a bare trailing name, as in C#'s designation and a
+%% signature's `Order o`: `as` is reserved for checked conversion and `=` is
+%% kept out of pattern position (ticket 45). Zero yecc conflicts over a zero
+%% baseline, measured by `55f_yecc_conflicts.sh` (ticket 55).
+pattern -> uident '{' pat_fields '}' lident :
+    {p_bind, line('$1'), value('$5'), {p_rec, line('$1'), value('$1'), '$3'}}.
+
+%% `Circle c` is a type and a name with no fields: an empty `p_rec`, so the
+%% tag test is all it carries and every downstream case already handles it.
+pattern -> uident lident :
+    {p_bind, line('$1'), value('$2'), {p_rec, line('$1'), value('$1'), []}}.
+
+%% `Post(float a)` — the same prefix over a PART rather than a record (ticket
+%% 84, F53). A record pattern matches a minted tag; `int` and `float` mint
+%% none, so this cannot go through `p_rec` and carries the written type
+%% instead. `bs_check` decides whether the type named is one a single test
+%% decides, and refuses `list<int> ns` in `map<K, V>`'s words when it is not;
+%% the grammar takes the shape and judges nothing, so that refusal can say
+%% "not built" rather than "syntax error".
+%%
+%% A type primitive is a `lident` to the lexer — the language has no keyword
+%% for one — so this one production is every part's spelling. It is NOT
+%% `type_prim`: that reaches `uident` too, and `uident lident` above is the
+%% record path, which would make the two productions ambiguous.
+%%
+%% Measured at ZERO conflicts added, over a baseline of 5 shift/reduce, by
+%% `wayfinder/prototypes/84a_type_prefix_yecc.sh` with `yecc:file/2` and
+%% `{report, true}` — both this production and the generic one below. 55f's
+%% three zeros do not carry over: every variant there began with a `uident`,
+%% and 55f's "baseline zero" comment is itself stale, the bare-name lambda
+%% having moved it to 5 (ticket 76, F46).
+pattern -> lident lident :
+    {p_type, line('$1'), {t_builtin, value('$1')}, value('$2')}.
+
+%% The generic spelling parses and is then refused by the checker, which is the
+%% point: ticket 84 decided `Count(list<int> ns)` is refused in the words
+%% `map<K, V>` is refused in — declarable, passable, returnable, not matchable,
+%% and temporary by construction. A grammar that stopped it would answer
+%% "syntax error before: ns", which says none of that.
+pattern -> lident '<' type_list '>' lident :
+    {p_type, line('$1'), {t_generic, value('$1'), '$3'}, value('$5')}.
+
+%% The binder over a bare property pattern: naming the type and binding the
+%% value are independent, as in C#.
+pattern -> '{' pat_fields '}' lident :
+    {p_bind, line('$1'), value('$4'), {p_map, line('$1'), '$2'}}.
+
+pattern -> '[' ']'          : {p_nil, line('$1')}.
+pattern -> '[' plist_items ']' :
+    begin {Items, Rest} = '$2', {p_list, line('$1'), Items, Rest} end.
+
+%% A list pattern is `[]`, `[a, b]` or `[h, ..t]`: a prefix and an optional
+%% rest, in C#'s collection-expression spelling (ticket 08, ticket 28). The
+%% rest lives inside this nonterminal because a separate
+%% `pattern_list ',' '..' pattern` rule needs two tokens of lookahead past the
+%% comma and yecc has one. A `nil` rest means the list is closed: `[a, b]` is
+%% exactly two, as in Erlang, Elixir, C# and Gleam. The rest is a marker that
+%% may bind (`..t`) or not (`..`, `.._`) and constrains nothing, which bounds
+%% the checker's unfolding to the longest prefix written (F20, ticket 54).
+plist_items -> pattern                 : {['$1'], nil}.
+plist_items -> '..'                    : {[], {p_wild, line('$1')}}.
+plist_items -> '..' '_'                : {[], {p_wild, line('$2')}}.
+plist_items -> '..' lident             : {[], {p_var, line('$2'), value('$2')}}.
+plist_items -> pattern ',' plist_items :
+    begin {Items, Rest} = '$3', {['$1' | Items], Rest} end.
+
+%% The two retired forms get a fix-it rather than a bare syntax error; `..[]`
+%% was ticket 53's answer and will be typed again from memory.
+plist_items -> '..' '[' ']'             :
+    return_error(line('$1'),
+                 "`..[]` is retired -- a closed list is written `[a, b]`, "
+                 "with no rest").
+plist_items -> '..' '[' plist_items ']' :
+    return_error(line('$1'),
+                 "a rest is `..` or `..name` -- write the elements in the "
+                 "prefix instead").
+
+guard -> '$empty'            : none.
+guard -> 'when' guard_expr   : {guard, '$2'}.
+
+%% Below the lambda, so the `=>` after a guard closes the guard rather than
+%% opening a lambda over its last name (ticket 76; the lambda block below).
+guard_expr -> expr_low : '$1'.
+
+%% --- expressions ------------------------------------------------------------
+expr_low -> integer  : {e_int, line('$1'), value('$1')}.
+expr_low -> float    : {e_float, line('$1'), value('$1')}.
+
+%% Unary minus is a node of its own, `e_neg`, since F51: it used to lower to
+%% `0 - e`, and under ticket 80 that is an `int` beside a `float` when `e` is
+%% one, refused. A negated float LITERAL folds to the literal, so `-0.0` is
+%% the platform's negative zero and not `0 - 0.0`, which is `0.0`.
+expr_low -> '-' expr_low : negate(line('$1'), '$2').
+expr_low -> atom_lit : {e_atom, line('$1'), value('$1')}.
+expr_low -> string_lit : {e_str, line('$1'), value('$1')}.
+%% `$"Order {o.Id}"` builds a string (ticket 112, F66): text parts stay bytes
+%% and each hole becomes the expression its tokens parse to.
+expr_low -> interp   : {e_interp, line('$1'), interp_parts(value('$1'))}.
+expr_low -> lident   : {e_var, line('$1'), value('$1')}.
+%% `_` is an expression only so that `(a, _) = pair` parses, the left of a
+%% bare `=` being an expression. Used as a value it is rejected by `bs_check`.
+expr_low -> '_'      : {e_wild, line('$1')}.
+
+%% A deliberate crash. It is an expression rather than a statement because a
+%% body is one expression (ticket 34), so a clause that only crashes needs no
+%% second form — and because its type is `none`, it may stand anywhere a value
+%% is expected, including a switch arm beside arms that return (ticket 12 §5).
+%% The operand is an ordinary expression and is checked as one; nothing here
+%% restricts it to a literal.
+expr_low -> 'raise' expr_low : {e_raise, line('$1'), '$2'}.
+
+%% --- calls ------------------------------------------------------------------
+%% The call forms are a nonterminal of their own because a pipe's right
+%% operand is a `call`, not an `expr`: the pipe never passes a bare function
+%% value, so `x |> F` is a syntax error rather than a type error, and the
+%% right operand needs no precedence (ticket 17 §1, F14). A duplicate
+%% `expr -> uident '(' ...` must not be left behind: yecc reports that
+%% reduce/reduce conflict as a warning and still emits a parser.
+
+%% A local call.
+call -> uident '(' expr_list ')' : {e_call, line('$1'), value('$1'), '$3'}.
+call -> uident '(' ')'           : {e_call, line('$1'), value('$1'), []}.
+
+%% `ValidateAs<list<Order>>(x)` is the instantiation bracket. A bare `uident`
+%% is not an expression in this grammar, so none can be the left operand of
+%% `expr '<' expr` and this production adds no conflict; `Foo < 3` is a syntax
+%% error before and after it. `bs_check` refuses by name any function outside
+%% the closed set `ValidateAs`, `ParseAtom`, `ToJson`, `ToExistingAtom` (ticket 28,
+%% F18; `ToJson` by ticket 16 §4, F50).
+%% The empty argument list is needed by `x |> ValidateAs<list<Order>>()`
+%% (ticket 18 §7).
+call -> uident '<' type_list '>' '(' expr_list ')' :
+    {e_inst, line('$1'), value('$1'), '$3', '$6'}.
+call -> uident '<' type_list '>' '(' ')' :
+    {e_inst, line('$1'), value('$1'), '$3', []}.
+
+%% `:ets.lookup(t, k)` calls Erlang: an atom literal on the left, so no
+%% casing convention is needed to tell it from a field projection.
+call -> atom_lit '.' lident '(' expr_list ')' :
+    {e_foreign_call, line('$1'), value('$1'), value('$3'), '$5'}.
+call -> atom_lit '.' lident '(' ')' :
+    {e_foreign_call, line('$1'), value('$1'), value('$3'), []}.
+
+%% `List.Map(xs)` calls a B# module. The three dot-forms are told apart by
+%% the token class of the left side alone: `lident` projects a field,
+%% `atom_lit` calls Erlang, a `uident` path calls a B# module (ticket 41 §1).
+call -> modpath '.' uident '(' expr_list ')' :
+    {e_qcall, line('$2'), modatom('$1'), value('$3'), '$5'}.
+call -> modpath '.' uident '(' ')' :
+    {e_qcall, line('$2'), modatom('$1'), value('$3'), []}.
+
+%% `rule(cents)` calls through a BOUND NAME: a lowercase name followed by `(`
+%% is the fourth call form (ticket 75, F46). It is a `call` so the pipe
+%% reaches it, `n |> rule()`. One shift/reduce conflict — `rule(` shifts into
+%% the call rather than reducing the variable — and the shift is the read
+%% every author means.
+%%
+%% `not (n > 100)` is this form's shape and must stay the taught refusal it
+%% was (ticket 63): `not` is not a keyword, so the parse used to fail here
+%% and `bs_diag` read the hint off the tokens. The action refuses it by name
+%% so the same hint is still raised.
+call -> lident '(' expr_list ')' : apply_or_not('$1', '$3').
+call -> lident '(' ')'           : apply_or_not('$1', []).
+
+expr_low -> call : '$1'.
+
+%% --- a function as a value (ticket 75, F46) ---------------------------------
+%% A lambda in C#'s spelling. The parameters are parsed as an `expr_list` and
+%% lowered to patterns by `to_param/1`, because `'(' patterns ')'` cannot
+%% share the parenthesis with the tuple expression (21 reduce/reduce,
+%% measured in ticket 75 round 1). The body is ONE expression, the switch
+%% arm's reason verbatim: arguments are comma-separated and a body has no
+%% terminator.
+%%
+%% BOTH SPELLINGS ARE EXPRESSIONS, AND THE LAMBDA IS THE TOP TIER. `expr`
+%% holds the three lambda productions and `expr_low`, which holds every
+%% other expression form; a lambda's body is an `expr`, so it runs as far
+%% right as it can and `(a) => (b) => a + b` nests to the right, with no
+%% precedence entry for `=>`. A switch arm's guard is an `expr_low`, which is
+%% what keeps `x when x > m => 0` (F7's test) from reading `m => 0` as a
+%% lambda: the guard cannot hold one, so the `=>` closes it. That is C#'s own
+%% resolution of the same collision — Roslyn parses a switch-expression
+%% arm's `when` clause at `Precedence.Coalescing`, above `Lambda` — and it is
+%% why `x when (n > 3) => :high`, `x when flag => 1`, `Rule(:member) -> n =>
+%% n - 100` and `[n => n + 1]` all parse (ticket 76 Q1, reversing F46's
+%% argument-only form). A lambda inside a guard needs a parenthesis, where
+%% the operand is an `expr` again and the checker refuses it by name.
+%%
+%% The operands that stay below the lambda are C#'s: a guard, `raise`'s
+%% operand, a refinement and the left of a bare `=`; `raise (n) => n` needs
+%% the bracket. Measured with `yecc:file/2` `{report, true}`: 4 before, 5
+%% after, the fifth being `rule(` reported from a second LALR state with the
+%% same shift. A one-line variant, `expr -> expr_low '=>' expr`, counts 4 and
+%% refuses `1 + n => n` as a malformed lambda parameter pointing at `1 + n`,
+%% where this grammar says `syntax error before: '=>'`; ticket 76 measured
+%% both and the build took this one.
+expr -> '(' expr_list ')' '=>' expr :
+    {e_lambda, line('$4'), [to_param(E) || E <- '$2'], '$5'}.
+expr -> '(' ')' '=>' expr :
+    {e_lambda, line('$3'), [], '$4'}.
+expr -> lident '=>' expr :
+    {e_lambda, line('$2'), [{p_var, line('$1'), value('$1')}], '$3'}.
+expr -> expr_low : '$1'.
+
+%% A name in value position: `Double` reads its arity from the arrow the site
+%% expects, `Double/1` writes it and is legal everywhere (ticket 75 Q3). The
+%% arity is `unknown` until `bs_check` fixes it, and the checker hands the
+%% emitter the answer keyed by this token's position. Shift/reduce conflicts
+%% at `Double(`, `Double{`, `Double<` and `Double/` all shift into the call,
+%% the construction, the instantiation and the written arity — the intended
+%% reads; `Double / n` is therefore a syntax error, and dividing a function
+%% was never a program.
+expr_low -> uident             : {e_fname, line('$1'), value('$1'), unknown}.
+expr_low -> uident '/' integer : {e_fname, line('$1'), value('$1'), value('$3')}.
+
+%% --- the pipe and the valve -------------------------------------------------
+%% The piped value becomes the first argument, and that rewrite is all a pipe
+%% is: `bs_lower:pipe_into/3` emits the call node here, so the checker and
+%% the emitter see `F(x, a)` and nothing else (ticket 17 §1).
+expr_low -> expr_low '|>' call : bs_lower:pipe_into(line('$2'), '$1', '$3').
+
+%% The valve branches, so it cannot be a rewrite here; `bs_lower:valves/1`
+%% turns it into a two-armed `switch` after the parse, because that needs two
+%% synthesised names per stage unique across the file and a yecc action
+%% cannot carry a counter (ticket 17 §4).
+expr_low -> expr_low '|?>' call : {e_valve, line('$2'), '$1', '$3'}.
+
+%% `x |> F` with no argument list is refused by the grammar, not by a named
+%% production: two `expr '|>' modpath` productions would buy a better message
+%% and cost 2 shift/reduce conflicts against a grammar that holds 0.
+
+expr_low -> '(' expr_list ')' :
+    case '$2' of
+        [Single] -> Single;
+        Many     -> {e_tuple, line('$1'), Many}
+    end.
+
+%% --- records in expression position -----------------------------------------
+%% Construction names the type and assigns with `=`; `:` matches in a pattern
+%% and declares in the type (ticket 26 §2).
+expr_low -> uident '{' assign_fields '}' :
+    {e_record, line('$1'), value('$1'), '$3'}.
+
+%% F57 (ticket 78 Q7): a brace with no type name builds a field set, the third
+%% level beside the brace type and the brace pattern that ticket 48 found shipped.
+expr_low -> '{' assign_fields '}' : {e_map, line('$1'), '$2'}.
+
+assign_fields -> assign_field                   : ['$1'].
+assign_fields -> assign_field ',' assign_fields : ['$1' | '$3'].
+
+assign_field -> uident '=' expr : {value('$1'), '$3'}.
+assign_field -> string_lit '=' expr : {key('$1'), '$3'}.
+
+%% `with` updates a record without changing its field set; there is no spread,
+%% so `{ ...o, X = 1 }` is a syntax error (ticket 26 §2).
+expr_low -> expr_low 'with' '{' assign_fields '}' :
+    {e_with, line('$2'), '$1', '$4'}.
+
+%% The dot projects and is never a call: a lowercase receiver is a value and
+%% a PascalCase one is a module, so a field `Total` and a function `Total`
+%% coexist, told apart by syntax before types exist (ticket 17).
+expr_low -> lident '.' uident : {e_proj, line('$2'), value('$1'), value('$3')}.
+
+%% --- switch -----------------------------------------------------------------
+%% A switch arm uses the clause head's own `pattern` nonterminal, so the
+%% construct inherits exhaustiveness, guards and the residual with nothing
+%% added (ticket 17 §6). An arm's body is a single `expr`, not a `body`: arms
+%% are comma-separated and a body has no terminator, so `p => x = 1, x + 2`
+%% could not be told from two arms with one token of lookahead.
+expr_low -> expr_low 'switch' '{' switch_arms '}' :
+    {e_switch, line('$2'), '$1', '$4'}.
+
+switch_arms -> switch_arm                 : ['$1'].
+switch_arms -> switch_arm ',' switch_arms : ['$1' | '$3'].
+
+%% The arm carries the `=>`'s line, because that token is present in every
+%% arm while a pattern's line may belong to a token the reader is not seeing.
+switch_arm -> pattern guard '=>' expr :
+    {arm, line('$3'), '$1', '$2', '$4'}.
+
+expr_low -> '[' ']'          : {e_nil, line('$1')}.
+%% A comprehension, `[r for Receipt r in cs when r.Pence > 0]` (ticket 114). Its
+%% first generator is written, then any mix of generators and `when` guards,
+%% each carrying its own line. `guard_expr`, not `guard`: `guard` may be empty.
+expr_low -> '[' expr 'for' pattern 'in' expr comp_quals ']' :
+    {e_comp, line('$1'), '$2', [{gen, line('$3'), '$4', '$6'} | '$7']}.
+expr_low -> '[' elist_items ']' :
+    begin {Items, Rest} = '$2', {e_list, line('$1'), Items, Rest} end.
+
+comp_quals -> '$empty'              : [].
+comp_quals -> comp_qual comp_quals  : ['$1' | '$2'].
+comp_qual -> 'for' pattern 'in' expr : {gen, line('$1'), '$2', '$4'}.
+comp_qual -> 'when' guard_expr       : {filter, line('$1'), '$2'}.
+
+elist_items -> expr                 : {['$1'], nil}.
+elist_items -> '..' expr            : {[], '$2'}.
+elist_items -> expr ',' elist_items :
+    begin {Items, Rest} = '$3', {['$1' | Items], Rest} end.
+
+expr_low -> expr_low '+'  expr_low : {e_op, line('$2'), '+',  '$1', '$3'}.
+expr_low -> expr_low '-'  expr_low : {e_op, line('$2'), '-',  '$1', '$3'}.
+expr_low -> expr_low '*'  expr_low : {e_op, line('$2'), '*',  '$1', '$3'}.
+expr_low -> expr_low '/'  expr_low : {e_op, line('$2'), '/',  '$1', '$3'}.
+expr_low -> expr_low '%'  expr_low : {e_op, line('$2'), '%',  '$1', '$3'}.
+expr_low -> expr_low '==' expr_low : {e_op, line('$2'), '==', '$1', '$3'}.
+expr_low -> expr_low '!=' expr_low : {e_op, line('$2'), '!=', '$1', '$3'}.
+expr_low -> expr_low '<'  expr_low : {e_op, line('$2'), '<',  '$1', '$3'}.
+expr_low -> expr_low '>'  expr_low : {e_op, line('$2'), '>',  '$1', '$3'}.
+expr_low -> expr_low '<=' expr_low : {e_op, line('$2'), '<=', '$1', '$3'}.
+expr_low -> expr_low '>=' expr_low : {e_op, line('$2'), '>=', '$1', '$3'}.
+expr_low -> expr_low 'and' expr_low : {e_op, line('$2'), 'and', '$1', '$3'}.
+expr_low -> expr_low 'or'  expr_low : {e_op, line('$2'), 'or',  '$1', '$3'}.
+
+%% An argument list, a tuple and a lambda's parameters hold expressions of
+%% the top tier, so a lambda is an argument in both spellings.
+expr_list -> expr               : ['$1'].
+expr_list -> expr ',' expr_list : ['$1' | '$3'].
+
+Erlang code.
+
+line(T) -> element(2, T).
+
+%% Each hole's tokens are parsed as an expression through the second root, and
+%% a hole that does not parse is this template's syntax error, at the hole.
+interp_parts(Parts) -> [interp_part(P) || P <- Parts].
+
+interp_part({text, Bytes}) -> {text, Bytes};
+interp_part({hole, L, Toks}) ->
+    case parse([{hole_root, L} | Toks]) of
+        {ok, {hole_expr, E}}  -> {hole, L, E};
+        {error, {EL, _, Msg}} ->
+            case lists:flatten(format_error(Msg)) of
+                %% yecc names the token it stopped before, and at the hole's
+                %% end there is none, so it would print "before: " and nothing.
+                "syntax error before: " ->
+                    return_error(L, "syntax error: the hole ends before its "
+                                    "expression does");
+                Text -> return_error(EL, Text)
+            end
+    end.
+
+%% Ticket 110: a block's arms become the clauses the named form would have
+%% written, carrying the signature's name, then a marker naming the block.
+clause_block({signature, L, Name, _, Params, _, _} = Sig, Arms) ->
+    Clauses = [{clause, AL, Name, Ps, G, B} || {AL, Ps, G, B} <- Arms],
+    [Sig | Clauses]
+        ++ [{clause_block, L, Name, length(Params), [AL || {AL, _, _, _} <- Arms]}].
+value(T) -> element(3, T).
+
+%% A string key is a binary; a name key stays an atom (F58).
+key(T) -> iolist_to_binary(value(T)).
+
+%% A record's fields are names. A string key describes someone else's wire and
+%% belongs to a field-set type (ticket 78 Q2), so it is refused here by name.
+record_fields(Line, Name, Fields) ->
+    case [K || {field, K, _} <- Fields, is_binary(K)] of
+        [] -> {record_decl, Line, Name, Fields};
+        [K | _] ->
+            return_error(Line,
+                         "a record's fields are names, so \"" ++ binary_to_list(K) ++
+                         "\" cannot be one of " ++ atom_to_list(Name) ++ "'s -- "
+                         "a string key belongs in a field set: `type W = { \"" ++
+                         binary_to_list(K) ++ "\": T }`")
+    end.
+
+%% A module path becomes its dotted atom here, so `bs_check:qualified/2` and
+%% the emit path see the module atom and learn no new shape (ticket 40 §1).
+modatom(Segments) -> list_to_atom(dotted(Segments)).
+
+%% The same join as a string, for the diagnostics that have to print a path back
+%% to the author before it has become an atom.
+dotted(Segments) ->
+    lists:flatten(lists:join(".", [atom_to_list(S) || S <- Segments])).
+
+%% A plain name is a `bind`; anything else is a destructuring `dbind` carrying
+%% a real pattern (ticket 34, F5).
+bind(_L, {p_var, VL, V}, E) -> {bind, VL, V, E};
+bind(L, Pat, E)             -> {dbind, L, Pat, E}.
+
+%% The bare `=` is a match, so its left side must introduce nothing: it is
+%% narrowed to a pattern of literals and compounds of literals, and anything
+%% else is the error. The left is still parsed as an `expr` because one token
+%% of lookahead cannot tell `(1, 2) = pair` from the tuple `(1, 2)`; only the
+%% `var` form escapes that.
+to_match({e_wild, L})     -> {p_wild, L};
+to_match({e_int, L, N})   -> {p_int, L, N};
+to_match({e_float, L, F}) -> {p_float, L, F};
+to_match({e_atom, L, A})  -> {p_atom, L, A};
+%% There is no `e_str` clause: a string literal on the left of a bare `=`
+%% falls to the error below.
+to_match({e_tuple, L, Es})-> {p_tuple, L, [to_match(E) || E <- Es]};
+to_match({e_nil, L})      -> {p_nil, L};
+%% The rest narrows to a marker or not at all. The expression grammar admits
+%% `..expr` because a spread is real in that position, so without this
+%% `[a, ..[]] = xs` would keep the retired form alive (F20).
+to_match({e_list, L, Items, Rest}) ->
+    {p_list, L, [to_match(I) || I <- Items], to_match_rest(L, Rest)};
+%% The message names the fix, `var x = ...`, which is the most common thing a
+%% reader from the old dialect will type (F8.3, F4.7).
+to_match({e_var, L, V}) ->
+    return_error(L, lists:flatten(
+        io_lib:format("~ts is introduced here, and a bare `=` matches rather "
+                      "than introduces -- write `var ~ts = ...`", [V, V])));
+to_match(E) ->
+    return_error(element(2, E),
+                 "the left of a bare `=` must be a literal pattern. To introduce "
+                 "a name, write `var <pattern> = ...`").
+
+%% `nil` is a closed list and stays closed; `_` is the anonymous marker; a
+%% variable goes to `to_match/1`, which refuses it with the better message,
+%% since a bare `=` cannot introduce. Everything else is the retired form.
+to_match_rest(_L, nil)               -> nil;
+to_match_rest(_L, {e_wild, WL})      -> {p_wild, WL};
+to_match_rest(_L, E = {e_var, _, _}) -> to_match(E);
+to_match_rest(L, _E) ->
+    return_error(L, "a rest is `..` or `..name` -- `..[]` is retired, and a "
+                    "closed list is written `[a, b]`").
+
+%% `not (n > 100)` has the shape of a call through a bound name and is the
+%% negation the language refuses to spell (ticket 63): refused here by name,
+%% with the token where `bs_diag` looks for it, so the hint it always raised
+%% is raised still. Every other name is the call it looks like.
+apply_or_not({lident, L, 'not'}, _Args) ->
+    return_error(L, "beam-sharp has no `not`");
+apply_or_not({lident, L, V}, Args) ->
+    {e_apply, L, V, Args}.
+
+%% A lambda's parameter is `to_match/1` with one clause added: a bare name
+%% INTRODUCES, which is what a parameter is for and what the bare `=` refuses
+%% on purpose (ticket 75 round 2, F46). The compounds recurse here so a name
+%% inside a tuple, `(acc, (_, n))`, introduces too.
+to_param({e_var, L, V})   -> {p_var, L, V};
+to_param({e_wild, L})     -> {p_wild, L};
+to_param({e_int, L, N})   -> {p_int, L, N};
+to_param({e_float, L, F}) -> {p_float, L, F};
+to_param({e_atom, L, A})  -> {p_atom, L, A};
+to_param({e_tuple, L, Es})-> {p_tuple, L, [to_param(E) || E <- Es]};
+to_param({e_nil, L})      -> {p_nil, L};
+to_param({e_list, L, Items, Rest}) ->
+    {p_list, L, [to_param(I) || I <- Items], to_param_rest(L, Rest)};
+to_param(E) ->
+    return_error(element(2, E),
+                 "a lambda's parameter is a pattern: a name, `_`, a literal, "
+                 "or a tuple or list of those").
+
+%% A negated float literal is the literal; anything else is the BEAM's unary
+%% minus, typed by its operand (F51).
+negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
+negate(L, E)                 -> {e_neg, L, E}.
+
+to_param_rest(_L, nil)               -> nil;
+to_param_rest(_L, {e_wild, WL})      -> {p_wild, WL};
+to_param_rest(_L, {e_var, VL, V})    -> {p_var, VL, V};
+to_param_rest(L, _E) ->
+    return_error(L, "a rest is `..` or `..name`").

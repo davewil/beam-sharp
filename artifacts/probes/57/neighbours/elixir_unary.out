@@ -1,0 +1,14 @@
+build_unary_op({_Kind, {Line, Column, _}, '//'}, Expr) ->
+    {Outer, Inner} =
+        case get(elixir_parser_columns) of
+            true ->
+                {[{column, Column + 1}], [{column, Column}]};
+            false ->
+                {[], []}
+        end,
+    {'/',
+     [{line, Line} | Outer],
+     [{'/', [{line, Line} | Inner], nil}, Expr]};
+build_unary_op({_Kind, Location, Op}, Expr) ->
+    {Op, meta_from_location(Location), [Expr]}.
+

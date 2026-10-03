@@ -1,0 +1,26 @@
+## BASELINE
+REFUSED   value >= -5                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= -5 and value <= 5         error: this refinement is not a predicate the checker can read
+REFUSED   value >= 1 or value <= -1          error: this refinement is not a predicate the checker can read
+ACCEPTED  value <= 3 or value >= 10          domain: <= 3 | >= 10 and <= 123456788 | >= 123456790
+ACCEPTED  value != 0                         domain: <= -1 | >= 1 and <= 123456788 | >= 123456790
+REFUSED   value != -3                        error: this refinement is not a predicate the checker can read
+REFUSED   value == -1                        error: this refinement is not a predicate the checker can read
+REFUSED   -5 <= value                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= - 5                       error: this refinement is not a predicate the checker can read
+REFUSED   value >= (-5)                      error: this refinement is not a predicate the checker can read
+REFUSED   value >= -(5)                      error: this refinement is not a predicate the checker can read
+REFUSED   value >= 2 + 3                     error: this refinement is not a predicate the checker can read
+REFUSED   value >= 0 - 5                     error: this refinement is not a predicate the checker can read
+REFUSED   value >= -5 + 1                    error: this refinement is not a predicate the checker can read
+REFUSED   value >= --5                       error: this refinement is not a predicate the checker can read
+REFUSED   value >= -0                        error: this refinement is not a predicate the checker can read
+REFUSED   value > -1 and value < 1           error: this refinement is not a predicate the checker can read
+ACCEPTED  value >= 5                         domain: >= 5 and <= 123456788 | >= 123456790
+REFUSED   value >= -n                        error: this refinement is not a predicate the checker can read
+REFUSED   value >= (2 + 3) * 4               error: this refinement is not a predicate the checker can read
+REFUSED   value >= -2147483648 and value <= 2147483647 error: this refinement is not a predicate the checker can read
+## pattern + guard sites (same literal)
+REFUSED   pattern <= -1 / >= 0               /tmp/tmp.qDEVoCGNFg/Spattern <= -1 / >= 0/a.bs:1:17: error: syntax error before: '<='
+REFUSED   guard n >= 0 / n <= -1             /tmp/tmp.qDEVoCGNFg/Sguard n >= 0 / n <= -1/a.bs:1:17: error: syntax error before: '>='
+REFUSED   guard n < 0 (no literal -)         /tmp/tmp.qDEVoCGNFg/Sguard n < 0 (no literal -)/a.bs:1:19: error: syntax error before: 0
