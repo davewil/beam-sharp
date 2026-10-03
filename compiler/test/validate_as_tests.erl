@@ -495,7 +495,9 @@ validating_each_member_in_turn_tags_untagged_data_test() ->
     %% `[]` is in both members and lands in whichever is tried first; a row
     %% in neither is blamed against the last validator tried.
     ?assertEqual({nums, []}, M:'Decode'([])),
-    ?assertMatch({error, #{'Expected' := <<"binary">>}}, M:'Decode'([#{<<"a">> => 1.5}])).
+    ?assertMatch({error, #{'Expected' := <<"binary">>,
+                           'Path' := [<<"[0]">>, <<"[\"a\"]">>]}},
+                 M:'Decode'([#{<<"a">> => 1.5}])).
 
 %% An inline target bypasses declaration checks.
 an_undeclared_target_is_refused_test() ->
