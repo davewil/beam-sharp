@@ -1,0 +1,4 @@
+fetched from https://raw.githubusercontent.com/elixir-lang/elixir/v1.20.4/lib/elixir/{src/elixir_map.erl,lib/kernel/utils.ex} on 2026-10-03; installed Elixir is 1.20.4 but ships beams only (/tmp/otp/lib/elixir has no src)
+7c7d1ea185a4d2ca52628bba62874c662f67bb8ebca43064f6c4d045cbd4b4e9  PROVENANCE.txt
+9133bb53399e2f32c1f689144a5d77d677db6901bb06b346bc04b31927a7302c  elixir_map.erl
+3eabbc22a24fb4d1575bf5d09f49e84721726579fdbc1ff341eef50d4dac6c5f  utils.ex

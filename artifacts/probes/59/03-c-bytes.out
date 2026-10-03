@@ -1,0 +1,6 @@
+N=1 base  CostRec[file stripped Code] 1368 404 138   CostInt[file stripped Code] 1196 359 120
+N=1 proto  CostRec[file stripped Code] 1328 389 126   CostInt[file stripped Code] 1200 359 120
+N=1 wide  CostRec[file stripped Code] 1368 404 138   CostInt[file stripped Code] 1232 371 125
+N=20 base  CostRec[file stripped Code] 4776 936 1390   CostInt[file stripped Code] 3472 781 1003
+N=20 proto  CostRec[file stripped Code] 4060 810 1123   CostInt[file stripped Code] 3472 781 1003
+N=20 wide  CostRec[file stripped Code] 4776 936 1390   CostInt[file stripped Code] 3880 837 1116

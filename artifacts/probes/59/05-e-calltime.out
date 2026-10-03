@@ -1,0 +1,36 @@
+LoopRec/LoopCtl asm identical base vs proto (excl. labels/lines):
+9d03f282028a563fa629be018ea9e0ef  -
+3c056ac75ab353286474b4a00b6ec4da  -
+9d03f282028a563fa629be018ea9e0ef  -
+3c056ac75ab353286474b4a00b6ec4da  -
+
+== LoopRec  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       18.844   22.363   2.933   33.675
+proto      15.391   19.138   2.346   21.807
+base2      19.033   21.663   3.926   25.268
+A/A  (base - base2)  median diff = +0.700 ns   <- noise floor of this method
+A/B  (proto - base)   median diff = -3.224 ns   min diff = -3.452 ns
+
+== LoopInt  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       12.683   12.956   0.657   15.078
+wide       11.901   12.592   0.639   19.204
+base2      12.534   12.792   1.055   16.995
+A/A  (base - base2)  median diff = +0.164 ns   <- noise floor of this method
+A/B  (wide - base)   median diff = -0.365 ns   min diff = -0.782 ns
+
+== LoopCtl  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       12.153   12.333   1.026   13.530
+proto      11.569   11.907   0.867   13.087
+base2      12.164   12.393   0.682   13.421
+A/A  (base - base2)  median diff = -0.060 ns   <- noise floor of this method
+A/B  (proto - base)   median diff = -0.426 ns   min diff = -0.584 ns
+
+== LoopStruct  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       14.001   14.761   0.729   15.877
+base2      14.054   14.553   0.788   16.414
+A/A  (base - base2)  median diff = +0.208 ns   <- noise floor of this method
+SAME-MODULE A/B  (LoopRec - LoopStruct, both from base build) median diff = +7.602 ns

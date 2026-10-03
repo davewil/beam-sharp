@@ -1,0 +1,39 @@
+module Forge
+record Order { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Cart { Item: Order, N: int }
+type Octet = int where value >= 0 and value <= 255
+type Level = :big | :small
+
+// ---- records: private projection of an Order, reached through an exported function
+int Amount(Order o)
+Amount(o) -> o.Total
+
+public int Direct(Order o)
+Direct(o) -> Amount(o)
+
+public int ViaCart(Cart c)
+ViaCart(c) -> Amount(c.Item)
+
+public int ViaList(list<Order> os)
+ViaList([o, .._]) -> Amount(o)
+ViaList([]) -> 0
+
+// ---- ints: the same path, with the kind test (exported-only today)
+Level Classify(Octet n)
+Classify(n) when n >= 9 -> :big
+Classify(n) -> :small
+
+public Level PubClassify(Octet n)
+PubClassify(n) when n >= 9 -> :big
+PubClassify(n) -> :small
+
+public Level ViaOctets(list<Octet> ns)
+ViaOctets([n, .._]) -> Classify(n)
+ViaOctets([]) -> :small
+
+// ---- the same read, but inline: no private helper, so nothing to carry a guard
+public int InlineCart(Cart c)
+InlineCart(c) ->
+    var i = c.Item
+    i.Total

@@ -1,0 +1,73 @@
+=================== compiler: base  (shipped)
+'Amount'(O) when map_get('Kind', O) =:= 'Forge.Order' ->
+    map_get('Total', O).
+
+'Classify'(N) when N >= 9 ->
+    big;
+'Classify'(_N) ->
+    small.
+
+--- foreign Erlang caller
+  Direct(good Order)                                                 => {returned,5}
+  Direct(forged Invoice)  [exported, direct]                         => {error,function_clause}
+  ViaCart(Cart{Item=good})                                           => {returned,5}
+  ViaCart(Cart{Item=Invoice 999})  [forged, nested]                  => {error,function_clause}
+  ViaCart(Cart{Item=bare Invoice tag only})                          => {error,function_clause}
+  ViaCart(Cart{Item=Order tag, no Total})  [tag ok, shape wrong]     => {error,badkey}
+  ViaList([Invoice 999])  [forged, list element]                     => {error,function_clause}
+  InlineCart(Cart{Item=Invoice 999})  [same read, no helper]         => {returned,999}
+  PubClassify(100.5)  [exported int, direct float]                   => {error,function_clause}
+  ViaOctets([100.5])  [float via list into PRIVATE int fn]           => {returned,big}
+  ViaOctets([300])   [out-of-range int via list into PRIVATE fn]     => {returned,big}
+  ViaOctets([<<"x">>]) [binary via list into PRIVATE fn]             => {returned,big}
+--- foreign Elixir caller
+  ViaCart(%{Item: Invoice 999})            => {:error, FunctionClauseError}
+  InlineCart(%{Item: Invoice 999})         => {:returned, 999}
+  ViaOctets([100.5])                       => {:returned, :big}
+=================== compiler: proto  (PROTOTYPE: no tag test on private fns)
+'Amount'(O) ->
+    map_get('Total', O).
+
+'Classify'(N) when N >= 9 ->
+    big;
+'Classify'(_N) ->
+    small.
+
+--- foreign Erlang caller
+  Direct(good Order)                                                 => {returned,5}
+  Direct(forged Invoice)  [exported, direct]                         => {error,function_clause}
+  ViaCart(Cart{Item=good})                                           => {returned,5}
+  ViaCart(Cart{Item=Invoice 999})  [forged, nested]                  => {returned,999}
+  ViaCart(Cart{Item=bare Invoice tag only})                          => {error,badkey}
+  ViaCart(Cart{Item=Order tag, no Total})  [tag ok, shape wrong]     => {error,badkey}
+  ViaList([Invoice 999])  [forged, list element]                     => {returned,999}
+  InlineCart(Cart{Item=Invoice 999})  [same read, no helper]         => {returned,999}
+  PubClassify(100.5)  [exported int, direct float]                   => {error,function_clause}
+  ViaOctets([100.5])  [float via list into PRIVATE int fn]           => {returned,big}
+  ViaOctets([300])   [out-of-range int via list into PRIVATE fn]     => {returned,big}
+  ViaOctets([<<"x">>]) [binary via list into PRIVATE fn]             => {returned,big}
+--- foreign Elixir caller
+  ViaCart(%{Item: Invoice 999})            => {:returned, 999}
+  InlineCart(%{Item: Invoice 999})         => {:returned, 999}
+  ViaOctets([100.5])                       => {:returned, :big}
+=================== compiler: wide (PROTOTYPE: kind test also on private fns)
+'Classify'(N)
+    when
+        is_integer(N)
+        andalso
+        N =< 255
+        andalso
+        N >= 9 ->
+    big;
+'Classify'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    small.
+
+  ViaOctets([100.5])  [float via list into PRIVATE int fn]           => {error,function_clause}
+  ViaOctets([300])   [out-of-range int via list into PRIVATE fn]     => {error,function_clause}
+  ViaOctets([<<"x">>]) [binary via list into PRIVATE fn]             => {error,function_clause}

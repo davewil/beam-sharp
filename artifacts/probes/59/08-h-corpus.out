@@ -1,0 +1,13 @@
+  (not compiled: 25a-http-api-server)
+  (not compiled: 25b-websocket-handler)
+  (not compiled: 25c-event-queue-consumer)
+  (not compiled: 25d-database-querying)
+  (not compiled: 25e-dynamic-web-page)
+  (not compiled: 25f-llm-evaluation-client)
+  (not compiled: 25g-jev-server)
+tag tests ('Kind' occurrences) in shipped output: 62
+modules compiled by shipped compiler: 21   not compiled: 7
+proto: 0 modules emit a different .abstr than shipped:
+wide: 5 modules emit a different .abstr than shipped: Fib/Fib.abstr Foreign/Foreign.abstr Frame/Frame.abstr Pipeline/Pipeline.abstr Pipeline/Shop.Collections.Ints.abstr
+guard count diff (proto vs base): tag tests=0  is_integer=0  is_float=0
+guard count diff (wide vs base): tag tests=0  is_integer=19  is_float=0

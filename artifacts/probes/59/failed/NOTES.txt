@@ -1,0 +1,18 @@
+Failing / superseded probe versions, kept on purpose (nothing was tuned until it passed; each change is a fix to a probe bug or a checker refusal):
+
+1. b/Forge: first draft had `InlineCart(c) -> c.Item.Total`.  bsc: "syntax error before: '.'" -- chained
+   field access is not in the grammar.  Rewritten with `var i = c.Item` then `i.Total`.  (Probe bug, not a result.)
+2. b/forge.exs: first draft called `:Forge.ViaCart(cart)` -> Elixir SyntaxError (alias followed by call).  Now apply/3.
+3. c/gen.py: first draft gave the private int functions `Octet` (refined) parameters and called them with `c.N`
+   (an `int`).  bsc REFUSED: "Main hands Q0 an argument it does not accept".  That is the checker doing its job
+   (site 1); the cost probe now uses plain `int`, which is_int_only() still guards (kind test) in the WIDE prototype.
+4. e/Bench: pilot with ROUNDS=3 ITERS=1e7 showed LoopCtl (code byte-identical between base and proto) at +2.3 ns
+   and LoopInt (wide) at -0.7 ns.  Taken as a warning that 3 rounds is below resolution; the full run uses 15 rounds
+   x 5e7 iterations and the control stays in the table.  The result of the full run is reported as measured, including
+   the wrong-signed LoopInt delta.
+5. e/Bench: first same-module A/B used `{ Total: int }` as the structural callee type.  bsc REFUSED passing an Order
+   to it (see bench-attempt1-structural-Total-only.bs): a record's type carries the minted Kind field, so a type that
+   omits it is not a supertype.  Changed to `{ Kind: atom, Id: int, Total: int }`, which Order does inhabit and
+   which has no singleton tag, so no tag test is emitted.
+6. g (Gleam): none -- first build passed.  h (Elm): `elm make` could not run: package.elm-lang.org is blocked by the
+   egress proxy (403).  Not routed around.  Elm is UNMEASURED this session; the brief cites research/18 (2026-08-13).

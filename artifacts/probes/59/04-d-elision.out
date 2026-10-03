@@ -1,0 +1,201 @@
+######## BEAM asm, compiler=base
+function 'OnlyLit'/1
+    {label,3}
+    {label,4}
+    {bif,map_get,{f,3},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+    {test,is_eq_exact,
+          {f,3},
+          [{tr,{x,1},
+               {t_union,{t_atom,any},none,{t_integer,{1,2}},none,none,none}},
+           {atom,'Elide.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',
+            {f,0},
+            1,
+            [{tr,{x,0},
+                 {t_union,{t_atom,any},none,{t_integer,{1,2}},none,none,none}},
+             {integer,100}],
+            {x,0}}
+    return
+function 'AfterTest'/1
+    {label,7}
+    {label,8}
+    {bif,map_get,{f,7},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+    {test,is_eq_exact,{f,7},[{x,1},{atom,'Elide.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',{f,0},1,[{x,0},{integer,200}],{x,0}}
+    return
+function 'Unproven'/1
+    {label,11}
+    {label,12}
+    {bif,map_get,{f,11},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,11},[{x,1},{atom,'Elide.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',{f,0},1,[{x,0},{integer,300}],{x,0}}
+    return
+function 'Mid'/1
+    {label,17}
+    {label,18}
+    {bif,map_get,{f,17},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,17},[{x,1},{atom,'Elide.Order'}]}
+    {call_only,1,{'Elide','Leaf',1}}
+function 'IntFromProven'/1
+    {label,21}
+    {label,22}
+    {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+    return
+function 'IntUnproven'/1
+    {label,25}
+    {label,26}
+    {gc_bif,'*',{f,0},1,[{x,0},{integer,3}],{x,0}}
+    return
+######## BEAM asm, compiler=wide
+function 'OnlyLit'/1
+    {label,3}
+    {label,4}
+    {bif,map_get,{f,3},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+    {test,is_eq_exact,
+          {f,3},
+          [{tr,{x,1},
+               {t_union,{t_atom,any},none,{t_integer,{1,2}},none,none,none}},
+           {atom,'Elide.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',
+            {f,0},
+            1,
+            [{tr,{x,0},
+                 {t_union,{t_atom,any},none,{t_integer,{1,2}},none,none,none}},
+             {integer,100}],
+            {x,0}}
+    return
+function 'AfterTest'/1
+    {label,7}
+    {label,8}
+    {bif,map_get,{f,7},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+    {test,is_eq_exact,{f,7},[{x,1},{atom,'Elide.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',{f,0},1,[{x,0},{integer,200}],{x,0}}
+    return
+function 'Unproven'/1
+    {label,11}
+    {label,12}
+    {bif,map_get,{f,11},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,11},[{x,1},{atom,'Elide.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',{f,0},1,[{x,0},{integer,300}],{x,0}}
+    return
+function 'Mid'/1
+    {label,17}
+    {label,18}
+    {bif,map_get,{f,17},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,17},[{x,1},{atom,'Elide.Order'}]}
+    {call_only,1,{'Elide','Leaf',1}}
+function 'IntFromProven'/1
+    {label,21}
+    {label,22}
+    {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+    return
+function 'IntUnproven'/1
+    {label,25}
+    {label,26}
+    {test,is_integer,{f,25},[{x,0}]}
+    {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,3}],{x,0}}
+    return
+######## JIT (x86_64) native listing, +JDdump true: native instruction lines per function (comments, .db, align excluded)
+compiler=base
+   'Elide':'AfterTest'/1      39
+   'Elide':'Chain'/1          32
+   'Elide':'Dom'/1            24
+   'Elide':'IntDom'/1         31
+   'Elide':'IntFromProven'/1  26
+   'Elide':'IntNested'/1      32
+   'Elide':'IntUnproven'/1    28
+   'Elide':'Leaf'/1           39
+   'Elide':'Mid'/1            24
+   'Elide':'Nested'/1         32
+   'Elide':'OnlyLit'/1        38
+   'Elide':'Unproven'/1       45
+   'Elide':'UseLit'/0         13
+   'Elide':'bs@type_atoms'/0  15
+   'Elide':module_info/0      23
+   'Elide':module_info/1      48
+compiler=proto
+   'Elide':'AfterTest'/1      32
+   'Elide':'Chain'/1          32
+   'Elide':'Dom'/1            24
+   'Elide':'IntDom'/1         31
+   'Elide':'IntFromProven'/1  26
+   'Elide':'IntNested'/1      32
+   'Elide':'IntUnproven'/1    28
+   'Elide':'Leaf'/1           39
+   'Elide':'Mid'/1            11
+   'Elide':'Nested'/1         32
+   'Elide':'OnlyLit'/1        31
+   'Elide':'Unproven'/1       39
+   'Elide':'UseLit'/0         13
+   'Elide':'bs@type_atoms'/0  15
+   'Elide':module_info/0      23
+   'Elide':module_info/1      48
+compiler=wide
+   'Elide':'AfterTest'/1      39
+   'Elide':'Chain'/1          32
+   'Elide':'Dom'/1            24
+   'Elide':'IntDom'/1         31
+   'Elide':'IntFromProven'/1  26
+   'Elide':'IntNested'/1      32
+   'Elide':'IntUnproven'/1    37
+   'Elide':'Leaf'/1           39
+   'Elide':'Mid'/1            24
+   'Elide':'Nested'/1         32
+   'Elide':'OnlyLit'/1        38
+   'Elide':'Unproven'/1       45
+   'Elide':'UseLit'/0         13
+   'Elide':'bs@type_atoms'/0  15
+   'Elide':module_info/0      23
+   'Elide':module_info/1      48
+######## JIT listing of Unproven/1 (base) -- the tag test: is_map + header check + map_get helper call + cmp
+'Unproven'/1:
+# i_breakpoint_trampoline
+    short jmp L57
+.db 0x90
+    call L35
+L57:
+# i_test_yield
+    lea rdx, qword ptr ['Unproven'/1+24]
+    dec r14d
+    long jle L36
+    align 4
+# bif_map_get_jssd
+    mov rdi, qword ptr [rbx]
+    mov esi, 656331
+    rex test dil, 1
+    short jnz label_11
+    mov rax, qword ptr [rdi-2]
+    and al, 63
+    cmp al, 44
+    short jnz label_11
+L59:
+L60:
+    call L41
+    short jnz label_11
+L58:
+    mov qword ptr [rbx+8], rax
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+# simplified compare of BEAM register
+    cmp rax, 656395
+    short jnz label_11
+# bif_map_get_jssd
+    mov rdi, qword ptr [rbx]
+    mov esi, 656459
+# skipped test for map for known map argument
+    call L41
+    jz L61
+    mov rdi, qword ptr [rbx]
+    mov esi, 656459
+    call 140481180732720
+L61:
+    mov qword ptr [rbx], rax
+# i_plus_ssjd
+# simplified fetching of BEAM register
+    mov rsi, rax

@@ -1,0 +1,8 @@
+module CostInt
+record Cart { N: int }
+
+int Q0(int n)
+Q0(n) -> n * 2
+
+public int Main(Cart c)
+Main(c) -> Q0(c.N)

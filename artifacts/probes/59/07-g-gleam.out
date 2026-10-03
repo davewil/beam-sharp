@@ -1,0 +1,62 @@
+  Compiling probe
+   Compiled in 0.41s
+-module(probe).
+-compile([no_auto_import, nowarn_ignored, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+-export([make_token/1, pub_amount/1, via_cart/1, pub_inc/1, via_n/1, token_value/1, via_match/1]).
+-export_type([order/0, invoice/0, cart/0, token/0]).
+
+-type order() :: {order, integer(), integer()}.
+
+-type invoice() :: {invoice, integer(), integer()}.
+
+-type cart() :: {cart, order(), integer()}.
+
+-opaque token() :: {token, integer()}.
+
+-spec make_token(integer()) -> token().
+make_token(V) ->
+    {token, V}.
+
+-spec pub_amount(order()) -> integer().
+pub_amount(O) ->
+    erlang:element(3, O).
+
+-spec priv_amount(order()) -> integer().
+priv_amount(O) ->
+    erlang:element(3, O).
+
+-spec via_cart(cart()) -> integer().
+via_cart(C) ->
+    priv_amount(erlang:element(2, C)).
+
+-spec pub_inc(integer()) -> integer().
+pub_inc(N) ->
+    N + 1.
+
+-spec priv_inc(integer()) -> integer().
+priv_inc(N) ->
+    N + 1.
+
+-spec via_n(cart()) -> integer().
+via_n(C) ->
+    priv_inc(erlang:element(3, C)).
+
+-spec token_value(token()) -> integer().
+token_value(T) ->
+    erlang:element(2, T).
+
+-spec priv_match(order()) -> integer().
+priv_match(O) ->
+    {order, _, T} = O,
+    T.
+
+-spec via_match(order()) -> integer().
+via_match(O) ->
+    priv_match(O).
+
+--- foreign Erlang caller
+  pub_amount({invoice,1,999})  [wrong tag, exported, direct]                 => {returned,999}
+  via_cart({cart,{invoice,1,999},1}) [wrong tag, through private fn]         => {returned,999}
+  via_match({invoice,1,999})  [private head is a tuple pattern {order,_,T}]  => {error,badmatch}
+  via_n({cart,{order,1,2},<<"x">>}) [binary into private Int fn]             => {error,badarith}
+  token_value({token,<<"x">>}) [opaque type, forged from Erlang]             => {returned,<<120>>}

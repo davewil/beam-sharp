@@ -1,0 +1,66 @@
+module CostRec
+record Order { Id: int, Total: int }
+record Cart { Item: Order, N: int }
+
+int P0(Order o)
+P0(o) -> o.Total + 0
+
+int P1(Order o)
+P1(o) -> o.Total + 1
+
+int P2(Order o)
+P2(o) -> o.Total + 2
+
+int P3(Order o)
+P3(o) -> o.Total + 3
+
+int P4(Order o)
+P4(o) -> o.Total + 4
+
+int P5(Order o)
+P5(o) -> o.Total + 5
+
+int P6(Order o)
+P6(o) -> o.Total + 6
+
+int P7(Order o)
+P7(o) -> o.Total + 7
+
+int P8(Order o)
+P8(o) -> o.Total + 8
+
+int P9(Order o)
+P9(o) -> o.Total + 9
+
+int P10(Order o)
+P10(o) -> o.Total + 10
+
+int P11(Order o)
+P11(o) -> o.Total + 11
+
+int P12(Order o)
+P12(o) -> o.Total + 12
+
+int P13(Order o)
+P13(o) -> o.Total + 13
+
+int P14(Order o)
+P14(o) -> o.Total + 14
+
+int P15(Order o)
+P15(o) -> o.Total + 15
+
+int P16(Order o)
+P16(o) -> o.Total + 16
+
+int P17(Order o)
+P17(o) -> o.Total + 17
+
+int P18(Order o)
+P18(o) -> o.Total + 18
+
+int P19(Order o)
+P19(o) -> o.Total + 19
+
+public int Main(Cart c)
+Main(c) -> P0(c.Item) + P1(c.Item) + P2(c.Item) + P3(c.Item) + P4(c.Item) + P5(c.Item) + P6(c.Item) + P7(c.Item) + P8(c.Item) + P9(c.Item) + P10(c.Item) + P11(c.Item) + P12(c.Item) + P13(c.Item) + P14(c.Item) + P15(c.Item) + P16(c.Item) + P17(c.Item) + P18(c.Item) + P19(c.Item)

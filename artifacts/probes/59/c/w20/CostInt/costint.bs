@@ -1,0 +1,65 @@
+module CostInt
+record Cart { N: int }
+
+int Q0(int n)
+Q0(n) -> n * 2
+
+int Q1(int n)
+Q1(n) -> n * 3
+
+int Q2(int n)
+Q2(n) -> n * 4
+
+int Q3(int n)
+Q3(n) -> n * 5
+
+int Q4(int n)
+Q4(n) -> n * 6
+
+int Q5(int n)
+Q5(n) -> n * 7
+
+int Q6(int n)
+Q6(n) -> n * 8
+
+int Q7(int n)
+Q7(n) -> n * 9
+
+int Q8(int n)
+Q8(n) -> n * 10
+
+int Q9(int n)
+Q9(n) -> n * 11
+
+int Q10(int n)
+Q10(n) -> n * 12
+
+int Q11(int n)
+Q11(n) -> n * 13
+
+int Q12(int n)
+Q12(n) -> n * 14
+
+int Q13(int n)
+Q13(n) -> n * 15
+
+int Q14(int n)
+Q14(n) -> n * 16
+
+int Q15(int n)
+Q15(n) -> n * 17
+
+int Q16(int n)
+Q16(n) -> n * 18
+
+int Q17(int n)
+Q17(n) -> n * 19
+
+int Q18(int n)
+Q18(n) -> n * 20
+
+int Q19(int n)
+Q19(n) -> n * 21
+
+public int Main(Cart c)
+Main(c) -> Q0(c.N) + Q1(c.N) + Q2(c.N) + Q3(c.N) + Q4(c.N) + Q5(c.N) + Q6(c.N) + Q7(c.N) + Q8(c.N) + Q9(c.N) + Q10(c.N) + Q11(c.N) + Q12(c.N) + Q13(c.N) + Q14(c.N) + Q15(c.N) + Q16(c.N) + Q17(c.N) + Q18(c.N) + Q19(c.N)

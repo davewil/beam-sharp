@@ -1,0 +1,41 @@
+module Elide
+record Order { Id: int, Total: int }
+record Cart { Item: Order, N: int }
+
+// RECORD: private fn called only with a record constructed in-module
+int OnlyLit(Order o)
+OnlyLit(o) -> o.Total + 100
+public int UseLit()
+UseLit() -> OnlyLit(Order { Id = 1, Total = 2 })
+
+// RECORD: private fn called with a parameter the caller's own tag test dominates
+int AfterTest(Order o)
+AfterTest(o) -> o.Total + 200
+public int Dom(Order o)
+Dom(o) -> AfterTest(o)
+
+// RECORD: private fn called with an unproven value (nested field)
+int Unproven(Order o)
+Unproven(o) -> o.Total + 300
+public int Nested(Cart c)
+Nested(c) -> Unproven(c.Item)
+
+// RECORD: private -> private chain
+int Leaf(Order o)
+Leaf(o) -> o.Total + 400
+int Mid(Order o)
+Mid(o) -> Leaf(o)
+public int Chain(Cart c)
+Chain(c) -> Mid(c.Item)
+
+// INT: private fn (kind test only exists in the WIDE prototype) called with a proven integer
+int IntFromProven(int n)
+IntFromProven(n) -> n * 2
+public int IntDom(int n)
+IntDom(n) -> IntFromProven(n + 1)
+
+// INT: private fn called with an unproven value
+int IntUnproven(int n)
+IntUnproven(n) -> n * 3
+public int IntNested(Cart c)
+IntNested(c) -> IntUnproven(c.N)

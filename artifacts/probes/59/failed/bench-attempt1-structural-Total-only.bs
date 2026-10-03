@@ -1,0 +1,31 @@
+module Bench
+record Order { Id: int, Total: int }
+record Cart { Item: Order, N: int }
+
+// record: private callee with the tag test (base) or without (PROTOTYPE-A)
+int Amount(Order o)
+Amount(o) -> o.Total
+public int LoopRec(int n, Cart c, int acc)
+LoopRec(0, _, acc) -> acc
+LoopRec(n, c, acc) -> LoopRec(n - 1, c, acc + Amount(c.Item))
+
+// control: same loop shape, the callee takes no record and has no guard in any variant
+public int LoopCtl(int n, Cart c, int acc)
+LoopCtl(0, _, acc) -> acc
+LoopCtl(n, c, acc) -> LoopCtl(n - 1, c, acc + Plain(c.N))
+int Plain(term x)
+Plain(x) -> 1
+
+// int: private callee with is_integer (WIDE prototype) or without (base), arg unproven to the BEAM
+int Inc(int x)
+Inc(x) -> x + 1
+public int LoopInt(int n, Cart c, int acc)
+LoopInt(0, _, acc) -> acc
+LoopInt(n, c, acc) -> LoopInt(n - 1, c, acc + Inc(c.N))
+
+// same-module A/B for the tag test: identical body, callee takes the structural type so no tag test exists
+int AmountS({ Total: int } o)
+AmountS(o) -> o.Total
+public int LoopStruct(int n, Cart c, int acc)
+LoopStruct(0, _, acc) -> acc
+LoopStruct(n, c, acc) -> LoopStruct(n - 1, c, acc + AmountS(c.Item))

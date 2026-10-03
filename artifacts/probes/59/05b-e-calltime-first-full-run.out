@@ -1,0 +1,35 @@
+
+== LoopRec  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       16.566   17.567   1.365   20.220
+proto      13.829   14.283   0.901   17.906
+base2      16.538   17.153   1.605   19.602
+A/A  (base - base2)  median diff = +0.415 ns   <- noise floor of this method
+A/B  (proto - base)   median diff = -3.284 ns   min diff = -2.737 ns
+
+== LoopInt  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       12.584   13.795   1.194   19.773
+wide       12.438   13.024   1.434   14.939
+base2      12.800   13.405   0.347   15.052
+A/A  (base - base2)  median diff = +0.390 ns   <- noise floor of this method
+A/B  (wide - base)   median diff = -0.770 ns   min diff = -0.146 ns
+
+== LoopCtl  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       12.207   12.884   1.576   16.561
+proto      11.635   12.101   1.892   14.824
+base2      12.186   13.085   1.729   16.272
+A/A  (base - base2)  median diff = -0.201 ns   <- noise floor of this method
+A/B  (proto - base)   median diff = -0.783 ns   min diff = -0.572 ns
+
+== LoopStruct  (15 VM runs per variant, 50000000 iterations each, ns per loop iteration)
+variant       min   median     IQR      max
+base       14.143   14.839   1.245   17.267
+base2      14.313   15.562   1.239   17.410
+A/A  (base - base2)  median diff = -0.723 ns   <- noise floor of this method
+SAME-MODULE A/B  (LoopRec - LoopStruct, both from base build) median diff = +2.728 ns
+
+real	3m2.897s
+user	2m44.625s
+sys	0m10.234s

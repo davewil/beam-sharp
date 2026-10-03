@@ -1,0 +1,16 @@
+--- bs_emit.erl
++++ bs_emit.erl
+@@ -1,3 +1,4 @@
++%% PROTOTYPE (ticket 59 probe): tag test scoped to exported functions only
+ %%% bs_emit — lowers a checked B# module to Erlang Abstract Format forms, and
+ %%% `to_abstr/1` serialises them to the `.abstr` text `erlc +from_abstr` reads.
+ %%%
+@@ -275,7 +276,7 @@
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+-            case constrains_kind(Pat) of
++            case constrains_kind(Pat) orelse not Public of
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),

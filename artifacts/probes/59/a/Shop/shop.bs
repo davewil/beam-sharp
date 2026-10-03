@@ -1,0 +1,22 @@
+module Shop
+record Order { Id: int, Total: int }
+record Cart { Item: Order, N: int }
+
+public int PubAmount(Order o)
+PubAmount(o) -> o.Total
+
+int PrivAmount(Order o)
+PrivAmount(o) -> o.Total
+
+public int PubInt(int n)
+PubInt(n) -> n + 1
+
+int PrivInt(int n)
+PrivInt(n) -> n + 1
+
+// exported entry that hands a record field to a private function
+public int ViaCart(Cart c)
+ViaCart(c) -> PrivAmount(c.Item)
+
+public int Mk()
+Mk() -> PrivInt(1) + PrivAmount(Order { Id = 1, Total = 2 })

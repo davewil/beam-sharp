@@ -1,0 +1,42 @@
+4
+'PubAmount'(O) when map_get('Kind', O) =:= 'Shop.Order' ->
+    map_get('Total', O).
+
+'PrivAmount'(O) when map_get('Kind', O) =:= 'Shop.Order' ->
+    map_get('Total', O).
+
+'PubInt'(N) when is_integer(N) ->
+    N + 1.
+
+'PrivInt'(N) ->
+    N + 1.
+
+'ViaCart'(C) when map_get('Kind', C) =:= 'Shop.Cart' ->
+    'PrivAmount'(map_get('Item', C)).
+
+--- BEAM asm (post-optimisation) PubAmount / PrivAmount / PubInt / PrivInt
+function 'PubAmount'/1
+    {label,3}
+    {label,4}
+    {bif,map_get,{f,3},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,3},[{x,1},{atom,'Shop.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    return
+function 'PrivAmount'/1
+    {label,5}
+    {label,6}
+    {bif,map_get,{f,5},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,5},[{x,1},{atom,'Shop.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    return
+function 'PubInt'/1
+    {label,7}
+    {label,8}
+    {test,is_integer,{f,7},[{x,0}]}
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+    return
+function 'PrivInt'/1
+    {label,9}
+    {label,10}
+    {move,{integer,2},{x,0}}
+    return

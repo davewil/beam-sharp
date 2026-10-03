@@ -1,0 +1,31 @@
+amount(#{'__struct__' := 'Elixir.Probe.Order', total := _t@1}) ->
+    _t@1.
+
+amount_raw(_o@1) ->
+    case _o@1 of
+        #{total := _2} ->
+            _2;
+        _2 ->
+            case elixir_erl_pass:no_parens_remote(_2, total) of
+                {ok, _1} ->
+                    _1;
+                {error, _1} ->
+                    error(_1)
+            end
+    end.
+
+via_cart(#{'__struct__' := 'Elixir.Probe.Cart', item := _i@1}) ->
+    amount(_i@1).
+
+  via_cart(%Cart{item: %Invoice{}})  -> defp amount(%Order{})        => {:raised, FunctionClauseError}
+  via_cart_raw(%Cart{item: %Invoice{}}) -> defp amount_raw(o)        => {:returned, 999}
+  struct!(Order, [])  (no :id)                    => ArgumentError
+  forged %{__struct__: Order} (no :id) through via_cart => 7
+
+-- private head with a record pattern (disassembled):
+{test,is_tagged_tuple,{f,3},[{x,0},3,{atom,order}]}
+{get_tuple_element,{x,0},2,{x,0}}
+via_cart({cart,{invoice,1,999},1})   => {error,function_clause}
+via_cart({cart,{order,1,999},1})     => {returned,999}
+spec_only(1.5)  (-spec integer())    => {returned,2.5}
+gen_server exports try_handle_call/4? => false

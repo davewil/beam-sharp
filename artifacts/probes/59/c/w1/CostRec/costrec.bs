@@ -1,0 +1,9 @@
+module CostRec
+record Order { Id: int, Total: int }
+record Cart { Item: Order, N: int }
+
+int P0(Order o)
+P0(o) -> o.Total + 0
+
+public int Main(Cart c)
+Main(c) -> P0(c.Item)
