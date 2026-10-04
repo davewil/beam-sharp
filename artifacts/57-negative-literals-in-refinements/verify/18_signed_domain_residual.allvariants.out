@@ -1,0 +1,86 @@
+################ base
+MissingNegatives       refused(rc=1)
+    | MissingNegatives/a.bs:2:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+PastedNegatives        refused(rc=1)
+    | PastedNegatives/a.bs:2:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+DividesOutOfRange      refused(rc=1)
+    | DividesOutOfRange/a.bs:2:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+NonZeroDelta           refused(rc=1)
+    | NonZeroDelta/a.bs:2:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+NonZeroDeltaViaOr      refused(rc=1)
+    | NonZeroDeltaViaOr/a.bs:2:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+################ grammar
+MissingNegatives       refused(rc=1)
+    | MissingNegatives/a.bs:3:13: error: Sign is not exhaustive
+    |   no clause matches:
+    |     Sign(>= -100 and <= -1) -> ...
+PastedNegatives        accepted
+DividesOutOfRange      accepted
+NonZeroDelta           accepted
+NonZeroDeltaViaOr      accepted
+################ checker_min
+MissingNegatives       refused(rc=1)
+    | MissingNegatives/a.bs:3:13: error: Sign is not exhaustive
+    |   no clause matches:
+    |     Sign(>= -100 and <= -1) -> ...
+PastedNegatives        accepted
+DividesOutOfRange      accepted
+NonZeroDelta           accepted
+NonZeroDeltaViaOr      accepted
+################ checker_wide
+MissingNegatives       refused(rc=1)
+    | MissingNegatives/a.bs:3:13: error: Sign is not exhaustive
+    |   no clause matches:
+    |     Sign(>= -100 and <= -1) -> ...
+PastedNegatives        accepted
+DividesOutOfRange      accepted
+NonZeroDelta           accepted
+NonZeroDeltaViaOr      accepted
+################ checker_full
+MissingNegatives       refused(rc=1)
+    | MissingNegatives/a.bs:3:13: error: Sign is not exhaustive
+    |   no clause matches:
+    |     Sign(>= -100 and <= -1) -> ...
+PastedNegatives        accepted
+DividesOutOfRange      accepted
+NonZeroDelta           accepted
+NonZeroDeltaViaOr      accepted
+################ refine_only
+MissingNegatives       refused(rc=1)
+    | MissingNegatives/a.bs:3:13: error: Sign is not exhaustive
+    |   no clause matches:
+    |     Sign(>= -100 and <= -1) -> ...
+PastedNegatives        accepted
+DividesOutOfRange      accepted
+NonZeroDelta           accepted
+NonZeroDeltaViaOr      accepted

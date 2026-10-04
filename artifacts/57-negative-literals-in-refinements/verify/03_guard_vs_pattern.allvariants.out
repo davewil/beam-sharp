@@ -1,0 +1,62 @@
+################ base
+GuardPos_Complete      accepted
+GuardNeg_Complete      refused(rc=1)
+    | GuardNeg_Complete/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |     F(n) -> ...
+GuardNeg_WithCatchAll  accepted
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ grammar
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+    | GuardNeg_WithCatchAll/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ checker_min
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+    | GuardNeg_WithCatchAll/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ checker_wide
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+    | GuardNeg_WithCatchAll/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ checker_full
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+    | GuardNeg_WithCatchAll/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ refine_only
+GuardPos_Complete      accepted
+GuardNeg_Complete      refused(rc=1)
+    | GuardNeg_Complete/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |     F(n) -> ...
+GuardNeg_WithCatchAll  accepted
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo

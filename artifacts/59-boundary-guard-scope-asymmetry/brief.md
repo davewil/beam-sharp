@@ -39,7 +39,7 @@ is partly misread:
   proves it (probe 03: 0 bytes) and costs +5 bytes where one caller does not (probe 03, `IntU`). The tag test is never
   removed, because the optimiser does not track map values (probe 01, 03).
 * **The measured cost of widening is small in bytes and visible, not free, in a tight loop** (corpus +9 bytes of 8309; about
-  0.3 ns per surviving `is_integer` and about 1.4 ns per tag test per iteration of a 13 ns loop, on a noisy shared machine).
+  0.7 to 0.8 ns per surviving `is_integer` and about 1.35 ns per tag test in a 13 ns loop iteration, on a noisy shared machine).
 
 **Recommendation: widen the int/float/range tests to private functions (`wide`)**, so one rule holds for every guard:
 *a guard is emitted for every parameter whose declared type it decides, in every function; the Erlang compiler removes the
@@ -111,7 +111,7 @@ Three things to read off it:
 1. `base` is already unsound on private int paths (rows 3 to 6). That is not an effect of any proposed change; it is the
    current asymmetry's cost, and it is the "silent hole" the ticket says is the worse direction to err in.
 2. `narrow` buys a **second** silent hole in exactly the place the tag test closes today (rows 2, 7, 8).
-3. Only `wide` closes rows 2 to 8 except `Compare`; only `proj` closes `Compare` and moves the check to the door; and
+3. Only `wide` closes rows 2 to 8; `Compare` (row 9) is closed by no scope choice, only by `proj`, which moves the check to the door; and
    **neither closes everything**. The lists are the reason `proj` alone is insufficient: 46 §4 refuses a guard through
    a collection (O(n) in a length the caller chooses), so the private function is the only place that can check an element.
 
@@ -160,8 +160,8 @@ compiler drops the ones the call sites already prove.**
 Compiler delta (prototype `wide.patch`, built and run):
 
 * `bs_emit.erl`: delete the `Public` plumbing: `function/2` (`Public = is_public(F)`), `clause/4`, `boundary_guards/6`,
-  `guard_one/8`; collapse `none when Public` / `none ->` into one clause. Prototype is +1/-3 lines of logic (the 8-line diff
-  includes a `_Public` rename to keep `warnings_as_errors` quiet); a real change removes the parameter in four signatures.
+  `guard_one/8`; collapse `none when Public` / `none ->` into one clause. The prototype is an 8-line diff (it keeps a `_Public` parameter
+  only so `warnings_as_errors` stays quiet); a real change removes the parameter in four signatures.
 * Comments: the *"The kind guard"* header (`Exported functions only ... that asymmetry is deliberate`), `int_guard`, the range
   guard's header.
 * Tests: exactly **two** existing tests fail on `wide` and both pin the old rule: `boundary_kind_tests:a_private_function_is_not_guarded_test`
@@ -174,20 +174,23 @@ Evidence:
 
 * Closes every private-callee row of §2's table (probe 05). Rule shrinks from "two scopes" to none.
 * Bytes: 0 where callers prove it, +5 per unproven int parameter (probe 03, `IntU`; `Big2` +10 for two), tag test unchanged.
-  Corpus: **+9 bytes of 8309 (0.11%)**; 13 functions in 7 modules gain guard text, 12 of them cost 0 bytes because the
-  optimiser removes them (probe 13). Includes `Fib.Series/4`, the private accumulator worker, which gains three `is_integer` in
+  Corpus: **+9 bytes of 8309 (0.11%)**; 13 functions in 7 modules gain guard text; 11 of them cost 0 bytes because the
+  optimiser removes the test (`Pricing.Free` and `Pricing.Double` cost the +9 together) (probe 13). Includes `Fib.Series/4`, the private accumulator worker, which gains three `is_integer` in
   source and 0 bytes in code.
-* Time (probe 12, 41 and 61 rounds, interleaved, a byte-identical control `HotX` as the noise floor): in a loop
+* Time (probe 12, two retained quiet runs of 61 and 41 interleaved rounds, a byte-identical control `HotX` as the noise floor): in a loop
   `Loop(o, n, acc) -> Loop(o, n - 1, Step(o, acc))` whose accumulator the optimiser cannot prove an integer, `wide` adds
-  **+0.47 ns/iteration (run 1) and +0.70 (run 2)** over a 13.3 ns baseline, for two surviving `is_integer(Acc)`; noise floor
-  was -0.07 and -0.01. About 0.25 to 0.35 ns per guard, 3 to 5% for two.
-  The guard on `n` is removed by the optimiser (`n - 1` of a proven integer is an integer).
+  **+0.70 and +0.81 ns/iteration** (medians) over a 13.0 to 13.1 ns baseline; the noise floor in those runs was -0.01 and
+  +0.04. (A first run, whose output file I overwrote when the script gained its disassembly section, read +0.47 with floor -0.07 and `narrow` -2.77;
+  those three numbers are from the terminal transcript only and nothing above depends on them.) The disassembly shows exactly **one** `is_integer` executing per iteration: the guard on `n` is removed (`n - 1` of a proven
+  integer is an integer) and so is `Step`'s guard on `acc` (`Loop` has just tested it). So about 0.7 to 0.8 ns (0.5 in the unretained run), 4 to 6% of this
+  deliberately tiny loop, for one surviving test. (A fourth run taken while another session saturated the box, load average 18 to 20, is kept as
+  `12_hot_loop.run3_loaded.out` and not used: its noise floor was 0.65 ns.)
 
 **Strongest counterargument.** *It taxes the idiom B# teaches for avoiding the guard.* 18 §1 found one entry label serves
 exported and local calls, so an exported recursive function pays its guards on every self-call, and the language's answer is
 the public wrapper over a private worker (`Fib`/`Series`). Under A that worker pays per iteration for any accumulator the
 optimiser cannot prove (`acc + x` is a `number`, not an `integer`). Measured: an exported `Loop` costs +0.9 to +1.1 ns/iteration over the
-private one today (probe 12, `HotE`). Under A the private one costs most of that too. The tax is real and small; the only
+private one today (probe 12, `HotE`, two integer tests per iteration). Under A the private one costs 0.7 to 0.8 of that (one surviving test). The tax is real and small; the only
 way to avoid it is to stop guarding, which is option B or C's silent hole. A further caveat: **A does not make the claim
 "never silently" true**, because the projection hole in an exported body (`Compare`, row 9) is untouched; A just removes the
 asymmetry that made the private half *more* holey than the exported half.
@@ -202,8 +205,8 @@ changes making 18 §4 the stated rule for all three guards, and a new test that 
 Evidence:
 
 * Saves 12 bytes of code per private record parameter, flat in field count (probe 03, `Rec3`/`Rec8` both -12) and about
-  **1.4 ns per tag test**: 2.75 ns of a 13.3 ns iteration for the two private record parameters of the probe loop
-  (probe 12, `narrow` vs `base`, noise floor 0.01 to 0.07). Corpus: **zero** change, there is no private record parameter in
+  **1.35 ns per tag test**: 2.7 ns of a 13 ns iteration for the two private record parameters of the probe loop
+  (probe 12, `narrow` vs `base`: -2.75 and -2.69, noise floor -0.01 and +0.04). Corpus: **zero** change, there is no private record parameter in
   the 27 example modules or the AoC programs (probe 13), which is itself a finding: the private tag test has never been exercised by the corpus.
 * Breaks no test (probe 15: same 5 environment failures as base, nothing new).
 * Matches 18 §4 and F24 §2 literally, and the static premise holds (probe 06).
@@ -229,10 +232,10 @@ Evidence:
 
 * Closes rows 2 to 4 and 6 and **row 9** (`Compare`, which no scope choice reaches); leaves the list rows 7 and 8 silent. 46 §4
   excludes collections by decision (O(n)), so C alone cannot reach "never silently".
-* Bytes are **not flat**: at the exported entry +21 B for a 3-int-field record, +79 B for 7 int fields (probe 03,
-  `Rec3`/`Rec8`, `proj` rows), roughly 11 B per field, and the cost is paid on every call of the exported function,
+* Bytes are **not flat**: at the exported entry +21 B for a 3-int-field record, +79 B for 8 int fields (probe 03,
+  `Rec3`/`Rec8`, `proj` rows; 3 and 8 int fields), roughly 7 to 10 B per field, and the cost is paid on every call of the exported function,
   including in-module calls (one entry label, 18 §1). Private functions pay 0.
-* Eunit on `proj`: see §6 (probe 15).
+* Eunit on `proj`: three new failures (§6). Two count `map_get`s in the entry guard (`records_tests:an_exported_record_parameter_gets_one_tag_test_test`, `bindings_tests:a_binding_reads_a_projection_once_test`), which is expected. The third is a behaviour change: `to_json_tests:a_field_of_the_wrong_type_is_not_published_test` expects a `{to_json, ValidationError}` from the generated encoder (F50) and now gets a bare `function_clause` from the entry guard, which pre-empts the encoder's own, better-worded validation.
 
 **Strongest counterargument.** *It does not stand alone and it is the largest build.* Lists are the one collection every
 realistic program carries (`Lines: list<Line>` is in LANGUAGE.md's `Order`), and the private function is the only place that can
@@ -247,19 +250,19 @@ work. It also moves cost *onto the door*, which every in-module call of an expor
    and the emitter needs no notion of visibility, which is also what the emitter already does for *what to guard* (probe 14: no
    body or callee analysis exists). B and C keep a notion of visibility the compiler cannot justify function-locally.
 2. The ticket's own asymmetry argument (*"too narrow is a silent hole, too wide is measurable and loud"*) is borne out by both
-   numbers: the narrow side opens silent wrong answers (§2), the wide side costs 9 bytes on the corpus and about 0.3 ns per
-   surviving guard.
+   numbers: the narrow side opens silent wrong answers (§2), the wide side costs 9 bytes on the corpus and 0.7 to 0.8 ns per
+   surviving guard in a tight loop.
 3. The BEAM optimiser already implements "pay only where unproven" for ints; A hands it the decision instead of re-deriving
    it with `Public`.
 
 **What A does not settle and David should not read into it:** (i) the tag test is never elided by the optimiser, so on private
-record parameters A keeps paying +12 B and about 1.4 ns each time, whether or not the caller proved the tag (probes 01, 03, 12);
+record parameters A keeps paying +12 B and about 1.35 ns each time, whether or not the caller proved the tag (probes 01, 03, 12);
 (ii) A leaves `Compare` open, that is 46 §4's unbuilt projection guard, which is independent of this ticket and A does not conflict with it
 (`proj` composes with `wide`); (iii) the guard-on-private error blames the private function (§2, error shape).
 
 **Confidence: moderate-high on the correctness call, moderate on the cost call.** The cost call rests on a loop on a machine
 shared with other sessions (load average 5 to 15 on 4 vCPU), spread 3 to 8 ns per round, so the *ordering* and the order of
-magnitude are solid and the absolute nanoseconds are not. If David judges 0.3 ns per surviving guard in a tight private worker too
+magnitude are solid and the absolute nanoseconds are not. If David judges 0.7 to 0.8 ns per surviving guard in a tight private worker too
 dear, the principled alternative is C, and it needs 46 §4 built first plus an answer for lists.
 
 ---
@@ -314,10 +317,10 @@ compile-time export restriction. I did not re-verify that nothing is emitted for
   difference is unexplained (probably label/jump-table layout around a function with a failure arm); I did not chase it.
 * **18's "+3 to 5 bytes per `is_integer`": reproduced** (probe 04: `id/1` +3, `add/2` +5, two guards +10, four +22). In situ: +5 per
   unproven private int parameter.
-* **18's "call time below ±0.09 ns/call resolution": not reproduced for this loop shape.** Two surviving `is_integer` on the loop accumulator cost +0.47
-  and +0.70 ns/iteration against a measured noise floor of -0.07 and -0.01 ns (identical-code control). 18 measured an isolated call on
-  arm64 Darwin; this is a recursive loop on x86 under a shared CPU, spread 3 to 8 ns per round. This is a different measurement,
-  not a refutation. **Per-guard cost, not per-loop**: I did not separate the two guards.
+* **18's "call time below ±0.09 ns/call resolution": not reproduced for this loop shape.** One surviving `is_integer` on the loop accumulator costs +0.70
+  and +0.81 ns/iteration (and +0.47 in an earlier, unretained run) against a measured noise floor of -0.01 and +0.04 ns (identical-code control), so it is above the floor,
+  though well inside the per-round spread (3 to 8 ns). 18 measured an isolated call on arm64 Darwin; this is a recursive loop on x86 under a
+  shared CPU. A different measurement, not a refutation; I measured one guard in context, not the isolated entry cost.
 * **18's "a non-exported function has the test elided entirely": true only conditionally.** Reproduced for int parameters whose
   callers prove integer (probe 03 `IntP`, `Oct`: 0 bytes) and **not** when one caller does not (`IntU`, +5) and **never for the tag
   test** (maps are not tracked by `beam_ssa_type`). Ticket 18 (and so the ticket text) states it unconditionally.
@@ -354,7 +357,7 @@ compile-time export restriction. I did not re-verify that nothing is emitted for
 | `base` | 1304 pass, 5 fail | (reference) |
 | `narrow` | 1304 pass, 5 fail | **none** |
 | `wide` | 1302 pass, 7 fail | `boundary_kind_tests:a_private_function_is_not_guarded_test`, `boundary_range_tests:a_private_function_carries_no_range_guard_test` |
-| `proj` | PROJ_EUNIT_RESULT | PROJ_EUNIT_DELTA |
+| `proj` | 1301 pass, 8 fail | `records_tests:an_exported_record_parameter_gets_one_tag_test_test`, `bindings_tests:a_binding_reads_a_projection_once_test`, `to_json_tests:a_field_of_the_wrong_type_is_not_published_test` |
 
 ---
 
@@ -363,7 +366,7 @@ compile-time export restriction. I did not re-verify that nothing is emitted for
 | # | files | answers |
 |---|---|---|
 | 01 | `01_asymmetry_repro.sh/.out` | (a) private `Inner(Order)` has the tag test; private refined-int/`int` parameters have no kind or range test; exported controls have all |
-| 02 | `02_forgery_paths.sh/.out`, `fixtures.sh`, `forge_drive.erl` | (b) nine forgery paths from a hand-built Erlang caller against `base`: where each crashes, error shape, full stacktrace |
+| 02 | `02_forgery_paths.sh/.out`, `fixtures.sh`, `forge_drive.erl` | (b) the forgery paths (ten cases) from a hand-built Erlang caller against `base`: where each crashes, error shape, full stacktrace |
 | 03 | `03_code_size.sh/.out` | (c) Code-chunk bytes per guard per variant: tag flat in fields, int +5 unproven / 0 proven, range 0 behind a guarded caller, `proj` O(fields) |
 | 04 | `04_rerun_26a_18a.sh/.out` | (c) the tickets' own 26a / 18a prototypes re-run unmodified on OTP 28 |
 | 05 | `05_scope_variants_runtime.sh/.out` | (b)(e) the same forgeries against `base` / `narrow` / `wide` / `proj` |
@@ -373,7 +376,7 @@ compile-time export restriction. I did not re-verify that nothing is emitted for
 | 09 | `09_elixir_boundary.sh/.out` | Elixir 1.14.0: `def`/`defp` compile identically; struct patterns, `is_struct`, `@enforce_keys` |
 | 10 | `10_build_variants.sh/.out`, `narrow.patch`, `wide.patch`, `proj.patch` | (e) builds the four variants from a copy of `compiler/` |
 | 11 | `11_elm_attempt.sh/.out` | Elm: blocked by the proxy; claims cited, not reproduced |
-| 12 | `12_hot_loop.sh/.out`, `12_hot_loop.run2.out` | (d) ns per iteration in a hot private loop, 41 and 61 interleaved rounds, noise-floor control, spread |
+| 12 | `12_hot_loop.sh/.out`, `12_hot_loop.run2.out`, `12_hot_loop.run3_loaded.out` | (d) ns per iteration in a hot private loop, 41 / 61 interleaved rounds, noise-floor control, spread; disassembly of which guards survive. `.out` = run on a quiet moment (load 5), `run2` = N 10M x 61 (load 5.7), `run3_loaded` = a run under load 18 to 20, kept but not used |
 | 13 | `13_corpus_sweep.sh/.out` | (c)(e) what each variant does to the real corpus: functions changed, guard text, bytes |
 | 14 | `14_function_local_analysis.sh/.out` | 18 §4's analysis is not implemented: guards come from the declared type only (an unused param is guarded) |
 | 15 | `15_eunit_variants.sh/.out`, `logs/eunit_*.log` | (e) the compiler's own eunit suite on each variant |

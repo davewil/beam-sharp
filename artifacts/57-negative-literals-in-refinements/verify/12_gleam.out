@@ -1,0 +1,53 @@
+== -5 in pattern, -5 in guard, 2+3 in guard
+  Resolving versions
+  Compiling t
+   Compiled in 0.51s
+== generated Erlang
+-module(t).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+-define(FILEPATH, "src/t.gleam").
+-export([p/1, g/1, q/1]).
+
+-file("src/t.gleam", 1).
+-spec p(integer()) -> binary().
+p(X) ->
+    case X of
+        -5 ->
+            <<"m5"/utf8>>;
+
+        _ ->
+            <<"o"/utf8>>
+    end.
+
+-file("src/t.gleam", 7).
+-spec g(integer()) -> binary().
+g(X) ->
+    case X of
+        N when N >= -5 ->
+            <<"ge"/utf8>>;
+
+        _ ->
+            <<"lt"/utf8>>
+    end.
+
+-file("src/t.gleam", 13).
+-spec q(integer()) -> binary().
+q(X) ->
+    case X of
+        N when N >= (2 + 3) ->
+            <<"ge5"/utf8>>;
+
+        _ ->
+            <<"lt"/utf8>>
+    end.
+== arithmetic in a PATTERN
+error: Syntax error
+  ┌─ /tmp/tmp.lYAYuVHYwD/t/src/t.gleam:3:7
+  │
+3 │     2 + 3 -> "five"
+  │       ^ I was not expecting this
+
+Found `+`, expected one of: 
+- `->`
+Hint: Did you mean to wrap a multi line clause in curly braces?
+

@@ -94,3 +94,77 @@ NegViaVar              refused(rc=1)
 DeltaClassify          accepted(output)
     | :neg
 ################ checker_wide
+### positive control (works today)
+PosCall                accepted
+### negative literal passed to Delta
+NegCall                refused(rc=1)
+    | NegCall/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+NegCallOutOfRange      refused(rc=1)
+    | NegCallOutOfRange/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+### negative literal returned as Delta
+NegReturn              refused(rc=1)
+    | NegReturn/a.bs:4:1: error: Zero returns a value its signature does not declare
+    |   not covered by the declared return type:
+    |     int <= -101 | int >= 101
+    |   If `Delta` is what you meant, fix the clause, not the signature.
+    |   no signature is offered: what the clauses return has no spelling as a type yet.
+### binding it first
+NegViaVar              refused(rc=1)
+    | NegViaVar/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+### Delta used as a clause head: residual with negative bounds
+DeltaClassify          accepted(output)
+    | :neg
+################ checker_full
+### positive control (works today)
+PosCall                accepted
+### negative literal passed to Delta
+NegCall                accepted(output)
+    | -5
+NegCallOutOfRange      refused(rc=1)
+    | NegCallOutOfRange/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     -500
+### negative literal returned as Delta
+NegReturn              accepted(output)
+    | -5
+### binding it first
+NegViaVar              refused(rc=1)
+    | NegViaVar/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+### Delta used as a clause head: residual with negative bounds
+DeltaClassify          accepted(output)
+    | :neg
+################ refine_only
+### positive control (works today)
+PosCall                accepted
+### negative literal passed to Delta
+NegCall                refused(rc=1)
+    | NegCall/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+NegCallOutOfRange      refused(rc=1)
+    | NegCallOutOfRange/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+### negative literal returned as Delta
+NegReturn              refused(rc=1)
+    | NegReturn/a.bs:4:1: error: Zero returns a value its signature does not declare
+    |   not covered by the declared return type:
+    |     int <= -101 | int >= 101
+    |   If `Delta` is what you meant, fix the clause, not the signature.
+    |   no signature is offered: what the clauses return has no spelling as a type yet.
+### binding it first
+NegViaVar              refused(rc=1)
+    | NegViaVar/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= -101 | int >= 101
+### Delta used as a clause head: residual with negative bounds
+DeltaClassify          accepted(output)
+    | :neg

@@ -1,0 +1,63 @@
+################ base
+GeMinus5               refused(rc=1)
+    | GeMinus5/a.bs:3:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+GeMinus5AndLe5         refused(rc=1)
+    | GeMinus5AndLe5/a.bs:3:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+Ge1OrLeMinus1          refused(rc=1)
+    | Ge1OrLeMinus1/a.bs:3:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+################ grammar
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+################ checker_min
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+################ checker_wide
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+################ checker_full
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+################ refine_only
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted

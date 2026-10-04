@@ -1,0 +1,168 @@
+################ base
+DivByNegZero           refused(rc=1)
+    | crashed: error:badarith
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     refused(rc=1)
+    | NegAsRefinedReturn/a.bs:3:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0
+################ grammar
+DivByNegZero           refused(rc=1)
+    | DivByNegZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     accepted(output)
+    | -5
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0
+################ checker_min
+DivByNegZero           refused(rc=1)
+    | crashed: error:badarith
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     refused(rc=1)
+    | NegAsRefinedReturn/a.bs:5:1: error: F returns a value its signature does not declare
+    |   not covered by the declared return type:
+    |     int >= 0
+    |   If `Neg` is what you meant, fix the clause, not the signature.
+    |   no signature is offered: what the clauses return has no spelling as a type yet.
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0
+################ checker_wide
+DivByNegZero           refused(rc=1)
+    | crashed: error:badarith
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     refused(rc=1)
+    | NegAsRefinedReturn/a.bs:5:1: error: F returns a value its signature does not declare
+    |   not covered by the declared return type:
+    |     int >= 0
+    |   If `Neg` is what you meant, fix the clause, not the signature.
+    |   no signature is offered: what the clauses return has no spelling as a type yet.
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0
+################ checker_full
+DivByNegZero           refused(rc=1)
+    | DivByNegZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     accepted(output)
+    | -5
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0
+################ refine_only
+DivByNegZero           refused(rc=1)
+    | crashed: error:badarith
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     refused(rc=1)
+    | NegAsRefinedReturn/a.bs:5:1: error: F returns a value its signature does not declare
+    |   not covered by the declared return type:
+    |     int >= 0
+    |   If `Neg` is what you meant, fix the clause, not the signature.
+    |   no signature is offered: what the clauses return has no spelling as a type yet.
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0

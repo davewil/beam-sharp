@@ -1321,4 +1321,155 @@ module 'type_redeclared_tests'
   type_redeclared_tests: two_aliases_of_one_name_are_refused_test...[0.418 s] ok
   type_redeclared_tests: two_records_of_one_name_are_refused_test...[0.545 s] ok
   type_redeclared_tests: a_refinement_after_a_record_of_one_name_is_refused_test...[0.468 s] ok
-  type_redeclared_tests: a_record_after_an_alias_of_one_name_is_refused_test...
+  type_redeclared_tests: a_record_after_an_alias_of_one_name_is_refused_test...[0.529 s] ok
+  type_redeclared_tests: three_declarations_report_the_second_test...[0.420 s] ok
+  type_redeclared_tests: the_api_query_refuses_it_too_test...[0.352 s] ok
+  type_redeclared_tests: the_term_carries_both_lines_test...[0.473 s] ok
+  type_redeclared_tests: a_function_named_like_a_type_is_accepted_test...[0.712 s] ok
+  type_redeclared_tests: one_name_in_two_modules_is_accepted_test...[0.574 s] ok
+  [done in 4.887 s]
+module 'types_tests'
+  types_tests: guarded_integer_partition_is_exhaustive_test...[0.001 s] ok
+  types_tests: fib_actually_computes_test...[0.015 s] ok
+  types_tests: interval_hole_is_found_test...ok
+  types_tests: conjunction_in_a_guard_is_credited_test...ok
+  types_tests: uncreditable_guard_credits_nothing_test...ok
+  types_tests: interval_subtraction_is_exact_test...ok
+  types_tests: interval_subtyping_is_not_symmetric_test...ok
+  types_tests: union_is_exact_test...ok
+  types_tests: cofinite_atoms_test...ok
+  types_tests: tuple_subtraction_decomposes_test...ok
+  types_tests: a_tag_pattern_covers_the_whole_record_test...ok
+  types_tests: a_tag_pattern_leaves_the_other_record_test...ok
+  types_tests: a_union_of_two_records_keeps_both_test...ok
+  types_tests: the_same_tag_absorbs_to_one_member_test...ok
+  types_tests: different_field_sets_are_disjoint_test...ok
+  types_tests: a_catch_all_covers_every_record_test...ok
+  types_tests: a_guard_over_a_record_field_still_credits_the_clause_test...ok
+  types_tests: a_negative_literal_is_an_expression_test...[0.014 s] ok
+  types_tests: a_variable_can_be_negated_test...[0.011 s] ok
+  types_tests: binary_minus_survives_the_prefix_one_test...[0.011 s] ok
+  types_tests: a_negative_literal_dispatches_in_a_pattern_test...[0.015 s] ok
+  types_tests: a_union_of_a_product_with_itself_is_the_product_test...ok
+  types_tests: mutually_containing_products_keep_a_representative_test...ok
+  types_tests: the_top_prints_as_term_test...ok
+  types_tests: inline_union_parameter_is_exhaustive_test...ok
+  types_tests: inline_union_and_its_alias_give_the_same_residual_test...ok
+  types_tests: inline_union_of_tuples_in_a_parameter_test...ok
+  types_tests: anonymous_inline_union_parameter_test...ok
+  types_tests: inline_union_beside_an_ordinary_parameter_test...ok
+  types_tests: inline_union_in_a_return_position_test...ok
+  types_tests: inline_union_return_without_a_visibility_marker_test...ok
+  types_tests: inline_union_in_a_foreign_signature_test...ok
+  types_tests: inline_union_parameter_actually_runs_test...[0.010 s] ok
+  [done in 0.180 s]
+module 'validate_as_tests'
+  validate_as_tests: a_valid_term_comes_back_unwrapped_test...[0.009 s] ok
+  validate_as_tests: a_failing_term_names_an_empty_path_and_the_expected_type_test...[0.009 s] ok
+  validate_as_tests: a_list_of_the_right_element_type_passes_test...[0.028 s] ok
+  validate_as_tests: an_empty_list_passes_test...[0.058 s] ok
+  validate_as_tests: a_bad_element_names_its_index_test...[0.027 s] ok
+  validate_as_tests: an_improper_list_is_rejected_test...[0.044 s] ok
+  validate_as_tests: a_non_list_is_rejected_test...[0.029 s] ok
+  validate_as_tests: a_well_formed_record_passes_test...[0.031 s] ok
+  validate_as_tests: a_field_of_the_wrong_type_names_the_field_test...[0.025 s] ok
+  validate_as_tests: a_nested_failure_composes_the_whole_path_test...[0.037 s] ok
+  validate_as_tests: an_extra_key_is_rejected_test...[0.042 s] ok
+  validate_as_tests: a_missing_key_is_rejected_test...[0.032 s] ok
+  validate_as_tests: a_wrong_tag_is_rejected_test...[0.036 s] ok
+  validate_as_tests: a_utf8_binary_is_a_string_test...[0.028 s] ok
+  validate_as_tests: a_non_utf8_binary_is_not_a_string_test...[0.023 s] ok
+  validate_as_tests: a_non_utf8_binary_is_still_a_binary_test...[0.100 s] ok
+  validate_as_tests: either_member_of_the_union_passes_test...[0.024 s] ok
+  validate_as_tests: a_union_discriminated_by_a_tag_blames_the_component_test...[0.029 s] ok
+  validate_as_tests: both_members_of_an_ambiguous_union_pass_test...[0.016 s] ok
+  validate_as_tests: an_ambiguous_union_blames_the_node_not_a_candidate_test...[0.020 s] ok
+  validate_as_tests: each_record_in_a_union_passes_test...[0.030 s] ok
+  validate_as_tests: the_minted_tag_discriminates_a_record_union_test...[0.020 s] ok
+  validate_as_tests: a_tag_belonging_to_neither_is_rejected_test...[0.022 s] ok
+  validate_as_tests: a_bad_tuple_component_names_row_and_component_test...[0.026 s] ok
+  validate_as_tests: a_clean_tuple_rowset_passes_test...[0.018 s] ok
+  validate_as_tests: a_list_element_expectation_prints_once_test...[0.025 s] ok
+  validate_as_tests: term_prints_as_term_in_an_expectation_test...[0.017 s] ok
+  validate_as_tests: a_prelude_alias_and_a_written_union_validate_alike_test...[0.013 s] ok
+  validate_as_tests: two_call_sites_on_one_type_share_one_validator_test...[0.025 s] ok
+  validate_as_tests: validate_as_term_is_refused_test...ok
+  validate_as_tests: a_name_outside_the_closed_set_is_refused_test...ok
+  validate_as_tests: two_type_arguments_are_refused_test...ok
+  validate_as_tests: two_values_are_refused_test...ok
+  validate_as_tests: no_value_at_all_is_refused_test...ok
+  validate_as_tests: an_unknown_type_argument_is_the_ordinary_diagnostic_test...ok
+  validate_as_tests: declaring_the_bare_success_type_is_refused_test...ok
+  validate_as_tests: declaring_the_result_type_is_accepted_test...ok
+  validate_as_tests: redeclaring_a_compiler_known_type_is_refused_test...ok
+  validate_as_tests: a_record_may_not_take_the_name_either_test...ok
+  validate_as_tests: validation_error_is_in_scope_with_no_declaration_test...ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (validate_collapses)...[0.412 s] ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (obligation_arity)...[0.431 s] ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (not_an_obligation)...[0.424 s] ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (compiler_known_type)...[0.390 s] ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (validate_indiscriminable)...[0.371 s] ok
+  validate_as_tests: a_comparison_is_still_a_comparison_test...[0.007 s] ok
+  validate_as_tests: the_pipe_reaches_the_bracket_test...[0.015 s] ok
+  validate_as_tests: a_switch_reads_the_result_test...[0.008 s] ok
+  validate_as_tests: validating_into_an_untagged_payload_is_refused_test...ok
+  validate_as_tests: the_untagged_payload_is_still_legal_to_declare_test...[0.008 s] ok
+  validate_as_tests: the_refusal_names_both_members_and_both_repairs_test...[0.369 s] ok
+  validate_as_tests: a_tagged_payload_validates_test...[0.062 s] ok
+  validate_as_tests: validating_each_member_in_turn_tags_untagged_data_test...[0.063 s] ok
+  validate_as_tests: an_undeclared_target_is_refused_test...ok
+  validate_as_tests: a_pair_in_a_tuple_slot_is_refused_test...ok
+  validate_as_tests: a_guard_on_one_slot_tells_the_members_apart_test...[0.030 s] ok
+  validate_as_tests: a_guard_on_the_first_element_tells_two_lists_apart_test...[0.016 s] ok
+  validate_as_tests: a_recursive_element_beside_a_guardable_one_is_accepted_test...[0.028 s] ok
+  validate_as_tests: records_with_different_fields_are_accepted_test...[0.048 s] ok
+  validate_as_tests: a_collapsing_target_reports_only_the_collapse_test...ok
+  [done in 3.744 s]
+module 'validation_error_record_tests'
+  validation_error_record_tests: a_record_pattern_takes_apart_what_the_validator_returns_test...[0.027 s] ok
+  validation_error_record_tests: the_validator_returns_the_record_test...[0.027 s] ok
+  validation_error_record_tests: a_projection_reads_the_expected_type_test...[0.026 s] ok
+  validation_error_record_tests: a_hand_built_value_carries_the_bare_tag_test...[0.024 s] ok
+  validation_error_record_tests: the_old_tuple_is_refused_at_the_boundary_test...[0.031 s] ok
+  validation_error_record_tests: the_value_goes_on_the_wire_test...[0.030 s] ok
+  [done in 0.186 s]
+module 'valve_tests'
+  valve_tests: the_option_chain_compiles_and_short_circuits_test...[0.030 s] ok
+  valve_tests: the_option_chain_produces_no_diagnostics_at_all_test...ok
+  valve_tests: the_error_chain_is_unchanged_test...[0.025 s] ok
+  valve_tests: a_subject_carrying_both_members_stops_on_either_test...[0.022 s] ok
+  valve_tests: a_return_type_that_omits_nothing_is_refused_with_the_corrected_signature_test...[0.414 s] ok
+  valve_tests: a_valve_over_a_subject_with_neither_member_is_still_refused_test...[0.369 s] ok
+  valve_tests: a_narrowing_stage_does_not_make_an_infallible_subject_fallible_test...[0.301 s] ok
+  valve_tests: nothing_meant_as_a_value_is_skipped_and_that_is_intended_test...[0.012 s] ok
+  valve_tests: nested_valves_do_not_collide_test...[0.024 s] ok
+  valve_tests: the_dead_stop_arm_is_not_emitted_test...[0.037 s] ok
+  [done in 1.265 s]
+module 'visibility_tests'
+  visibility_tests: an_unmarked_signature_is_not_exported_test...[0.010 s] ok
+  visibility_tests: an_unmarked_signature_is_still_callable_in_its_module_test...[0.007 s] ok
+  visibility_tests: an_explicit_private_and_an_unmarked_signature_agree_test...[0.030 s] ok
+  visibility_tests: a_module_that_exports_nothing_says_so_test...[0.552 s] ok
+  visibility_tests: a_private_function_is_not_exported_test...[0.014 s] ok
+  visibility_tests: a_private_function_is_still_defined_test...[0.013 s] ok
+  visibility_tests: a_private_function_is_callable_within_its_module_test...[0.024 s] ok
+  visibility_tests: two_arities_of_one_name_may_differ_in_visibility_test...[0.017 s] ok
+  visibility_tests: an_unqualified_call_to_a_private_function_says_private_test...[0.487 s] ok
+  visibility_tests: a_qualified_call_to_a_private_function_says_private_test...[0.569 s] ok
+  visibility_tests: a_call_to_a_name_that_does_not_exist_still_says_so_test...[0.486 s] ok
+  visibility_tests: a_public_function_is_reachable_across_modules_test...[0.501 s] ok
+  visibility_tests: a_private_callback_is_an_error_test...ok
+  visibility_tests: a_public_callback_is_accepted_test...ok
+  visibility_tests: a_private_function_named_like_a_callback_is_fine_without_the_behaviour_test...ok
+  visibility_tests: naming_a_private_function_at_the_cli_says_it_is_private_test...[0.508 s] ok
+  [done in 3.267 s]
+module 'within_tests'
+  within_tests: no_within_means_anyone_may_name_it_test...[0.498 s] ok
+  within_tests: a_sibling_is_refused_at_its_using_line_test...[0.487 s] ok
+  within_tests: the_parent_and_a_descendant_may_name_it_test...[0.928 s] ok
+  within_tests: acme_ordersextra_is_not_inside_acme_orders_test...[0.447 s] ok
+  within_tests: a_within_that_does_not_contain_its_own_module_is_refused_test...[0.279 s] ok
+  [done in 2.654 s]
+=======================================================
+  All 1314 tests passed.
+wall=458s

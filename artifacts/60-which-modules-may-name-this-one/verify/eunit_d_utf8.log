@@ -1406,4 +1406,63 @@ module 'validate_as_tests'
   validate_as_tests: validation_error_is_in_scope_with_no_declaration_test...ok
   validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (validate_collapses)...[0.522 s] ok
   validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (obligation_arity)...[0.327 s] ok
-  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (not_an_obligation)...
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (not_an_obligation)...[0.560 s] ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (compiler_known_type)...[0.390 s] ok
+  validate_as_tests: -every_new_diagnostic_reaches_the_author_as_prose_test_/0-fun-1- (validate_indiscriminable)...[0.388 s] ok
+  validate_as_tests: a_comparison_is_still_a_comparison_test...[0.024 s] ok
+  validate_as_tests: the_pipe_reaches_the_bracket_test...[0.038 s] ok
+  validate_as_tests: a_switch_reads_the_result_test...[0.014 s] ok
+  validate_as_tests: validating_into_an_untagged_payload_is_refused_test...ok
+  validate_as_tests: the_untagged_payload_is_still_legal_to_declare_test...[0.009 s] ok
+  validate_as_tests: the_refusal_names_both_members_and_both_repairs_test...[0.539 s] ok
+  validate_as_tests: a_tagged_payload_validates_test...[0.054 s] ok
+  validate_as_tests: validating_each_member_in_turn_tags_untagged_data_test...[0.074 s] ok
+  validate_as_tests: an_undeclared_target_is_refused_test...ok
+  validate_as_tests: a_pair_in_a_tuple_slot_is_refused_test...ok
+  validate_as_tests: a_guard_on_one_slot_tells_the_members_apart_test...[0.017 s] ok
+  validate_as_tests: a_guard_on_the_first_element_tells_two_lists_apart_test...[0.012 s] ok
+  validate_as_tests: a_recursive_element_beside_a_guardable_one_is_accepted_test...[0.024 s] ok
+  validate_as_tests: records_with_different_fields_are_accepted_test...[0.016 s] ok
+  validate_as_tests: a_collapsing_target_reports_only_the_collapse_test...[0.004 s] ok
+  [done in 3.861 s]
+module 'validation_error_record_tests'
+  validation_error_record_tests: a_record_pattern_takes_apart_what_the_validator_returns_test...[0.036 s] ok
+  validation_error_record_tests: the_validator_returns_the_record_test...[0.060 s] ok
+  validation_error_record_tests: a_projection_reads_the_expected_type_test...[0.036 s] ok
+  validation_error_record_tests: a_hand_built_value_carries_the_bare_tag_test...[0.021 s] ok
+  validation_error_record_tests: the_old_tuple_is_refused_at_the_boundary_test...[0.027 s] ok
+  validation_error_record_tests: the_value_goes_on_the_wire_test...[0.024 s] ok
+  [done in 0.228 s]
+module 'valve_tests'
+  valve_tests: the_option_chain_compiles_and_short_circuits_test...[0.022 s] ok
+  valve_tests: the_option_chain_produces_no_diagnostics_at_all_test...ok
+  valve_tests: the_error_chain_is_unchanged_test...[0.021 s] ok
+  valve_tests: a_subject_carrying_both_members_stops_on_either_test...[0.036 s] ok
+  valve_tests: a_return_type_that_omits_nothing_is_refused_with_the_corrected_signature_test...[0.783 s] ok
+  valve_tests: a_valve_over_a_subject_with_neither_member_is_still_refused_test...[0.505 s] ok
+  valve_tests: a_narrowing_stage_does_not_make_an_infallible_subject_fallible_test...[0.470 s] ok
+  valve_tests: nothing_meant_as_a_value_is_skipped_and_that_is_intended_test...[0.031 s] ok
+  valve_tests: nested_valves_do_not_collide_test...[0.055 s] ok
+  valve_tests: the_dead_stop_arm_is_not_emitted_test...[0.031 s] ok
+  [done in 1.986 s]
+module 'visibility_tests'
+  visibility_tests: an_unmarked_signature_is_not_exported_test...[0.010 s] ok
+  visibility_tests: an_unmarked_signature_is_still_callable_in_its_module_test...[0.023 s] ok
+  visibility_tests: an_explicit_private_and_an_unmarked_signature_agree_test...[0.052 s] ok
+  visibility_tests: a_module_that_exports_nothing_says_so_test...[0.704 s] ok
+  visibility_tests: a_private_function_is_not_exported_test...[0.022 s] ok
+  visibility_tests: a_private_function_is_still_defined_test...[0.013 s] ok
+  visibility_tests: a_private_function_is_callable_within_its_module_test...[0.028 s] ok
+  visibility_tests: two_arities_of_one_name_may_differ_in_visibility_test...[0.016 s] ok
+  visibility_tests: an_unqualified_call_to_a_private_function_says_private_test...[0.654 s] ok
+  visibility_tests: a_qualified_call_to_a_private_function_says_private_test...[0.584 s] ok
+  visibility_tests: a_call_to_a_name_that_does_not_exist_still_says_so_test...[0.567 s] ok
+  visibility_tests: a_public_function_is_reachable_across_modules_test...[0.568 s] ok
+  visibility_tests: a_private_callback_is_an_error_test...ok
+  visibility_tests: a_public_callback_is_accepted_test...ok
+  visibility_tests: a_private_function_named_like_a_callback_is_fine_without_the_behaviour_test...ok
+  visibility_tests: naming_a_private_function_at_the_cli_says_it_is_private_test...[0.611 s] ok
+  [done in 3.903 s]
+=======================================================
+  All 1309 tests passed.
+wall=452s

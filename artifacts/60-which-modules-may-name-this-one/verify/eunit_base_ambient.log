@@ -1513,4 +1513,16 @@ module 'visibility_tests'
   visibility_tests: a_private_function_is_still_defined_test...[0.025 s] ok
   visibility_tests: a_private_function_is_callable_within_its_module_test...[0.022 s] ok
   visibility_tests: two_arities_of_one_name_may_differ_in_visibility_test...[0.012 s] ok
-  visibility_tests: an_unqualified_call_to_a_private_function_says_private_test...
+  visibility_tests: an_unqualified_call_to_a_private_function_says_private_test...[0.843 s] ok
+  visibility_tests: a_qualified_call_to_a_private_function_says_private_test...[0.750 s] ok
+  visibility_tests: a_call_to_a_name_that_does_not_exist_still_says_so_test...[0.682 s] ok
+  visibility_tests: a_public_function_is_reachable_across_modules_test...[0.740 s] ok
+  visibility_tests: a_private_callback_is_an_error_test...ok
+  visibility_tests: a_public_callback_is_accepted_test...ok
+  visibility_tests: a_private_function_named_like_a_callback_is_fine_without_the_behaviour_test...ok
+  visibility_tests: naming_a_private_function_at_the_cli_says_it_is_private_test...[0.859 s] ok
+  [done in 4.802 s]
+=======================================================
+  Failed: 4.  Skipped: 0.  Passed: 1305.
+[0;31m===> [1mError running tests
+[0m[0mwall=448s

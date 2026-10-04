@@ -1,0 +1,6 @@
+321 modules, 1980 using lines
+321 modules, 1980 using lines
+within lines in tree B: 20 of 321 files
+using lines in tree: 1980
+## add_import calls per compile (instrumented copy /tmp/v60/i), tree A:
+9900

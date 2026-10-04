@@ -1,0 +1,8 @@
+4c4
+<    Compiled in 1.05s
+---
+>    Compiled in 0.51s
+45c45
+<   ┌─ /tmp/tmp.pQiSkpqJ3s/t/src/t.gleam:3:7
+---
+>   ┌─ /tmp/tmp.lYAYuVHYwD/t/src/t.gleam:3:7

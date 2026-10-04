@@ -1,0 +1,65 @@
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling bsc
+[0m[0;32m===> Performing EUnit tests...
+[0m[0;32m===> Building escript for bsc...
+[0m======================== EUnit ========================
+module 'within_tests'
+  within_tests: no_within_means_anyone_may_name_it_test...[0.471 s] ok
+  within_tests: a_sibling_is_refused_at_its_using_line_test...*failed*
+in function within_tests:said/2 (/tmp/v60/utf/base/test/within_tests.erl, line 30)
+in call from within_tests:a_sibling_is_refused_at_its_using_line_test/0 (/tmp/v60/utf/base/test/within_tests.erl, line 50)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 285)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 554)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 379)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 537)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 479)
+**error:{assertNotEqual,[{module,within_tests},
+                 {line,30},
+                 {comment,{"declared `within Acme.Orders`",
+                           "/tmp/v60/utf/base/_build/test/bsc_eunit/run-20635--576460752000000000/fx-20635-3/within1/Acme/Billing/Billing.bs:2:1: error: `using Acme.Orders.Rules` names no module and no namespace\n  a module is a source file this invocation can reach; a namespace\n  is a path that other modules sit under. Neither matched.\nrc:1\n"}},
+                 {expression,"string : find ( Out , Frag )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+  within_tests: the_parent_and_a_descendant_may_name_it_test...*failed*
+in function within_tests:said/2 (/tmp/v60/utf/base/test/within_tests.erl, line 30)
+in call from within_tests:the_parent_and_a_descendant_may_name_it_test/0 (/tmp/v60/utf/base/test/within_tests.erl, line 60)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 285)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 554)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 379)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 537)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 479)
+**error:{assertNotEqual,[{module,within_tests},
+                 {line,30},
+                 {comment,{"rc:0",
+                           "/tmp/v60/utf/base/_build/test/bsc_eunit/run-20635--576460752000000000/fx-20635-322/within2/Acme/Orders/Orders.bs:2:1: error: `using Acme.Orders.Rules` names no module and no namespace\n  a module is a source file this invocation can reach; a namespace\n  is a path that other modules sit under. Neither matched.\nrc:1\n"}},
+                 {expression,"string : find ( Out , Frag )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+  within_tests: acme_ordersextra_is_not_inside_acme_orders_test...[0.307 s] ok
+  within_tests: a_within_that_does_not_contain_its_own_module_is_refused_test...*failed*
+in function within_tests:said/2 (/tmp/v60/utf/base/test/within_tests.erl, line 30)
+in call from within_tests:a_within_that_does_not_contain_its_own_module_is_refused_test/0 (/tmp/v60/utf/base/test/within_tests.erl, line 81)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 285)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 554)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 379)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 537)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 479)
+**error:{assertNotEqual,[{module,within_tests},
+                 {line,30},
+                 {comment,{"does not contain",
+                           "/tmp/v60/utf/base/_build/test/bsc_eunit/run-20635--576460752000000000/fx-20635-386/within4/Acme/Orders/Rules/Rules.bs:2:12: error: syntax error before: '.'\nrc:1\n"}},
+                 {expression,"string : find ( Out , Frag )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+  [done in 1.611 s]
+=======================================================
+  Failed: 3.  Skipped: 0.  Passed: 2.
+[0;31m===> [1mError running tests
+[0m[0m
