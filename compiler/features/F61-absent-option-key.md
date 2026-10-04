@@ -1,7 +1,7 @@
 # F61 — `ValidateAs` reads an absent key at an `option<T>` field as `:nothing`
 
-**Status**      **in progress** — 19 tests in `absent_option_tests`, 1146 in
-                the suite; `check-absent-option.sh` seen red on master first
+**Status**      **done 2026-10-04**, called by David — 19 tests in
+                `absent_option_tests`; `check-absent-option.sh` seen red on master first
 **Implements**  [ticket 26](../../wayfinder/issues/26-data-modelling.md) §4's
                 boundary half, extended to wire types by
                 [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q8.
