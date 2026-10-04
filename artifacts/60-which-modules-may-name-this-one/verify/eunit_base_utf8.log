@@ -1276,4 +1276,48 @@ module 'type_import_tests'
   type_import_tests: a_constructed_imported_record_passes_the_producers_guard_test...[0.562 s] ok
   type_import_tests: a_union_alias_crosses_and_its_records_name_clause_heads_test...[0.832 s] ok
   type_import_tests: an_imported_union_is_checked_exhaustive_test...[0.549 s] ok
-  type_import_tests: a_parametric_alias_crosses_with_its_body_resolved_test...
+  type_import_tests: a_parametric_alias_crosses_with_its_body_resolved_test...[0.642 s] ok
+  type_import_tests: a_parametric_alias_crosses_unqualified_too_test...[0.780 s] ok
+  type_import_tests: an_unqualified_name_two_imports_supply_is_refused_at_the_use_test...[0.587 s] ok
+  type_import_tests: two_imports_supplying_a_name_nobody_uses_is_not_an_error_test...[0.565 s] ok
+  type_import_tests: the_qualified_spelling_disambiguates_test...[0.544 s] ok
+  type_import_tests: a_local_type_wins_over_an_imported_one_test...[0.665 s] ok
+  type_import_tests: an_unknown_type_names_the_import_that_would_supply_it_test...[0.811 s] ok
+  type_import_tests: a_qualified_type_from_a_module_never_imported_is_refused_test...[0.597 s] ok
+  type_import_tests: a_qualified_name_the_module_does_not_declare_says_so_test...[0.672 s] ok
+  type_import_tests: a_dotted_producer_is_named_by_its_full_path_test...[0.558 s] ok
+  type_import_tests: a_namespace_import_short_qualifies_its_types_test...[0.642 s] ok
+  type_import_tests: a_consumer_may_name_the_union_and_hand_it_back_test...[0.749 s] ok
+  type_import_tests: a_widened_union_is_refused_where_it_meets_the_closed_clause_set_test...[0.610 s] ok
+  type_import_tests: the_api_prints_the_resolved_type_for_an_imported_name_test...[0.497 s] ok
+  type_import_tests: the_api_refuses_the_ambiguous_name_too_test...[0.416 s] ok
+  type_import_tests: the_api_still_answers_when_a_dependency_is_absent_test...[0.510 s] ok
+  [done in 14.406 s]
+module 'type_prefix_tests'
+  type_prefix_tests: the_advised_dispatch_posts_both_parts_test...[0.009 s] ok
+  type_prefix_tests: the_prefix_narrows_the_binding_for_the_guard_test...ok
+  type_prefix_tests: dropping_a_part_reports_inexhaustive_test...[0.001 s] ok
+  type_prefix_tests: a_non_numeric_pair_dispatches_too_test...[0.017 s] ok
+  type_prefix_tests: a_member_no_single_test_decides_is_refused_test...ok
+  type_prefix_tests: a_refinement_in_prefix_position_is_refused_test...ok
+  type_prefix_tests: term_in_prefix_position_is_refused_test...ok
+  type_prefix_tests: an_alias_to_a_union_is_still_refused_and_says_what_to_write_test...ok
+  type_prefix_tests: the_arm_dispatches_the_parts_test...[0.020 s] ok
+  type_prefix_tests: the_arm_refuses_what_the_head_refuses_test...ok
+  type_prefix_tests: a_nested_type_prefix_is_refused_rather_than_crashing_test...ok
+  type_prefix_tests: a_nested_type_prefix_in_an_arm_is_refused_too_test...ok
+  type_prefix_tests: a_numeric_union_at_an_operator_is_refused_test...ok
+  type_prefix_tests: the_refusal_reaches_a_guard_too_test...ok
+  type_prefix_tests: the_float_literal_spelling_goes_too_test...ok
+  type_prefix_tests: the_advice_names_the_dispatch_and_not_the_literal_test...ok
+  type_prefix_tests: the_advice_writes_a_head_of_the_right_arity_test...ok
+  type_prefix_tests: the_advice_names_the_site_when_no_parameter_carries_the_union_test...ok
+  type_prefix_tests: every_operator_but_the_boolean_pair_refuses_test...[0.001 s] ok
+  type_prefix_tests: a_union_with_a_non_numeric_part_is_unmoved_test...ok
+  type_prefix_tests: the_existing_mixed_pair_keeps_its_own_advice_test...ok
+  [done in 0.114 s]
+module 'type_redeclared_tests'
+  type_redeclared_tests: a_record_and_an_alias_of_one_name_are_refused_test...[0.477 s] ok
+  type_redeclared_tests: two_aliases_of_one_name_are_refused_test...[0.722 s] ok
+  type_redeclared_tests: two_records_of_one_name_are_refused_test...[0.422 s] ok
+  type_redeclared_tests: a_refinement_after_a_record_of_one_name_is_refused_test...

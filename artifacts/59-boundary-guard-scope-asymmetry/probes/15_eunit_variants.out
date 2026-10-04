@@ -18,12 +18,25 @@
     diagnostic_json_tests: a_path_is_utf8_on_the_wire_test
     diagnostic_term_tests: the_diagnostics_gate_passes_test
     non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test
+=== proj:   Failed: 8.  Skipped: 0.  Passed: 1301.
+    bindings_tests: a_binding_reads_a_projection_once_test
+    body_check_tests: every_aoc_program_still_compiles_test
+    cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each
+    diagnostic_json_tests: a_path_is_utf8_on_the_wire_test
+    diagnostic_term_tests: the_diagnostics_gate_passes_test
+    non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test
+    records_tests: an_exported_record_parameter_gets_one_tag_test_test
+    to_json_tests: a_field_of_the_wrong_type_is_not_published_test
 
 failures present in a variant but NOT in base (the real delta):
   narrow:
   wide:
     boundary_kind_tests: a_private_function_is_not_guarded_test
     boundary_range_tests: a_private_function_carries_no_range_guard_test
+  proj:
+    bindings_tests: a_binding_reads_a_projection_once_test
+    records_tests: an_exported_record_parameter_gets_one_tag_test_test
+    to_json_tests: a_field_of_the_wrong_type_is_not_published_test
 
 NOTE: the 5 failures common to all three (aoc path, batch, utf8, diagnostics gate, non-ascii) fail on the UNMODIFIED copy; they are layout/locale
       artefacts of running from a copy (not investigated further), and are identical across variants.
