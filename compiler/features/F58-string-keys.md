@@ -1,7 +1,7 @@
 # F58 — a field-set key may be a string literal: `{ "input_tokens": int }`
 
-**Status**      **in progress** — 12 tests in `string_key_tests`, 1086 in the
-                suite; `check-language.sh` gained a must-compile block in §10,
+**Status**      **done 2026-10-04**, called by David — 16 tests in
+                `string_key_tests`; `check-language.sh` gained a must-compile block in §10,
                 seen red first; the tree-sitter grammar takes a string key in
                 all three field positions
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
