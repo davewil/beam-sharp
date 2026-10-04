@@ -1,0 +1,59 @@
+== elm init (answers 'y'); expect it to want the network to fetch elm/core
+Hello! Elm projects always start with an elm.json file. I can create them!
+
+Now you may be wondering, what will be in this file? How do I add Elm files to
+my project? How do I see it in the browser? How will my code grow? Do I need
+more directories? What about tests? Etc.
+
+Check out <https://elm-lang.org/0.19.2/init> for all the answers!
+
+Knowing all that, would you like me to create an elm.json file now? [Y/n]: -- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages before I can start initializing projects,
+so I tried to fetch:
+== ls
+.
+..
+== elm.json, if it was written
+(no elm.json)
+== init failed offline, so write elm.json by hand in the 0.19.2 application format (this is the file elm init/install maintain)
+     1	{
+     2	    "type": "application",
+     3	    "source-directories": ["src"],
+     4	    "elm-version": "0.19.2",
+     5	    "dependencies": {
+     6	        "direct": { "elm/core": "1.0.5", "elm/html": "1.0.0" },
+     7	        "indirect": {}
+     8	    },
+     9	    "test-dependencies": { "direct": {}, "indirect": {} }
+    10	}
+== elm install elm/http (the flow that edits elm.json): needs the registry
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to figure out how to install things, so I
+tried to fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+== elm make: elm.json lacks elm/json, which the compiler itself requires (a manifest check BEFORE any import is resolved)
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/json" dependency your elm.json file. It helps me handle
+flags and ports.
+
+If you modified your elm.json by hand, try to change it back! And if you are
+== add elm/json to elm.json, retry: imports Http, which elm.json does not list
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+(exit status above is from a container with no package cache and no network: this part is INCONCLUSIVE for the import check)

@@ -1,0 +1,22 @@
+case   variant Code_bytes file_bytes   instrs   delta vs base (Code bytes / instrs)
+Rec3   base           125       1236       10   
+Rec3   narrow         113       1212        8   -12 B / -2 instrs (file -24; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec3   wide           125       1236       10   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec8   base           125       1292       10   
+Rec8   narrow         113       1264        8   -12 B / -2 instrs (file -28; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec8   wide           125       1292       10   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntP   base           106        996        7   
+IntP   narrow         106       1004        7   0 B / 0 instrs (file +8; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntP   wide           106       1016        7   0 B / 0 instrs (file +20; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntU   base           120       1200        9   
+IntU   narrow         120       1204        9   0 B / 0 instrs (file +4; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntU   wide           125       1236       10   +5 B / +1 instrs (file +36; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Oct    base           119       1080        9   
+Oct    narrow         119       1084        9   0 B / 0 instrs (file +4; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Oct    wide           119       1116        9   0 B / 0 instrs (file +36; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Big2   base           131       1256       11   
+Big2   narrow         131       1260       11   0 B / 0 instrs (file +4; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Big2   wide           141       1316       13   +10 B / +2 instrs (file +60; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+
+=== the emitted guards for the cases, per variant (private function only) ===
+--- Rec3 / base

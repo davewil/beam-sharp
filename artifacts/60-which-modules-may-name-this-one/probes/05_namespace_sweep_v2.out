@@ -1,0 +1,15 @@
+## v2: Dash sweeps in 'Acme' and calls only Orders.Total
+3
+exit=0
+
+## v2: Dash2 sweeps in 'Acme' and then reaches for Orders.Rules.Recompute through the namespace
+Out/Dash2/Dash2.bs:4:21: error: Orders.Rules is called but never imported
+  add `using Orders.Rules` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+
+## v2: ...and if Dash2 follows that advice and writes the full path it is told the real reason
+Out/Dash2/Dash2.bs:3:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Out.Dash2 is outside it
+  only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
+  or call a public function of a module that is not restricted.
+exit=1

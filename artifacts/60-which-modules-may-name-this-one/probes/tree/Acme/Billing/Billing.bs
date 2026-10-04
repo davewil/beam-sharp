@@ -1,0 +1,7 @@
+module Acme.Billing
+
+using Acme.Orders
+using Acme.Orders.Rules
+
+public int Invoice(list<int> lines)
+Invoice(lines) -> Recompute(lines)

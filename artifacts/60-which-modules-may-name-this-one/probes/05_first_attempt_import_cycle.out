@@ -1,0 +1,19 @@
+## v2: Dash sweeps in 'Acme' and calls only Orders.Total
+error: these modules import each other in a cycle
+    Acme.Dash
+    Acme.Dash2
+    Acme.Dash
+  the compiler checks a dependency before its dependents, so a
+  cycle has no order to check them in. Break it by moving the
+  shared declarations into a module both can import.
+exit=1
+
+## v2: Dash2 sweeps in 'Acme' and then reaches for Orders.Rules.Recompute through the namespace
+error: these modules import each other in a cycle
+    Acme.Dash2
+    Acme.Dash
+    Acme.Dash2
+  the compiler checks a dependency before its dependents, so a
+  cycle has no order to check them in. Break it by moving the
+  shared declarations into a module both can import.
+exit=1

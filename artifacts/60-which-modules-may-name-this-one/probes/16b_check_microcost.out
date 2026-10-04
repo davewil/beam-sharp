@@ -1,0 +1,13 @@
+predicate in the prototype:
+at_or_under(Self, Prefix) ->
+    S = atom_to_list(Self), P = atom_to_list(Prefix),
+    S =:= P orelse lists:prefix(P ++ ".", S).
+
+visible_to(Self, Entry) ->
+    case maps:get(within, Entry, none) of
+        none   -> true;
+        Prefix -> at_or_under(Self, Prefix)
+    end.
+
+9900 predicate evaluations: 47754 microseconds total (4823 ns each)
+990000 evaluations: 5131130 microseconds total

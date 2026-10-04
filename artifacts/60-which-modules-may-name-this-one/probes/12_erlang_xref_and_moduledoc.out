@@ -1,0 +1,20 @@
+## (0) words in OTP 28 stdlib/kernel/tools source: friend / internal-module visibility attributes
+(none above = no such attribute)
+## (1) modules in stdlib-7.0 marked -moduledoc false: 24 of 95
+code:get_doc(dets_utils) -> {ok,{docs_v1,{23,...},erlang,...}}
+a caller outside stdlib names it anyway: dets_utils:module_info(module) = dets_utils, exports 60 functions
+
+## (3) xref over the B# tree compiled by HEAD bsc (Acme.Billing -> Acme.Orders.Rules is the unwanted edge)
+Acme.Billing.abstr
+Acme.Billing.beam
+Acme.Orders.Rules.abstr
+Acme.Orders.Rules.beam
+Acme.Orders.abstr
+Acme.Orders.beam
+every module-level call edge in the tree: [{'Acme.Billing',
+                                            'Acme.Orders.Rules'},
+                                           {'Acme.Orders','Acme.Orders.Rules'},
+                                           {'Acme.Orders.Rules',
+                                            'Acme.Orders.Rules'}]
+edges INTO Acme.Orders.Rules from outside Acme.Orders: [{'Acme.Billing',
+                                                         'Acme.Orders.Rules'}]

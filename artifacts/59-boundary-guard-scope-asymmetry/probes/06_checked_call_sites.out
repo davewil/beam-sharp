@@ -1,0 +1,11 @@
+private Scale(Octet) called with literal 300               REFUSED: /tmp/tmp.NNzuqGD49w/T/t.bs:13:9: error: A hands Scale an argument it does not accept
+private Scale(Octet) called with a plain int variable      REFUSED: /tmp/tmp.0ipK9vGSXs/T/t.bs:13:9: error: A hands Scale an argument it does not accept
+private Scale(Octet) called with a float literal           REFUSED: /tmp/tmp.lHbjM0Xfhe/T/t.bs:13:9: error: A hands Scale an argument it does not accept
+private Scale(Octet) called with an atom                   REFUSED: /tmp/tmp.Tl9iLmzk2V/T/t.bs:13:9: error: A hands Scale an argument it does not accept
+private Inner(Order) called with an Invoice                REFUSED: /tmp/tmp.KgjDdubRSp/T/t.bs:13:9: error: A hands Inner an argument it does not accept
+private Inner(Order) called with an int                    REFUSED: /tmp/tmp.koujJUxlXc/T/t.bs:13:9: error: A hands Inner an argument it does not accept
+control: private Scale(Octet) called with a valid literal  ACCEPTED
+
+--- can a B# program obtain an unproven value of a declared type at all? (term -> typed) ---
+term parameter passed where Order is declared              REFUSED: /tmp/tmp.bOM5uEh7F3/T/t.bs:13:9: error: A hands Inner an argument it does not accept
+projected field of a record (declared int, but forged at runtime) -> Scale(Octet) REFUSED: /tmp/tmp.e90tOtuI2X/T/t.bs:14:9: error: A hands Scale an argument it does not accept

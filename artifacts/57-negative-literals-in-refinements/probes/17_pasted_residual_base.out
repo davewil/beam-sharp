@@ -1,0 +1,12 @@
+### step 1: clause deleted -> what is printed
+Deleted                refused(rc=1)
+    | Deleted/a.bs:4:16: error: Classify is not exhaustive
+    |   no clause matches:
+    |     Classify((:ok, n)) when n <= -1 -> ...
+### step 2: paste exactly the printed head, add a body
+Pasted                 refused(rc=1)
+    | Pasted/a.bs:4:16: error: Classify is not exhaustive
+    |   no clause matches:
+    |     Classify((:ok, n)) when n <= -1 -> ...
+### control: the same shape with a POSITIVE literal (residual n >= 1 printed as a guard) pasted back
+PastedPos              accepted

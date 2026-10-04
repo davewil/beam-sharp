@@ -1,0 +1,48 @@
+### (a) Can B# prove Wrap : int -> Dial (0..99) when the body is rem(rem(n,100)+100,100)?   [Dial01]
+/home/user/beam-sharp/artifacts/39-emitted-code-quality/probes/src/Dial01/dial.bs:10:1: error: Wrap returns a value its signature does not declare
+  not covered by the declared return type:
+    int <= -1 | int >= 100
+  If `Dial` is what you meant, fix the clause, not the signature.
+  no signature is offered: what the clauses return has no spelling as a type yet.
+exit=0
+
+### (b) Does the checker carry a range through  d + 1  under the guard d < 99 ?   [Dial02]
+/home/user/beam-sharp/artifacts/39-emitted-code-quality/probes/src/Dial02/dial.bs:6:1: error: Succ returns a value its signature does not declare
+  not covered by the declared return type:
+    int <= -1 | int >= 100
+  If `Dial` is what you meant, fix the clause, not the signature.
+  no signature is offered: what the clauses return has no spelling as a type yet.
+
+### (c) Refined parameter: exported vs private. What is emitted, and what does the OTP analyser make of it?   [Dial03]
+--- 'Next'/2 (6 instrs)
+  {func_info,{atom,'Dial03'},{atom,'Next'},2}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,1}],{x,0}}
+  return
+
+--- 'NextPub'/2 (10 instrs)
+  {func_info,{atom,'Dial03'},{atom,'NextPub'},2}
+  {test,is_integer,{f,5},[{x,0}]}
+  {test,is_ge,{f,5},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+  {test,is_ge,{f,5},[{integer,99},{tr,{x,0},{t_integer,{0,'+inf'}}}]}
+  {test,is_integer,{f,5},[{x,1}]}
+  {gc_bif,'+',
+          {f,0},
+          2,
+          [{tr,{x,0},{t_integer,{0,99}}},{tr,{x,1},{t_integer,any}}],
+          {x,0}}
+  return
+
+--- 'Run'/1 (9 instrs)
+  {func_info,{atom,'Dial03'},{atom,'Run'},1}
+  {test,is_integer,{f,7},[{x,0}]}
+  {test,is_ge,{f,7},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+  {test,is_ge,{f,7},[{integer,99},{tr,{x,0},{t_integer,{0,'+inf'}}}]}
+  {move,{integer,1},{x,1}}
+  {call_only,2,{'Dial03','Next',2}}
+
+--- module_info/0 (6 instrs)
+
+### (d) the emitted -spec for the refined parameter
+12:                          [{type,0,range,[{integer,0,0},{integer,0,99}]},
+24:                          [{type,0,range,[{integer,0,0},{integer,0,99}]},
+55:                          [{type,0,range,[{integer,0,0},{integer,0,99}]}]},

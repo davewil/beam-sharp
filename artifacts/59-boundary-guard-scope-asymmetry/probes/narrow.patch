@@ -1,0 +1,10 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-04 23:03:20.423280606 +0000
++++ narrow/src/bs_emit.erl	2026-10-04 23:10:55.595435408 +0000
+@@ -274,6 +274,7 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        {ok, _} when not Public -> {Pat, []};   %% PROTOTYPE 59 narrow: tag test exported-only
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

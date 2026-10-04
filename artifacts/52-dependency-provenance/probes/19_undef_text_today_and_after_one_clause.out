@@ -1,0 +1,17 @@
+== today (bsc.erl:640-641 prints Class:Reason only)
+report_run({crashed, error, {Tag, Detail}, _}) when is_atom(Tag) ->
+    io:format(standard_error, "crashed: ~p ~s~n", [Tag, bs_run:format_value(Detail)]),
+    exit_with(1);
+report_run({crashed, Class, Reason, _}) ->
+    io:format(standard_error, "crashed: ~p:~p~n", [Class, Reason]),
+    exit_with(1);
+== ERL_LIBS unset
+  stack head: {'Elixir.Greeter',hello,[<<"x">>],[]}
+  proposed: crashed: 'Elixir.Greeter':hello/1 is undefined -- module 'Elixir.Greeter' is not on the code path (ERL_LIBS=unset)
+  stack head: {lists,nonesuch,[1],[]}
+  proposed: crashed: lists:nonesuch/1 is undefined -- the module is loaded but does not export it
+  stack head: {'Elixir.Greeter.Extra',shout,[<<"x">>],[]}
+  proposed: crashed: 'Elixir.Greeter.Extra':shout/1 is undefined -- module 'Elixir.Greeter.Extra' is not on the code path (ERL_LIBS=unset)
+== ERL_LIBS has greeter (Extra present; the first call now succeeds, so only the non-export case is undef)
+  stack head: {lists,nonesuch,[1],[]}
+  proposed: crashed: lists:nonesuch/1 is undefined -- the module is loaded but does not export it

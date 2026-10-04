@@ -1,0 +1,96 @@
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_check.erl c60b/src/bs_check.erl
+--- c60/src/bs_check.erl	2026-10-04 23:03:20.000000000 +0000
++++ c60b/src/bs_check.erl	2026-10-04 23:20:25.844069924 +0000
+@@ -473,6 +473,10 @@
+     lists:sort([M || {M, Entry} <- maps:to_list(World),
+                      maps:is_key(N, maps:get(types, Entry, #{}))]).
+ 
++at_or_under(Self, Prefix) ->
++    S = atom_to_list(Self), P = atom_to_list(Prefix),
++    S =:= P orelse lists:prefix(P ++ ".", S).
++
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+                                        V =/= public],
+@@ -487,6 +491,11 @@
+ %% refuses unknown imports; `--api` skips them.
+ import_env(Decls, Self, World, Mode) ->
+     Imports = [{L, M} || {import, L, M} <- Decls],
++    Allowed = [P || {allow, _, P} <- Decls],
++    [case Allowed =:= [] orelse Mode =/= strict orelse lists:any(fun(P) -> at_or_under(M, P) end, Allowed) of
++         true  -> ok;
++         false -> erlang:error({not_allowed_here, M, Allowed, Self, L})
++     end || {L, M} <- Imports],
+     Known = maps:keys(World),
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+                 #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_diag.erl c60b/src/bs_diag.erl
+--- c60/src/bs_diag.erl	2026-10-04 23:03:20.000000000 +0000
++++ c60b/src/bs_diag.erl	2026-10-04 23:20:25.846226243 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_allowed_here, Mod, Allowed, Self, Line}) ->
++    #{tag => not_allowed_here, severity => error, file => Path, line => Line,
++      module => Mod, allowed => Allowed, caller => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2029,9 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_allowed_here, file := P, line := L, column := C, module := Mod, allowed := A, caller := Self}) ->
++    {"~s:~p:~p: error: `using ~s` -- ~s allows only ~s~n",
++     [P, L, C, Mod, Self, lists:join(", ", [atom_to_list(X) || X <- A])]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_lexer.xrl c60b/src/bs_lexer.xrl
+--- c60/src/bs_lexer.xrl	2026-09-30 23:03:17.000000000 +0000
++++ c60b/src/bs_lexer.xrl	2026-10-04 23:20:25.839626816 +0000
+@@ -42,6 +42,7 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++allow                   : {token, {'allow', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_parser.yrl c60b/src/bs_parser.yrl
+--- c60/src/bs_parser.yrl	2026-09-30 23:03:17.000000000 +0000
++++ c60b/src/bs_parser.yrl	2026-10-04 23:20:25.841915040 +0000
+@@ -20,12 +20,12 @@
+   guard guard_expr
+   body binding
+   expr expr_low expr_list elist_items assign_fields assign_field
+-  switch_arms switch_arm modpath using_decl visibility call
++  switch_arms switch_arm modpath using_decl allow_decl visibility call
+   block_clauses block_clause implements_decl impl_clauses impl_for
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'allow' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -103,6 +103,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> allow_decl  : '$1'.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+@@ -184,6 +185,9 @@
+ %% by the token class of what follows `using` (ticket 41 §1).
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
+ 
++%% PROTOTYPE B (ticket 60): `allow Acme.Orders` -- this module's `using` lines may name only these subtrees.
++allow_decl -> 'allow' modpath : {allow, line('$1'), modatom('$2')}.
++
+ %% --- module -----------------------------------------------------------------
+ %% A module's atom is its full dotted path, because a record tag is minted as
+ %% `Mod.Name` and only a unique module keeps two contexts from minting the

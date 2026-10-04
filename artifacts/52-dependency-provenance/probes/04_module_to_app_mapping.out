@@ -1,0 +1,60 @@
+== mix umbrella (two sibling apps), built with system OTP25/Elixir 1.14
+==> alpha
+Compiling 1 file (.ex)
+Generated alpha app
+total 8
+drwxr-xr-x 4 root root 4096 Oct  4 23:27 alpha
+drwxr-xr-x 4 root root 4096 Oct  4 23:27 beta
+-- (P) path-shape
+  P  lists              {path_shape,"stdlib"}
+  P  gen_server         {path_shape,"stdlib"}
+  P  crypto             {path_shape,"crypto"}
+  P  Elixir.Greeter     {path_shape,"greeter"}
+  P  rlib_util          {path_shape,"rlib"}
+  P  glib               {path_shape,"glib"}
+  P  Elixir.Alpha       {path_shape,"alpha"}
+  P  Elixir.Beta        {path_shape,"beta"}
+  P  Elixir.Nope        non_existing
+-- (A) .app modules / applications / vsn
+  A  greeter  {ok,['Elixir.Greeter','Elixir.Greeter.Extra'],
+                  [kernel,stdlib,elixir,logger],
+                  "0.3.1"}
+  A  rlib     {ok,[rlib,rlib_util],[kernel,stdlib,crypto],"1.2.0"}
+  A  glib     {ok,[glib,glib@@main],[],"0.4.0"}
+  A  alpha    {ok,['Elixir.Alpha'],[kernel,stdlib,elixir,logger],"0.1.0"}
+  A  beta     {ok,['Elixir.Beta'],[kernel,stdlib,elixir,logger],"0.1.0"}
+  A  stdlib   {ok,[argparse,array,base64,beam_lib,binary,c,calendar,dets,
+                   dets_server,dets_sup,dets_utils,dets_v9,dict,digraph,
+                   digraph_utils,edlin,edlin_key,edlin_context,edlin_expand,
+                   edlin_type_suggestion,epp,eval_bits,erl_abstract_code,
+                   erl_anno,erl_bits,erl_compile,erl_error,erl_eval,
+                   erl_expand_records,erl_features,erl_internal,erl_lint,
+                   erl_parse,erl_posix_msg,erl_pp,erl_scan,erl_stdlib_errors,
+                   erl_tar,error_logger_file_h,error_logger_tty_h,escript,ets,
+                   file_sorter,filelib,filename,gb_trees,gb_sets,gen,
+                   gen_event,gen_fsm,gen_server,gen_statem,io,io_lib,
+                   io_lib_format,io_lib_fread,io_lib_pretty,json,lists,
+                   log_mf_h,maps,math,ms_transform,orddict,ordsets,
+                   otp_internal,peer,pool,proc_lib,proplists,qlc,qlc_pt,queue,
+                   rand,random,re,sets,shell,shell_default,shell_docs,
+                   shell_docs_markdown,shell_docs_test,slave,sofs,string,
+                   supervisor,supervisor_bridge,sys,timer,unicode,
+                   unicode_util,uri_string,win32reg,zip,zstd],
+                  [kernel],
+                  "7.0"}
+  A  req      {error,bad_name}
+== a module compiled by bsc into a plain output dir put on the path with -pa (no app)
+Greet.beam
+  P  Greet : {no_app_dir,"/tmp/p52/orphan"}
+  lib_dir(orphan) : "/tmp/p52/orphan"
+== inside an escript (where bsc itself runs)
+[0m  code:which(esc)        = "/tmp/p52/esc_src/_build/default/bin/esc/esc/ebin/esc.beam"
+  code:lib_dir(esc)      = "/tmp/p52/esc_src/_build/default/bin/esc/esc"
+  code:which(bs_check)   = non_existing
+  code:ensure_loaded(esc)= {module,esc}
+  prov-style app_of(esc) = ["esc.beam","ebin","esc"]
+  application:load(esc) = ok
+  [ERL_LIBS inherited by the escript] code:lib_dir(greeter) = "/tmp/p52/greeter_build/dev/lib/greeter"
+  [ERL_LIBS inherited by the escript] code:which('Elixir.Greeter') = "/tmp/p52/greeter_build/dev/lib/greeter/ebin/Elixir.Greeter.beam"
+== a protocol beam in mix's consolidated/ directory (ON the path in a release, NOT under ebin)
+  P  Elixir.Enumerable : {no_app_dir,"/tmp/p52/greeter_build/dev/lib/greeter/consolidated"}

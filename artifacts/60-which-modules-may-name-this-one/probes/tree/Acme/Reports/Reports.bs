@@ -1,0 +1,5 @@
+module Acme.Reports
+
+// No `using` at all: only a qualified call (41 §5) to a module nothing here imports.
+public int Digest(list<int> lines)
+Digest(lines) -> Acme.Orders.Rules.Recompute(lines)

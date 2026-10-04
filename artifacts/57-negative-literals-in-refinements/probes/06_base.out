@@ -1,0 +1,16 @@
+### control, positive literal, current bsc
+EqPos                  refused(rc=1)
+    | compile: /tmp/tmp.CSQJ4CP7NT/EqPos/a.bs:0: bad range type
+CatchAllPos            accepted(output)
+    | /tmp/tmp.CSQJ4CP7NT/CatchAllPos/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+### same shapes, negative literal, bsc=/home/user/beam-sharp/compiler/_build/default/bin/bsc
+EqNeg                  refused(rc=1)
+    | /tmp/tmp.CSQJ4CP7NT/EqNeg/a.bs:3:1: error: this refinement is not a predicate the checker can read
+    |   a refinement narrows a type, so the compiler has to be able to
+    |   reason about it: comparisons on `value`, joined with `and`/`or`.
+    |   `int where value >= 0 and value <= 255` is one.
+    |   A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+    |   is the O(n) tier. It is established once at a boundary and never
+    |   reasoned about, and this compiler has no site to establish it at.
+CatchAllNeg            accepted

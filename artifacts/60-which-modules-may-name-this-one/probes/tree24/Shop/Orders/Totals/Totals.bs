@@ -1,0 +1,6 @@
+module Shop.Orders.Totals
+
+// ticket 24's RecomputeTotal: a helper another MODULE (Shop.Orders) needs, so it must be public.
+public int Recompute(list<int> lines)
+Recompute([]) -> 0
+Recompute([x, ..rest]) -> x + Recompute(rest)

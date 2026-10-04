@@ -1,0 +1,10 @@
+GuardPos_Complete      accepted
+GuardNeg_Complete      refused(rc=1)
+    | /tmp/tmp.ZLSDDMk0kr/GuardNeg_Complete/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |     F(n) -> ...
+GuardNeg_WithCatchAll  accepted
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo

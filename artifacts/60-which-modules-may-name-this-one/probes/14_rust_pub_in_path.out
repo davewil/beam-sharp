@@ -1,0 +1,14 @@
+rustc 1.97.0 (2d8144b78 2026-07-07)
+## ok.rs: the parent and a descendant name a private module and a pub(in) item
+10 6
+## bad.rs: a SIBLING names them
+error[E0603]: module `rules` is private
+  --> bad.rs:11:50
+11 |         pub fn invoice() -> i32 { super::orders::rules::recompute(&[1]) }   // sibling reaches into a private module
+   |                                                  private module
+  --> bad.rs:3:9
+error[E0603]: function `helper` is private
+  --> bad.rs:12:59
+   |                                                           ^^^^^^ private function
+  --> bad.rs:7:26
+error: aborting due to 2 previous errors

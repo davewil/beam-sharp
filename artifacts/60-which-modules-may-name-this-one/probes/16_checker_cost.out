@@ -1,0 +1,11 @@
+321 modules, 1980 using lines
+321 modules, 1980 using lines
+within lines in tree B: 20 of 321 files
+using lines in tree: 1980
+## add_import calls per compile (instrumented copy /tmp/c60i), tree A:
+9900
+HEAD compiler,  tree A (no within)             n=7 min=3.286 median=4.235 mean=4.101 max=5.283 s
+PROTOTYPE,      tree A (no within)             n=7 min=2.748 median=3.210 mean=3.737 max=5.907 s
+PROTOTYPE,      tree B (within on 20 helpers)  n=7 min=3.163 median=3.907 mean=3.878 max=4.468 s
+HEAD compiler,  tree A (no within)  [again]    n=7 min=3.274 median=3.408 mean=3.542 max=4.392 s
+PROTOTYPE,      tree A (no within)  [again]    n=7 min=3.377 median=3.606 mean=3.646 max=4.019 s

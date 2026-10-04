@@ -14,3 +14,4 @@ erlc -o $OUT $B/bench.erl
 mkdir -p $W/ex25 && PATH=/usr/bin:$PATH elixirc --erl "+debug_info" -o $W/ex25 $B/bench_ex.ex >/dev/null 2>&1 || PATH=/usr/bin:$PATH elixirc -o $W/ex25 $B/bench_ex.ex
 ls $W/ex25
 ls $OUT
+erlc -o $OUT $A/probes/bench2.erl

@@ -1,0 +1,32 @@
+# Elm 0.19.2 could not be exercised: package.elm-lang.org returns 403 through the proxy and ~/.elm has no cached packages,
+# so `elm make` stops before parsing. NOT REPRODUCED. (Result below is the failure itself, kept as evidence.)
+== -5 in a pattern
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+I am trying to fetch work in your browser? Maybe the site is down? Does your
+internet connection have a firewall that blocks certain domains? It is usually
+== arithmetic in a pattern
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+I am trying to fetch work in your browser? Maybe the site is down? Does your
+internet connection have a firewall that blocks certain domains? It is usually

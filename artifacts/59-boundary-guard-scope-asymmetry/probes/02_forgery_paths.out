@@ -1,0 +1,75 @@
+=== emitted guards (current bsc) ===
+'Inner'(O) when map_get('Kind', O) =:= 'Forge.Order' ->
+    map_get('Total', O).
+'Scale'(N) ->
+    N * 2.
+'ScaleO'(N) ->
+    N * 2.
+'Big'(N) when N >= 100 ->
+    big;
+'Big'(_N) ->
+    small.
+'SumAll'([], Acc) ->
+    Acc;
+'SumAll'([O | Rest], Acc) ->
+    'SumAll'(Rest, Acc + 'Inner'(O)).
+'Direct'(O) when map_get('Kind', O) =:= 'Forge.Order' ->
+    'Inner'(O).
+'Nested'(C) when map_get('Kind', C) =:= 'Forge.Cart' ->
+    'Inner'(map_get('Item', C)).
+'Field'(C) when map_get('Kind', C) =:= 'Forge.Cart' ->
+    'Scale'(map_get('Qty', C)).
+'Oct'(C) when map_get('Kind', C) =:= 'Forge.Cart' ->
+    'ScaleO'(map_get('Oct', C)).
+'FieldBig'(C) when map_get('Kind', C) =:= 'Forge.Cart' ->
+    'Big'(map_get('Qty', C)).
+'Sum'(C) when map_get('Kind', C) =:= 'Forge.Cart' ->
+    'SumAll'(map_get('Items', C), 0).
+'SumList'(Os) ->
+    'SumAll'(Os, 0).
+'Mapped'(Os) ->
+    lists:map(fun 'Inner'/1, Os).
+'Compare'(C) when map_get('Kind', C) =:= 'Forge.Cart' ->
+    case map_get('Qty', C) of
+        Bs@r1
+            when
+                is_integer(Bs@r1)
+                andalso
+                Bs@r1 >= 100 ->
+            big;
+        _ ->
+            small
+    end.
+'ViaInt'(N) when is_integer(N) ->
+    'Scale'(N).
+--- control: good values
+Direct(good)                       -> RETURNED 7  (silent)
+Nested(cart(good,..))              -> RETURNED 7  (silent)
+--- path 1: forged whole parameter (exported guard sees it)
+Direct(bad_tag)                    -> CRASH error:function_clause  in 'Forge':'Direct'/1
+Direct(no_tag)                     -> CRASH error:function_clause  in 'Forge':'Direct'/1
+--- path 2: forged record NESTED in the parameter
+Nested(cart(bad_tag,..))           -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Nested(cart(no_tag,..))            -> CRASH error:function_clause  in 'Forge':'Inner'/1
+--- path 3: forged int FIELD (1.5 / atom) into private Scale
+Field(cart(good,1.5))              -> RETURNED 3.0  (silent)
+Field(cart(good,foo))              -> CRASH error:badarith  in erlang:'*'/2
+--- path 3d: Octet-typed field (kind AND range) into private ScaleO(Octet)
+Oct(cart(..,Oct=5))  control       -> RETURNED 10  (silent)
+Oct(cart(..,Oct=300))              -> RETURNED 600  (silent)
+Oct(cart(..,Oct=1.5))              -> RETURNED 3.0  (silent)
+--- path 3b: forged int field into a private function that only compares
+FieldBig(cart(good,foo))           -> RETURNED big  (silent)
+FieldBig(cart(good,<<>>))          -> RETURNED big  (silent)
+--- path 4: forged element deep in list<Order>
+Sum(items=[good,bad_tag])          -> CRASH error:function_clause  in 'Forge':'Inner'/1
+SumList([good,bad_tag])            -> CRASH error:function_clause  in 'Forge':'Inner'/1
+--- path 4c: private fn passed as a value
+Mapped([good,bad_tag])             -> CRASH error:function_clause  in 'Forge':'Inner'/1
+--- path 3c: no private callee at all - projection hole independent of scope
+Compare(cart(good,foo))            -> RETURNED small  (silent)
+Compare(cart(good,1.5))            -> RETURNED small  (silent)
+--- path 5: plain exported int guard
+ViaInt(1.5)                        -> CRASH error:function_clause  in 'Forge':'ViaInt'/1
+--- private functions are not callable from outside
+Forge:'Inner'(bad_tag)             -> CRASH error:undef  in 'Forge':'Inner'/1

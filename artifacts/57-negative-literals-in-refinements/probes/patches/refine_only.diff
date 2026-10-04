@@ -1,0 +1,24 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-04 23:03:20.419280606 +0000
++++ src/bs_check.erl	2026-10-04 23:23:27.712576334 +0000
+@@ -1895,7 +1895,8 @@
+ %% Refinements and guards share `alternatives/1`; `value` names the whole type
+ %% at the empty path. Unreadable refinements must error: resolving to the base
+ %% would silently widen the declared type.
+-refine(Base, Pred, Line) ->
++refine(Base, Pred0, Line) ->
++    Pred = fold_neg(Pred0),
+     case alternatives(Pred) of
+         unknown -> erlang:error({opaque_refinement, Line});
+         Alts ->
+@@ -1914,6 +1915,11 @@
+             end
+     end.
+ 
++%% PROTOTYPE (proxy for "narrow it at the refinement site only"): fold -N before alternatives/1 reads it.
++fold_neg({e_neg, _, {e_int, L, N}}) -> {e_int, L, -N};
++fold_neg({e_op, L, Op, A, B}) -> {e_op, L, Op, fold_neg(A), fold_neg(B)};
++fold_neg(E) -> E.
++
+ %% One marker per descent; constructor components are siblings.
+ ctor(Seen) -> ['$ctor' | Seen].
+ 

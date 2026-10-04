@@ -1,0 +1,27 @@
+## with --src-root . (the normal way): declared Acme.Orders.Evil, sits in Acme/Evil
+Acme/Evil/Evil.bs:1:1: error: `module Acme.Orders.Evil` does not match its directory
+  this directory says `module Acme.Evil`
+  a module's declaration and its path are the same name written
+  twice, and 40 §1 makes the declaration the emitted ATOM \x{2014} so
+  when they disagree the atom and the tree have drifted apart.
+  Rename the directory, fix the declaration, or name the source
+  root with --src-root if this tree is rooted somewhere else.
+exit=1
+## without --src-root (default root = the module directory's parent, Acme/):
+Acme/Orders/Rules/Rules.bs:1:1: error: `module Acme.Orders.Rules` does not match its directory
+  this directory says `module Rules`
+  a module's declaration and its path are the same name written
+  twice, and 40 §1 makes the declaration the emitted ATOM \x{2014} so
+  when they disagree the atom and the tree have drifted apart.
+  Rename the directory, fix the declaration, or name the source
+  root with --src-root if this tree is rooted somewhere else.
+exit=1
+## and through the in-process API with no path at all (bs_check:check/2 -- what a test or the REPL uses): is Self trusted?
+check/2 on a pathless module declaring itself Acme.Orders.Evil -> {ok,
+                                                                   #{env =>
+                                                                      #{result =>
+                                                                         {parametric,
+                                                                          ['T'|...],
+                                                                          {...}},
+                                                                        foreign_error =>
+                                                                         #{lists =>

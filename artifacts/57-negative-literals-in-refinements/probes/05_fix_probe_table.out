@@ -1,0 +1,185 @@
+################ base
+--- 01 ticket table
+GeMinus5               refused(rc=1)
+GeMinus5AndLe5         refused(rc=1)
+Ge1OrLeMinus1          refused(rc=1)
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+--- 04 fold extent
+value >= 0 and value <= 255        accepted       
+value >= -5                        refused(rc=1)  error: this refinement is not a predicate the checker can read
+-5 <= value                        refused(rc=1)  error: this refinement is not a predicate the checker can read
+value > -5 and value < 5           refused(rc=1)  error: this refinement is not a predicate the checker can read
+value == -3                        refused(rc=1)  error: this refinement is not a predicate the checker can read
+value != -3                        refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 1 or value <= -1          refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 2 + 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -(5)                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= - -5                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= (-5)                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 0 - 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 2 * 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 10 / 2                    refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 7 % 4                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= n                         refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 5 - value                 refused(rc=1)  error: this refinement is not a predicate the checker can read
+value + 1 >= 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -5 and value <= -10       refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -5.0                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+--- 03 guard vs pattern
+GuardPos_Complete      accepted
+GuardNeg_Complete      refused(rc=1)
+GuardNeg_WithCatchAll  accepted
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ grammar
+--- 01 ticket table
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+--- 04 fold extent
+value >= 0 and value <= 255        accepted       
+value >= -5                        accepted       
+-5 <= value                        accepted       
+value > -5 and value < 5           accepted       
+value == -3                        refused(rc=1)  
+value != -3                        accepted       
+value >= 1 or value <= -1          accepted       
+value >= 2 + 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -(5)                      accepted       
+value >= - -5                      accepted       
+value >= (-5)                      accepted       
+value >= 0 - 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 2 * 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 10 / 2                    refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 7 % 4                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= n                         refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 5 - value                 refused(rc=1)  error: this refinement is not a predicate the checker can read
+value + 1 >= 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -5 and value <= -10       refused(rc=1)  error: this refinement admits no values at all
+value >= -5.0                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+--- 03 guard vs pattern
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ checker_min
+--- 01 ticket table
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+--- 04 fold extent
+value >= 0 and value <= 255        accepted       
+value >= -5                        accepted       
+-5 <= value                        accepted       
+value > -5 and value < 5           accepted       
+value == -3                        refused(rc=1)  
+value != -3                        accepted       
+value >= 1 or value <= -1          accepted       
+value >= 2 + 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -(5)                      accepted       
+value >= - -5                      accepted       
+value >= (-5)                      accepted       
+value >= 0 - 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 2 * 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 10 / 2                    refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 7 % 4                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= n                         refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 5 - value                 refused(rc=1)  error: this refinement is not a predicate the checker can read
+value + 1 >= 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -5 and value <= -10       refused(rc=1)  error: this refinement admits no values at all
+value >= -5.0                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+--- 03 guard vs pattern
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ checker_wide
+--- 01 ticket table
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+--- 04 fold extent
+value >= 0 and value <= 255        accepted       
+value >= -5                        accepted       
+-5 <= value                        accepted       
+value > -5 and value < 5           accepted       
+value == -3                        refused(rc=1)  
+value != -3                        accepted       
+value >= 1 or value <= -1          accepted       
+value >= 2 + 3                     accepted       
+value >= -(5)                      accepted       
+value >= - -5                      accepted       
+value >= (-5)                      accepted       
+value >= 0 - 5                     accepted       
+value >= 2 * 3                     accepted       
+value >= 10 / 2                    refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 7 % 4                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= n                         refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 5 - value                 refused(rc=1)  error: this refinement is not a predicate the checker can read
+value + 1 >= 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -5 and value <= -10       refused(rc=1)  error: this refinement admits no values at all
+value >= -5.0                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+--- 03 guard vs pattern
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo
+################ checker_full
+--- 01 ticket table
+GeMinus5               accepted
+GeMinus5AndLe5         accepted
+Ge1OrLeMinus1          accepted
+Le3OrGe10              accepted
+NeZero                 accepted
+Pattern_LeMinus1       accepted
+--- 04 fold extent
+value >= 0 and value <= 255        accepted       
+value >= -5                        accepted       
+-5 <= value                        accepted       
+value > -5 and value < 5           accepted       
+value == -3                        refused(rc=1)  
+value != -3                        accepted       
+value >= 1 or value <= -1          accepted       
+value >= 2 + 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -(5)                      accepted       
+value >= - -5                      accepted       
+value >= (-5)                      accepted       
+value >= 0 - 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 2 * 3                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 10 / 2                    refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 7 % 4                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= n                         refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= 5 - value                 refused(rc=1)  error: this refinement is not a predicate the checker can read
+value + 1 >= 5                     refused(rc=1)  error: this refinement is not a predicate the checker can read
+value >= -5 and value <= -10       refused(rc=1)  error: this refinement admits no values at all
+value >= -5.0                      refused(rc=1)  error: this refinement is not a predicate the checker can read
+--- 03 guard vs pattern
+GuardPos_Complete      accepted
+GuardNeg_Complete      accepted
+GuardNeg_WithCatchAll  accepted(output)
+PatternNeg_Complete    accepted
+PatternPos_Complete    accepted
+GuardNeg_RunsFine      accepted(output)
+    | :lo

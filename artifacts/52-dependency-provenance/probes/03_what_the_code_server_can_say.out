@@ -1,0 +1,27 @@
+ERL_LIBS=/tmp/p52/greeter_build/dev/lib:/tmp/p52/rlib_src/_build/default/lib:/tmp/p52/glib_src/build/dev/erlang
+-- check(App, Mod) = lib_dir then which
+  greeter      Elixir.Greeter           -> ok
+  greeter      Elixir.Greeter.Nope      -> {module_missing,greeter,
+                                            "/tmp/p52/greeter_build/dev/lib/greeter"}
+  req          Elixir.Req               -> {app_missing,req}
+  rlib         rlib_util                -> ok
+  glib         glib                     -> ok
+  stdlib       lists                    -> ok
+  kernel       lists                    -> ok
+  greeter      lists                    -> ok
+-- the other candidates, same inputs
+  application:load(greeter)   = ok
+  application:load(req)       = {error,
+                                    {"no such file or directory","req.app"}}
+  code:ensure_loaded(Greeter) = {module,'Elixir.Greeter'}
+  code:ensure_loaded(Req)     = {error,nofile}
+  code:ensure_loaded(Greeter.Nope) = {error,nofile}
+  code:lib_dir(greeter)       = "/tmp/p52/greeter_build/dev/lib/greeter"
+  code:lib_dir(req)           = {error,bad_name}
+  code:which(Greeter)         = "/tmp/p52/greeter_build/dev/lib/greeter/ebin/Elixir.Greeter.beam"
+  code:which(Req)             = non_existing
+-- side effects: is the module now LOADED by merely asking?
+  before which: false
+  after  which: false
+  after  ensure_loaded: true
+  application:loaded_applications has rlib: false

@@ -1,0 +1,35 @@
+################ base
+PosLit                 accepted(output)
+    | :other
+NegLit                 accepted(output)
+    | :hi
+NegLitCredited         accepted(output)
+    | :int_hi
+################ grammar
+PosLit                 accepted(output)
+    | :other
+NegLit                 accepted(output)
+    | :other
+NegLitCredited         accepted(output)
+    | :a
+################ checker_min
+PosLit                 accepted(output)
+    | :other
+NegLit                 accepted(output)
+    | :hi
+NegLitCredited         accepted(output)
+    | :int_hi
+################ checker_wide
+PosLit                 accepted(output)
+    | :other
+NegLit                 accepted(output)
+    | :hi
+NegLitCredited         accepted(output)
+    | :int_hi
+################ checker_full
+PosLit                 accepted(output)
+    | :other
+NegLit                 accepted(output)
+    | :other
+NegLitCredited         accepted(output)
+    | :a

@@ -1,0 +1,19 @@
+## baseline: Rules WITHOUT within, HEAD compiler
+exit=0
+## baseline v2: same line count, the line is a comment
+exit=0
+## prototype: Rules WITH within
+exit=0
+-rw-r--r-- 1 root root 952 Oct  4 23:15 /tmp/plain.beam
+-rw-r--r-- 1 root root 952 Oct  4 23:15 /tmp/within.beam
+## byte comparison
+IDENTICAL
+## chunks of the restricted module (attributes, exports) from the prototype build
+attributes=[{vsn,[219453645441650633527267560192747725355]}]
+exports=[{'Recompute',1},{bs@type_atoms,0},{module_info,0},{module_info,1}]
+
+## and an ordinary Erlang module that sits OUTSIDE the subtree calls it at run time (a compiled caller; no B# checker involved)
+outsider:go() = 60
+
+## and the REPL-style apply, no source at all:
+6

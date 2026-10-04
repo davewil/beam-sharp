@@ -1,0 +1,890 @@
+    align 8
+L23:
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# i_func_label_L
+    align 8
+label_1:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:start_link/0
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCB, 0x42, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+start_link/0:
+# i_breakpoint_trampoline
+    short jmp L25
+.db 0x90
+    call L26
+L25:
+# i_test_yield
+    lea rdx, qword ptr [start_link/0+24]
+    dec r14d
+    long jle L27
+    align 4
+# i_move_sd
+    mov qword ptr [rbx+16], 59
+# i_move_sd
+    mov qword ptr [rbx+8], 208011
+# i_move_sd
+    mov qword ptr [rbx+24], 59
+# i_move_sd
+L28:
+    long mov rdi, 9223372036854775807
+    mov qword ptr [rbx], rdi
+# i_call_ext_only_e
+L29:
+    long mov rax, 9223372036854775807
+    jmp qword ptr [rax+r12*8]
+# i_func_label_L
+    align 8
+label_3:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:register_handler/2
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8B, 0x13, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+register_handler/2:
+# i_breakpoint_trampoline
+    short jmp L30
+.db 0x90
+    call L26
+L30:
+# i_test_yield
+    lea rdx, qword ptr [register_handler/2+24]
+    dec r14d
+    long jle L27
+    align 4
+# test_heap_It
+    lea rdx, qword ptr [r15+64]
+    cmp rdx, rsp
+    short jbe L31
+    mov ecx, 2
+    call 139636653423200
+L31:
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 192
+# Move tuple data
+    mov qword ptr [r15+8], 37067
+# (moving two elements at once)
+    vmovups xmm0, xmmword ptr [rbx]
+    vmovups xmmword ptr [r15+16], xmm0
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 32
+    mov qword ptr [rbx+8], r10
+# i_move_sd
+    mov qword ptr [rbx], 208011
+# i_call_ext_only_e
+L32:
+    long mov rax, 9223372036854775807
+    jmp qword ptr [rax+r12*8]
+# i_func_label_L
+    align 8
+label_5:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:init/1
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x57, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+init/1:
+# i_breakpoint_trampoline
+    short jmp L33
+.db 0x90
+    call L26
+L33:
+# i_test_yield
+    lea rdx, qword ptr [init/1+24]
+    dec r14d
+    long jle L27
+    align 4
+# is_nil_fS
+    cmp byte ptr [rbx], 59
+    short jne label_5
+# allocate_tt
+    lea rdx, qword ptr [r15+32]
+    cmp rdx, rsp
+    short jbe L34
+    xor ecx, ecx
+.db 0x66, 0x90
+    call 139636653423200
+L34:
+# i_move_sd
+    mov qword ptr [rbx+8], 75
+# i_move_sd
+    mov qword ptr [rbx], 45387
+# line_I
+# call_light_bif_be
+    align 4
+L35:
+L36:
+    long mov rcx, 9223372036854775807
+    mov rax, 94068436092464
+    lea rdx, qword ptr [L35]
+# BIF: erlang:process_flag/2
+.db 0x0F, 0x1F, 0x00
+    call 139636653421952
+# i_move_sd
+L37:
+    long mov rdi, 9223372036854775807
+    mov qword ptr [rbx], rdi
+# deallocate_t
+# return
+    dec r14d
+    jl L38
+    ret
+# i_func_label_L
+    align 8
+label_7:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:handle_call/3
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0B, 0x59, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+handle_call/3:
+# i_breakpoint_trampoline
+    short jmp L39
+.db 0x90
+    call L26
+L39:
+# i_test_yield
+    lea rdx, qword ptr [handle_call/3+24]
+    dec r14d
+    long jle L27
+    align 4
+# i_is_tagged_tuple_fsAa
+    mov rsi, qword ptr [rbx]
+    rex test sil, 1
+    short jne label_7
+    cmp dword ptr [rsi-2], 192
+    short jne label_7
+    cmp qword ptr [rsi+6], 37067
+    short jne label_7
+# i_is_tagged_tuple_fsAa
+    mov rsi, qword ptr [rbx+16]
+    rex test sil, 1
+    short jne label_7
+    cmp dword ptr [rsi-2], 128
+    short jne label_7
+    cmp qword ptr [rsi+6], 84107
+    short jne label_7
+# allocate_tt
+    lea rdx, qword ptr [r15+48]
+    cmp rdx, rsp
+    short jbe L40
+    mov ecx, 3
+.db 0x0F, 0x1F, 0x00
+    call 139636653423200
+L40:
+    sub rsp, 16
+# i_move_sd
+    mov r10, qword ptr [rbx+16]
+    mov qword ptr [rsp], r10
+# i_move_sd
+    mov r11, qword ptr [rbx]
+    mov qword ptr [rsp+8], r11
+# load_tuple_ptr_s
+# simplified fetching of BEAM register
+    mov rsi, r11
+# i_get_tuple_element_sPS
+    mov rdx, qword ptr [rsi+22]
+    mov qword ptr [rbx+8], rdx
+# i_move_sd
+    mov qword ptr [rbx], 35211
+# line_I
+# call_light_bif_be
+    align 4
+L41:
+L42:
+    long mov rcx, 9223372036854775807
+    mov rax, 94068436086224
+    lea rdx, qword ptr [L41]
+# BIF: erlang:monitor/2
+.db 0x0F, 0x1F, 0x00
+    call 139636653421952
+# test_heap_It
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L43
+    mov ecx, 1
+    call 139636653423200
+L43:
+# load_tuple_ptr_s
+    mov rsi, qword ptr [rsp+8]
+# i_get_tuple_element_sPS
+    mov r10, qword ptr [rsi+14]
+    mov qword ptr [rbx+8], r10
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+# (moving and swapping two elements at once)
+    vpermilpd xmm0, xmmword ptr [rbx], 1
+    vmovups xmmword ptr [r15+8], xmm0
+# Create boxed ptr
+    lea r11, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx+24], r11
+# load_tuple_ptr_s
+    mov rsi, qword ptr [rsp]
+# i_get_tuple_element_sPS
+    mov rdx, qword ptr [rsi+14]
+    mov qword ptr [rbx+16], rdx
+# i_move_sd
+# skipped fetching of BEAM register
+    mov qword ptr [rbx], r10
+# i_move_sd
+    mov qword ptr [rbx+8], 31
+# i_move_sd
+# skipped fetching of BEAM register
+    mov qword ptr [rsp+8], rsi
+# i_trim_t
+    add rsp, 8
+# line_I
+# i_call_ext_e
+L44:
+    long mov rax, 9223372036854775807
+    call qword ptr [rax+r12*8]
+.db 0x66, 0x90
+    call qword ptr [rax+r12*8]
+# test_heap_It
+    lea rdx, qword ptr [r15+88]
+    cmp rdx, rsp
+    short jbe L45
+    mov ecx, 1
+    call 139636653423200
+L45:
+# update_record_aIsdI
+    mov rax, qword ptr [rsp]
+    mov rdi, rax
+    mov rsi, qword ptr [rbx]
+    cmp qword ptr [rdi+14], rsi
+    je L46
+    vmovups xmm0, [rax-2]
+    vmovups [r15], xmm0
+    mov rdi, qword ptr [rbx]
+    mov qword ptr [r15+16], rdi
+    lea rax, qword ptr [r15+2]
+    add r15, 24
+L46:
+    mov qword ptr [rbx], rax
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 192
+# Move tuple data
+    mov qword ptr [r15+8], 37323
+    mov qword ptr [r15+16], 32075
+# simplified fetching of BEAM register
+    mov rdi, rax
+    mov qword ptr [r15+24], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 32
+    mov qword ptr [rbx], r10
+# deallocate_t
+    add rsp, 8
+# return
+    dec r14d
+    jl L38
+    ret
+# i_func_label_L
+    align 8
+label_9:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:handle_cast/2
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8B, 0x5C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+handle_cast/2:
+# i_breakpoint_trampoline
+    short jmp L47
+.db 0x90
+    call L26
+L47:
+# i_test_yield
+    lea rdx, qword ptr [handle_cast/2+24]
+    dec r14d
+    long jle L27
+    align 4
+# test_heap_It
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L48
+    mov ecx, 2
+    call 139636653423200
+L48:
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov qword ptr [r15+8], 219531
+    mov rdi, qword ptr [rbx+8]
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# return
+    dec r14d
+    jl L38
+    ret
+# i_func_label_L
+    align 8
+label_11:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:handle_info/2
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCB, 0x5D, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+handle_info/2:
+# i_breakpoint_trampoline
+    short jmp L49
+.db 0x90
+    call L26
+L49:
+# i_test_yield
+    lea rdx, qword ptr [handle_info/2+24]
+    dec r14d
+    long jle L27
+    align 4
+# i_is_tagged_tuple_fsAa
+    mov rsi, qword ptr [rbx]
+    rex test sil, 1
+    jne label_16
+    cmp dword ptr [rsi-2], 320
+    jne label_16
+    cmp qword ptr [rsi+6], 1355
+    jne label_16
+# i_get_tuple_element_sPS
+    mov r10, qword ptr [rsi+22]
+    mov qword ptr [rbx+16], r10
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+# simplified compare of BEAM register
+    cmp r10, 35211
+    jne label_16
+# load_tuple_ptr_s
+# skipped fetching of BEAM register
+# i_get_tuple_element_sPS
+    mov r11, qword ptr [rsi+14]
+    mov qword ptr [rbx+16], r11
+# i_get_tuple_element_sPS
+    mov r10, qword ptr [rsi+38]
+    mov qword ptr [rbx], r10
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+# simplified compare of BEAM register
+    cmp r10, 40779
+    jne label_15
+# i_is_tagged_tuple_fsAa
+    mov rsi, qword ptr [rbx+8]
+    rex test sil, 1
+    jne label_16
+    cmp dword ptr [rsi-2], 128
+    jne label_16
+    cmp qword ptr [rsi+6], 84107
+    jne label_16
+# allocate_tt
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L50
+    mov ecx, 3
+.db 0x66, 0x90
+    call 139636653423200
+L50:
+    sub rsp, 24
+# init_yregs_I
+    mov qword ptr [rsp], 59
+# move_two_words_sdsd
+# (moving and swapping)
+    vpermilpd xmm0, xmmword ptr [rbx+8], 1
+    vmovups xmmword ptr [rsp+8], xmm0
+# load_tuple_ptr_s
+    mov rsi, qword ptr [rbx+8]
+# i_get_tuple_element_sPS
+    mov r10, qword ptr [rsi+14]
+    mov qword ptr [rbx+16], r10
+# i_move_sd
+    mov qword ptr [rbx+8], 47
+# i_move_sd
+    mov r11, qword ptr [rsp+8]
+    mov qword ptr [rbx], r11
+# line_I
+# i_call_ext_e
+L51:
+    long mov rax, 9223372036854775807
+    call qword ptr [rax+r12*8]
+.db 0x90
+    call qword ptr [rax+r12*8]
+# i_is_tagged_tuple_ff_ffsAa
+    mov rsi, qword ptr [rbx]
+    rex test sil, 1
+    jne label_14
+    mov rdi, qword ptr [rsi-2]
+    rex test dil, 63
+    jne label_14
+    cmp edi, 192
+    jne label_17
+    cmp qword ptr [rsi+6], 47179
+    jne label_17
+# i_get_tuple_element_sPS
+    mov r10, qword ptr [rsi+14]
+    mov qword ptr [rbx+8], r10
+# i_get_tuple_element_sPS
+    mov r11, qword ptr [rsi+22]
+    mov qword ptr [rsp], r11
+# i_is_tuple_of_arity_fsA
+# simplified fetching of BEAM register
+    mov rsi, r10
+    rex test sil, 1
+    jne label_17
+    cmp dword ptr [rsi-2], 128
+    jne label_17
+# i_get_tuple_element_sPS
+    mov rdx, qword ptr [rsi+14]
+    mov qword ptr [rbx+16], rdx
+# is_eq_exact_fss
+    mov rsi, qword ptr [rsp+8]
+# simplified fetching of BEAM register
+    mov rdi, rdx
+    cmp rdi, rsi
+    short je L52
+    mov eax, edi
+    or eax, esi
+    and al, 3
+    cmp al, 3
+    je label_17
+    mov rbp, rsp
+    lea rsp, qword ptr [rbx-64]
+    vzeroupper
+    call 94068436046416
+    mov rsp, rbp
+    test eax, eax
+    je label_17
+L52:
+# load_tuple_ptr_s
+    mov rsi, qword ptr [rbx+8]
+# i_get_tuple_element_sPS
+    mov r10, qword ptr [rsi+6]
+    mov qword ptr [rsp+8], r10
+# i_move_sd
+# skipped fetching of BEAM register
+    mov qword ptr [rbx], r10
+# line_I
+# i_call_ext_e
+L53:
+    long mov rax, 9223372036854775807
+    call qword ptr [rax+r12*8]
+.db 0x90
+    call qword ptr [rax+r12*8]
+# i_is_tagged_tuple_fsAa
+    mov rsi, qword ptr [rbx]
+    rex test sil, 1
+    jne label_13
+    cmp dword ptr [rsi-2], 128
+    jne label_13
+    cmp qword ptr [rsi+6], 32075
+    jne label_13
+# i_move_sd
+    mov r10, qword ptr [rsp+8]
+    mov qword ptr [rbx], r10
+# init_yregs_I
+    mov qword ptr [rsp+8], 59
+# line_I
+# i_call_ext_e
+L54:
+    long mov rax, 9223372036854775807
+    call qword ptr [rax+r12*8]
+.db 0x90
+    call qword ptr [rax+r12*8]
+# label_L
+label_13:
+# test_heap_It
+    lea rdx, qword ptr [r15+80]
+    cmp rdx, rsp
+    short jbe L55
+    xor ecx, ecx
+.db 0x0F, 0x1F, 0x00
+    call 139636653423200
+L55:
+# update_record_aIsdI
+    mov rax, qword ptr [rsp+16]
+    mov rdi, rax
+    mov rsi, qword ptr [rsp]
+    cmp qword ptr [rdi+14], rsi
+    je L56
+    vmovups xmm0, [rax-2]
+    vmovups [r15], xmm0
+    mov rdi, qword ptr [rsp]
+    mov qword ptr [r15+16], rdi
+    lea rax, qword ptr [r15+2]
+    add r15, 24
+L56:
+    mov qword ptr [rbx], rax
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov qword ptr [r15+8], 219531
+# simplified fetching of BEAM register
+    mov rdi, rax
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# deallocate_t
+    add rsp, 24
+# return
+    dec r14d
+    jl L38
+    ret
+# label_L
+label_14:
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+    cmp qword ptr [rbx], 11
+    jne label_17
+# test_heap_It
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L57
+    xor ecx, ecx
+.db 0x0F, 0x1F, 0x00
+    call 139636653423200
+L57:
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov qword ptr [r15+8], 219531
+    mov rdi, qword ptr [rsp+16]
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# deallocate_t
+    add rsp, 24
+# return
+    dec r14d
+    jl L38
+    ret
+# label_L
+label_15:
+# i_is_tagged_tuple_fsAa
+    mov rsi, qword ptr [rbx+8]
+    rex test sil, 1
+    jne label_16
+    cmp dword ptr [rsi-2], 128
+    jne label_16
+    cmp qword ptr [rsi+6], 84107
+    jne label_16
+# allocate_tt
+    lea rdx, qword ptr [r15+40]
+    cmp rdx, rsp
+    short jbe L58
+    mov ecx, 3
+.db 0x66, 0x90
+    call 139636653423200
+L58:
+    sub rsp, 8
+# i_move_sd
+    mov r10, qword ptr [rbx+8]
+    mov qword ptr [rsp], r10
+# load_tuple_ptr_s
+# simplified fetching of BEAM register
+    mov rsi, r10
+# i_get_tuple_element_sPS
+    mov r11, qword ptr [rsi+14]
+    mov qword ptr [rbx], r11
+# i_move_sd
+    mov qword ptr [rbx+8], 47
+# swap_dd
+# simplified fetching of BEAM register
+    mov rdi, r11
+    mov rsi, qword ptr [rbx+16]
+    mov qword ptr [rbx+16], rdi
+    mov qword ptr [rbx], rsi
+# line_I
+# i_call_ext_e
+L59:
+    long mov rax, 9223372036854775807
+    call qword ptr [rax+r12*8]
+.db 0x66, 0x90
+    call qword ptr [rax+r12*8]
+# test_heap_It
+    lea rdx, qword ptr [r15+80]
+    cmp rdx, rsp
+    short jbe L60
+    mov ecx, 1
+    call 139636653423200
+L60:
+# update_record_aIsdI
+    mov rax, qword ptr [rsp]
+    mov rdi, rax
+    mov rsi, qword ptr [rbx]
+    cmp qword ptr [rdi+14], rsi
+    je L61
+    vmovups xmm0, [rax-2]
+    vmovups [r15], xmm0
+    mov rdi, qword ptr [rbx]
+    mov qword ptr [r15+16], rdi
+    lea rax, qword ptr [r15+2]
+    add r15, 24
+L61:
+    mov qword ptr [rbx], rax
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov qword ptr [r15+8], 219531
+# simplified fetching of BEAM register
+    mov rdi, rax
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# deallocate_t
+    add rsp, 8
+# return
+    dec r14d
+    jl L38
+    ret
+# label_L
+label_16:
+# test_heap_It
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L62
+    mov ecx, 2
+.db 0x90
+    call 139636653423200
+L62:
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov qword ptr [r15+8], 219531
+    mov rdi, qword ptr [rbx+8]
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# return
+    dec r14d
+    jl L38
+    ret
+# label_L
+label_17:
+# line_I
+# case_end_s
+    mov rdi, qword ptr [rbx]
+    mov qword ptr [r13+112], rdi
+    mov qword ptr [r13+104], 7248
+    call L63
+# i_func_label_L
+    nop
+    align 8
+label_18:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:terminate/2
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCB, 0x53, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+terminate/2:
+# i_breakpoint_trampoline
+    short jmp L64
+.db 0x90
+    call L26
+L64:
+# i_test_yield
+    lea rdx, qword ptr [terminate/2+24]
+    dec r14d
+    long jle L27
+    align 4
+# i_move_sd
+    mov qword ptr [rbx], 32075
+# return
+    dec r14d
+    jl L38
+    ret
+# i_func_label_L
+    align 8
+label_20:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:module_info/0
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8B, 0x6C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+module_info/0:
+# i_breakpoint_trampoline
+    short jmp L65
+.db 0x90
+    call L26
+L65:
+# i_test_yield
+    lea rdx, qword ptr [module_info/0+24]
+    dec r14d
+    long jle L27
+    align 4
+# i_move_sd
+    mov qword ptr [rbx], 208011
+# allocate_tt
+    lea rdx, qword ptr [r15+32]
+    cmp rdx, rsp
+    short jbe L66
+    mov ecx, 1
+.db 0x90
+    call 139636653423200
+L66:
+# call_light_bif_be
+    align 4
+L67:
+L68:
+    long mov rcx, 9223372036854775807
+    mov rax, 94068435872048
+    lea rdx, qword ptr [L67]
+# BIF: erlang:get_module_info/1
+.db 0x0F, 0x1F, 0x00
+    call 139636653421952
+# deallocate_t
+# return
+    dec r14d
+    jl L38
+    ret
+# i_func_label_L
+    align 8
+label_22:
+# func_line_I
+# i_func_info_IaaI
+# logger_handler_watcher:module_info/1
+    call L24
+    nop
+    nop
+.db 0x00
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.db 0x8B, 0x2C, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x8B, 0x6C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+# aligned_label_Lt
+    align 4
+module_info/1:
+# i_breakpoint_trampoline
+    short jmp L69
+.db 0x90
+    call L26
+L69:
+# i_test_yield
+    lea rdx, qword ptr [module_info/1+24]
+    dec r14d
+    long jle L27
+    align 4
+# i_move_sd
+    mov r10, qword ptr [rbx]
+    mov qword ptr [rbx+8], r10
+# i_move_sd
+    mov qword ptr [rbx], 208011
+# allocate_tt
+    lea rdx, qword ptr [r15+32]
+    cmp rdx, rsp
+    short jbe L70
+    mov ecx, 2
+.db 0x66, 0x90
+    call 139636653423200
+L70:
+# call_light_bif_be
+    align 4
+L71:
+L72:
+    long mov rcx, 9223372036854775807
+    mov rax, 94068435873056
+    lea rdx, qword ptr [L71]
+# BIF: erlang:get_module_info/2
+.db 0x0F, 0x1F, 0x00
+    call 139636653421952
+# deallocate_t
+# return
+    dec r14d
+    jl L38
+    ret
+# int_code_end
+L73:
+    mov rbp, rsp
+    lea rsp, qword ptr [rbx-64]
+    vzeroupper
+    mov rdi, 94068440830267
+    call 94068434741248
+L63:
+    jmp 139636653427776
+L38:
+    jmp 139636653422960
+L27:
+    jmp 139636653426040
+L26:
+    jmp 139636653424496
+L24:
+    jmp 139636653424856
+.section .rodata {#1}
+line:
+.db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+.section .text {#0}
+.section .rodata {#1}
+attr:
+.db 0x83, 0x6C, 0x00, 0x00, 0x00, 0x02, 0x68, 0x02, 0x77, 0x03, 0x76, 0x73, 0x6E, 0x6C, 0x00, 0x00, 0x00, 0x01, 0x6E, 0x10, 0x00, 0x6B, 0x2B, 0x00, 0x78, 0x69, 0x74, 0x8E, 0xE4, 0x33, 0x5C, 0x09, 0xA5, 0x83, 0xD1, 0xAE, 0xB3, 0x6A, 0x68, 0x02, 0x77, 0x09, 0x62, 0x65, 0x68, 0x61, 0x76, 0x69, 0x6F, 0x75, 0x72, 0x6C, 0x00, 0x00, 0x00, 0x01, 0x77, 0x0A, 0x67, 0x65, 0x6E, 0x5F, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x6A, 0x6A
+.section .text {#0}
+.section .rodata {#1}
+compile:
+.db 0x83, 0x6C, 0x00, 0x00, 0x00, 0x03, 0x68, 0x02, 0x77, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6F, 0x6E, 0x6B, 0x00, 0x05, 0x38, 0x2E, 0x36, 0x2E, 0x31, 0x68, 0x02, 0x77, 0x07, 0x6F, 0x70, 0x74, 0x69, 0x6F, 0x6E, 0x73, 0x6C, 0x00, 0x00, 0x00, 0x06, 0x77, 0x0A, 0x64, 0x65, 0x62, 0x75, 0x67, 0x5F, 0x69, 0x6E, 0x66, 0x6F, 0x68, 0x02, 0x77, 0x01, 0x69, 0x6B, 0x00, 0x28, 0x2F, 0x62, 0x75, 0x69, 0x6C, 0x64, 0x72, 0x6F, 0x6F, 0x74, 0x2F, 0x6F, 0x74, 0x70, 0x2F, 0x6C, 0x69, 0x62, 0x2F, 0x6B, 0x65, 0x72, 0x6E, 0x65, 0x6C, 0x2F, 0x73, 0x72, 0x63, 0x2F, 0x2E, 0x2E, 0x2F, 0x69, 0x6E, 0x63, 0x6C, 0x75, 0x64, 0x65, 0x77, 0x19, 0x77, 0x61, 0x72, 0x6E, 0x5F, 0x6D, 0x69, 0x73, 0x73, 0x69, 0x6E, 0x67, 0x5F, 0x64, 0x6F, 0x63, 0x5F, 0x66, 0x75, 0x6E, 0x63, 0x74, 0x69, 0x6F, 0x6E, 0x77, 0x19, 0x77, 0x61, 0x72, 0x6E, 0x5F, 0x6D, 0x69, 0x73, 0x73, 0x69, 0x6E, 0x67, 0x5F, 0x64, 0x6F, 0x63, 0x5F, 0x63, 0x61, 0x6C, 0x6C, 0x62, 0x61, 0x63, 0x6B, 0x77, 0x1C, 0x77, 0x61, 0x72, 0x6E, 0x5F, 0x6D, 0x69, 0x73, 0x73, 0x69, 0x6E, 0x67, 0x5F, 0x73, 0x70, 0x65, 0x63, 0x5F, 0x64, 0x6F, 0x63, 0x75, 0x6D, 0x65, 0x6E, 0x74, 0x65, 0x64, 0x77, 0x15, 0x77, 0x61, 0x72, 0x6E, 0x5F, 0x64, 0x65, 0x70, 0x72, 0x65, 0x63, 0x61, 0x74, 0x65, 0x64, 0x5F, 0x63, 0x61, 0x74, 0x63, 0x68, 0x6A, 0x68, 0x02, 0x77, 0x06, 0x73, 0x6F, 0x75, 0x72, 0x63, 0x65, 0x6B, 0x00, 0x38, 0x2F, 0x62, 0x75, 0x69, 0x6C, 0x64, 0x72, 0x6F, 0x6F, 0x74, 0x2F, 0x6F, 0x74, 0x70, 0x2F, 0x6C, 0x69, 0x62, 0x2F, 0x6B, 0x65, 0x72, 0x6E, 0x65, 0x6C, 0x2F, 0x73, 0x72, 0x63, 0x2F, 0x6C, 0x6F, 0x67, 0x67, 0x65, 0x72, 0x5F, 0x68, 0x61, 0x6E, 0x64, 0x6C, 0x65, 0x72, 0x5F, 0x77, 0x61, 0x74, 0x63, 0x68, 0x65, 0x72, 0x2E, 0x65, 0x72, 0x6C, 0x6A
+.section .text {#0}
+.section .rodata {#1}
+md5:
+.db 0xB3, 0xAE, 0xD1, 0x83, 0xA5, 0x09, 0x5C, 0x33, 0xE4, 0x8E, 0x74, 0x69, 0x78, 0x00, 0x2B, 0x6B
+.section .text {#0}

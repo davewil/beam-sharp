@@ -1,0 +1,128 @@
+    call L25
+    nop
+    nop
+.db ADDR
+.db ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
+.db ADDRB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, 0xCB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
+# aligned_label_Lt
+    align 4
+spin/4:
+# i_breakpoint_trampoline
+    short jmp L36
+.db ADDR
+    call L27
+L36:
+# i_test_yield
+    lea rdx, qword ptr [spin/4+24]
+    dec r14d
+    long jle L28
+    align 4
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+    cmp qword ptr [rbx+16], 15
+    jne L
+# test_heap_It
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L37
+    mov ecx, 4
+.db ADDR
+    call 139636653423200
+L37:
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov rdi, qword ptr [rbx]
+    mov qword ptr [r15+8], rdi
+    mov rdi, qword ptr [rbx+24]
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# return
+    dec r14d
+    jl L34
+    ret
+# label_L
+L:
+# allocate_tt
+    lea rdx, qword ptr [r15+64]
+    cmp rdx, rsp
+    short jbe L38
+    mov ecx, 4
+.db ADDR
+    call 139636653423200
+L38:
+    sub rsp, 32
+# init_yregs_I
+    mov qword ptr [rsp], 59
+# move_two_words_sdsd
+# (moving and swapping)
+    vpermilpd xmm0, xmmword ptr [rbx+16], 1
+    vmovups xmmword ptr [rsp+8], xmm0
+# i_move_sd
+    mov r10, qword ptr [rbx+8]
+    mov qword ptr [rsp+24], r10
+# line_I
+# i_plus_ssjd
+# add without overflow check
+    mov rax, qword ptr [rbx]
+# simplified fetching of BEAM register
+    mov rsi, r10
+    lea rax, qword ptr [rax+rsi-15]
+    mov qword ptr [rbx], rax
+# i_call_f
+.db ADDRF, ADDRF, ADDR
+    call wrap/1
+# line_I
+# i_minus_ssjd
+    mov rsi, qword ptr [rsp+16]
+    mov edx, 31
+# is the operand small?
+    mov eax, esi
+    and al, 15
+    cmp al, 15
+    short jne L40
+    mov rax, rsi
+    sub rax, 16
+    short jno L39
+L40:
+    call L41
+L39:
+    mov qword ptr [rsp+16], rax
+# i_move_sd
+    mov r10, qword ptr [rbx]
+    mov qword ptr [rsp], r10
+# i_call_f
+.db ADDRF, ADDRF, ADDR
+    call hit/1
+# i_plus_ssjd
+    mov rsi, qword ptr [rsp+8]
+    mov rdx, qword ptr [rbx]
+# simplified test for small operands since both are numbers
+    rex test sil, 1
+    short je L43
+    lea rax, qword ptr [rsi-15]
+    add rax, rdx
+    short jno L42
+L43:
+    call L44
+L42:
+    mov qword ptr [rbx+24], rax
+# move_two_words_sdsd
+# (moving and swapping)
+    vpermilpd xmm0, xmmword ptr [rsp+16], 1
+    vmovups xmmword ptr [rbx+8], xmm0
+# i_move_sd
+    mov r10, qword ptr [rsp]
+    mov qword ptr [rbx], r10
+# i_call_last_ft
+    add rsp, 32
+    jmp spin/4
+# i_func_label_L
+    align 8
+L:
+# func_line_I
+# i_func_info_IaaI

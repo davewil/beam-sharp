@@ -1,0 +1,31 @@
+### run 1: full suite on the prototype copy (ambient locale, no ../aoc)  -- wall: real	8m8.516s
+  body_check_tests: every_aoc_program_still_compiles_test...*failed*
+  cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each...*failed*
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test...*failed*
+  non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test...*failed*
+  Failed: 4.  Skipped: 0.  Passed: 1305.
+
+### the four failures' causes, verbatim from the log
+         {expression,"length ( Dirs ) >= 3"},
+         {expected,true},
+              {expression,"read_result ( Results , \"utf\" , \"stdout\" )"},
+              {expected,"\"héllo\"\n"},
+                 {expression,"string : find ( Out , \"café.bs\\\"\" )"},
+                 {value,nomatch}]}
+              {expression,"Advice"},
+              {expected,"$\"café/{s}\""},
+
+### run 2: four modules + within_tests, LANG=C.UTF-8, /tmp/aoc -> repo aoc
+  within_tests: no_within_means_anyone_may_name_it_test...[0.542 s] ok
+  within_tests: a_sibling_is_refused_at_its_using_line_test...[0.526 s] ok
+  within_tests: the_parent_and_a_descendant_may_name_it_test...[0.973 s] ok
+  within_tests: acme_ordersextra_is_not_inside_acme_orders_test...[0.577 s] ok
+  within_tests: a_within_that_does_not_contain_its_own_module_is_refused_test...[0.467 s] ok
+  All 119 tests passed.
+
+### run 3: same four modules, UNPATCHED HEAD copy, ambient locale, no aoc
+  cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each...*failed*
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test...*failed*
+  non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test...*failed*
+  body_check_tests: every_aoc_program_still_compiles_test...*failed*
+  Failed: 4.  Skipped: 0.  Passed: 110.

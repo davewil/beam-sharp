@@ -1,0 +1,24 @@
+### (1) attribute form on the Day01 benchmark, vs +inline, vs default (interleaved, 100 rounds, x2)
+impl             min ms   med ms   p90 ms   max ms min/bes
+plain             16.68    20.97    34.73   100.50  1.548x
+attr_inline       10.78    13.57    23.36   102.72  1.000x
+listed_inline     10.80    13.78    23.10    54.47  1.003x
+gleam             10.83    13.70    28.09    75.49  1.005x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+plain             16.71    21.80    34.40    50.26  1.551x
+attr_inline       10.78    14.18    21.28    51.04  1.000x
+listed_inline     10.81    12.99    20.22    59.59  1.003x
+gleam             10.86    13.54    20.27    60.91  1.008x
+
+### (2) corpus cost: compile every compiler/examples module that bsc accepts, then erlc the .abstr with/without +inline
+modules built by bsc: 21
+22
+plain rep1 compile wall=10.106541135s
+plain rep2 compile wall=10.985622331s
+plain rep3 compile wall=10.352799490s
+plain total beam bytes: 27400 (files: 22)
+inline rep1 compile wall=10.319462401s
+inline rep2 compile wall=10.121925602s
+inline rep3 compile wall=10.366484075s
+inline total beam bytes: 27656 (files: 22)

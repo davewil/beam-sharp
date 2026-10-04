@@ -1,0 +1,14 @@
+module Shop.Orders
+
+using Shop.Orders.Totals
+
+// client API
+public int Apply(list<int> lines)
+Apply(lines) -> Recompute(lines)
+
+// same module, never needed elsewhere: private is the default, so no keyword at all
+int Discount(int x)
+Discount(x) -> x - 1
+
+public int Net(int x)
+Net(x) -> Discount(x)

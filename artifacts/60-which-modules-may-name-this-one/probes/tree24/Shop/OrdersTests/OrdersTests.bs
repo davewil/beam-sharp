@@ -1,0 +1,11 @@
+module Shop.OrdersTests
+
+using Shop.Orders
+using Shop.Orders.Totals
+
+// what an agent writing tests in a loop reaches for
+public int T1()
+T1() -> Recompute([1, 2, 3])
+
+public int T2()
+T2() -> Discount(5)

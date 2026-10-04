@@ -1,0 +1,73 @@
+== type T = int where value >= -5
+{ok,[{module,{1,1},'M'},
+     {type_refined,{2,1},
+                   'T',
+                   {t_builtin,int},
+                   {e_op,{2,26},
+                         '>=',
+                         {e_var,{2,20},value},
+                         {e_neg,{2,29},{e_int,{2,30},5}}}}]}
+== type T = int where value >= 2 + 3
+{ok,[{module,{1,1},'M'},
+     {type_refined,{2,1},
+                   'T',
+                   {t_builtin,int},
+                   {e_op,{2,26},
+                         '>=',
+                         {e_var,{2,20},value},
+                         {e_op,{2,31},
+                               '+',
+                               {e_int,{2,29},2},
+                               {e_int,{2,33},3}}}}]}
+== type T = int where value >= -(5)
+{ok,[{module,{1,1},'M'},
+     {type_refined,{2,1},
+                   'T',
+                   {t_builtin,int},
+                   {e_op,{2,26},
+                         '>=',
+                         {e_var,{2,20},value},
+                         {e_neg,{2,29},{e_int,{2,31},5}}}}]}
+== type T = int where value >= - -5
+{ok,[{module,{1,1},'M'},
+     {type_refined,{2,1},
+                   'T',
+                   {t_builtin,int},
+                   {e_op,{2,26},
+                         '>=',
+                         {e_var,{2,20},value},
+                         {e_neg,{2,29},{e_neg,{2,31},{e_int,{2,32},5}}}}}]}
+== type T = int where value >= -5.0
+{ok,[{module,{1,1},'M'},
+     {type_refined,{2,1},
+                   'T',
+                   {t_builtin,int},
+                   {e_op,{2,26},
+                         '>=',
+                         {e_var,{2,20},value},
+                         {e_float,{2,30},-5.0}}}]}
+== pattern: Sign(<= -1) and Sign(-1)
+{ok,[{module,{1,1},'M'},
+     {signature,{2,13},
+                'Sign',
+                {t_builtin,atom},
+                [{param,{t_builtin,int},n}],
+                public,[]},
+     {clause,{3,1},'Sign',[{p_rel,{3,6},'<=',-1}],none,{e_atom,{3,16},neg}},
+     {clause,{4,1},'Sign',[{p_int,{4,6},-1}],none,{e_atom,{4,13},m1}}]}
+== guard: when n >= -5
+{ok,[{module,{1,1},'M'},
+     {signature,{2,13},
+                'Sign',
+                {t_builtin,atom},
+                [{param,{t_builtin,int},n}],
+                public,[]},
+     {clause,{3,1},
+             'Sign',
+             [{p_var,{3,6},n}],
+             {guard,{e_op,{3,16},
+                          '>=',
+                          {e_var,{3,14},n},
+                          {e_neg,{3,19},{e_int,{3,20},5}}}},
+             {e_atom,{3,25},a}},
+     {clause,{4,1},'Sign',[{p_wild,{4,6}}],none,{e_atom,{4,12},b}}]}

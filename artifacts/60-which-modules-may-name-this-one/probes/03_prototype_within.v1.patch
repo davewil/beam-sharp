@@ -1,0 +1,169 @@
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_check.erl c60a/src/bs_check.erl
+--- c60/src/bs_check.erl	2026-10-04 23:03:20.000000000 +0000
++++ c60a/src/bs_check.erl	2026-10-04 23:11:46.509861269 +0000
+@@ -10,7 +10,7 @@
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+--export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
++-export([within_of/1, exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
+ %% The emitter publishes polymorphic signatures under the erased environment.
+ -export([polys_of/2, erased_env/2, type_source/1]).
+ %% F64: which records implement a protocol, for a dependent's World entry, and
+@@ -342,8 +342,16 @@
+     module_matches_path(Self, Sources, Expect),
+     name_redeclared(Decls),
+     private_callback(Decls),
++    within_encloses_self(Self, Decls),
+     {Imports, Env}.
+ 
++within_encloses_self(Self, Decls) ->
++    [case at_or_under(Self, P) of
++         true  -> ok;
++         false -> erlang:error({within_not_enclosing, Self, P, L})
++     end || {within, L, P} <- Decls],
++    ok.
++
+ %% `private_of/1` distinguishes private callees from unknown names in
+ %% cross-module diagnostics.
+ exports_of(Decls) -> exports_of(Decls, #{}).
+@@ -473,6 +481,23 @@
+     lists:sort([M || {M, Entry} <- maps:to_list(World),
+                      maps:is_key(N, maps:get(types, Entry, #{}))]).
+ 
++within_of(Decls) ->
++    case [M || {within, _, M} <- Decls] of
++        [M | _] -> M;
++        []      -> none
++    end.
++
++%% PROTOTYPE (ticket 60): `Self` is at or under `Prefix` in the dotted path.
++at_or_under(Self, Prefix) ->
++    S = atom_to_list(Self), P = atom_to_list(Prefix),
++    S =:= P orelse lists:prefix(P ++ ".", S).
++
++visible_to(Self, Entry) ->
++    case maps:get(within, Entry, none) of
++        none   -> true;
++        Prefix -> at_or_under(Self, Prefix)
++    end.
++
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+                                        V =/= public],
+@@ -496,14 +521,21 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case Mode =:= strict andalso not visible_to(Self, maps:get(M, World)) of
++                true  -> erlang:error({not_visible_here, M, maps:get(within, maps:get(M, World)), Self, L});
++                false -> add_module_import(M, World, Acc)
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    [erlang:error({not_visible_here, C, maps:get(within, maps:get(C, World)), Self, L})
++                     || Mode =:= strict, C <- Children, not visible_to(Self, maps:get(C, World))],
++                    add_namespace_import(M, Children, Acc)
+             end
+     end.
+ 
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_diag.erl c60a/src/bs_diag.erl
+--- c60/src/bs_diag.erl	2026-10-04 23:03:20.000000000 +0000
++++ c60a/src/bs_diag.erl	2026-10-04 23:11:46.512960479 +0000
+@@ -649,6 +649,12 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible_here, Mod, Within, Self, Line}) ->
++    #{tag => not_visible_here, severity => error, file => Path, line => Line,
++      module => Mod, within => Within, caller => Self};
++built(Path, {within_not_enclosing, Self, Within, Line}) ->
++    #{tag => within_not_enclosing, severity => error, file => Path, line => Line,
++      module => Self, within => Within};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2032,16 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible_here, file := P, line := L, column := C, module := Mod,
++          within := W, caller := Self}) ->
++    {"~s:~p:~p: error: `using ~s` -- ~s is declared `within ~s`, and ~s is outside it~n"
++     "  only modules at or under ~s may name ~s. Move this module under ~s,~n"
++     "  or reach the behaviour through a public module that is not restricted.~n",
++     [P, L, C, Mod, Mod, W, Self, W, Mod, W]};
++message(#{tag := within_not_enclosing, file := P, line := L, column := C, module := Mod, within := W}) ->
++    {"~s:~p:~p: error: `within ~s` does not contain ~s itself~n"
++     "  a module can only be restricted to a subtree it is part of.~n",
++     [P, L, C, W, Mod]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_lexer.xrl c60a/src/bs_lexer.xrl
+--- c60/src/bs_lexer.xrl	2026-09-30 23:03:17.000000000 +0000
++++ c60a/src/bs_lexer.xrl	2026-10-04 23:11:46.500379058 +0000
+@@ -42,6 +42,7 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++within                  : {token, {'within', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_parser.yrl c60a/src/bs_parser.yrl
+--- c60/src/bs_parser.yrl	2026-09-30 23:03:17.000000000 +0000
++++ c60a/src/bs_parser.yrl	2026-10-04 23:11:46.504522750 +0000
+@@ -20,12 +20,12 @@
+   guard guard_expr
+   body binding
+   expr expr_low expr_list elist_items assign_fields assign_field
+-  switch_arms switch_arm modpath using_decl visibility call
++  switch_arms switch_arm modpath using_decl within_decl visibility call
+   block_clauses block_clause implements_decl impl_clauses impl_for
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'within' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -103,6 +103,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> within_decl : '$1'.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+@@ -184,6 +185,10 @@
+ %% by the token class of what follows `using` (ticket 41 §1).
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
+ 
++%% PROTOTYPE (ticket 60): `within Acme.Orders` -- this module may be named only by
++%% modules at or under Acme.Orders.
++within_decl -> 'within' modpath : {within, line('$1'), modatom('$2')}.
++
+ %% --- module -----------------------------------------------------------------
+ %% A module's atom is its full dotted path, because a record tag is minted as
+ %% `Mod.Name` and only a unique module keeps two contexts from minting the
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bsc.erl c60a/src/bsc.erl
+--- c60/src/bsc.erl	2026-09-30 23:03:17.000000000 +0000
++++ c60a/src/bsc.erl	2026-10-04 23:11:46.504793815 +0000
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     within => bs_check:within_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to

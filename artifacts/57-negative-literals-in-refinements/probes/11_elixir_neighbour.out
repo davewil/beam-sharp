@@ -1,0 +1,15 @@
+== quoted forms: -5 is a unary-op call, not a literal (pattern and expr alike)
+-5   =>   {:-, [line: 1], [5]}
+case x do -5 -> 1 end   =>   {:case, [line: 1], [{:x, [line: 1], nil}, [do: [{:->, [line: 1], [[{:-, [line: 1], [5]}], 1]}]]]}
+x when x >= -5   =>   {:when, [line: 1], [{:x, [line: 1], nil}, {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}]}
+-5..5   =>   {:.., [line: 1], [{:-, [line: 1], [5]}, 5]}
+2+3   =>   {:+, [line: 1], [2, 3]}
+@spec f(-5..5) :: :ok   =>   {:@, [line: 1], [{:spec, [line: 1], [{:"::", [line: 1], [{:f, [line: 1], [{:.., [line: 1], [{:-, [line: 1], [5]}, 5]}]}, :ok]}]}]}
+== Does -5 work in a pattern, a guard, a range pattern, an expression-folded pattern?
+{:m5, :lt, :in, :out}
+== arithmetic in a pattern separately (Elixir refuses it?)
+** (CompileError) u.exs:2: cannot invoke remote function :erlang.+/2 inside a match
+    u.exs:2: (module)
+== typespec -5..5
+:ok
+(Only .beam files ship in /usr/lib/elixir: no Elixir source was opened, so no file:line is cited for Elixir.)

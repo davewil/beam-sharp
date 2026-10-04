@@ -1,0 +1,18 @@
+mix (Elixir.Greeter)               attributes=[{vsn,
+                                                [255247398401022664291327355526457229070]}]
+                                   compile_info keys=[version,options,source]
+rebar3 (rlib)                      attributes=[{vsn,
+                                                [190760155955540134891442915726545488763]}]
+                                   compile_info keys=[version,options,source]
+gleam (glib)                       attributes=[{vsn,
+                                                [231381844145463183024006955767151891037]}]
+                                   compile_info keys=[version,options,source]
+bsc (Greet)                        attributes=[{vsn,
+                                                [21941368426982766399039952340137857456]}]
+                                   compile_info keys=[version,options,source]
+OTP (lists)                        attributes=[{dialyzer,
+                                                [{no_improper_lists,
+                                                  {ukeymergel,3}}]},
+                                               {vsn,
+                                                [240263876699130509858159049952991224190]}]
+                                   compile_info keys=[version,options,source]

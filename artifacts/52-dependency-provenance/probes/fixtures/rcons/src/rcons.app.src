@@ -1,0 +1,6 @@
+{application, rcons,
+ [{description, "calls crypto but does NOT list it; lists nonesuch which does not exist"},
+  {vsn, "0.1.0"},
+  {modules, []},
+  {registered, []},
+  {applications, [kernel, stdlib, nonesuch]}]}.

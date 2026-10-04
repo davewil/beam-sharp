@@ -1,0 +1,6 @@
+PosLit                 accepted(output)
+    | :other
+NegLit                 accepted(output)
+    | :hi
+NegLitCredited         accepted(output)
+    | :int_hi

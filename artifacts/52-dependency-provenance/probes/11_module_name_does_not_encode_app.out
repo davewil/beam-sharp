@@ -1,0 +1,11 @@
+Elixir 1.14 installed apps: 6 apps, 422 modules; first-segment guess right for 168 (39.8%)
+  wrong, per app: [{elixir,253},{mix,1}]
+  the guess maps Elixir.String -> string, Elixir.Enum -> enum; both live in app elixir
+OTP 28 apps: 29 apps, 890 modules; module==app or app_ prefix right for 311 (34.9%)
+  apps where the guess fails for >=1 module (count): 18 of 29
+  worst: [{kernel,100},
+          {stdlib,95},
+          {snmp,66},
+          {compiler,60},
+          {inets,57},
+          {common_test,46}]

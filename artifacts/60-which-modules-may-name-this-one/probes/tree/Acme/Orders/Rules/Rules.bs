@@ -1,0 +1,6 @@
+module Acme.Orders.Rules
+
+// A helper: neither client API nor callback (ticket 24 §2's `unclassified`).
+public int Recompute(list<int> lines)
+Recompute([]) -> 0
+Recompute([x, ..rest]) -> x + Recompute(rest)

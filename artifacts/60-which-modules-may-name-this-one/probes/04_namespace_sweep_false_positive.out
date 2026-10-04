@@ -1,0 +1,5 @@
+## v1 (refuse any swept child): Dash never names Rules
+Acme/Dash/Dash.bs:4:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.Dash is outside it
+  only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
+  or reach the behaviour through a public module that is not restricted.
+exit=1

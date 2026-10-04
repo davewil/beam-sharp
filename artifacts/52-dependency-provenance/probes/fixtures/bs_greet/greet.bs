@@ -1,0 +1,9 @@
+module Greet
+
+using :'Elixir.Greeter' {
+    binary hello(binary name)
+}
+
+public binary Hi(binary n)
+
+Hi(n) -> :'Elixir.Greeter'.hello(n)

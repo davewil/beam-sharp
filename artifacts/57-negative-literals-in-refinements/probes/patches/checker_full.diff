@@ -1,0 +1,61 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-04 23:03:20.419280606 +0000
++++ src/bs_check.erl	2026-10-04 23:16:11.091847581 +0000
+@@ -6,7 +6,7 @@
+ 
+ -module(bs_check).
+ 
+--export([check/1, check/2]).
++-export([const_int/1, check/1, check/2]).
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+@@ -2871,6 +2871,7 @@
+ %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
++type_of({e_neg, _, {e_int, _, N}}, _S, _C) -> {bs_types:range(-N, -N), []};
+ type_of({e_neg, L, E}, S, C) ->
+     {Ty, D} = type_of(E, S, C),
+     case operand_verdict(Ty, C) of
+@@ -4946,8 +4947,10 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) when element(1, R) =/= e_atom ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when element(1, L) =/= e_atom ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -4955,6 +4958,11 @@
+ comparison(_) ->
+     unknown.
+ 
++%% PROTOTYPE: a comparand is a constant integer if it is a literal or a negated one.
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_neg, _, E}) -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-04 23:03:20.423280606 +0000
++++ src/bs_emit.erl	2026-10-04 23:16:11.094012190 +0000
+@@ -703,10 +703,10 @@
+ 
+ kind_expr({e_op, L, Op, A, B}, Skip) when Op =:= 'and'; Op =:= 'or' ->
+     {e_op, L, Op, kind_expr(A, Skip), kind_expr(B, Skip)};
+-kind_expr(E = {e_op, L, Op, {e_var, _, V}, {e_int, _, _}}, Skip) ->
+-    ordering(E, Op, V, L, Skip);
+-kind_expr(E = {e_op, L, Op, {e_int, _, _}, {e_var, _, V}}, Skip) ->
+-    ordering(E, Op, V, L, Skip);
++kind_expr(E = {e_op, L, Op, {e_var, _, V}, R}, Skip) when element(1, R) =/= e_atom ->
++    case bs_check:const_int(R) of {ok, _} -> ordering(E, Op, V, L, Skip); error -> E end;
++kind_expr(E = {e_op, L, Op, R, {e_var, _, V}}, Skip) when element(1, R) =/= e_atom ->
++    case bs_check:const_int(R) of {ok, _} -> ordering(E, Op, V, L, Skip); error -> E end;
+ kind_expr(E, _Skip) ->
+     E.
+ 

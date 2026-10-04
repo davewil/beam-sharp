@@ -1,0 +1,139 @@
+    call L19
+    nop
+    nop
+.db ADDR
+.db ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
+.db 0xCB, ADDRB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, 0xCB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
+# aligned_label_Lt
+    align 4
+spin/4:
+# i_breakpoint_trampoline
+    short jmp L20
+.db ADDR
+    call L21
+L20:
+# i_test_yield
+    lea rdx, qword ptr [spin/4+24]
+    dec r14d
+    long jle L22
+    align 4
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+    cmp qword ptr [rbx+16], 15
+    jne L
+# test_heap_It
+    lea rdx, qword ptr [r15+56]
+    cmp rdx, rsp
+    short jbe L23
+    mov ecx, 4
+.db ADDR
+    call 139636653423200
+L23:
+# put_tuple2_SA
+# Move arity word
+    mov qword ptr [r15], 128
+# Move tuple data
+    mov rdi, qword ptr [rbx]
+    mov qword ptr [r15+8], rdi
+    mov rdi, qword ptr [rbx+24]
+    mov qword ptr [r15+16], rdi
+# Create boxed ptr
+    lea r10, qword ptr [r15+2]
+    add r15, 24
+    mov qword ptr [rbx], r10
+# return
+    dec r14d
+    jl L24
+    ret
+# label_L
+L:
+# line_I
+# i_plus_ssjd
+# add without overflow check
+    mov rax, qword ptr [rbx]
+    mov rsi, qword ptr [rbx+8]
+    lea rax, qword ptr [rax+rsi-15]
+    mov qword ptr [rbx], rax
+# line_I
+# i_rem_ssjd
+# skipped fetching of BEAM register
+# skipped test for small dividend since it is always small
+# divide with inlined code
+    mov r9, 100
+    sar rax, 4
+    cqo
+    idiv r9
+    sal rdx, 4
+    or rdx, 15
+L25:
+L26:
+    mov qword ptr [rbx], rdx
+# i_plus_ssjd
+# add without overflow check
+# simplified fetching of BEAM register
+    mov rax, rdx
+    add rax, 1600
+    mov qword ptr [rbx], rax
+# i_rem_ssjd
+# skipped fetching of BEAM register
+# skipped test for small dividend since it is always small
+# divide with inlined code
+    mov r9, 100
+    sar rax, 4
+    cqo
+    idiv r9
+    sal rdx, 4
+    or rdx, 15
+L27:
+L28:
+    mov qword ptr [rbx], rdx
+# line_I
+# i_minus_ssjd
+    mov rsi, qword ptr [rbx+16]
+    mov edx, 31
+# is the operand small?
+    mov eax, esi
+    and al, 15
+    cmp al, 15
+    short jne L30
+    mov rax, rsi
+    sub rax, 16
+    short jno L29
+L30:
+    call L31
+L29:
+    mov qword ptr [rbx+16], rax
+# is_eq_exact_fss
+# simplified check since one argument is an immediate
+    cmp qword ptr [rbx], 15
+    jne L
+# i_move_sd
+    mov qword ptr [rbx+32], 31
+# jump_f
+    jmp L
+# label_L
+L:
+# i_move_sd
+    mov qword ptr [rbx+32], 15
+# label_L
+L:
+# i_plus_ssjd
+    mov rsi, qword ptr [rbx+24]
+    mov rdx, qword ptr [rbx+32]
+# simplified test for small operands since both are numbers
+    rex test sil, 1
+    short je L33
+    lea rax, qword ptr [rsi-15]
+    add rax, rdx
+    short jno L32
+L33:
+    call L34
+L32:
+    mov qword ptr [rbx+24], rax
+# i_call_only_f
+    jmp spin/4
+# i_func_label_L
+    align 8
+L:
+# func_line_I
+# i_func_info_IaaI

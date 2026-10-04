@@ -1,0 +1,89 @@
+################################ variant: base
+--- private functions as emitted:
+'Inner'(O) when map_get('Kind', O) =:= 'Forge.Order' ->
+    map_get('Total', O).
+
+'Scale'(N) ->
+    N * 2.
+
+'Big'(N) when N >= 100 ->
+    big;
+'Big'(_N) ->
+'SumAll'([], Acc) ->
+    Acc;
+'SumAll'([O | Rest], Acc) ->
+--- forged calls:
+Nested(cart(bad_tag,..))           -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Nested(cart(no_tag,..))            -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Field(cart(good,1.5))              -> RETURNED 3.0  (silent)
+Field(cart(good,foo))              -> CRASH error:badarith  in erlang:'*'/2
+Oct(cart(..,Oct=5))  control       -> RETURNED 10  (silent)
+Oct(cart(..,Oct=300))              -> RETURNED 600  (silent)
+Oct(cart(..,Oct=1.5))              -> RETURNED 3.0  (silent)
+FieldBig(cart(good,foo))           -> RETURNED big  (silent)
+FieldBig(cart(good,<<>>))          -> RETURNED big  (silent)
+Sum(items=[good,bad_tag])          -> CRASH error:function_clause  in 'Forge':'Inner'/1
+SumList([good,bad_tag])            -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Mapped([good,bad_tag])             -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Compare(cart(good,foo))            -> RETURNED small  (silent)
+Compare(cart(good,1.5))            -> RETURNED small  (silent)
+################################ variant: narrow
+--- private functions as emitted:
+'Inner'(O) ->
+    map_get('Total', O).
+
+'Scale'(N) ->
+    N * 2.
+
+'Big'(N) when N >= 100 ->
+    big;
+'Big'(_N) ->
+'SumAll'([], Acc) ->
+    Acc;
+'SumAll'([O | Rest], Acc) ->
+--- forged calls:
+Nested(cart(bad_tag,..))           -> RETURNED 7  (silent)
+Nested(cart(no_tag,..))            -> RETURNED 7  (silent)
+Field(cart(good,1.5))              -> RETURNED 3.0  (silent)
+Field(cart(good,foo))              -> CRASH error:badarith  in erlang:'*'/2
+Oct(cart(..,Oct=5))  control       -> RETURNED 10  (silent)
+Oct(cart(..,Oct=300))              -> RETURNED 600  (silent)
+Oct(cart(..,Oct=1.5))              -> RETURNED 3.0  (silent)
+FieldBig(cart(good,foo))           -> RETURNED big  (silent)
+FieldBig(cart(good,<<>>))          -> RETURNED big  (silent)
+Sum(items=[good,bad_tag])          -> RETURNED 14  (silent)
+SumList([good,bad_tag])            -> RETURNED 14  (silent)
+Mapped([good,bad_tag])             -> RETURNED [7,7]  (silent)
+Compare(cart(good,foo))            -> RETURNED small  (silent)
+Compare(cart(good,1.5))            -> RETURNED small  (silent)
+################################ variant: wide
+--- private functions as emitted:
+'Inner'(O) when map_get('Kind', O) =:= 'Forge.Order' ->
+    map_get('Total', O).
+
+'Scale'(N) when is_integer(N) ->
+    N * 2.
+
+'Big'(N)
+    when
+        is_integer(N)
+'Big'(N) when is_integer(N) ->
+    small.
+
+'SumAll'([], Acc) when is_integer(Acc) ->
+    Acc;
+--- forged calls:
+Nested(cart(bad_tag,..))           -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Nested(cart(no_tag,..))            -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Field(cart(good,1.5))              -> CRASH error:function_clause  in 'Forge':'Scale'/1
+Field(cart(good,foo))              -> CRASH error:function_clause  in 'Forge':'Scale'/1
+Oct(cart(..,Oct=5))  control       -> RETURNED 10  (silent)
+Oct(cart(..,Oct=300))              -> CRASH error:function_clause  in 'Forge':'ScaleO'/1
+Oct(cart(..,Oct=1.5))              -> CRASH error:function_clause  in 'Forge':'ScaleO'/1
+FieldBig(cart(good,foo))           -> CRASH error:function_clause  in 'Forge':'Big'/1
+FieldBig(cart(good,<<>>))          -> CRASH error:function_clause  in 'Forge':'Big'/1
+Sum(items=[good,bad_tag])          -> CRASH error:function_clause  in 'Forge':'Inner'/1
+SumList([good,bad_tag])            -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Mapped([good,bad_tag])             -> CRASH error:function_clause  in 'Forge':'Inner'/1
+Compare(cart(good,foo))            -> RETURNED small  (silent)
+Compare(cart(good,1.5))            -> RETURNED small  (silent)

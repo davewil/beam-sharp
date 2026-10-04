@@ -1,0 +1,5 @@
+name = "glib"
+version = "0.4.0"
+target = "erlang"
+
+[dependencies]

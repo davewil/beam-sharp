@@ -1,0 +1,6 @@
+module Acme.Orders
+
+using Acme.Orders.Rules
+
+public int Total(list<int> lines)
+Total(lines) -> Recompute(lines)

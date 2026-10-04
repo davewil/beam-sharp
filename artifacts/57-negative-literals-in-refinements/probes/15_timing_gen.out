@@ -1,0 +1,12 @@
+=== pos.bs (1003 lines)
+base          decls=1003 check=ok parse: 520275 reductions 5.6 ms | check: 416913 reductions 3.6 ms
+grammar       decls=1003 check=ok parse: 526145 reductions 5.9 ms | check: 416715 reductions 4.0 ms
+checker_full  decls=1003 check=ok parse: 521134 reductions 4.5 ms | check: 420602 reductions 4.0 ms
+=== neg.bs (1003 lines)
+base          decls=1003 check=error parse: 556954 reductions 10.2 ms | check: 33579 reductions 1.2 ms
+grammar       decls=1003 check=ok parse: 554667 reductions 5.3 ms | check: 417061 reductions 4.3 ms
+checker_full  decls=1003 check=ok parse: 553572 reductions 7.2 ms | check: 423080 reductions 5.4 ms
+=== lit.bs (1004 lines)
+base          decls=1003 check=ok parse: 387444 reductions 3.0 ms | check: 4843371 reductions 67.3 ms
+grammar       decls=1003 check=ok parse: 388057 reductions 4.0 ms | check: 4581074 reductions 59.8 ms
+checker_full  decls=1003 check=ok parse: 392288 reductions 6.8 ms | check: 4666328 reductions 23.5 ms

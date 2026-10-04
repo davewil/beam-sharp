@@ -1,0 +1,19 @@
+module dirs: 27
+base: compiled 30 dirs, 0 failed
+narrow: compiled 30 dirs, 0 failed
+wide: compiled 30 dirs, 0 failed
+narrow vs base: 28 modules, 0 with a changed function, 0 functions changed, net guard-text tests 0, Code bytes total 8309 (delta 0, 0.00%)
+wide vs base: 28 modules, 7 with a changed function, 13 functions changed, net guard-text tests +25, Code bytes total 8309 (delta +9, 0.11%)
+    Day01.beam                         Code 0 B, functions: [{'Total',2},
+                                                             {'TotalAll',2}]
+    Fib.beam                           Code 0 B, functions: [{'Series',4}]
+    Foreign.beam                       Code 0 B, functions: [{'Fallback',2}]
+    Frame.beam                         Code 0 B, functions: [{'Classify',1},
+                                                             {'Name',1}]
+    Pipeline.beam                      Code 0 B, functions: [{'Twice',1},
+                                                             {'Validate',1},
+                                                             {'Charge',1},
+                                                             {'Confirm',1}]
+    Shop.Collections.Ints.beam         Code 0 B, functions: [{'Length',2}]
+    Shop.Pricing.beam                  Code +9 B, functions: [{'Free',1},
+                                                              {'Double',1}]

@@ -1,0 +1,12 @@
+module Dial03
+
+type Dial = int where value >= 0 and value <= 99
+
+private int Next(Dial d, int step)
+Next(d, step) -> d + step
+
+public int NextPub(Dial d, int step)
+NextPub(d, step) -> d + step
+
+public int Run(Dial d)
+Run(d) -> Next(d, 1)

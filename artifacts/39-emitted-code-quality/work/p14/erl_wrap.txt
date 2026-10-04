@@ -1,0 +1,67 @@
+    call L25
+    nop
+    nop
+.db ADDR
+.db ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
+.db ADDRB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDRB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
+# aligned_label_Lt
+    align 4
+wrap/1:
+# i_breakpoint_trampoline
+    short jmp L26
+.db ADDR
+    call L27
+L26:
+# i_test_yield
+    lea rdx, qword ptr [wrap/1+24]
+    dec r14d
+    long jle L28
+    align 4
+# i_rem_ssjd
+    mov rax, qword ptr [rbx]
+# simplified test for small dividend since it is an integer
+    test al, 1
+    short je L29
+# divide with inlined code
+    mov r9, 100
+    sar rax, 4
+    cqo
+    idiv r9
+    sal rdx, 4
+    or rdx, 15
+    short jmp L30
+L29:
+    mov ecx, 1615
+    mov rdi, rax
+    mov r8, 94068441273744
+    call L31
+L30:
+    mov qword ptr [rbx], rdx
+# i_plus_ssjd
+# add without overflow check
+# simplified fetching of BEAM register
+    mov rax, rdx
+    add rax, 1600
+    mov qword ptr [rbx], rax
+# i_rem_ssjd
+# skipped fetching of BEAM register
+# skipped test for small dividend since it is always small
+# divide with inlined code
+    mov r9, 100
+    sar rax, 4
+    cqo
+    idiv r9
+    sal rdx, 4
+    or rdx, 15
+L32:
+L33:
+    mov qword ptr [rbx], rdx
+# return
+    dec r14d
+    jl L34
+    ret
+# i_func_label_L
+    align 8
+L:
+# func_line_I
+# i_func_info_IaaI
