@@ -1,0 +1,9 @@
+OTP 28 erts 16.0
+  Compiling bench_gleam
+   Compiled in 0.48s
+Elixir.BenchEx.beam
+Day01.abstr
+Day01.beam
+bench.beam
+bench_erl.beam
+bench_gleam.beam

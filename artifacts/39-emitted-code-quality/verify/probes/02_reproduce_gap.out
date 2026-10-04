@@ -1,0 +1,46 @@
+== repo harness unchanged (25 runs, sequential per impl), x3 ==
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         16.82     17.23    1.55x
+Elixir       6770         16.70     17.07    1.54x
+Gleam        6770         10.83     10.92    1.00x
+beam-sharp   6770         16.79     16.98    1.55x
+
+all four agree on 6770
+
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         16.80     17.00    1.56x
+Elixir       6770         16.71     18.10    1.55x
+Gleam        6770         10.79     10.95    1.00x
+beam-sharp   6770         16.68     16.85    1.55x
+
+all four agree on 6770
+
+4732 rotations, 673364 clicks simulated per run
+
+             answer      min ms    med ms      rel
+Erlang       6770         16.98     17.47    1.57x
+Elixir       6770         16.82     17.28    1.56x
+Gleam        6770         10.79     11.08    1.00x
+beam-sharp   6770         16.68     16.96    1.55x
+
+all four agree on 6770
+
+== interleaved harness, 300 rounds, x3 ==
+answer Erlang = 6770
+answer Elixir(re28) = 6770
+answer Gleam = 6770
+answer beam-sharp = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+Erlang            16.76    17.06    17.98    29.93  1.556x
+Elixir(re28)      16.63    16.90    17.81    21.27  1.543x
+Gleam             10.77    10.93    11.41    12.66  1.000x
+beam-sharp        16.65    16.95    17.84    21.31  1.546x
+
+answer Erlang = 6770
+answer Elixir(re28) = 6770
+answer Gleam = 6770
+answer beam-sharp = 6770
