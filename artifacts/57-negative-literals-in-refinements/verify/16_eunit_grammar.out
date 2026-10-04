@@ -30,3 +30,6 @@ guard_call_tests                   PASS(try 1)     All 13 tests passed.
 guard_kind_tests                   PASS(try 1)     All 7 tests passed.
 heads_tests                        PASS(try 1)     All 12 tests passed.
 implements_tests                   PASS(try 1)     All 27 tests passed.
+intervals_tests                    PASS(try 1)     All 35 tests passed.
+lists_tests                        PASS(try 1)     All 18 tests passed.
+map_construction_tests             PASS(try 1)     All 11 tests passed.
