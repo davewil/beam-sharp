@@ -1,6 +1,6 @@
 # F66 — template strings: `$"Order {o.Id} for {o.Customer}"`
 
-**Status**      **in progress** — 22 tests in `template_tests`, 1278 in the suite; F66.1–15 seen red before the build
+**Status**      **done 2026-10-04**, called by David — 22 tests in `template_tests`, 1278 in the suite; F66.1–15 seen red before the build
                 (`illegal characters "$"`), F66.16 the control that a plain string keeps its
                 braces; the review's F66.17 red on `crashed: error:badarg`, F66.7's `Formattable`
                 wording and F66.12's end-of-hole wording red on the first cut, F66.18–19 coverage

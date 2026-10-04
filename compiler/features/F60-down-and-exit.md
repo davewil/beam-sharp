@@ -1,6 +1,6 @@
 # F60 — `Down` and `Exit` as named views of their tuples; `pid`, `reference`, `port` as types
 
-**Status**      **in progress** — 14 tests in `down_view_tests`, 1118 in the
+**Status**      **done 2026-10-04**, called by David — 14 tests in `down_view_tests`, 1118 in the
                 suite; `check-language.sh` gained a must-compile block in §13,
                 seen red first
 **Implements**  [ticket 88](../../wayfinder/issues/88-how-down-is-written.md),

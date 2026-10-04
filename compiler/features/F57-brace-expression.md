@@ -1,6 +1,6 @@
 # F57 — the brace expression `{ Key = value }` builds a field set
 
-**Status**      **in progress** — 10 tests in `map_construction_tests`, 1074 in
+**Status**      **done 2026-10-04**, called by David — 10 tests in `map_construction_tests`, 1074 in
                 the suite; `check-language.sh` gained a must-compile block and a
                 `diagnoses: duplicate_field` block, both seen red first; the
                 tree-sitter grammar gained `map_construction`
