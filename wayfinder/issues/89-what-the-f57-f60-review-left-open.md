@@ -154,27 +154,33 @@ Q5's `Exit { Pid: pid, Reason: term }`.
 
 Q1 said the part's name was part of the answer, and A1 settled the type alone.
 
-**Q7. Does the part keep the name `Pid`, now that it may hold a port?** The program A1 asks for,
-with a clause for each:
+**Q7. Does the part keep the name `Pid`, now that it may hold a port?** The program A1 asks for:
 
 ```csharp
 public (:noreply, State) HandleInfo(Exit | :tick msg, State s)
-HandleInfo(Exit { Pid: pid p, Reason: why }, s) -> Restart(p, why, s)
-HandleInfo(Exit { Pid: port sock },          s) -> (:noreply, Closed(sock, s))
-HandleInfo(:tick, s)                            -> (:noreply, s)
+HandleInfo(Exit { Pid: who, Reason: why }, s) -> Exited(who, why, s)
+HandleInfo(:tick, s)                          -> (:noreply, s)
+
+private (:noreply, State) Exited(pid | port who, term why, State s)
+Exited(pid p, why, s)   -> Restart(p, why, s)
+Exited(port sock, _, s) -> (:noreply, Closed(sock, s))
 ```
 
-The second clause binds a `port` out of a part called `Pid`. Under the other answer the same
-program reads:
+`Exit { Pid: who }` binds a value that may be a port out of a part called `Pid`. Under the other
+answer the first clause reads `HandleInfo(Exit { From: who, Reason: why }, s)`, and nothing else
+changes.
 
-```csharp
-HandleInfo(Exit { From: pid p, Reason: why }, s) -> Restart(p, why, s)
-HandleInfo(Exit { From: port sock },          s) -> (:noreply, Closed(sock, s))
-```
+**Corrected the same day.** This round first wrote the dispatch inside the view,
+`Exit { Pid: pid p, … }` beside `Exit { Pid: port sock }`, and David asked what syntax that was.
+It is not B#: measured at `19054c1`, a type prefix inside a view's part is refused
+(`type_prefix_nested`, *"a type prefix goes where a whole argument goes … Inside a tuple, a list
+or a record pattern it is not built yet"*), as it is inside a tuple. The whole-argument form over
+`pid | port` compiles today (`Kind(pid p) -> :process` beside `Kind(port s) -> :port`). So A1's
+price is a helper function per handler that tells the two apart, not a second clause, until the
+nested prefix is built.
 
 `From` is the name OTP's own documentation gives that position (`{'EXIT', From, Reason}`), and
-`Down`'s part that may hold a pid or a port is already `Object`, not `Pid`. Neither program has
-been compiled: whether a type prefix narrows a view's part (`Pid: pid p`) is unmeasured, and the
-A1 build measures it first. Compiler delta for the rename: the atom in `bs_types`' view table
+`Down`'s part that may hold a pid or a port is already `Object`, not `Pid`. Compiler delta for the
+rename: the atom in `bs_types`' view table
 (two sites), `down_view_tests`' one `Exit` pattern, F60.8, `STANDARD-ENVIRONMENT.md`'s row, and
 the sentence in ticket 14 §6 and 25g's write-up. No shipped example names the part.
