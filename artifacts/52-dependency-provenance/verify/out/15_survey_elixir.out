@@ -1,0 +1,45 @@
+== mix.exs (lines)
+     1	defmodule Probeapp.MixProject do
+     2	  use Mix.Project
+     3	  def project, do: [app: :probeapp, version: "0.1.0", deps: deps()]
+     4	  def application, do: [extra_applications: [:logger]]
+     5	  defp deps, do: [{:greeter, path: "../greeter_dep"}]
+     6	end
+== mix compile: is the call to a module NOT in any dependency caught at compile time?
+==> greeter
+Compiling 2 files (.ex)
+Generated greeter app
+==> probeapp
+Compiling 1 file (.ex)
+warning: Nonesuch.Thing.run/1 is undefined (module Nonesuch.Thing is not available or is yet to be defined)
+  lib/probeapp.ex:4: Probeapp.bad/0
+
+Generated probeapp app
+== exit status of that compile
+exit=0
+== the .app mix generated for probeapp: 'applications' is INFERRED from mix.exs deps + extra_applications
+     1	{application,probeapp,
+     2	             [{applications,[kernel,stdlib,elixir,logger,greeter]},
+     3	              {description,"probeapp"},
+     4	              {modules,['Elixir.Probeapp']},
+     5	              {registered,[]},
+     6	              {vsn,"0.1.0"}]}.
+== mix.lock-equivalent for a path dep: none is written; deps.get for a path dep
+README.md
+_build
+lib
+mix.exs
+test
+(no mix.lock for a path-only dep)
+== run time: Application.ensure_all_started starts the dependency's tree, or says which app is missing
+{:ok, []}
+{:error, {:req, {'no such file or directory', 'req.app'}}}
+== removing the dep from mix.exs but leaving the call: the module is simply 'undefined' (warning), not 'dependency missing'
+Compiling 1 file (.ex)
+warning: Greeter.hello/1 is undefined (module Greeter is not available or is yet to be defined)
+  lib/probeapp.ex:2: Probeapp.hi/1
+
+warning: Nonesuch.Thing.run/1 is undefined (module Nonesuch.Thing is not available or is yet to be defined)
+  lib/probeapp.ex:4: Probeapp.bad/0
+
+Generated probeapp app

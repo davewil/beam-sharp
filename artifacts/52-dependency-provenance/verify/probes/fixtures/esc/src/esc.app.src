@@ -1,0 +1,2 @@
+{application, esc, [{description, "escript fixture"}, {vsn, "0.1.0"}, {modules, []},
+  {registered, []}, {applications, [kernel, stdlib]}]}.

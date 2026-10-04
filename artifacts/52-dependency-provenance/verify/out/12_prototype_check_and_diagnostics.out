@@ -1,0 +1,36 @@
+=== Option A: per-block  using :X from :app
+-- all present
+  (no diagnostics)
+-- ERL_LIBS has no greeter
+a_ok.bs:2:1: error: `using :'Elixir.Greeter'` needs application `greeter`, which is not on the code path
+  searched ERL_LIBS=/tmp/v52/other_libs (33 entries). Build it with rebar3 or mix and put its lib directory on ERL_LIBS.
+a_ok.bs:5:1: error: `using :'Elixir.Greeter.Extra'` needs application `greeter`, which is not on the code path
+  searched ERL_LIBS=/tmp/v52/other_libs (33 entries). Build it with rebar3 or mix and put its lib directory on ERL_LIBS.
+-- module typo, app present
+a_typo.bs:5:1: error: application `greeter` is on the path (/tmp/v52/greeter_build/dev/lib/greeter) but has no module `Elixir.Greeter.Nope`
+-- module claimed from wrong app (kernel)
+a_wrongapp.bs:2:1: error: `using :'Elixir.Greeter'` is in application `greeter`, not `kernel`
+  say `from :greeter`
+-- non-OTP module, no from
+a_nofrom.bs:2:1: error: `using :'Elixir.Greeter'` is not an OTP module and names no application
+  it lives in /tmp/v52/greeter_build/dev/lib/greeter/ebin/Elixir.Greeter.beam. Write `using :'Elixir.Greeter' from :<app>` so the source says what it needs.
+-- module in a -pa dir, no app
+a_noapp.bs:2:1: error: `using :'Greet'` is on the path at /tmp/v52/orphan, outside any application directory
+  `from :orphan` cannot be checked; it is accepted unverified.
+=== Option B: per-module  requires :app
+-- all present
+  (no diagnostics)
+-- using without requires
+b_norequires.bs:2:1: error: `using :'Elixir.Greeter'` is in application `greeter`, which this module does not require
+  add `requires :greeter` to index.bs
+-- requires never used
+b_unused.bs:3:1: error: `requires :rlib` is not used by any `using` in this module
+-- requires, app absent
+b_ok.bs:2:1: error: `requires :greeter`: application `greeter` is not on the code path
+  searched ERL_LIBS=/tmp/v52/other_libs (33 entries). Build it with rebar3 or mix and put its lib directory on ERL_LIBS.
+=== Option C: module on path only, nothing new in the source
+-- all present
+  (no diagnostics)
+-- ERL_LIBS has no greeter
+c_ok.bs:2:1: error: `using :'Elixir.Greeter'` names a module that is not on the code path
+  searched ERL_LIBS=/tmp/v52/other_libs (33 entries). Put the directory holding its ebin on ERL_LIBS.

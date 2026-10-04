@@ -1,0 +1,11 @@
+== A: ERL_LIBS unset
+crashed: error:undef
+exit=1
+== B: ERL_LIBS = greeter's mix _build/dev/lib
+"hello, bob"
+exit=0
+== C: ERL_LIBS = an unrelated directory (the 'different machine' case)
+crashed: error:undef
+exit=1
+== D: compile only (is anything said at COMPILE time without the dep?)
+exit=0 (compile alone, no run)

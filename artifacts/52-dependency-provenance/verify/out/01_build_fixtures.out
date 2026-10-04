@@ -1,0 +1,28 @@
+== Elixir lib via mix (system OTP 25 + Elixir 1.14; beams then loaded by OTP 28)
+Compiling 2 files (.ex)
+Generated greeter app
+  built in 898 ms
+/tmp/v52/greeter_build/dev/lib/greeter/consolidated/Elixir.Collectable.beam
+/tmp/v52/greeter_build/dev/lib/greeter/consolidated/Elixir.Enumerable.beam
+/tmp/v52/greeter_build/dev/lib/greeter/consolidated/Elixir.IEx.Info.beam
+/tmp/v52/greeter_build/dev/lib/greeter/consolidated/Elixir.Inspect.beam
+/tmp/v52/greeter_build/dev/lib/greeter/consolidated/Elixir.List.Chars.beam
+/tmp/v52/greeter_build/dev/lib/greeter/consolidated/Elixir.String.Chars.beam
+/tmp/v52/greeter_build/dev/lib/greeter/ebin/Elixir.Greeter.Extra.beam
+/tmp/v52/greeter_build/dev/lib/greeter/ebin/Elixir.Greeter.beam
+/tmp/v52/greeter_build/dev/lib/greeter/ebin/greeter.app
+== Erlang lib via rebar3 (OTP 28)
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling rlib
+[0m  built in 846 ms
+/tmp/v52/rlib_src/_build/default/lib/rlib/ebin/rlib.app
+/tmp/v52/rlib_src/_build/default/lib/rlib/ebin/rlib.beam
+/tmp/v52/rlib_src/_build/default/lib/rlib/ebin/rlib_util.beam
+== Gleam lib via gleam (OTP 28)
+  Resolving versions
+  Compiling glib
+   Compiled in 0.62s
+  built in 668 ms
+/tmp/v52/glib_src/build/dev/erlang/glib/ebin/glib@@main.beam
+/tmp/v52/glib_src/build/dev/erlang/glib/ebin/glib.beam
+/tmp/v52/glib_src/build/dev/erlang/glib/ebin/glib.app

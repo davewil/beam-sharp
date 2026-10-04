@@ -1,0 +1,10 @@
+-- beam_lib exports of Elixir.Greeter (no load): [{'__info__',1},
+                                                  {hello,1},
+                                                  {module_info,0},
+                                                  {module_info,1}]
+-- declared hello/2 (typo in arity) would be refused: false
+-- on_load module: does code:which load it? no output above = not loaded: false
+-- beam_lib:chunks(exports) on it: no on_load output either
+-- code:ensure_loaded(onload_mod): 
+  [on_load ran: this is arbitrary code in the COMPILER's VM]
+  beam_lib:chunks(exports), file read      median 85.3 us

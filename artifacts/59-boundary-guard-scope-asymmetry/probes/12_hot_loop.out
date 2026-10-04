@@ -1,0 +1,55 @@
+loop functions as emitted (HotB=base, HotN=narrow, HotW=wide):
+--- HotB
+'Step'(O, Acc) when map_get('Kind', O) =:= 'HotB.Order' ->
+    Acc + map_get('Total', O).
+'Loop'(O, 0, Acc) when map_get('Kind', O) =:= 'HotB.Order' ->
+    Acc;
+'Loop'(O, N, Acc) when map_get('Kind', O) =:= 'HotB.Order' ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+--- HotN
+'Step'(O, Acc) ->
+    Acc + map_get('Total', O).
+'Loop'(_O, 0, Acc) ->
+    Acc;
+'Loop'(O, N, Acc) ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+--- HotW
+'Step'(O, Acc)
+    when
+        map_get('Kind', O) =:= 'HotW.Order'
+        andalso
+        is_integer(Acc) ->
+    Acc + map_get('Total', O).
+'Loop'(O, 0, Acc)
+    when
+        map_get('Kind', O) =:= 'HotW.Order'
+        andalso
+        is_integer(Acc) ->
+    Acc;
+'Loop'(O, N, Acc)
+    when
+        map_get('Kind', O) =:= 'HotW.Order'
+        andalso
+        is_integer(N)
+        andalso
+        is_integer(Acc) ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+--- HotE
+'Step'(O, Acc) when map_get('Kind', O) =:= 'HotE.Order' ->
+    Acc + map_get('Total', O).
+'Loop'(O, 0, Acc)
+    when
+        map_get('Kind', O) =:= 'HotE.Order'
+        andalso
+        is_integer(Acc) ->
+    Acc;
+'Loop'(O, N, Acc)
+    when
+        map_get('Kind', O) =:= 'HotE.Order'
+        andalso
+        is_integer(N)
+        andalso
+        is_integer(Acc) ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+
+load average before: 12.48 17.21 15.17   nproc=4

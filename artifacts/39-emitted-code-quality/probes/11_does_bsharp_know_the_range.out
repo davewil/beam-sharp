@@ -1,10 +1,4 @@
 ### (a) Can B# prove Wrap : int -> Dial (0..99) when the body is rem(rem(n,100)+100,100)?   [Dial01]
-/home/user/beam-sharp/artifacts/39-emitted-code-quality/probes/src/Dial01/dial.bs:10:1: error: Wrap returns a value its signature does not declare
-  not covered by the declared return type:
-    int <= -1 | int >= 100
-  If `Dial` is what you meant, fix the clause, not the signature.
-  no signature is offered: what the clauses return has no spelling as a type yet.
-exit=0
 
 ### (b) Does the checker carry a range through  d + 1  under the guard d < 99 ?   [Dial02]
 /home/user/beam-sharp/artifacts/39-emitted-code-quality/probes/src/Dial02/dial.bs:6:1: error: Succ returns a value its signature does not declare

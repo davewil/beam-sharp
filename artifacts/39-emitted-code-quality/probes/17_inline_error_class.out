@@ -1,0 +1,25 @@
+plain run(3): function_clause  top frame: {fc17,f,
+                                  [3],
+                                  [{file,"probes/src/fc17.erl"},{line,3}]}
+plain run_exported_callee(3): function_clause  top frame: {fc17,g,
+                                  [3],
+                                  [{file,"probes/src/fc17.erl"},{line,6}]}
+inline run(3): function_clause  top frame: {fc17,'-inlined-f/1-',
+                                  [3],
+                                  [{file,"probes/src/fc17.erl"},{line,3}]}
+inline run_exported_callee(3): function_clause  top frame: {fc17,'-inlined-g/1-',
+                                  [3],
+                                  [{file,"probes/src/fc17.erl"},{line,6}]}
+
+does the compiler's own test-suite assert function_clause?
+/home/user/beam-sharp/compiler/test/boundary_range_tests.erl
+/home/user/beam-sharp/compiler/test/diagnostic_term_tests.erl
+/home/user/beam-sharp/compiler/test/corrected_signature_tests.erl
+/home/user/beam-sharp/compiler/test/validation_error_record_tests.erl
+/home/user/beam-sharp/compiler/test/boundary_kind_tests.erl
+/home/user/beam-sharp/compiler/test/implements_tests.erl
+/home/user/beam-sharp/compiler/test/records_tests.erl
+/home/user/beam-sharp/compiler/test/heads_tests.erl
+/home/user/beam-sharp/compiler/test/type_import_tests.erl
+/home/user/beam-sharp/compiler/test/float_tests.erl
+29

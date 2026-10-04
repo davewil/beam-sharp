@@ -14,14 +14,14 @@ exit=0
 ## 1b. Acme.Billing (a SIBLING, outside the subtree) is refused at its using line
 Acme/Billing/Billing.bs:4:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.Billing is outside it
   only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
-  or reach the behaviour through a public module that is not restricted.
+  or call a public function of a module that is not restricted.
 exit=1
 
 ## 1c. same refusal, machine-readable (--diagnostics json)
 {"caller":"Acme.Billing","line":4,"module":"Acme.Orders.Rules","tag":"not_visible_here","file":"Acme/Billing/Billing.bs","column":1,"within":"Acme.Orders","severity":"error"}
 Acme/Billing/Billing.bs:4:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.Billing is outside it
   only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
-  or reach the behaviour through a public module that is not restricted.
+  or call a public function of a module that is not restricted.
 exit=1
 
 ## 1d. Acme.Reports: no using at all, qualified call -- still the pre-existing module_not_imported (the check lives at using, and using is mandatory)
@@ -37,14 +37,14 @@ exit=0
 ## 3. segment boundary: Acme.OrdersExtra is NOT under Acme.Orders (string prefix is not segment prefix)
 Acme/OrdersExtra/OrdersExtra.bs:3:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.OrdersExtra is outside it
   only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
-  or reach the behaviour through a public module that is not restricted.
+  or call a public function of a module that is not restricted.
 exit=1
 
 ## 4. namespace tier: 'using Acme.Orders' resolves to the MODULE, but a namespace import of a directory with only restricted children must be checked too
 (Zed.Inner holds no .bs file, so it is a namespace; Zed.Outer imports it)
-Zed/Outer/Outer.bs:3:1: error: `using Zed.Inner.Hidden` -- Zed.Inner.Hidden is declared `within Zed.Inner`, and Zed.Outer is outside it
-  only modules at or under Zed.Inner may name Zed.Inner.Hidden. Move this module under Zed.Inner,
-  or reach the behaviour through a public module that is not restricted.
+Zed/Outer/Outer.bs:6:17: error: Hidden is called but never imported
+  add `using Hidden` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
 exit=1
 
 ## 5. a within that does not contain the module itself

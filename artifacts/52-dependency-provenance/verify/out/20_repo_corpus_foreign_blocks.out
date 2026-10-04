@@ -1,0 +1,12 @@
+  .bs files parsed: 161; files with >=1 foreign block: 18; foreign blocks: 30
+  blocks by owning application: [{erts,13},
+                                 {stdlib,11},
+                                 {not_found,5},
+                                 {kernel,1}]
+  blocks outside {erts,kernel,stdlib}: 5  (these would need `from`)
+    [{'Elixir.Application',not_found},
+     {'Elixir.Enum',not_found},
+     {'Elixir.Req',not_found},
+     {'Elixir.String',not_found},
+     {epgsql,not_found}]
+  max foreign blocks in one file: 3

@@ -1,0 +1,76 @@
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_check.erl c60d/src/bs_check.erl
+--- c60/src/bs_check.erl	2026-10-04 23:03:20.000000000 +0000
++++ c60d/src/bs_check.erl	2026-10-04 23:30:36.089726627 +0000
+@@ -473,6 +473,26 @@
+     lists:sort([M || {M, Entry} <- maps:to_list(World),
+                      maps:is_key(N, maps:get(types, Entry, #{}))]).
+ 
++%% PROTOTYPE A' (ticket 60): the PATH is the declaration. A module whose dotted name has an
++%% `Internal` segment may be named only by modules at or under the segments before the LAST such
++%% segment (Go's rule for `internal` directories, run in probe 19). No keyword, no World entry.
++internal_root(M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case [I || {S, I} <- lists:zip(Segs, lists:seq(1, length(Segs))), S =:= "Internal"] of
++        []  -> none;
++        Is  -> case lists:last(Is) of
++                   1 -> none;
++                   I -> list_to_atom(lists:flatten(lists:join(".", lists:sublist(Segs, I - 1))))
++               end
++    end.
++
++visible_to(Self, M) ->
++    case internal_root(M) of
++        none   -> true;
++        Prefix -> S = atom_to_list(Self), P = atom_to_list(Prefix),
++                  S =:= P orelse lists:prefix(P ++ ".", S)
++    end.
++
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+                                        V =/= public],
+@@ -496,14 +516,19 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case Mode =:= strict andalso not visible_to(Self, M) of
++                true  -> erlang:error({not_visible_here, M, internal_root(M), Self, L});
++                false -> add_module_import(M, World, Acc)
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    add_namespace_import(M, [C || C <- Children, visible_to(Self, C)], Acc)
+             end
+     end.
+ 
+diff -ruN '--exclude=_build' '--exclude=bs_lexer.erl' '--exclude=bs_parser.erl' c60/src/bs_diag.erl c60d/src/bs_diag.erl
+--- c60/src/bs_diag.erl	2026-10-04 23:03:20.000000000 +0000
++++ c60d/src/bs_diag.erl	2026-10-04 23:30:36.091795032 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible_here, Mod, Within, Self, Line}) ->
++    #{tag => not_visible_here, severity => error, file => Path, line => Line,
++      module => Mod, within => Within, caller => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2029,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible_here, file := P, line := L, column := C, module := Mod,
++          within := W, caller := Self}) ->
++    {"~s:~p:~p: error: `using ~s` -- an `Internal` module may be named only from under ~s, and ~s is outside it~n",
++     [P, L, C, Mod, W, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

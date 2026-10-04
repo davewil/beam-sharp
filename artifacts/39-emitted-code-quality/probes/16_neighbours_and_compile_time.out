@@ -1,0 +1,24 @@
+### Gleam gleam 1.12.0: generated Erlang header (full file saved as probes/16_gleam_generated.erl)
+-module(bench_gleam).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+-define(FILEPATH, "src/bench_gleam.gleam").
+-export([part_two/1]).
+
+...  every fn has: 7 -spec lines; inline attribute present: 1
+
+### Elixir 1.14 (OTP25): attributes in generated forms (work/ex_forms.term)
+3: {attribute,1,compile,[no_auto_import]},
+user -spec forms for part_two/wrap/spin: 1 (only __info__ and part_two-adjacent; none for defp)
+
+### compile time, 7 reps each, wall seconds (min / median)
+erlc bench_erl.erl                 : 342 ms min, 357 ms median
+erlc +from_abstr Day01.abstr       : 383 ms min, 470 ms median
+erlc +from_abstr +inline           : 409 ms min, 470 ms median
+bsc -o (parse+check+emit+erlc)     : 587 ms min, 842 ms median
+erl VM boot alone (baseline)       : 248 ms min, 457 ms median
+
+### beam bytes
+2332 /home/user/beam-sharp/artifacts/39-emitted-code-quality/work/ebin/Day01.beam
+1468 /home/user/beam-sharp/artifacts/39-emitted-code-quality/work/ebin/Elixir.BenchEx.beam
+1320 /home/user/beam-sharp/artifacts/39-emitted-code-quality/work/ebin/bench_erl.beam
+2496 /home/user/beam-sharp/artifacts/39-emitted-code-quality/work/ebin/bench_gleam.beam

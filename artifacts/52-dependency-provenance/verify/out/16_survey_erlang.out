@@ -1,0 +1,30 @@
+== OTP's own .app files: the dependency list is the 'applications' key
+/opt/otp28/lib/erlang/lib/kernel-10.3/ebin/kernel.app:161:  {applications, []},
+/opt/otp28/lib/erlang/lib/sasl-4.3/ebin/sasl.app:44:    {applications, [kernel, stdlib]},
+/opt/otp28/lib/erlang/lib/crypto-5.6/ebin/crypto.app:28:    {applications, [kernel, stdlib]},
+/opt/otp28/lib/erlang/lib/inets-9.4/ebin/inets.app:100:  {applications,[kernel,stdlib]},
+== xref's documented default library path (tools-4.1.2/src/xref.erl:1160): a dependency is invisible unless asked for
+module encountered while traversing the directories in the given
+order, for those modules that occur in more than one directory. By
+default, the library path is an empty list.
+
+== fixture rcons: calls crypto without listing it; lists a nonexistent app; calls an Elixir module
+     6	  {applications, [kernel, stdlib, nonesuch]}]}.
+== rebar3 compile: does it object to the undeclared crypto use or the nonexistent listed app?
+===> Verifying dependencies...
+===> Analyzing applications...
+===> Compiling rcons
+exit=0
+== rebar3 xref (post-compile): which of the three problems does it find?
+===> Verifying dependencies...
+===> Analyzing applications...
+===> Compiling rcons
+===> Running cross reference analysis...
+===> src/rcons.erl:4: Warning: rcons:g/1 calls undefined function Elixir.Greeter:hello/1 (Xref)
+
+== run time: the application controller refuses to start an app whose listed dependency is absent
+  ensure_all_started(rcons) = {error,
+                                  {nonesuch,
+                                      {"no such file or directory",
+                                       "nonesuch.app"}}}
+  rcons:h(<<1>>) works anyway (crypto was never listed): 32

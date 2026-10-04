@@ -1,0 +1,17 @@
+== OTP 28 (bsc side)
+28
+== Elixir on OTP 28 PATH (expect boot failure: 1.14 beams from OTP24)
+=ERROR REPORT==== 4-Oct-2026::23:30:42.118312 ===
+beam/beam_load.c(594): Error loading function 'Elixir.Kernel':alias_defmodule/3: op bs_add p x i u x:
+== Elixir on system OTP 25 (used ONLY to BUILD the Elixir fixture)
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+== Gleam
+gleam 1.12.0
+== rebar3
+rebar 3.24.0 on Erlang/OTP 28 Erts 16.0
+== Elm
+0.19.2
+== bsc runs
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS

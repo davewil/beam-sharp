@@ -1,0 +1,30 @@
+=== base:   Failed: 5.  Skipped: 0.  Passed: 1304.
+    body_check_tests: every_aoc_program_still_compiles_test
+    cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each
+    diagnostic_json_tests: a_path_is_utf8_on_the_wire_test
+    diagnostic_term_tests: the_diagnostics_gate_passes_test
+    non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test
+=== narrow:   Failed: 5.  Skipped: 0.  Passed: 1304.
+    body_check_tests: every_aoc_program_still_compiles_test
+    cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each
+    diagnostic_json_tests: a_path_is_utf8_on_the_wire_test
+    diagnostic_term_tests: the_diagnostics_gate_passes_test
+    non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test
+=== wide:   Failed: 7.  Skipped: 0.  Passed: 1302.
+    body_check_tests: every_aoc_program_still_compiles_test
+    boundary_kind_tests: a_private_function_is_not_guarded_test
+    boundary_range_tests: a_private_function_carries_no_range_guard_test
+    cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each
+    diagnostic_json_tests: a_path_is_utf8_on_the_wire_test
+    diagnostic_term_tests: the_diagnostics_gate_passes_test
+    non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test
+
+failures present in a variant but NOT in base (the real delta):
+  narrow:
+  wide:
+    boundary_kind_tests: a_private_function_is_not_guarded_test
+    boundary_range_tests: a_private_function_carries_no_range_guard_test
+
+NOTE: the 5 failures common to all three (aoc path, batch, utf8, diagnostics gate, non-ascii) fail on the UNMODIFIED copy; they are layout/locale
+      artefacts of running from a copy (not investigated further), and are identical across variants.
+NOTE: logs/eunit_base.log was produced while two other eunit runs shared the CPU; narrow/wide were re-run alone after theirs hit eunit timeouts.

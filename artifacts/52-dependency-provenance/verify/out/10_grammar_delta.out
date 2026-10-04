@@ -1,0 +1,30 @@
+== grammar variant: base
+  conflicts resolved by yecc default (shift or reduce): 6
+  yecc: ok in 932.2 ms
+== grammar variant: a
+  conflicts resolved by yecc default (shift or reduce): 6
+  yecc: ok in 908.2 ms
+== grammar variant: b
+  conflicts resolved by yecc default (shift or reduce): 6
+  yecc: ok in 844.7 ms
+== grammar variant: bk
+  conflicts resolved by yecc default (shift or reduce): 6
+  yecc: ok in 1063.1 ms
+== A parses a.bs (per block)
+    {foreign,{3,1},'Elixir.Req',{sigs,1},req}
+    {foreign,{6,1},'Elixir.Req.Request',{sigs,1},req}
+    {foreign,{9,1},lists,{sigs,1},none}
+== A rejects a wrong word
+    parse error: {error,{{3,21},bs_parser,"expected `from`, found `by`"}}
+== B (contextual word) parses b.bs
+    {requires,{3,1},req}
+    {requires,{4,1},jason}
+    {foreign,{6,1},'Elixir.Req',{sigs,1}}
+== B (keyword) parses b.bs
+    {requires,{3,1},req}
+    {requires,{4,1},jason}
+    {foreign,{6,1},'Elixir.Req',{sigs,1}}
+== B contextual: an unknown lowercase-word declaration
+    parse error: {error,{{2,1},bs_parser,"unknown declaration `require`"}}
+== identifiers a reserved keyword would steal, over every .bs in the repo (real lexer)
+  .bs files lexed: 176; identifier counts: #{from => 17,app => 1}

@@ -1,0 +1,7 @@
+{application, rlib,
+ [{description, "probe fixture"},
+  {vsn, "1.2.0"},
+  {modules, []},
+  {registered, []},
+  {applications, [kernel, stdlib, crypto]},
+  {env, []}]}.

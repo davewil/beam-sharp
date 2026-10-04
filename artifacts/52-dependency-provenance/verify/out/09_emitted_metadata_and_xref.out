@@ -1,0 +1,25 @@
+baseline Greet.beam = 904 bytes
+beam_lib imports chunk (no extra emission): [{'Elixir.Greeter',hello,1},
+                                             {erlang,get_module_info,1},
+                                             {erlang,get_module_info,2}]
+  none                                       852 bytes  (+0)
+  -bs_requires([req]).                       896 bytes  (+44)
+  -bs_requires([{req,"0.7.3"}]).             912 bytes  (+60)
+  -bs_requires([req,finch,jason]).           916 bytes  (+64)
+  3 attrs: app + elixir + per-module         964 bytes  (+112)
+beam_lib:chunks(attributes) -> [{bs_requires,[{req,"0.7.3"}]},
+                                {vsn,[21941368426982766399039952340137857456]}]
+reading attributes: 3.8 us per beam (1000 reads, in-memory)
+== xref over the compiled beam: dependency absent vs present on the path (existing OTP tool, post-compile)
+-- ERL_LIBS unset
+  library_path={ok,[]}
+  undefined_function_calls: [{{'Greet','Hi',1},{'Elixir.Greeter',hello,1}}]
+-- ERL_LIBS has greeter, xref default library path
+  library_path={ok,[]}
+  undefined_function_calls: [{{'Greet','Hi',1},{'Elixir.Greeter',hello,1}}]
+-- ERL_LIBS has greeter, xref library_path = code_path
+  library_path={ok,code_path}
+  undefined_function_calls: []
+-- ERL_LIBS unset, xref library_path = code_path
+  library_path={ok,code_path}
+  undefined_function_calls: [{{'Greet','Hi',1},{'Elixir.Greeter',hello,1}}]

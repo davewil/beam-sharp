@@ -1,0 +1,10 @@
+== ERL_LIBS=libA (rlib-1.0.0 and rlib-2.0.0 side by side)
+  code:lib_dir(rlib) = "/tmp/v52/two/libA/rlib-2.0.0"
+  code:which(rlib)   = "/tmp/v52/two/libA/rlib-2.0.0/ebin/rlib.beam"
+== (application:load reads the .app; vsn is then queryable)
+  loaded vsn = {ok,"2.0.0"}
+== ERL_LIBS=libB:libA, directory name 3.0.0, .app says 1.2.0
+  code:lib_dir(rlib) = "/tmp/v52/two/libB/rlib-3.0.0"
+  .app vsn           = {ok,"1.2.0"}
+== two copies of the SAME module on the path: which one does a call reach?
+  rlib:double(2) = 4 from "/tmp/v52/two/libA/rlib-2.0.0/ebin/rlib.beam"

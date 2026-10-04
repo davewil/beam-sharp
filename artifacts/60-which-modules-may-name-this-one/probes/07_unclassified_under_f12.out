@@ -26,3 +26,7 @@ exit=0
 ## 6. PROTOTYPE: what --api publishes now (does the manifest know Totals is restricted?)
 module Shop.Orders.Totals
 int Recompute(list<int>)
+
+## 7. PROTOTYPE: the agent's way round it from the sibling test is to edit the CALLEE (delete the within line) -- a diff in another module's file
+6
+exit=0

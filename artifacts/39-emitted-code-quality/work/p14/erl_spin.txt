@@ -1,21 +1,17 @@
-    call L25
+    call L
     nop
     nop
-.db ADDR
-.db ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
-.db ADDRB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, 0xCB, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR, ADDR
 # aligned_label_Lt
     align 4
 spin/4:
 # i_breakpoint_trampoline
-    short jmp L36
-.db ADDR
-    call L27
-L36:
+    short jmp L
+    call L
+L:
 # i_test_yield
     lea rdx, qword ptr [spin/4+24]
     dec r14d
-    long jle L28
+    long jle L
     align 4
 # is_eq_exact_fss
 # simplified check since one argument is an immediate
@@ -24,11 +20,10 @@ L36:
 # test_heap_It
     lea rdx, qword ptr [r15+56]
     cmp rdx, rsp
-    short jbe L37
+    short jbe L
     mov ecx, 4
-.db ADDR
-    call 139636653423200
-L37:
+    call 140004831525472
+L:
 # put_tuple2_SA
 # Move arity word
     mov qword ptr [r15], 128
@@ -43,18 +38,17 @@ L37:
     mov qword ptr [rbx], r10
 # return
     dec r14d
-    jl L34
+    jl L
     ret
 # label_L
 L:
 # allocate_tt
     lea rdx, qword ptr [r15+64]
     cmp rdx, rsp
-    short jbe L38
+    short jbe L
     mov ecx, 4
-.db ADDR
-    call 139636653423200
-L38:
+    call 140004831525472
+L:
     sub rsp, 32
 # init_yregs_I
     mov qword ptr [rsp], 59
@@ -74,7 +68,6 @@ L38:
     lea rax, qword ptr [rax+rsi-15]
     mov qword ptr [rbx], rax
 # i_call_f
-.db ADDRF, ADDRF, ADDR
     call wrap/1
 # line_I
 # i_minus_ssjd
@@ -84,32 +77,31 @@ L38:
     mov eax, esi
     and al, 15
     cmp al, 15
-    short jne L40
+    short jne L
     mov rax, rsi
     sub rax, 16
-    short jno L39
-L40:
-    call L41
-L39:
+    short jno L
+L:
+    call L
+L:
     mov qword ptr [rsp+16], rax
 # i_move_sd
     mov r10, qword ptr [rbx]
     mov qword ptr [rsp], r10
 # i_call_f
-.db ADDRF, ADDRF, ADDR
     call hit/1
 # i_plus_ssjd
     mov rsi, qword ptr [rsp+8]
     mov rdx, qword ptr [rbx]
 # simplified test for small operands since both are numbers
     rex test sil, 1
-    short je L43
+    short je L
     lea rax, qword ptr [rsi-15]
     add rax, rdx
-    short jno L42
-L43:
-    call L44
-L42:
+    short jno L
+L:
+    call L
+L:
     mov qword ptr [rbx+24], rax
 # move_two_words_sdsd
 # (moving and swapping)

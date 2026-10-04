@@ -6,6 +6,7 @@
 #   Step(Order o, int acc)  private: record tag test (base,wide) / none (narrow)
 #   Loop(Order o, int n, int acc) private recursive: acc is not provably an integer to the Erlang
 #                           optimiser (it is `acc + o.Total`, a number), so wide keeps is_integer(acc) per iteration
+#   HotE = the same Loop declared `public` under the CURRENT compiler: what the guards cost today when an author does not hide the worker.
 # REPS interleaved rounds (variant order rotated every round) of N loop iterations each.
 # Reported: per-iteration ns, median / min / max over rounds, and the spread. Quiet machine needed:
 # run it alone (probe prints the load average).
@@ -17,7 +18,7 @@ module $1
 record Order { Id: int, Total: int }
 int Step(Order o, int acc)
 Step(o, acc) -> acc + o.Total
-int Loop(Order o, int n, int acc)
+$2 int Loop(Order o, int n, int acc)
 Loop(o, 0, acc) -> acc
 Loop(o, n, acc) -> Loop(o, n - 1, Step(o, acc))
 public int Run(Order o, int n)
@@ -25,11 +26,11 @@ Run(o, n) -> Loop(o, n, 0)
 BS
 }
 mkdir -p $W/o
-for pair in "base HotB" "narrow HotN" "wide HotW" "base HotX"; do set -- $pair
-  mkdir -p $W/$2; src $2 > $W/$2/hot.bs; /tmp/p59/bin/bsc-$1 -o $W/o $W/$2 || exit 1
+for pair in "base HotB private" "narrow HotN private" "wide HotW private" "base HotX private" "base HotE public"; do set -- $pair
+  mkdir -p $W/$2; src $2 $3 > $W/$2/hot.bs; /tmp/p59/bin/bsc-$1 -o $W/o $W/$2 || exit 1
 done
 echo "loop functions as emitted (HotB=base, HotN=narrow, HotW=wide):"
-for m in HotB HotN HotW; do echo "--- $m"; abstr $W/o/$m.beam | grep -v '^$' | sed -n '/^.Step/,/^.Run/p' | sed '$d'; done
+for m in HotB HotN HotW HotE; do echo "--- $m"; abstr $W/o/$m.beam | grep -v '^$' | sed -n '/^.Step/,/^.Run/p' | sed '$d'; done
 echo; echo "load average before: $(cut -d' ' -f1-3 /proc/loadavg)   nproc=$(nproc)"
 cat > $W/bench.erl <<'ERL'
 -module(bench).
@@ -37,7 +38,7 @@ cat > $W/bench.erl <<'ERL'
 main([NS, RS, Dir]) ->
     N = list_to_integer(NS), Reps = list_to_integer(RS),
     code:add_patha(Dir),
-    Mods = ['HotB', 'HotN', 'HotW', 'HotX'],
+    Mods = ['HotB', 'HotN', 'HotW', 'HotX', 'HotE'],
     O = fun(M) -> #{'Kind' => list_to_atom(atom_to_list(M) ++ ".Order"), 'Id' => 1, 'Total' => 3} end,
     %% check the answers agree and warm up
     [ N3 = M:'Run'(O(M), 1000) || M <- Mods, N3 <- [3000] ],
@@ -56,6 +57,8 @@ main([NS, RS, Dir]) ->
     io:format("~nnoise floor (HotB vs HotX, identical code), median diff: ~.3f ns/iter~n", [B - X]),
     io:format("narrow - base (private tag test removed):        ~.3f ns/iter~n", [Nn - B]),
     io:format("wide   - base (private int kind test added):     ~.3f ns/iter~n", [Wd - B]),
+    {_, E, _, _} = lists:keyfind('HotE', 1, Stats),
+    io:format("exported Loop (today's cost of the same guards, base compiler) - base: ~.3f ns/iter~n", [E - B]),
     halt().
 ERL
 erlc -o $W $W/bench.erl && erl -noshell -pa $W -eval "bench:main([\"$N\",\"$REPS\",\"$W/o\"])" 

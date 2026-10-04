@@ -1,0 +1,35 @@
+== warm, inside one VM (microseconds per call)
+-- ERL_LIBS entries: 3 lib dirs; code path length reported below
+  code:get_path() length = 34
+  code:lib_dir(greeter)  hit                   first=    11.8 us  median=     2.2 us  min=     2.0 us  (n=2000)
+  code:lib_dir(req)      miss                  first=     6.7 us  median=     1.7 us  min=     1.6 us  (n=2000)
+  code:which(Greeter)    hit                   first=   724.1 us  median=    15.9 us  min=     7.5 us  (n=2000)
+  code:which(Greeter.Nope) miss                first=  1445.0 us  median=    21.6 us  min=    17.9 us  (n=2000)
+  prov:check(greeter, Greeter) (option A, per  first=    45.4 us  median=    20.6 us  min=    17.5 us  (n=2000)
+  prov:app_of(Greeter)  path shape             first=    72.5 us  median=    22.3 us  min=    17.1 us  (n=2000)
+  file:consult greeter.app + read vsn/applicat first=   436.6 us  median=   187.7 us  min=   124.9 us  (n=500)
+  application:load+unload(greeter)             first=   170.3 us  median=    71.8 us  min=    53.6 us  (n=500)
+  prov_check:closure(greeter) transitive apps  first=  7999.3 us  median=  1069.3 us  min=   666.0 us  (n=500)
+  closure(greeter) = {[greeter,kernel,stdlib],[elixir,logger]}
+-- ERL_LIBS entries: 4 lib dirs; code path length reported below
+  code:get_path() length = 534
+  code:lib_dir(greeter)  hit                   first=    14.2 us  median=     2.0 us  min=     1.9 us  (n=2000)
+  code:lib_dir(req)      miss                  first=     8.0 us  median=     1.8 us  min=     1.6 us  (n=2000)
+  code:which(Greeter)    hit                   first=   152.0 us  median=    15.7 us  min=    15.5 us  (n=2000)
+  code:which(Greeter.Nope) miss                first=  7969.7 us  median=    37.0 us  min=    32.1 us  (n=2000)
+  prov:check(greeter, Greeter) (option A, per  first=    50.7 us  median=    17.9 us  min=    17.6 us  (n=2000)
+  prov:app_of(Greeter)  path shape             first=    57.3 us  median=    20.8 us  min=    17.1 us  (n=2000)
+  file:consult greeter.app + read vsn/applicat first=   833.3 us  median=   255.8 us  min=   171.8 us  (n=500)
+  application:load+unload(greeter)             first=   317.4 us  median=   112.3 us  min=    76.0 us  (n=500)
+  prov_check:closure(greeter) transitive apps  first=  2524.7 us  median=  1056.5 us  min=   696.5 us  (n=500)
+  closure(greeter) = {[greeter,kernel,stdlib],[elixir,logger]}
+== closure when elixir is NOT on the path (what a transitive check would flag)
+  closure(greeter) = {[greeter,kernel,stdlib],[elixir,logger]}
+== closure when Elixir 1.14 IS on the path
+  closure(greeter) = {[greeter,kernel,stdlib,elixir,logger,compiler],[]}
+== cold: first call in a fresh VM (median of 15 VMs, microseconds), 3 using-blocks worth
+  3 blocks, cold first call, median: 223.085
+  3 blocks, cold, +500-entry path, median: 225.815
+== bsc wall time for the Greet program (compile+run), ms, median of 15
+  bsc end to end: 810
+  bsc compile only: 782

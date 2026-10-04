@@ -1,0 +1,8 @@
+== A: both blocks in index.bs, used from two sibling files
+"hello, bob"
+"HEY bob"
+== B: the Extra block moved into yell.bs (a function file); does hi.bs see it? does yell.bs need it in index?
+"HEY bob"
+"HEY bob"
+== C: the double-quoted atom spelling LANGUAGE.md says is 'not lexed yet'
+H3/h.bs:3:7: error: syntax error before: ':'

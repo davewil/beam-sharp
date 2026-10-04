@@ -1,0 +1,59 @@
+== a_ok UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:2:25: error: syntax error before: from
+exit=1
+== a_ok UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:2:25: error: syntax error before: from
+-- a_ok with new syntax stripped, other libs:
+exit=0
+== a_typo UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:2:25: error: syntax error before: from
+exit=1
+== a_typo UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:2:25: error: syntax error before: from
+-- a_typo with new syntax stripped, other libs:
+exit=0
+== a_wrongapp UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:2:25: error: syntax error before: from
+exit=1
+== a_wrongapp UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:2:25: error: syntax error before: from
+-- a_wrongapp with new syntax stripped, other libs:
+exit=0
+== a_nofrom UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:5:31: error: syntax error before: from
+exit=1
+== a_nofrom UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:5:31: error: syntax error before: from
+-- a_nofrom with new syntax stripped, other libs:
+exit=0
+== a_noapp UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:2:16: error: syntax error before: from
+exit=1
+== a_noapp UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:2:16: error: syntax error before: from
+-- a_noapp with new syntax stripped, other libs:
+exit=0
+== b_ok UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:2:10: error: syntax error before: greeter
+exit=1
+== b_ok UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:2:10: error: syntax error before: greeter
+-- b_ok with new syntax stripped, other libs:
+exit=0
+== b_norequires UNPATCHED bsc, ERL_LIBS=good
+exit=0
+== b_norequires UNPATCHED bsc, ERL_LIBS=other
+-- b_norequires with new syntax stripped, other libs:
+exit=0
+== b_unused UNPATCHED bsc, ERL_LIBS=good
+Net/index.bs:2:10: error: syntax error before: greeter
+exit=1
+== b_unused UNPATCHED bsc, ERL_LIBS=other
+Net/index.bs:2:10: error: syntax error before: greeter
+-- b_unused with new syntax stripped, other libs:
+exit=0
+== c_ok UNPATCHED bsc, ERL_LIBS=good
+exit=0
+== c_ok UNPATCHED bsc, ERL_LIBS=other
+-- c_ok with new syntax stripped, other libs:
+exit=0

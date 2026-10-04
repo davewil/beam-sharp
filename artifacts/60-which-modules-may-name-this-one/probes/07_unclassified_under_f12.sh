@@ -26,3 +26,7 @@ $PROTO -o /tmp/o60u --src-root . Shop/Orders/Tests T1 2>&1 | head -4; echo "exit
 echo
 echo "## 6. PROTOTYPE: what --api publishes now (does the manifest know Totals is restricted?)"
 $PROTO --api --src-root . Shop/Orders/Totals 2>&1 | head -6
+echo
+echo "## 7. PROTOTYPE: the agent's way round it from the sibling test is to edit the CALLEE (delete the within line) -- a diff in another module's file"
+sed -i '/^within /d' Shop/Orders/Totals/Totals.bs
+$PROTO -o /tmp/o60aj --src-root . Shop/OrdersTests T1 2>&1 | head -3; echo "exit=${PIPESTATUS[0]}"
