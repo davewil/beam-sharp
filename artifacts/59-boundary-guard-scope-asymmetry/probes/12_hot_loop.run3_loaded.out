@@ -63,3 +63,15 @@ guard tests that SURVIVE in the BEAM code (disassembly), per function:
   HotE Loop/3  is_integer=3  tag map_get('Kind')=2
 
 load average before: 18.04 18.47 16.70   nproc=4
+mod        median        min        max    max-min   (ns per loop iteration; N=20000000 x 41 rounds, rotated order)
+HotB       18.720     13.223     30.746     17.524
+HotN       13.976     10.858     23.670     12.813
+HotW       19.484     15.515     27.329     11.814
+HotX       18.072     14.774     28.169     13.395
+HotE       19.621     15.670     27.506     11.836
+
+noise floor (HotB vs HotX, identical code), median diff: 0.648 ns/iter
+narrow - base (private tag test removed):        -4.744 ns/iter
+wide   - base (private int kind test added):     0.764 ns/iter
+exported Loop (today's cost of the same guards, base compiler) - base: 0.901 ns/iter
+load average after: 20.02 18.72 16.91
