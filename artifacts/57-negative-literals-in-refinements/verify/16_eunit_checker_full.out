@@ -1,3 +1,6 @@
 absent_option_tests                PASS(try 1)     All 19 tests passed.
 absorbed_member_tests              PASS(try 1)     All 22 tests passed.
 aggregate_tests                    PASS(try 1)     All 18 tests passed.
+api_tests                          PASS(try 1)     All 36 tests passed.
+binary_tests                       PASS(try 1)     All 32 tests passed.
+bindings_tests                     PASS(try 1)     All 19 tests passed.

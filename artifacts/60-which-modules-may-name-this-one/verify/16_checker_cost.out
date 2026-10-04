@@ -4,3 +4,4 @@ within lines in tree B: 20 of 321 files
 using lines in tree: 1980
 ## add_import calls per compile (instrumented copy /tmp/v60/i), tree A:
 9900
+HEAD compiler,  tree A (no within)             n=7 min=3.016 median=3.089 mean=3.419 max=4.212 s
