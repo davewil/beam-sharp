@@ -1,0 +1,12 @@
+### control, positive literal, current bsc
+EqPos                  refused(rc=1)
+    | compile: EqPos/a.bs:0: bad range type
+CatchAllPos            accepted(output)
+    | CatchAllPos/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+### same shapes, negative literal, bsc=/tmp/claude-0/-home-user-beam-sharp/4180a786-23e5-53e3-b71e-94fb1d89eea9/scratchpad/proto/checker_full/compiler/_build/default/bin/bsc
+EqNeg                  refused(rc=1)
+    | compile: EqNeg/a.bs:0: bad range type
+CatchAllNeg            accepted(output)
+    | CatchAllNeg/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.

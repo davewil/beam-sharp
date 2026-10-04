@@ -52,16 +52,14 @@ loop functions as emitted (HotB=base, HotN=narrow, HotW=wide):
         is_integer(Acc) ->
     'Loop'(O, N - 1, 'Step'(O, Acc)).
 
-load average before: 12.48 17.21 15.17   nproc=4
-mod        median        min        max    max-min   (ns per loop iteration; N=20000000 x 41 rounds, rotated order)
-HotB       13.301     12.780     15.903      3.123
-HotN       10.535     10.177     13.690      3.512
-HotW       13.768     13.337     16.717      3.380
-HotX       13.373     12.690     16.896      4.206
-HotE       14.184     13.845     21.324      7.479
+guard tests that SURVIVE in the BEAM code (disassembly), per function:
+  HotB Step/2  is_integer=0  tag map_get('Kind')=1
+  HotB Loop/3  is_integer=0  tag map_get('Kind')=2
+  HotN Step/2  is_integer=0  tag map_get('Kind')=0
+  HotN Loop/3  is_integer=0  tag map_get('Kind')=0
+  HotW Step/2  is_integer=0  tag map_get('Kind')=1
+  HotW Loop/3  is_integer=2  tag map_get('Kind')=2
+  HotE Step/2  is_integer=0  tag map_get('Kind')=1
+  HotE Loop/3  is_integer=3  tag map_get('Kind')=2
 
-noise floor (HotB vs HotX, identical code), median diff: -0.072 ns/iter
-narrow - base (private tag test removed):        -2.766 ns/iter
-wide   - base (private int kind test added):     0.467 ns/iter
-exported Loop (today's cost of the same guards, base compiler) - base: 0.883 ns/iter
-load average after: 7.28 14.93 14.50
+load average before: 18.04 18.47 16.70   nproc=4

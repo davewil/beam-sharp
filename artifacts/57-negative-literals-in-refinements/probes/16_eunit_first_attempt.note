@@ -1,1 +1,0 @@
-NOTE: an earlier run without LC_ALL=C.UTF-8 and without ../aoc failed cli_tests (latin1 'h?llo') and body_check_tests (aoc dir missing) on the UNPATCHED copy: environment, not the compiler.

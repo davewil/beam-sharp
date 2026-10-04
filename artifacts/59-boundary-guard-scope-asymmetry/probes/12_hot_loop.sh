@@ -31,6 +31,8 @@ for pair in "base HotB private" "narrow HotN private" "wide HotW private" "base 
 done
 echo "loop functions as emitted (HotB=base, HotN=narrow, HotW=wide):"
 for m in HotB HotN HotW HotE; do echo "--- $m"; abstr $W/o/$m.beam | grep -v '^$' | sed -n '/^.Step/,/^.Run/p' | sed '$d'; done
+echo; echo "guard tests that SURVIVE in the BEAM code (disassembly), per function:"
+for m in HotB HotN HotW HotE; do for f in "Step 2" "Loop 3"; do set -- $f; printf "  %s %s/%s  is_integer=%s  tag map_get('Kind')=%s\n" $m $1 $2 "$(asm $W/o/$m.beam $1 $2 | grep -c is_integer)" "$(asm $W/o/$m.beam $1 $2 | grep -c "'Kind'")"; done; done
 echo; echo "load average before: $(cut -d' ' -f1-3 /proc/loadavg)   nproc=$(nproc)"
 cat > $W/bench.erl <<'ERL'
 -module(bench).

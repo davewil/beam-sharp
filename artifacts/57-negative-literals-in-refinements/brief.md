@@ -13,7 +13,7 @@ versus *checker*. Measuring it showed the gap is wider than refinements, which c
 question: `-5` is not a constant **anywhere** in the compiler except patterns, so four other
 things fail today that the ticket does not list (below). A fold at the expression-grammar action
 repairs all of them with no checker or emitter change; a fold in the checker has to be repeated at
-three sites, and a fold at two of them is **unsound** (probe 08).
+three sites, and a fold at the comparison reader alone is **unsound** (probe 08).
 
 This is David's call. The brief gives the program that compiles under each answer.
 
@@ -25,7 +25,7 @@ This is David's call. The brief gives the program that compiles under each answe
 | AST is `{e_op,'-',{e_int,0},{e_int,5}}` | **Stale.** Since F51 it is `{e_neg,L,{e_int,L,5}}` (`bs_parser.yrl:589,945`). The conclusion stands: still not a constant | 02 |
 | Pattern `<= -1` compiles | Reproduced (`int_lit -> '-' integer`, `bs_parser.yrl:470`) | 01, 02 |
 | "`refine/3` must error, not silently widen" | Still right, and unaffected by any option here | — |
-| `subtract(-10..10, 0)` is `-10..-1 | 1..10` | Reproduced by the ticket's own probe 38b | 00 |
+| `subtract(-10..10, 0)` is `-10..-1` then `1..10` (a union) | Reproduced by the ticket's own probe 38b | 00 |
 | Same literal in a guard | **Not in the ticket.** Compiles and runs, but earns **no coverage credit** | 03 |
 
 ## Four symptoms the ticket does not list (all the same root: `-5` is `e_neg`, not a literal)
@@ -188,7 +188,30 @@ behavioural blast radius.
 
 ## Evidence: what each fix breaks and does not
 
-EUNIT_SECTION
+**The compiler's own eunit suite** (`probes/16_eunit_per_module.sh`, outputs `probes/16_eunit_{base,grammar,checker_full}.out`):
+65 test modules, **1309 tests, all passing, on all three builds, every module on the first try**, with
+identical per-module counts (`diff` of the three outputs, ignoring the retry column, is empty).
+So neither fix breaks an existing test.
+
+That is also a finding about the suite: **no existing test pins a negative integer literal in an
+expression or a guard**, since changing `-5` from `int` to `-5..-5` (A) or folding it in three
+checker/emitter sites (B-full) moves nothing. The ticket's remark that F2's scenarios are all
+non-negative is consistent with this. The tests that would have caught symptoms 1-4 do not exist
+yet; probes 03, 08 and 17 are their candidates.
+
+What each build does to the probe set (probes 01, 03, 07, 08, 17, 19; `X` = still wrong):
+
+| behaviour | base | A grammar | B-min | B-wide | B-full | C refine-only |
+|---|---|---|---|---|---|---|
+| ticket table (3 refused forms) | X | ok | ok | ok | ok | ok |
+| `value >= 2 + 3` | X | X | X | ok | X | X |
+| guard `n >= -5` earns coverage (03) | X | ok | ok | ok | ok | X |
+| unreachable warning after it (06) | X | ok | ok | ok | ok | X |
+| `Id(-5)` / `Delta Zero() -> -5` (07) | X | ok | X | X | ok | X |
+| printed residual pastes back (17) | X | ok | ok | ok | ok | X |
+| `int \| atom` guard: `F(:x)` -> `:other` (08) | X | ok | **X, and the checker now credits it** | **X, credited** | ok | X |
+| `x / -0` refused at compile time (19) | X | ok | X | X | ok | X |
+
 
 ## Measured cost (probe 15, `measure.escript`)
 
@@ -278,7 +301,7 @@ refinements, the answer is B-full, not C.
   `probes/eunit_whole_suite_aborted_*.log`). The first per-module attempt also failed
   `cli_tests` and `body_check_tests` on the **unpatched** copy for environmental reasons
   (`LANG` not UTF-8; the test wants `../aoc` beside the copy); both were fixed in the runner and
-  the numbers below are from the rerun. EUNIT_COVERAGE_CAVEAT
+  the numbers below are from the rerun. `rebar3 eunit` totals for each build are the sum of the "All N tests passed" lines; the three sums are equal (1309).
 - **`checker_min`, `checker_wide`, `refine_only` were probed but not run through eunit.** B-wide
   is a superset of B-minimal's behaviour; B-full is the variant a proposal would have to be.
 - **The F51 float fold's interaction**: `-0.0` and `-x` are untouched in every variant (probe 19,
@@ -300,7 +323,7 @@ refinements, the answer is B-full, not C.
 | 03 | `03_guard_vs_pattern.sh` | guard `-5` compiles and runs, earns no coverage; pattern does | `.out`, `_refine_only.out` |
 | 04 | `04_fold_extent_table.sh` | 20 predicates: `-5`, `2+3`, `-(5)`, `value != -3`, contradictions | `.out` |
 | 05 | `05_fix_probe_table.sh` | 01+03+04 on every variant | `.out` |
-| 06 | `06_residual_diagnostics.sh` | `value == -3` error and the unreachable-clause warning, base vs checker_min | `06_base.out`, `06_checker_min.out` |
+| 06 | `06_residual_diagnostics.sh` | `value == -3` error (`bad range type`, S6) and the unreachable-clause warning after a negative-literal guard, per variant | `06_{base,checker_min,checker_wide,checker_full,grammar,refine_only}.out` |
 | 07 | `07_literal_flows_into_refined_type.sh` | `Id(-5)`, `Zero() -> -5` into a `Delta`; per variant | `.out`, `_refine_only.out` |
 | 08 | `08_guard_kind_test_mirror.sh` | `int | atom` guard: emitter mirror; **unsound under B-min** | `.out`, `_refine_only.out` |
 | 09 | `09_run_variants.sh` | runner: any probe on every variant | — |
@@ -317,6 +340,8 @@ refinements, the answer is B-full, not C.
 | 20 | `20_singleton_range_side_finding.sh` | S6: `value == 3` → `bad range type`; Erlang rejects `3..3` | `.out` |
 | 21 | `21_ast_before_after.sh` | AST before/after A and B-full | `.out` |
 | — | `lib.sh` | shared helper (`probe NAME SRC [FN ARGS]`) | — |
+| — | `patches/*.diff` | the exact prototype edits against `compiler/src/` (`grammar` is 1 line) | — |
+| — | `eunit_whole_suite_aborted_*.log` | the first, whole-suite eunit attempts that the load aborted (kept, not used) | — |
 
 Prototype builds (not in the repo): `<scratchpad>/proto/{base,grammar,checker_min,checker_wide,checker_full,refine_only}/compiler`.
 The patches are small enough to restate: *grammar* adds
