@@ -1,0 +1,23 @@
+'Helper'(N) ->
+    N.
+'Incr'(N) when is_integer(N) ->
+    N + 1.
+'Pass'(N) when is_integer(N) ->
+    'Helper'(N).
+'Ignore'(N, M)
+    when
+        is_integer(N)
+        andalso
+        is_integer(M) ->
+    M + 1.
+'Amount'(O) when map_get('Kind', O) =:= 'An.Order' ->
+    map_get('Total', O).
+'PassO'(O) when map_get('Kind', O) =:= 'An.Order' ->
+    'Amount'(O).
+
+grep of the emitter for any read of a function body when deciding a guard:
+195:    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx, Public, Accepts),
+265:boundary_guards(Patterns, Params, Line, Ctx, Public, Accepts) ->
+267:    Folded = [guard_one(P, Param, lists:nth(I, Accepts), I, Line, Ctx, Public)
+275:guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+  (no mention of Body / callee in guard_one/8)

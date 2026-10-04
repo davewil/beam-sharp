@@ -7,3 +7,53 @@ Rec8   base           125       1288       10
 Rec8   narrow         113       1264        8   -12 B / -2 instrs (file -24; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
 Rec8   wide           125       1288       10   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
 Rec8   proj           204       1424       24   +79 B / +14 instrs (file +136; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntP   base           106        996        7   
+IntP   narrow         106       1000        7   0 B / 0 instrs (file +4; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntP   wide           106       1012        7   0 B / 0 instrs (file +16; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntP   proj           106        996        7   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntU   base           120       1196        9   
+IntU   narrow         120       1204        9   0 B / 0 instrs (file +8; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntU   wide           125       1232       10   +5 B / +1 instrs (file +36; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+IntU   proj           128       1232       11   +8 B / +2 instrs (file +36; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Oct    base           119       1080        9   
+Oct    narrow         119       1084        9   0 B / 0 instrs (file +4; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Oct    wide           119       1112        9   0 B / 0 instrs (file +32; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Oct    proj           119       1080        9   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Big2   base           131       1256       11   
+Big2   narrow         131       1260       11   0 B / 0 instrs (file +4; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Big2   wide           141       1312       13   +10 B / +2 instrs (file +56; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Big2   proj           141       1304       13   +10 B / +2 instrs (file +48; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+
+=== the emitted guards for the cases, per variant (private function only) ===
+--- Rec3 / base
+'Inner'(O) when map_get('Kind', O) =:= 'Rec3.Order' ->
+    map_get('Total', O).
+
+--- Rec3 / narrow
+'Inner'(O) ->
+    map_get('Total', O).
+
+--- Rec3 / wide
+'Inner'(O) when map_get('Kind', O) =:= 'Rec3.Order' ->
+    map_get('Total', O).
+
+--- Rec3 / proj
+'Inner'(O) ->
+    map_get('Total', O).
+
+--- IntU / base
+'Scale'(N) ->
+    N * 2.
+
+--- IntU / narrow
+'Scale'(N) ->
+    N * 2.
+
+--- IntU / wide
+'Scale'(N) when is_integer(N) ->
+    N * 2.
+
+--- IntU / proj
+'Scale'(N) ->
+    N * 2.
+

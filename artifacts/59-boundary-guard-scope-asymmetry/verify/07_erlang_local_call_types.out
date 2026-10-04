@@ -1,0 +1,20 @@
+--- l1/1: is_integer tests remaining in the emitted BEAM: 0
+--- l2/1: is_integer tests remaining in the emitted BEAM: 1
+--- l3/1: is_integer tests remaining in the emitted BEAM: 1
+--- ex/1: is_integer tests remaining in the emitted BEAM: 1
+
+--- l1/1 disassembly (guard gone, and the multiply carries the PROVEN type t_integer):
+{label,1}
+{line,1}
+{func_info,{atom,loc},{atom,l1},1}
+{label,2}
+{gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+return
+--- l2/1 disassembly (guard kept):
+{line,3}
+{label,5}
+{func_info,{atom,loc},{atom,l2},1}
+{label,6}
+{test,is_integer,{f,5},[{x,0}]}
+{gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+return

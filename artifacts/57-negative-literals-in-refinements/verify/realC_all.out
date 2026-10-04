@@ -94,3 +94,41 @@ DividesOutOfRange      accepted
 NonZeroDelta           accepted
 NonZeroDeltaViaOr      accepted
 ######## 19_other_expression_effects
+DivByNegZero           refused(rc=1)
+    | crashed: error:badarith
+DivByNegThree          accepted(output)
+    | -3
+DivByPosZero           refused(rc=1)
+    | DivByPosZero/a.bs:4:11: error: the right-hand side of `/` in F is always zero
+    |   `/` needs no proof that a divisor is non-zero \x{2014} a divisor that MIGHT
+    |   be zero compiles and crashes at run time. Only one the compiler can
+    |   prove is zero is refused, and this is one.
+NegArith               accepted(output)
+    | -10
+NegPrec                accepted(output)
+    | 13
+NegLitTuple            accepted(output)
+    | (-1, -2)
+NegAsRefinedReturn     refused(rc=1)
+    | NegAsRefinedReturn/a.bs:5:1: error: F returns a value its signature does not declare
+    |   not covered by the declared return type:
+    |     int >= 0
+    |   If `Neg` is what you meant, fix the clause, not the signature.
+    |   no signature is offered: what the clauses return has no spelling as a type yet.
+NegZeroPat             accepted(output)
+    | :zero
+BigNeg                 accepted(output)
+    | -9223372036854775808
+NegFloatStill          accepted(output)
+    | -0.0
+######## 06_residual_diagnostics
+### control, positive literal, current bsc
+EqPos                  refused(rc=1)
+    | compile: EqPos/a.bs:0: bad range type
+CatchAllPos            accepted(output)
+    | CatchAllPos/a.bs:6:1: warning: clause 3 of F is unreachable
+    |   every value it matches is matched by an earlier clause.
+### same shapes, negative literal, bsc=/tmp/claude-0/-home-user-beam-sharp/4180a786-23e5-53e3-b71e-94fb1d89eea9/scratchpad/v57/real_c/compiler/_build/default/bin/bsc
+EqNeg                  refused(rc=1)
+    | compile: EqNeg/a.bs:0: bad range type
+CatchAllNeg            accepted

@@ -8,3 +8,6 @@ body_check_tests                   PASS(try 1)     All 54 tests passed.
 boundary_kind_tests                PASS(try 1)     All 6 tests passed.
 boundary_range_tests               PASS(try 1)     All 10 tests passed.
 clause_block_tests                 PASS(try 1)     All 13 tests passed.
+cli_tests                          PASS(try 1)     All 21 tests passed.
+collapse_tests                     PASS(try 1)     All 26 tests passed.
+columns_tests                      PASS(try 1)     All 5 tests passed.
