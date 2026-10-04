@@ -1,0 +1,38 @@
+### base
+CalleeNeg              refused(rc=1)
+    | CalleeNeg/a.bs:6:22: error: F hands G an argument it does not accept
+    |   argument 1 is not covered by G's declared type:
+    |     atom
+    |   the clause to add here:
+    |     F(a) -> ...
+CalleePos              accepted(output)
+    | 0
+### grammar
+CalleeNeg              accepted(output)
+    | 0
+CalleePos              accepted(output)
+    | 0
+### checker_min
+CalleeNeg              refused(rc=1)
+    | crashed: error:function_clause
+CalleePos              accepted(output)
+    | 0
+### checker_wide
+CalleeNeg              refused(rc=1)
+    | crashed: error:function_clause
+CalleePos              accepted(output)
+    | 0
+### checker_full
+CalleeNeg              accepted(output)
+    | 0
+CalleePos              accepted(output)
+    | 0
+### refine_only
+CalleeNeg              refused(rc=1)
+    | CalleeNeg/a.bs:6:22: error: F hands G an argument it does not accept
+    |   argument 1 is not covered by G's declared type:
+    |     atom
+    |   the clause to add here:
+    |     F(a) -> ...
+CalleePos              accepted(output)
+    | 0

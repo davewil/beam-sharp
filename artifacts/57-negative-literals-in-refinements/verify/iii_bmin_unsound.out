@@ -1,0 +1,39 @@
+### base
+NarrowBody             refused(rc=1)
+    | crashed: error:badarith
+NarrowBodyPos          accepted(output)
+    | 0
+CoverAtom              refused(rc=1)
+    | CoverAtom/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |     F(n) -> ...
+### grammar
+NarrowBody             accepted(output)
+    | 0
+NarrowBodyPos          accepted(output)
+    | 0
+CoverAtom              refused(rc=1)
+    | CoverAtom/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |   and no pattern spells:
+    |     (atom \ (:a))
+### checker_min
+NarrowBody             refused(rc=1)
+    | crashed: error:badarith
+NarrowBodyPos          accepted(output)
+    | 0
+CoverAtom              refused(rc=1)
+    | CoverAtom/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |   and no pattern spells:
+    |     (atom \ (:a))
+### checker_full
+NarrowBody             accepted(output)
+    | 0
+NarrowBodyPos          accepted(output)
+    | 0
+CoverAtom              refused(rc=1)
+    | CoverAtom/a.bs:3:13: error: F is not exhaustive
+    |   no clause matches:
+    |   and no pattern spells:
+    |     (atom \ (:a))

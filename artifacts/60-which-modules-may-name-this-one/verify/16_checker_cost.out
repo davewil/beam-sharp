@@ -8,3 +8,4 @@ HEAD compiler,  tree A (no within)             n=7 min=3.016 median=3.089 mean=3
 PROTOTYPE,      tree A (no within)             n=7 min=3.222 median=3.648 mean=4.306 max=6.942 s
 PROTOTYPE,      tree B (within on 20 helpers)  n=7 min=3.451 median=4.048 mean=4.173 max=5.270 s
 HEAD compiler,  tree A (no within)  [again]    n=7 min=2.911 median=3.523 mean=3.639 max=5.114 s
+PROTOTYPE,      tree A (no within)  [again]    n=7 min=2.989 median=3.366 mean=3.445 max=3.850 s

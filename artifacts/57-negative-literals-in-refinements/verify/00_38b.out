@@ -1,0 +1,7 @@
+== Can a non-zero divisor be declared? ==
+ok  NotEqualZero                       accepted (expected accepted)
+== ...and does it actually EXCLUDE zero, or is it a silent no-op? ==
+ok  ZeroRejected                       refused (expected refused)
+== Is a DISJOINT refinement the problem? (no -- this is accepted) ==
+ok  DisjointOr                         accepted (expected accepted)
+== It is the NEGATIVE LITERAL. All three of these are refused. ==

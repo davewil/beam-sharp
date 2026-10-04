@@ -1,0 +1,77 @@
+loop functions as emitted (HotB=base, HotN=narrow, HotW=wide):
+--- HotB
+'Step'(O, Acc) when map_get('Kind', O) =:= 'HotB.Order' ->
+    Acc + map_get('Total', O).
+'Loop'(O, 0, Acc) when map_get('Kind', O) =:= 'HotB.Order' ->
+    Acc;
+'Loop'(O, N, Acc) when map_get('Kind', O) =:= 'HotB.Order' ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+--- HotN
+'Step'(O, Acc) ->
+    Acc + map_get('Total', O).
+'Loop'(_O, 0, Acc) ->
+    Acc;
+'Loop'(O, N, Acc) ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+--- HotW
+'Step'(O, Acc)
+    when
+        map_get('Kind', O) =:= 'HotW.Order'
+        andalso
+        is_integer(Acc) ->
+    Acc + map_get('Total', O).
+'Loop'(O, 0, Acc)
+    when
+        map_get('Kind', O) =:= 'HotW.Order'
+        andalso
+        is_integer(Acc) ->
+    Acc;
+'Loop'(O, N, Acc)
+    when
+        map_get('Kind', O) =:= 'HotW.Order'
+        andalso
+        is_integer(N)
+        andalso
+        is_integer(Acc) ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+--- HotE
+'Step'(O, Acc) when map_get('Kind', O) =:= 'HotE.Order' ->
+    Acc + map_get('Total', O).
+'Loop'(O, 0, Acc)
+    when
+        map_get('Kind', O) =:= 'HotE.Order'
+        andalso
+        is_integer(Acc) ->
+    Acc;
+'Loop'(O, N, Acc)
+    when
+        map_get('Kind', O) =:= 'HotE.Order'
+        andalso
+        is_integer(N)
+        andalso
+        is_integer(Acc) ->
+    'Loop'(O, N - 1, 'Step'(O, Acc)).
+
+guard tests that SURVIVE in the BEAM code (disassembly), per function:
+  HotB Step/2  is_integer=0  tag map_get('Kind')=1
+  HotB Loop/3  is_integer=0  tag map_get('Kind')=2
+  HotN Step/2  is_integer=0  tag map_get('Kind')=0
+  HotN Loop/3  is_integer=0  tag map_get('Kind')=0
+  HotW Step/2  is_integer=0  tag map_get('Kind')=1
+  HotW Loop/3  is_integer=2  tag map_get('Kind')=2
+  HotE Step/2  is_integer=0  tag map_get('Kind')=1
+  HotE Loop/3  is_integer=3  tag map_get('Kind')=2
+
+load average before: 15.26 14.49 15.09   nproc=4
+mod        median        min        max    max-min   (ns per loop iteration; N=5000000 x 25 rounds, rotated order)
+HotB       13.722     12.765     15.958      3.194
+HotN       11.034     10.140     15.620      5.480
+HotW       14.605     13.739     19.618      5.879
+HotX       14.232     12.791     24.586     11.795
+HotE       14.699     13.781     23.373      9.591
+
+noise floor (HotB vs HotX, identical code), median diff: -0.510 ns/iter
+narrow - base (private tag test removed):        -2.689 ns/iter
+wide   - base (private int kind test added):     0.882 ns/iter
+exported Loop (today's cost of the same guards, base compiler) - base: 0.977 ns/iter
+load average after: 14.52 14.34 15.04

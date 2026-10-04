@@ -132,3 +132,8 @@ CatchAllPos            accepted(output)
 EqNeg                  refused(rc=1)
     | compile: EqNeg/a.bs:0: bad range type
 CatchAllNeg            accepted
+######## 14_positive_arithmetic_control
+PosArith               refused(rc=1)
+    | PosArith/a.bs:6:9: error: Go hands Id an argument it does not accept
+    |   argument 1 is not covered by Id's declared type:
+    |     int <= 0 | int >= 101
