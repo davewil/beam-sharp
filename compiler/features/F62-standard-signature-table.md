@@ -1,6 +1,6 @@
 # F62 — A standard operation is a row over OTP's own function
 
-**Status**      **in progress** — 13 tests in `reserved_qualifier_tests` (40 there),
+**Status**      **done 2026-10-04**, called by David — 13 tests in `reserved_qualifier_tests` (40 there),
                 `check-reserved-qualifiers.sh` P2 rewritten and seen red on master first,
                 nine red stubs and one green
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1,
