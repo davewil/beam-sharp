@@ -53,8 +53,9 @@ map, no `Kind`.
 - Each value takes the type its field has in the type the site expects, so a
   lambda there has its arrow, as a record construction's value does.
 - A key written twice is refused, `duplicate_field`. An Erlang map literal
-  would keep the last value. No ticket decides this outright; it is
-  [ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md) Q6.
+  would keep the last value.
+  [Ticket 89](../../wayfinder/issues/89-what-the-f57-f60-review-left-open.md) A6
+  (David, 2026-10-04): the refusal stands.
 
 ## What it compiles to
 

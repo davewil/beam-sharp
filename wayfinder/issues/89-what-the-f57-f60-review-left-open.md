@@ -208,3 +208,15 @@ child prefix instead of refusing it; `strip_rels/2` walks below an argument's to
 gains the clause it lacked, a fresh variable in the pattern and the part's test in the guard; and
 the refusal and its message go. The same change reaches a tuple and a list element
 (`Go((int n, a))`), since the refusal is positional.
+
+**A8 (David, 2026-10-04):** *"Got it, then proceed"*, after the form was explained as a type
+pattern match on a view's part. Yes: a part prefix may sit inside another pattern, as a record
+prefix already does, and `type_prefix_nested` goes. Q7, the part's name, was not answered by that
+sentence and stays open; the ticket resolves when it is.
+
+The builds the answers owe, filed 2026-10-04: A8's nested part prefix,
+[ENG-586](https://linear.app/davewil/issue/ENG-586); A1's `pid | port`,
+[ENG-587](https://linear.app/davewil/issue/ENG-587), built after Q7 names the part; A4's refusal,
+[ENG-588](https://linear.app/davewil/issue/ENG-588); A5's `with`,
+[ENG-589](https://linear.app/davewil/issue/ENG-589). A2, A3 and A6 are in F60 and F57 as
+sentences.
