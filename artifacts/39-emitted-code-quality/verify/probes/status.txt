@@ -1,2 +1,7 @@
 00_build.sh exit=0
 01_elixir_forms.sh exit=0
+02_reproduce_gap.sh exit=0
+03_disasm.sh exit=0
+04_instr_diff.sh exit=0
+05_spin_isolation.sh exit=0
+06_strip_annotations.sh exit=0

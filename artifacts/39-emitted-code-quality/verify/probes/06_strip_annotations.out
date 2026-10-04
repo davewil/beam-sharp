@@ -1,0 +1,48 @@
+== {tr,..} count / spin+wrap annotation per variant ==
+e_default: tr=8 bytes=1316 instrs(spin)=--- spin/4 (26 instrs)
+e_no_type_opt: tr=0 bytes=1332 instrs(spin)=--- spin/4 (26 instrs)
+e_no_ssa_opt: tr=0 bytes=1232 instrs(spin)=--- spin/4 (26 instrs)
+b_default: tr=7 bytes=1332 instrs(spin)=--- 'Spin'/4 (26 instrs)
+b_no_type_opt: tr=0 bytes=1356 instrs(spin)=--- 'Spin'/4 (26 instrs)
+
+-- e_no_type_opt spin gc_bif operands --
+  {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}
+  {allocate,4,4}
+  {init_yregs,{list,[{y,0}]}}
+  {move,{x,3},{y,1}}
+  {move,{x,2},{y,2}}
+--
+  {gc_bif,'-',{f,0},1,[{y,2},{integer,1}],{y,2}}
+  {move,{x,0},{y,0}}
+  {call,1,{e_no_type_opt,hit,1}}
+  {gc_bif,'+',{f,0},1,[{y,1},{x,0}],{x,3}}
+  {move,{y,2},{x,2}}
+  {move,{y,3},{x,1}}
+  {move,{y,0},{x,0}}
+  {call_last,4,{e_no_type_opt,spin,4},4}
+
+== timing, 300 interleaved rounds x2 (answers must all be 6770) ==
+answer e_default = 6770
+answer e_no_type_opt = 6770
+answer e_no_ssa_opt = 6770
+answer b_default = 6770
+answer b_no_type_opt = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.76    17.03    18.43    36.63  1.005x
+e_no_type_opt     16.69    17.01    18.71    29.07  1.001x
+e_no_ssa_opt      16.86    17.18    19.07    33.01  1.011x
+b_default         16.67    16.94    18.32    42.84  1.000x
+b_no_type_opt     17.21    17.60    18.74    40.86  1.033x
+
+answer e_default = 6770
+answer e_no_type_opt = 6770
+answer e_no_ssa_opt = 6770
+answer b_default = 6770
+answer b_no_type_opt = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.87    17.07    18.18    35.52  1.024x
+e_no_type_opt     16.52    16.81    18.30    25.81  1.002x
+e_no_ssa_opt      16.48    16.78    17.87    23.64  1.000x
+b_default         16.64    16.84    17.68    31.67  1.010x
+b_no_type_opt     17.23    17.50    18.43    25.04  1.046x
+

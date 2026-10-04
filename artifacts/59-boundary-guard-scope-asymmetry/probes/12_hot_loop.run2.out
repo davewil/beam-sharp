@@ -52,16 +52,16 @@ loop functions as emitted (HotB=base, HotN=narrow, HotW=wide):
         is_integer(Acc) ->
     'Loop'(O, N - 1, 'Step'(O, Acc)).
 
-load average before: 12.48 17.21 15.17   nproc=4
-mod        median        min        max    max-min   (ns per loop iteration; N=20000000 x 41 rounds, rotated order)
-HotB       13.301     12.780     15.903      3.123
-HotN       10.535     10.177     13.690      3.512
-HotW       13.768     13.337     16.717      3.380
-HotX       13.373     12.690     16.896      4.206
-HotE       14.184     13.845     21.324      7.479
+load average before: 6.63 14.54 14.38   nproc=4
+mod        median        min        max    max-min   (ns per loop iteration; N=10000000 x 61 rounds, rotated order)
+HotB       13.119     12.679     19.184      6.505
+HotN       10.373     10.051     14.230      4.179
+HotW       13.819     13.388     21.656      8.268
+HotX       13.133     12.655     18.175      5.520
+HotE       14.190     13.759     19.743      5.984
 
-noise floor (HotB vs HotX, identical code), median diff: -0.072 ns/iter
-narrow - base (private tag test removed):        -2.766 ns/iter
-wide   - base (private int kind test added):     0.467 ns/iter
-exported Loop (today's cost of the same guards, base compiler) - base: 0.883 ns/iter
-load average after: 7.28 14.93 14.50
+noise floor (HotB vs HotX, identical code), median diff: -0.014 ns/iter
+narrow - base (private tag test removed):        -2.746 ns/iter
+wide   - base (private int kind test added):     0.700 ns/iter
+exported Loop (today's cost of the same guards, base compiler) - base: 1.071 ns/iter
+load average after: 5.67 13.31 13.97

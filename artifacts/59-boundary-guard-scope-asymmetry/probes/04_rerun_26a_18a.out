@@ -57,8 +57,58 @@ The ticket asserts maps are 'slower to match'. Measured, not assumed.
 Three runs; read a difference only if it exceeds the spread WITHIN a row.
 
 variant                                   run 1        run 2        run 3      ns/call
-tuple  element/3, unguarded               31503        18990        18846         9.42
-tuple  element/3, guarded                 19420        54561        39048         9.71
+tuple  element/3, unguarded               19498        18607        18759         9.30
+tuple  element/3, guarded                 18740        18887        19639         9.37
+map    map_get,   unguarded               20185        19911        20398         9.96
+map    map_get,   guarded                 21027        20903        20911        10.45
+map    map_get,   guarded+values          23967        23258        24528        11.63
+tagged map,       guarded                 21150        24592        21058        10.53
+
+Microseconds for the whole loop; ns/call from the fastest of the three.
+
+===========================================================================================
+4. Term-model facts the erasure choice turns on
+===========================================================================================
+--- 4.1 does a map PATTERN match a map with extra keys? ---
+  #{id := _, total := _, status := _} vs a 4-key map : matched
+  => a map pattern is OPEN. Ticket 27 sec7 declined row polymorphism, so a
+     record type is an EXACT field set -- which the pattern alone cannot say.
+  same map, with map_size(X) =:= 3 added               : no_match
+
+--- 4.2 does a TUPLE pattern match a wider tuple? ---
+  {order, _, _} vs {order, 1, 2, 99}                   : no_match
+  => a tuple pattern is CLOSED. Arity is exact for free.
+
+--- 4.3 map_get/2 in a guard, on an ABSENT key ---
+  guard `map_get('__type__', X) =:= order`, key absent : guard_failed_silently
+  same guard, key present and equal                    : matched
+  => it fails the guard rather than raising, so ONE map_get is a complete
+     discriminator for a tagged map: no is_map, no map_size, no is_map_key.
+
+--- 4.4 is field ORDER observable in each erasure? ---
+  #{b => 1, a => 2} =:= #{a => 2, b => 1}             : true
+  {order,1,2}       =:= {order,2,1}                   : false
+  => ticket 09 says a record type IS its field SET. A set has no order, so a
+     tuple erasure must invent a canonical one and put it in the wire format.
+
+--- 4.5 what an Elixir struct looks like coming in (ticket 06) ---
+  an Elixir %Order{} term                             : #{id => 1,total => 2,
+                                                          '__struct__' =>
+                                                              'Elixir.Order'}
+  map_size                                            : 3
+  => it is a map with one extra key. Under a map erasure it arrives as a
+     record with an extra field; under a tuple erasure it needs conversion.
+
+===========================================================================================
+5. json:encode/1 -- ticket 16 sec4's generated encoder
+===========================================================================================
+Ticket 16 established json:encode/1 REFUSES tuples at any depth, and made the
+encoder a codegen obligation. A record is the main thing anyone serialises.
+
+  map    #{id=>1,total=>2,status=>open}    -> <<"{\"id\":1,\"status\":\"open\",\"total\":2}">>
+  tuple  {order,1,2}                       -> {caught,error,unsupported_type}
+  tagged map (__type__ key)                -> <<"{\"id\":1,\"total\":2,\"__type__\":\"order\"}">>
+  nested: map holding a tuple              -> {caught,error,unsupported_type}
 
 ################ 18a (guard cost) - size sections ################
 
@@ -120,4 +170,192 @@ except d_inst which counts instructions.
     {func_info,{atom,v_id_u},{atom,id},1}.
   {label,2}.
     return.
+
+
+[guarded   v_id_g]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_g.erl",4}]}.
+    {func_info,{atom,v_id_g},{atom,id},1}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    return.
+
+
+
+--- id/1  NOISE FLOOR: two identical unguarded modules ---
+
+[unguarded v_id_x]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_x.erl",4}]}.
+    {func_info,{atom,v_id_x},{atom,id},1}.
+  {label,2}.
+    return.
+
+
+[guarded   v_id_y]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_y.erl",4}]}.
+    {func_info,{atom,v_id_y},{atom,id},1}.
+  {label,2}.
+    return.
+
+
+
+--- add/2 1 guard ---
+
+[unguarded v_a1_u]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a1_u.erl",4}]}.
+    {func_info,{atom,v_a1_u},{atom,add},2}.
+  {label,2}.
+    {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}.
+    return.
+
+
+[guarded   v_a1_g]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a1_g.erl",4}]}.
+    {func_info,{atom,v_a1_g},{atom,add},2}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {gc_bif,'+',{f,0},2,[{tr,{x,0},{t_integer,any}},{x,1}],{x,0}}.
+    return.
+
+
+
+--- add/2 2 guards ---
+
+[unguarded v_a2_u]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a2_u.erl",4}]}.
+    {func_info,{atom,v_a2_u},{atom,add},2}.
+  {label,2}.
+    {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}.
+    return.
+
+
+[guarded   v_a2_g]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a2_g.erl",4}]}.
+    {func_info,{atom,v_a2_g},{atom,add},2}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {test,is_integer,{f,1},[{x,1}]}.
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,1},{t_integer,any}}],
+            {x,0}}.
+    return.
+
+
+
+--- add/4 4 guards ---
+
+[unguarded v_a4_u]
+{function, add, 4, 2}.
+  {label,1}.
+    {line,[{location,"v_a4_u.erl",4}]}.
+    {func_info,{atom,v_a4_u},{atom,add},4}.
+  {label,2}.
+    {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,0},{t_number,any}},{x,2}],{x,0}}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,0},{t_number,any}},{x,3}],{x,0}}.
+    return.
+
+
+[guarded   v_a4_g]
+{function, add, 4, 2}.
+  {label,1}.
+    {line,[{location,"v_a4_g.erl",4}]}.
+    {func_info,{atom,v_a4_g},{atom,add},4}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {test,is_integer,{f,1},[{x,1}]}.
+    {test,is_integer,{f,1},[{x,2}]}.
+    {test,is_integer,{f,1},[{x,3}]}.
+    {line,[{location,"v_a4_g.erl",5}]}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,1},{t_integer,any}}],
+            {x,0}}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,2},{t_integer,any}}],
+            {x,0}}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,3},{t_integer,any}}],
+            {x,0}}.
+    return.
+
+
+
+--- amt/1 tuple discriminator (is_tuple+tuple_size+element) ---
+
+[unguarded v_tp_u]
+{function, amt, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_tp_u.erl",4}]}.
+    {func_info,{atom,v_tp_u},{atom,amt},1}.
+  {label,2}.
+    {bif,element,{f,0},[{integer,3},{x,0}],{x,0}}.
+    return.
+
+
+[guarded   v_tp_g]
+{function, amt, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_tp_g.erl",4}]}.
+    {func_info,{atom,v_tp_g},{atom,amt},1}.
+  {label,2}.
+    {test,is_tuple,{f,1},[{x,0}]}.
+    {test,test_arity,{f,1},[{x,0},3]}.
+    {get_tuple_element,{x,0},0,{x,1}}.
+    {test,is_eq_exact,{f,1},[{x,1},{atom,order}]}.
+    {get_tuple_element,{x,0},2,{x,0}}.
+    return.
+
+
+
+===========================================================================================
+2. CALL OVERHEAD THROUGH THE EXPORTED ENTRY POINT
+N = 200000000 calls per rep, 6 reps per variant, first rep of each discarded as
+warmup. Variants are interleaved (U,G,U,G,...) so thermal or scheduler drift
+hits both arms equally. Figures are ns/call.
+
+linearity check on d_id_u (unguarded id/1):
+  N =     50000000  elapsed =     542.1 ms   10.843 ns/call
+  N =    100000000  elapsed =    1103.0 ms   11.030 ns/call
+  N =    200000000  elapsed =    2131.8 ms   10.659 ns/call
+  N =    400000000  elapsed =    4301.5 ms   10.754 ns/call
+
+pair (unguarded -> guarded)                      min    median       max
+
+id/1  1 guard (body cannot benefit; isolates entry cost)
+  unguarded d_id_u                            10.655    10.932    11.126
+  guarded   d_id_g                            11.063    11.248    11.473
+  delta (guarded - unguarded)                 +0.408    +0.315
+    as % of unguarded                         +3.83%    +2.89%
+  raw unguarded: 10.758 11.040 11.126 10.932 10.655
+  raw guarded  : 11.260 11.075 11.248 11.473 11.063
+
+
+id/1  NOISE FLOOR: two identical unguarded modules
+  unguarded d_id_x                            10.715    10.909    11.157
+  guarded   d_id_y                            10.630    10.775    11.021
+  delta (guarded - unguarded)                 -0.085    -0.134
+    as % of unguarded                         -0.79%    -1.23%
+  raw unguarded: 10.715 10.909 11.140 11.157 10.745
+  raw guarded  : 10.660 11.017 10.775 11.021 10.630
 

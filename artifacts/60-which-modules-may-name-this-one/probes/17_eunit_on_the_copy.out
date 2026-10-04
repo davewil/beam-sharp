@@ -29,3 +29,7 @@
   non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test...*failed*
   body_check_tests: every_aoc_program_still_compiles_test...*failed*
   Failed: 4.  Skipped: 0.  Passed: 110.
+
+### run 4: full suite on the option A' copy (/tmp/c60d = HEAD + 20_path_derived.patch), LANG=C.UTF-8, /tmp/aoc linked  -- wall: real	6m18.916s
+  All 1309 tests passed.
+(A' adds no test module of its own; probe 20 is its scenario run)

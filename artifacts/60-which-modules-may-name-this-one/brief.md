@@ -150,7 +150,7 @@ Compiler delta (`20_path_derived.patch`, 76 lines): `internal_root/1` and `visib
 the same two `add_import` call sites, the same diagnostic pair. **No lexer, parser, `bsc.erl` or `World` change.**
 It reuses the existing atom-equals-path guarantee entirely.
 
-Whole-suite status for A': see the end of section 4 (run in the background after the main run; result recorded there).
+Whole suite on the A' copy: **1,309 tests, all passed** (`LANG=C.UTF-8`, `aoc` linked; probe 17 run 4). It has no tests of its own beyond probe 20's scenarios.
 
 **Strongest counterargument.** Visibility is carried by a directory name, so changing who may call a module
 means *renaming* it, and a rename changes the module atom, and with it every record tag minted from the
@@ -223,7 +223,7 @@ David actually cares about is layering and not hiding helpers, B is the right an
   callee carries a restriction; otherwise it is one `maps:get(within, Entry, none)`.
 - A namespace import costs one `visible_to` per swept child; not measured separately.
 - Machine: 4 vCPU container, not Apple Silicon; only ratios mean anything.
-- Full eunit suite on the A copy: 8 m 8 s wall under load (probe 17).
+- Full eunit suite: 8 m 8 s wall on the A copy (run alongside my other probes), 6 m 19 s on the A' copy (probe 17).
 
 ## 5. What survives into the `.beam`
 

@@ -44,3 +44,19 @@ answer Erlang = 6770
 answer Elixir(re28) = 6770
 answer Gleam = 6770
 answer beam-sharp = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+Erlang            16.77    17.07    18.95    23.25  1.561x
+Elixir(re28)      16.60    16.94    19.20    36.63  1.545x
+Gleam             10.74    10.97    11.61    13.70  1.000x
+beam-sharp        16.64    17.00    19.00    24.42  1.549x
+
+answer Erlang = 6770
+answer Elixir(re28) = 6770
+answer Gleam = 6770
+answer beam-sharp = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+Erlang            16.76    17.07    18.55    25.02  1.559x
+Elixir(re28)      16.62    16.95    19.01    26.50  1.546x
+Gleam             10.75    10.93    11.52    16.60  1.000x
+beam-sharp        16.67    16.94    18.38    23.00  1.551x
+
