@@ -141,3 +141,40 @@ ticket stays open on it.
 
 Owed as builds, each a feature amendment rather than a decision: A4's refusal (F58) and A5's
 `with_subject` change (F58). A2, A3 and A6 are sentences in F60 and F57.
+
+**A1 (David, 2026-10-04):** *"pid | port then"*, after asking what it gains. `Exit`'s first part
+is `pid | port`: a process that traps exits and owns a linked port is sent `{'EXIT', Port, Reason}`,
+and under `pid` that port reached a parameter declared `pid` with the program proved correct. The
+call below is refused (`arg_not_accepted`, residual `port`) until the author says what a port's
+exit means. Delta, an F60 amendment: `bs_types:view_parts('Exit')` and `stratum_two`'s `Exit` gain
+`port` in that position; `ValidateAs<Exit>` tests `is_pid` or `is_port`. This amends ticket 88
+Q5's `Exit { Pid: pid, Reason: term }`.
+
+## Round 2 (asked 2026-10-04)
+
+Q1 said the part's name was part of the answer, and A1 settled the type alone.
+
+**Q7. Does the part keep the name `Pid`, now that it may hold a port?** The program A1 asks for,
+with a clause for each:
+
+```csharp
+public (:noreply, State) HandleInfo(Exit | :tick msg, State s)
+HandleInfo(Exit { Pid: pid p, Reason: why }, s) -> Restart(p, why, s)
+HandleInfo(Exit { Pid: port sock },          s) -> (:noreply, Closed(sock, s))
+HandleInfo(:tick, s)                            -> (:noreply, s)
+```
+
+The second clause binds a `port` out of a part called `Pid`. Under the other answer the same
+program reads:
+
+```csharp
+HandleInfo(Exit { From: pid p, Reason: why }, s) -> Restart(p, why, s)
+HandleInfo(Exit { From: port sock },          s) -> (:noreply, Closed(sock, s))
+```
+
+`From` is the name OTP's own documentation gives that position (`{'EXIT', From, Reason}`), and
+`Down`'s part that may hold a pid or a port is already `Object`, not `Pid`. Neither program has
+been compiled: whether a type prefix narrows a view's part (`Pid: pid p`) is unmeasured, and the
+A1 build measures it first. Compiler delta for the rename: the atom in `bs_types`' view table
+(two sites), `down_view_tests`' one `Exit` pattern, F60.8, `STANDARD-ENVIRONMENT.md`'s row, and
+the sentence in ticket 14 §6 and 25g's write-up. No shipped example names the part.
