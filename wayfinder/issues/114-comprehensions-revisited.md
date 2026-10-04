@@ -332,6 +332,12 @@ Sources: [Erlang expressions](https://www.erlang.org/doc/system/expressions.html
 Recommended: yes. It is the arm's reading, the pattern already has a spelling for it, and a
 `when` then reads the same in a head, an arm and a comprehension.
 
+**A8 (David, 2026-10-05):** *"Yes"*, as recommended and as built. A generator's `when`s are one
+guard, checked as written: `when a when b` narrows exactly as `when (a) and (b)`, and one `when`
+does not narrow a name for the next. `Fresh` above stays refused, and `(:ok, v)` in the pattern is
+how it is written. The answer went unrecorded from 2026-09-29, when ENG-572 was built on it, until
+David closed that issue.
+
 ## The compiler delta, as decided
 
 - The lexer makes `in` a keyword.
@@ -394,7 +400,7 @@ Recommended: yes. It is the arm's reading, the pattern already has a spelling fo
   map pattern in a generator stays deferred with 48 Q2 ([ENG-323](https://linear.app/davewil/issue/ENG-323));
   and a `when` narrows the binders of the generator before it, as an arm's guard narrows its
   pattern ([ENG-572](https://linear.app/davewil/issue/ENG-572), built into F65 2026-09-29, its
-  reading asked as Q8; a warning for a guard that admits nothing is
+  reading asked as Q8 and answered yes on 2026-10-05; a warning for a guard that admits nothing is
   [ENG-575](https://linear.app/davewil/issue/ENG-575)).
 ```
 
