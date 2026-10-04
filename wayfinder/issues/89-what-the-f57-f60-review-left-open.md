@@ -184,3 +184,27 @@ nested prefix is built.
 rename: the atom in `bs_types`' view table
 (two sites), `down_view_tests`' one `Exit` pattern, F60.8, `STANDARD-ENVIRONMENT.md`'s row, and
 the sentence in ticket 14 §6 and 25g's write-up. No shipped example names the part.
+
+**Q8. May a part prefix sit inside another pattern?** Raised by Q7's correction, and it sets A1's
+price. [Ticket 84](84-dispatching-the-parts-of-a-numeric-union.md) says *"`T x` is a pattern
+wherever one test decides membership in `T`"*. Its *wherever* ranges over types, not positions:
+the ticket names the clause head and the switch arm and is silent on nesting. F53 then refused the
+nested form (`type_prefix_nested`, *"not built yet"*) to stop a crash in `bs_emit:pattern/2`,
+borrowing F2's scope call for relational patterns, which F2 records as *"a scope call rather than
+a decision"*. A record prefix, ticket 55's form, nests today. So no ticket has said whether this
+compiles:
+
+```csharp
+public (:noreply, State) HandleInfo(Exit | :tick msg, State s)
+HandleInfo(Exit { Pid: pid p, Reason: why }, s) -> Restart(p, why, s)
+HandleInfo(Exit { Pid: port sock },          s) -> (:noreply, Closed(sock, s))
+HandleInfo(:tick, s)                            -> (:noreply, s)
+```
+
+Today: refused at 2:23, `a type prefix goes where a whole argument goes`, and the author writes
+Q7's helper instead. If yes, it compiles and the two `Exit` clauses close the view with no helper.
+Compiler delta if yes, read from F53's review notes and not yet measured: `child_type/3` narrows a
+child prefix instead of refusing it; `strip_rels/2` walks below an argument's top; `bs_emit`
+gains the clause it lacked, a fresh variable in the pattern and the part's test in the guard; and
+the refusal and its message go. The same change reaches a tuple and a list element
+(`Go((int n, a))`), since the refusal is positional.
