@@ -1,7 +1,7 @@
 # F59 — a trailing `..` makes a field-set type open
 
-**Status**      **in progress** — 9 tests in `open_field_set_tests`, 1095 in
-                the suite; `check-language.sh` gained a must-compile block in
+**Status**      **done 2026-10-04**, called by David — 11 tests in
+                `open_field_set_tests`; `check-language.sh` gained a must-compile block in
                 §10, seen red first; tree-sitter takes the marker
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
                 Q3. Decides nothing
