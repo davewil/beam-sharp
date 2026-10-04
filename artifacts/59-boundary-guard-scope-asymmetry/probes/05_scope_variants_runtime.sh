@@ -4,9 +4,10 @@
 #   base   = current: tag test everywhere, int kind test exported-only
 #   narrow = tag test exported-only too           (the "it is a defect" reading)
 #   wide   = int kind/range/float tests on private too (the "unconditional" reading; tag stays)
+#   proj   = narrow + 46 s4 projection tests at the exported entry (option C, prototype)
 cd "$(dirname "$0")"; . ./lib.sh; . ./fixtures.sh
 W=$(mktemp -d); write_forge_fixture $W; cp forge_drive.erl $W/drive.erl; erlc -o $W $W/drive.erl
-for v in base narrow wide; do
+for v in base narrow wide proj; do
   mkdir -p $W/out-$v
   /tmp/p59/bin/bsc-$v -o $W/out-$v $W/Forge || exit 1
   echo "################################ variant: $v"

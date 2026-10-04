@@ -1,7 +1,7 @@
 #!/bin/bash
 # Probe 03 (c): BEAM code-size delta of each guard scope, measured as the difference in the Code
 # chunk (and instruction count) of the SAME source compiled by the three compiler variants
-# (base = current, narrow = tag test exported-only, wide = int/float/range tests on private too).
+# (base = current, narrow = tag test exported-only, wide = int/float/range tests on private too, proj = narrow + one-level projection tests at the exported entry).
 # Method follows prototypes/18a: one source, only the compiler differs, so the delta is exactly the
 # guards (+ whatever the Erlang optimiser does with them - reported, not hidden).
 # Cases:
@@ -13,7 +13,7 @@
 cd "$(dirname "$0")"; . ./lib.sh
 W=$(mktemp -d)
 mk() { # name, source
-  for v in base narrow wide; do mkdir -p $W/$v/$1 $W/$v/o; printf '%s\n' "$2" > $W/$v/$1/$1.bs; done; }
+  for v in base narrow wide proj; do mkdir -p $W/$v/$1 $W/$v/o; printf '%s\n' "$2" > $W/$v/$1/$1.bs; done; }
 mk Rec3 'module Rec3
 record Order { Id: int, Total: int, A: int }
 int Inner(Order o)
@@ -51,7 +51,7 @@ public int Field(Cart c)
 Field(c) -> Mul(c.Qty, c.Pr)'
 printf "%-6s %-7s %10s %10s %8s   %s\n" case variant Code_bytes file_bytes instrs "delta vs base (Code bytes / instrs)"
 for c in Rec3 Rec8 IntP IntU Oct Big2; do
-  for v in base narrow wide; do
+  for v in base narrow wide proj; do
     /tmp/p59/bin/bsc-$v -o $W/$v/o $W/$v/$c >/dev/null 2>&1 || { echo "compile failed $c $v"; continue; }
   done
   erl -noshell -eval '
@@ -63,8 +63,8 @@ for c in Rec3 Rec8 IntP IntU Oct Big2; do
               N = lists:sum([length([I || I <- Is, element(1,I)=/=label, element(1,I)=/=line]) || {function,Nm,_,_,Is}<-Fs, Nm=/=module_info]),
               {byte_size(Code), filelib:file_size(B), N} end,
     {B0,F0,N0}=M("base"),
-    [begin {B,F,N}=M(V), io:format("~-6s ~-7s ~10w ~10w ~8w   ~s~n",[C,V,B,F,N, if V=:="base"->""; true-> io_lib:format("~s B / ~s instrs (file ~s; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)",[SgF(B-B0),SgF(N-N0),SgF(F-F0)]) end]) end || V<-["base","narrow","wide"]], halt().' -extra $W $c
+    [begin {B,F,N}=M(V), io:format("~-6s ~-7s ~10w ~10w ~8w   ~s~n",[C,V,B,F,N, if V=:="base"->""; true-> io_lib:format("~s B / ~s instrs (file ~s; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)",[SgF(B-B0),SgF(N-N0),SgF(F-F0)]) end]) end || V<-["base","narrow","wide","proj"]], halt().' -extra $W $c
 done
 echo
 echo "=== the emitted guards for the cases, per variant (private function only) ==="
-for c in Rec3 IntU; do for v in base narrow wide; do echo "--- $c / $v"; abstr $W/$v/o/$c.beam | grep -A2 "^'Inner'\|^'Scale'"; done; done
+for c in Rec3 IntU; do for v in base narrow wide proj; do echo "--- $c / $v"; abstr $W/$v/o/$c.beam | grep -A2 "^'Inner'\|^'Scale'"; done; done

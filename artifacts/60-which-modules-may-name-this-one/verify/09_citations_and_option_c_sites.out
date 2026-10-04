@@ -1,0 +1,51 @@
+HEAD: 06e2dd9   (ticket cites 0b761f6: fatal: Not a valid object name 0b761f6)
+
+## ticket 60: 'add_module_import/5 ... bs_check.erl:407-425'
+-- lines 407-425 at HEAD:
+
+qualify_refs({t_ref, N} = T, Rename) ->
+    case maps:find(N, Rename) of
+        {ok, Q} -> {t_ref, Q};
+qualify_refs(T, _Rename) ->
+-- where add_module_import actually is:
+499:        true  -> add_module_import(M, World, Acc);
+511:add_module_import(M, World, Acc) ->
+-- its arity: 511:add_module_import(M, World, Acc) ->
+
+## ticket 22: 'bs_parser.yrl:262-268' (public/private) and 'bs_check.erl:43'
+%% and PascalCase a user alias, both the same node. Arity is checked where the
+%% parameters are known, not here (F6.6).
+type_prim -> lident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
+type_prim -> uident '<' type_list '>' : {t_generic, value('$1'), '$3'}.
+
+%% `fn(int, atom) -> int`, the arrow (ticket 75, F46). The codomain is a
+%% `type_expr`, so it runs as far as the type expression does:
+-- visibility productions at HEAD:
+323:visibility -> 'public'  : public.
+324:visibility -> 'private' : private.
+-- default visibility field at HEAD:
+41:-record(fn, {name, line, ret, params, clauses = [], vis = private, tvars = [],
+
+## the cited claim itself (reads only the callee's export set; no internal/friend/sealed/visible_to) -- still TRUE:
+1
+(no output above = none)
+
+## option C (per-function marker) -- every reader of the visibility value, and the two call-site refusals:
+compiler/src/bs_check.erl:41:-record(fn, {name, line, ret, params, clauses = [], vis = private, tvars = [],
+compiler/src/bs_check.erl:299:    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public
+compiler/src/bs_check.erl:364:                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
+compiler/src/bs_check.erl:375:                       V =:= public, TV =/= []]).
+compiler/src/bs_check.erl:478:                                       V =/= public],
+compiler/src/bs_check.erl:602:    Sigs = [#fn{name = N, line = L, ret = R, params = P, vis = V, tvars = TV,
+compiler/src/bs_check.erl:2350:line_of(#fn{name = Name, params = Params, vis = Vis, tvars = TV}, RetText) ->
+compiler/src/bs_emit.erl:35:    Exports = [{F, arity(F)} || F <- Fns, is_public(F)],
+compiler/src/bs_emit.erl:139:%% Private is the default, so the test is `=:= public` and not `=/= private`;
+compiler/src/bs_emit.erl:141:is_public(F) -> element(7, F) =:= public.       % #fn.vis
+compiler/src/bs_emit.erl:163:    Public = is_public(F),
+-- private_function raised at:
+3656:                     [{error, L, C#ctx.fname, {private_function, M, Name, Arity}}]};
+4200:                       {private_function, M, Shown, length(Args)}} | D]};
+-- ctx fields available at those sites (does the ctx know the calling module?):
+-record(ctx, {types = #{}, callees = #{}, ret, fname, arity = 0, binds = #{}, params = [], imports = #{}, %% Polymorphic return templates use the same keys as `callees`. 
+
+1

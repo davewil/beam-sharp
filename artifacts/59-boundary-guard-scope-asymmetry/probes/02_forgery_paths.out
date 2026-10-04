@@ -73,3 +73,22 @@ Compare(cart(good,1.5))            -> RETURNED small  (silent)
 ViaInt(1.5)                        -> CRASH error:function_clause  in 'Forge':'ViaInt'/1
 --- private functions are not callable from outside
 Forge:'Inner'(bad_tag)             -> CRASH error:undef  in 'Forge':'Inner'/1
+--- error shape: the full stacktrace of path 2 (guard on the PRIVATE callee) vs path 1 (guard on the exported entry)
+error:function_clause
+  [{'Forge','Inner',[#{'Kind' => 'Forge.Invoice','Id' => 1,'Total' => 7}],8},
+   {drive,'-main/0-lc$^22/1-0-',1,48},
+   {drive,main,0,49},
+   {erl_eval,do_apply,7,920},
+   {erl_eval,exprs,6,276},
+   {init,start_it,1,undefined},
+   {init,start_em,1,undefined},
+   {init,do_boot,3,undefined}]
+error:function_clause
+  [{'Forge','Direct',[#{'Kind' => 'Forge.Invoice','Id' => 1,'Total' => 7}],28},
+   {drive,'-main/0-lc$^22/1-0-',1,48},
+   {drive,main,0,49},
+   {erl_eval,do_apply,7,920},
+   {erl_eval,exprs,6,276},
+   {init,start_it,1,undefined},
+   {init,start_em,1,undefined},
+   {init,do_boot,3,undefined}]

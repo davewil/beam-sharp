@@ -1,3 +1,4 @@
-built bsc-base  36fa9ab9daa6  0 changed lines in bs_emit.erl
-built bsc-narrow  c4c0f9050830  1 changed lines in bs_emit.erl
-built bsc-wide  85b488964792  8 changed lines in bs_emit.erl
+built bsc-base  4b1356c525b8  0 changed lines in bs_emit.erl
+built bsc-narrow  7fb05236c164  1 changed lines in bs_emit.erl
+built bsc-wide  e69245d9c1ee  8 changed lines in bs_emit.erl
+built bsc-proj  9ae6c2820ad6  36 changed lines in bs_emit.erl

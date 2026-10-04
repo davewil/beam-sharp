@@ -1,0 +1,51 @@
+--- narrow/src/bs_emit.erl	2026-10-04 23:10:55.595435408 +0000
++++ proj/src/bs_emit.erl	2026-10-04 23:40:44.355162555 +0000
+@@ -280,7 +280,7 @@
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+-                    {Pat1, [tag_test(Var, Tag, Line)]}
++                    {Pat1, [tag_test(Var, Tag, Line) | proj_tests(Var, Line, TypeExpr, Ctx)]}
+             end;
+         none when Public ->
+             case kind_only(TypeExpr, Ctx) of
+@@ -291,6 +291,39 @@
+             {Pat, []}
+     end.
+ 
++
++%%% PROTOTYPE 59 (option C): ticket 46 s4's "fixed number of projections" - at the EXPORTED entry the
++%%% record parameter's own fields of record type get a tag test and its int fields an is_integer test.
++%%% One level, no collections (a list<Order> is O(n) in a length the caller chooses), no range half.
++proj_tests(Var, Line, TypeExpr, #{env := Env}) ->
++    try bs_types:unfold(bs_check:resolve(TypeExpr, Env)) of
++        #{maps := [{closed, Fields}]} ->
++            lists:append([proj_one(Var, K, FT, Line)
++                          || {K, FT} <- lists:sort(maps:to_list(Fields)), K =/= 'Kind']);
++        _ -> []
++    catch _:_ -> []
++    end.
++
++proj_one(Var, K, FT, Line) ->
++    Get = {e_foreign_call, Line, erlang, map_get, [{e_atom, Line, K}, {e_var, Line, Var}]},
++    case catch bs_types:unfold(FT) of
++        #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [], floats := {finite, []},
++          tuples := [], lists := [], bins := [], opaques := [], funs := []} ->
++            case maps:find('Kind', Fs) of
++                {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
++                       tuples := [], lists := [], maps := [], bins := [],
++                       opaques := [], funs := []}} ->
++                    [{e_op, Line, '==',
++                      {e_foreign_call, Line, erlang, map_get, [{e_atom, Line, 'Kind'}, Get]},
++                      {e_atom, Line, Tag}}];
++                _ -> []
++            end;
++        #{ints := Is, atoms := {finite, []}, floats := {finite, []}, tuples := [],
++          lists := [], maps := [], bins := [], opaques := [], funs := []} when Is =/= [] ->
++            [{e_foreign_call, Line, erlang, is_integer, [Get]}];
++        _ -> []
++    end.
++
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from
+ %% outside is refused. No range half: the part carries no intervals. A
+ %% float literal in the head pins the kind as an integer literal does.

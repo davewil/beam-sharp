@@ -1,0 +1,19 @@
+## parent (Acme.Orders):
+3
+exit=0
+## descendant (Acme.Orders.Tests):
+6
+exit=0
+## sibling (Acme.Billing):
+Acme/Billing/Billing.bs:3:1: error: `using Acme.Orders.Internal.Rules` -- an `Internal` module may be named only from under Acme.Orders, and Acme.Billing is outside it
+exit=1
+## HEAD compiler on the same tree (Billing):
+1
+exit=0
+
+## the cost of the placement: the module's ATOM (and so its record tags, F3/26) carries the word
+['Acme.Orders.Internal.Rules']
+Acme.Orders.Internal.Rules.abstr
+Acme.Orders.Internal.Rules.beam
+Acme.Orders.abstr
+Acme.Orders.beam

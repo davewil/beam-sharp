@@ -1,0 +1,17 @@
+gleam 1.12.0
+## lib/gleam.toml (relevant line)
+internal_modules = ["lib/internal", "lib/internal/*"]
+## app imports lib/internal/rules and a @internal function from another PACKAGE:
+  Resolving versions
+  Compiling lib
+  Compiling app
+   Compiled in 0.89s
+exit=0
+## run it
+   Compiled in 0.00s
+    Running app.main
+## what internal DID change: lib's generated docs / package-interface list
+  documented: lib ['answer', 'total']
+  documented: lib/helpers ['visible']
+## the BEAM: the internal module is an ordinary exported function (compiled artefact of the app build)
+exported=true  call=6

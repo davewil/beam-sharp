@@ -1,0 +1,53 @@
+## 0. the tree as in probe 01 (no restriction yet): Billing compiles
+6
+exit=0
+
+## 1. add ONE line to Acme/Orders/Rules/Rules.bs:  within Acme.Orders
+module Acme.Orders.Rules
+within Acme.Orders
+
+
+## 1a. Acme.Orders (the parent, inside the subtree) still compiles and RUNS
+3
+exit=0
+
+## 1b. Acme.Billing (a SIBLING, outside the subtree) is refused at its using line
+Acme/Billing/Billing.bs:4:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.Billing is outside it
+  only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
+  or call a public function of a module that is not restricted.
+exit=1
+
+## 1c. same refusal, machine-readable (--diagnostics json)
+{"caller":"Acme.Billing","line":4,"module":"Acme.Orders.Rules","tag":"not_visible_here","file":"Acme/Billing/Billing.bs","column":1,"within":"Acme.Orders","severity":"error"}
+Acme/Billing/Billing.bs:4:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.Billing is outside it
+  only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
+  or call a public function of a module that is not restricted.
+exit=1
+
+## 1d. Acme.Reports: no using at all, qualified call -- still the pre-existing module_not_imported (the check lives at using, and using is mandatory)
+Acme/Reports/Reports.bs:5:35: error: Acme.Orders.Rules is called but never imported
+  add `using Acme.Orders.Rules` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+
+## 2. a module INSIDE the subtree (Acme.Orders.Tests) may name it -- the escape hatch is placement
+6
+exit=0
+
+## 3. segment boundary: Acme.OrdersExtra is NOT under Acme.Orders (string prefix is not segment prefix)
+Acme/OrdersExtra/OrdersExtra.bs:3:1: error: `using Acme.Orders.Rules` -- Acme.Orders.Rules is declared `within Acme.Orders`, and Acme.OrdersExtra is outside it
+  only modules at or under Acme.Orders may name Acme.Orders.Rules. Move this module under Acme.Orders,
+  or call a public function of a module that is not restricted.
+exit=1
+
+## 4. namespace tier: 'using Acme.Orders' resolves to the MODULE, but a namespace import of a directory with only restricted children must be checked too
+(Zed.Inner holds no .bs file, so it is a namespace; Zed.Outer imports it)
+Zed/Outer/Outer.bs:6:17: error: Hidden is called but never imported
+  add `using Hidden` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+
+## 5. a within that does not contain the module itself
+Acme/Odd/Odd.bs:2:1: error: `within Acme.Orders` does not contain Acme.Odd itself
+  a module can only be restricted to a subtree it is part of.
+exit=1

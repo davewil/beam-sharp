@@ -1,0 +1,16 @@
+go version go1.24.7 linux/amd64
+## inside the subtree rooted at acme/orders (orders, and orders/tests):
+exit=0
+## a sibling, acme/billing:
+package example.com/shop/acme/billing
+	acme/billing/billing.go:2:8: use of internal package example.com/shop/acme/orders/internal/rules not allowed
+exit=1
+## two internal elements: acme/orders/internal/deep/internal/leaf -- who may import it?
+-- importer under .../deep (allowed by the LAST internal):
+exit=0
+-- importer under .../orders/internal but outside .../deep:
+package example.com/shop/acme/orders/internal/other
+	acme/orders/internal/other/other.go:2:8: use of internal package example.com/shop/acme/orders/internal/deep/internal/leaf not allowed
+exit=1
+## and Go does not stop the BEAM-style back door: the symbol is an ordinary exported name in the compiled package
+3

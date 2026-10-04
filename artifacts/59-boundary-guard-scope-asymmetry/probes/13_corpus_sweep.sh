@@ -33,7 +33,16 @@ main([W, V]) ->
     io:format("~s vs base: ~w modules, ~w with a changed function, ~w functions changed, net guard-text tests ~s~w, Code bytes total ~w (delta ~s~w, ~.2f%)~n",
         [V, length(Rows1), length(Changed), Fns, sgn(Tests), Tests, TotBase, sgn(TotDelta), TotDelta, 100 * TotDelta / max(1, TotBase)]),
     [io:format("    ~-34s Code ~s~w B, functions: ~p~n", [filename:basename(M), sgn(D), D, Fs]) || {M, _, D, Fs, _} <- Changed],
+    [show(B, V) || {B, _, _, Fs, _} <- Changed, V =:= "wide", _ <- [Fs]],
     halt().
+show(B, V) ->
+    B2 = re:replace(B, "/base/", "/" ++ V ++ "/", [{return, list}]),
+    {Fa, _} = info(B), {Fb, _} = info(B2),
+    [begin {_, Ta} = lists:keyfind(K, 1, Fa), {_, Tb} = lists:keyfind(K, 1, Fb),
+           io:format("~n--- ~s ~p~n  base: ~s~n  wide: ~s~n", [filename:basename(B), K, head(Ta), head(Tb)]) end
+     || {K, Tb} <- Fb, lists:keyfind(K, 1, Fa) =/= {K, Tb}],
+    ok.
+head(T) -> [Hd | _] = string:split(T, "->"), re:replace(Hd, "\\s+", " ", [global, {return, list}]).
 sgn(X) when X > 0 -> "+"; sgn(_) -> "".
 row(B, _W, V) ->
     B2 = re:replace(B, "/base/", "/" ++ V ++ "/", [{return, list}]),

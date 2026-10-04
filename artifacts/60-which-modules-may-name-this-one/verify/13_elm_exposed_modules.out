@@ -1,0 +1,10 @@
+## elm init (needs the network)
+Hello! Elm projects always start with an elm.json file. I can create them!
+
+Now you may be wondering, what will be in this file? How do I add Elm files to
+my project? How do I see it in the browser? How will my code grow? Do I need
+## the elm binary's own strings: which elm.json keys does it know?
+exposed-modules: 8 occurrences
+other-modules: 0 occurrences
+## the elm compiler's key list around exposed-modules (one match only):
+      8 exposed-modules

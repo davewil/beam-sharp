@@ -44,4 +44,7 @@ main() ->
     run("ViaInt(1.5)",             fun() -> 'Forge':'ViaInt'(1.5) end),
     io:format("--- private functions are not callable from outside~n"),
     run("Forge:'Inner'(bad_tag)",  fun() -> 'Forge':'Inner'(bad_tag()) end),
+    io:format("--- error shape: the full stacktrace of path 2 (guard on the PRIVATE callee) vs path 1 (guard on the exported entry)~n"),
+    [begin try F() catch C:E:St -> io:format("~w:~w~n  ~p~n", [C, E, [{M, Fn, A, proplists:get_value(line, L)} || {M, Fn, A, L} <- St]]) end end
+     || F <- [fun() -> 'Forge':'Nested'(cart(bad_tag(), 3, [])) end, fun() -> 'Forge':'Direct'(bad_tag()) end]],
     ok.

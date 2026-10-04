@@ -1,0 +1,55 @@
+## the layout on disk (F15: a directory is a module; module name == dir path under --src-root)
+Acme/Billing/Billing.bs
+Acme/Orders/Orders.bs
+Acme/Orders/Rules/Rules.bs
+Acme/Reports/Reports.bs
+
+## instrumentation diff vs. HEAD
++    io:format(standard_error, "[probe] checking Self=~p expect=~p files=~p~n", [Self, Expect, [P || {P, _} <- Sources]]),
++    io:format(standard_error, "[probe] add_import line=~p using=~p self=~p in_world=~p world=~p~n", [L, M, Self, maps:is_key(M, World), lists:sort(Known)]),
+
+## compile Acme.Billing (uses Acme.Orders and Acme.Orders.Rules)
+[probe] checking Self='Acme.Orders.Rules' expect='Acme.Orders.Rules' files=["Acme/Orders/Rules/Rules.bs"]
+[probe] checking Self='Acme.Orders.Rules' expect=undefined files=[undefined]
+[probe] checking Self='Acme.Orders' expect='Acme.Orders' files=["Acme/Orders/Orders.bs"]
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] checking Self='Acme.Orders' expect=undefined files=[undefined]
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] checking Self='Acme.Billing' expect='Acme.Billing' files=["Acme/Billing/Billing.bs"]
+[probe] add_import line={3,1} using='Acme.Orders' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                           'Acme.Orders.Rules']
+[probe] add_import line={4,1} using='Acme.Orders.Rules' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                                 'Acme.Orders.Rules']
+[probe] checking Self='Acme.Billing' expect=undefined files=[undefined]
+[probe] add_import line={3,1} using='Acme.Orders' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                           'Acme.Orders.Rules']
+[probe] add_import line={4,1} using='Acme.Orders.Rules' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                                 'Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                           'Acme.Orders.Rules']
+[probe] add_import line={4,1} using='Acme.Orders.Rules' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                                 'Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                           'Acme.Orders.Rules']
+[probe] add_import line={4,1} using='Acme.Orders.Rules' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                                 'Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                           'Acme.Orders.Rules']
+[probe] add_import line={4,1} using='Acme.Orders.Rules' self='Acme.Billing' in_world=true world=['Acme.Orders',
+                                                                                                 'Acme.Orders.Rules']
+6
+
+## compile Acme.Orders only (uses its own child Acme.Orders.Rules)
+[probe] checking Self='Acme.Orders.Rules' expect='Acme.Orders.Rules' files=["Acme/Orders/Rules/Rules.bs"]
+[probe] checking Self='Acme.Orders.Rules' expect=undefined files=[undefined]
+[probe] checking Self='Acme.Orders' expect='Acme.Orders' files=["Acme/Orders/Orders.bs"]
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] checking Self='Acme.Orders' expect=undefined files=[undefined]
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+[probe] add_import line={3,1} using='Acme.Orders.Rules' self='Acme.Orders' in_world=true world=['Acme.Orders.Rules']
+3

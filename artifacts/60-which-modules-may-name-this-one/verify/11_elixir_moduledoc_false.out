@@ -1,0 +1,18 @@
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+## compile: a @moduledoc false helper named by a sibling, plus a defp called from outside
+warning: Acme.Orders.secret/0 is undefined or private
+  acme.ex:17: Acme.Billing.peek/0
+
+exit=0
+
+## remove the outside defp call and compile again: does @moduledoc false restrict anything?
+exit=0
+
+## what @moduledoc false DID change: the docs chunk says hidden; the function is a normal export
+moduledoc of Acme.Orders.Rules: :hidden
+Acme.Billing.invoice: 6
+exports: [__info__: 1, module_info: 0, module_info: 1, recompute: 1]
+
+## the stdlib itself: how many installed Elixir modules are @moduledoc false (docs :hidden)?
+elixir app modules: 253, hidden: 36
+Module.ParallelChecker (hidden) exports a callable surface of: 21

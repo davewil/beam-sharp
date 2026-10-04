@@ -1,0 +1,44 @@
+## Acme.Billing is a SIBLING of Acme.Orders and reaches into Acme.Orders.Rules (the helper):
+6
+exit=0
+
+## Acme.Reports has NO using line and names Acme.Orders.Rules.Recompute qualified:
+Acme/Reports/Reports.bs:5:35: error: Acme.Orders.Rules is called but never imported
+  add `using Acme.Orders.Rules` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+
+## add_module_import at HEAD (what it reads) -- the whole function:
+add_module_import(M, World, Acc) ->
+    Entry = maps:get(M, World),
+    Exports = maps:get(exports, Entry),
+    Funs0 = maps:get(funs, Acc),
+    Funs = maps:fold(fun(K, _Sig, F) ->
+                             %% Collisions are errors only at use sites.
+                             maps:update_with(K, fun(Ms) -> [M | Ms] end, [M], F)
+                     end, Funs0, Exports),
+    %% Type collisions are also refused at use sites. A missing `types` entry
+    %% means the module offers no types.
+    Types = maps:fold(fun(N, _T, T0) ->
+                              maps:update_with(N, fun(Ms) -> [M | Ms] end, [M], T0)
+                      end, maps:get(types, Acc), maps:get(types, Entry, #{})),
+    Acc#{funs := Funs, types := Types, imported := [M | maps:get(imported, Acc)]}.
+
+add_namespace_import(Prefix, Children, Acc) ->
+
+## every key the World entry carries (built in bsc.erl build/4):
+polys=>
+private=>
+behaviours=>
+types=>
+implements=>
+
+## occurrences of internal/friend/sealed/visible_to in src/ (case-insensitive, word-ish):
+/home/user/beam-sharp/compiler/src/bs_check.erl:109:    %% Internal notes travel through the diagnostic channel; remove them before
+/home/user/beam-sharp/compiler/src/bs_check.erl:188:%% diagnostic, and every internal note, passes through.
+/home/user/beam-sharp/compiler/src/bs_check.erl:4861:%% instead of an internal `function_clause`.
+/home/user/beam-sharp/compiler/src/bs_diag.erl:166:%% The caller re-raises `unhandled`; it must pass through unchanged. Internal
+/home/user/beam-sharp/compiler/src/bs_emit.erl:1748:%% internal types still use alternatives rather than shape dispatch.
+/home/user/beam-sharp/compiler/src/bs_emit.erl:1799:%% Only the root unwraps internal success. Keeping call sites variable-free
+/home/user/beam-sharp/compiler/src/bs_parser.erl:274:%% For internal use only.
+(end)

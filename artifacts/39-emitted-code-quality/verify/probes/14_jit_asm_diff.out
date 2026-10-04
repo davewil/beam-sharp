@@ -1,0 +1,18 @@
+ 120 bs_spin.txt
+ 120 erl_spin.txt
+ 134 gl_spin.txt
+  63 bs_wrap.txt
+  63 erl_wrap.txt
+ 500 total
+spin: erlang vs bsc diff lines: 4
+wrap: erlang vs bsc diff lines: 0
+erl spin JIT bytes-ish (instruction lines): 84  gleam spin: 91
+--- bsc spin: JIT comments about checks:
+      1 # add without overflow check
+      1 # is the operand small?
+      1 # simplified test for small operands since both are numbers
+--- gleam spin: JIT comments about checks:
+      2 # add without overflow check
+      1 # is the operand small?
+      1 # simplified test for small operands since both are numbers
+      2 # skipped test for small dividend since it is always small

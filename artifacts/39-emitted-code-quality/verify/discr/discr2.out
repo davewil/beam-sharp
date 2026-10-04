@@ -1,0 +1,32 @@
+answer e_default = 6770
+answer e_same = 6770
+answer s_a = 6770
+answer s_b = 6770
+answer s_c = 6770
+answer s_d = 6770
+answer bsc = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.82    19.86    32.46    74.24  1.216x
+e_same            16.81    20.07    29.85    54.80  1.216x
+s_a               17.70    21.89    35.28    79.95  1.279x
+s_b               13.83    16.67    26.07    69.40  1.000x
+s_c               16.76    20.41    31.11    92.87  1.212x
+s_d               16.80    20.16    31.52    88.03  1.214x
+bsc               16.70    19.72    28.78    55.88  1.207x
+
+answer e_default = 6770
+answer e_same = 6770
+answer s_a = 6770
+answer s_b = 6770
+answer s_c = 6770
+answer s_d = 6770
+answer bsc = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.90    20.35    31.64   113.06  1.221x
+e_same            16.85    20.35    30.39    68.28  1.217x
+s_a               17.79    20.68    29.97   105.69  1.285x
+s_b               13.84    16.54    25.63    64.01  1.000x
+s_c               16.81    19.88    29.82   116.81  1.214x
+s_d               16.77    20.09    27.38    54.81  1.212x
+bsc               16.78    19.89    31.28    53.29  1.212x
+

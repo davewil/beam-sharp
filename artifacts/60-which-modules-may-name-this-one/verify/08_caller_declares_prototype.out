@@ -1,0 +1,12 @@
+## 1. the test module as an agent writes it (no allow line): names Totals freely -- the callee is unprotected
+6
+exit=0
+## 2. the same module after its AUTHOR adds the line  allow Shop.Orders  (Shop.Orders.Totals is under it, so still fine)
+6
+exit=0
+## 3. author narrows it to the client API only: allow list names a module that is not Totals
+Shop/OrdersTests/OrdersTests.bs:4:1: error: `using Shop.Orders` -- Shop.OrdersTests allows only Shop.Orders.Api
+exit=1
+## 4. the agent deletes the allow line to make the test compile:
+6
+exit=0
