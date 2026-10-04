@@ -118,3 +118,26 @@ not declared by R: B`. Ticket 78 Q7 says the brace is *"record construction's `=
 with no type name in front"*, which covers it on one reading, and no ticket says so outright.
 Today: refused, `duplicate_field`. The other answer deletes one clause in `brace/4` and the
 diagnostic.
+
+**A2 to A6 (David, 2026-10-04).** Q1 is not answered: David asked what `pid | port` gains, and the
+ticket stays open on it.
+
+- **A2: *"Warning"*.** A four-element `DOWN` clause over a `Down` parameter is the `vacuous_clause`
+  warning every vacuous clause gets, as F60 ships. This amends ticket 14 §6's *"a compile error"*:
+  naming the type is what makes the mis-shape speak, and the warning is that speech. No compiler
+  delta.
+- **A3: *"Keep it legal"*.** A program may write a `Down` or an `Exit` out as its tuple, on ticket
+  73 Q1's reading of a record's raw tag. `Down { … }` and `with` over a view stay refused
+  (`view_constructed`). No compiler delta; F60 owes the sentence.
+- **A4: *"Refuse"*.** A field set may not name both `"Id"` and `Id`. Recorded as the refusal at the
+  declaration, the form recommended when the question was put: one new refusal in
+  `bs_check:declared/4`, for a field set whose string key equals a name key's text. David's word
+  was *"Refuse"* alone, so the site is the recommendation's, not a second answer of his.
+- **A5: *"New value's type"*.** `with` over a field set is a map update: the result's field takes
+  the new value's type. `with` over a record keeps each field's declared type, as today. Delta:
+  `with_subject` builds the result type from the updated values for a field-set subject.
+- **A6: *"Refuse"*.** `duplicate_field` stands: `{ Status = n, Status = 200 }` is refused. No
+  compiler delta.
+
+Owed as builds, each a feature amendment rather than a decision: A4's refusal (F58) and A5's
+`with_subject` change (F58). A2, A3 and A6 are sentences in F60 and F57.
