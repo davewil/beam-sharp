@@ -1,7 +1,7 @@
 # 89 — What the F57–F60 review left open
 
 Type: grilling
-Status: open — [ENG-417](https://linear.app/davewil/issue/ENG-417). Raised 2026-09-24 by the `/code-review` of F57–F60 (`0e51c9a..01c4a56`)
+Status: resolved 2026-10-04 — [ENG-417](https://linear.app/davewil/issue/ENG-417). Two rounds, eight questions. Raised 2026-09-24 by the `/code-review` of F57–F60 (`0e51c9a..01c4a56`)
 Blocked by: —
 
 ## Why this is raised
@@ -220,3 +220,31 @@ The builds the answers owe, filed 2026-10-04: A8's nested part prefix,
 [ENG-588](https://linear.app/davewil/issue/ENG-588); A5's `with`,
 [ENG-589](https://linear.app/davewil/issue/ENG-589). A2, A3 and A6 are in F60 and F57 as
 sentences.
+
+**A7 (David, 2026-10-04):** *"From"*. `Exit`'s first part is named `From`, OTP's own name for the
+position: `Exit { From: pid | port, Reason: term }`. ENG-587 builds the name and the type together.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [What the F57–F60 review left open](issues/89-what-the-f57-f60-review-left-open.md) — **eight
+  answers, each to a finding the review could not fix without deciding something.** Resolved
+  2026-10-04 by David in two rounds. Q1 and Q7: `Exit` is `Exit { From: pid | port, Reason: term }`,
+  amending [88](issues/88-how-down-is-written.md) Q5's `Exit { Pid: pid, … }`, because a linked
+  port's exit reached a parameter declared `pid` with the program proved correct
+  ([ENG-587](https://linear.app/davewil/issue/ENG-587)). Q2: a four-element `DOWN` clause over a
+  `Down` parameter stays the `vacuous_clause` warning, amending
+  [14](issues/14-concurrency-and-otp-model.md) §6's *"a compile error"*. Q3: a view written out as
+  its tuple is legal, on [73](issues/73-a-record-name-crosses-using.md) Q1's reading of a raw
+  tag; `Down { … }` and `with` over a view stay refused. Q4: a field set naming both `"Id"` and
+  `Id` is refused at the declaration ([ENG-588](https://linear.app/davewil/issue/ENG-588)). Q5:
+  `with` over a field set is a map update and the field takes the new value's type; a record keeps
+  its declared field types ([ENG-589](https://linear.app/davewil/issue/ENG-589)). Q6:
+  `duplicate_field` stands. Q8: a part prefix may sit inside another pattern,
+  `Exit { From: pid p }` and `Go((int n, a))`, as a record prefix already does;
+  [84](issues/84-dispatching-the-parts-of-a-numeric-union.md) decided which types wear the prefix
+  and was silent on position, and F53's `type_prefix_nested` was a scope call
+  ([ENG-586](https://linear.app/davewil/issue/ENG-586)).
+```
