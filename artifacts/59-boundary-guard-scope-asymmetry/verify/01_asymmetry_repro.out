@@ -1,0 +1,61 @@
+=== emitted Erlang (from the .beam abstract code) ===
+'Inner'(O) when map_get('Kind', O) =:= 'Priv.Order' ->
+    map_get('Total', O).
+
+'Scale'(N) ->
+    N * 2.
+
+'Plain'(N) ->
+    N + 1.
+
+'Outer'(O) when map_get('Kind', O) =:= 'Priv.Order' ->
+    'Inner'(O).
+
+'OuterInt'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    'Scale'(N).
+
+'OuterPlain'(N) when is_integer(N) ->
+    'Plain'(N).
+
+
+=== disassembled BEAM: private Inner/1 (record tag test) ===
+{line,1}
+{label,3}
+{func_info,{atom,'Priv'},{atom,'Inner'},1}
+{label,4}
+{bif,map_get,{f,3},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+{test,is_eq_exact,{f,3},[{x,1},{atom,'Priv.Order'}]}
+{bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+return
+
+=== disassembled BEAM: private Scale/1 (refined int: expect NO is_integer) ===
+{line,2}
+{label,5}
+{func_info,{atom,'Priv'},{atom,'Scale'},1}
+{label,6}
+{gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,{0,255}}},{integer,2}],{x,0}}
+return
+
+=== disassembled BEAM: exported OuterInt/1 (expect is_integer + range) ===
+{line,5}
+{label,11}
+{func_info,{atom,'Priv'},{atom,'OuterInt'},1}
+{label,12}
+{test,is_integer,{f,11},[{x,0}]}
+{test,is_ge,{f,11},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+{test,is_ge,{f,11},[{integer,255},{tr,{x,0},{t_integer,{0,'+inf'}}}]}
+{call_only,1,{'Priv','Scale',1}}
+
+=== counts of guard instructions per function ===
+Inner/1      is_integer=0  get_map_element=2
+Scale/1      is_integer=0  get_map_element=0
+Plain/1      is_integer=0  get_map_element=0
+Outer/1      is_integer=0  get_map_element=1
+OuterInt/1   is_integer=1  get_map_element=0
+OuterPlain/1 is_integer=1  get_map_element=0

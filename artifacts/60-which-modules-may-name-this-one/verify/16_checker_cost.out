@@ -5,3 +5,5 @@ using lines in tree: 1980
 ## add_import calls per compile (instrumented copy /tmp/v60/i), tree A:
 9900
 HEAD compiler,  tree A (no within)             n=7 min=3.016 median=3.089 mean=3.419 max=4.212 s
+PROTOTYPE,      tree A (no within)             n=7 min=3.222 median=3.648 mean=4.306 max=6.942 s
+PROTOTYPE,      tree B (within on 20 helpers)  n=7 min=3.451 median=4.048 mean=4.173 max=5.270 s

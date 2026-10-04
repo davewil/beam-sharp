@@ -4,3 +4,7 @@ aggregate_tests                    PASS(try 1)     All 18 tests passed.
 api_tests                          PASS(try 1)     All 36 tests passed.
 binary_tests                       PASS(try 1)     All 32 tests passed.
 bindings_tests                     PASS(try 1)     All 19 tests passed.
+body_check_tests                   PASS(try 1)     All 54 tests passed.
+boundary_kind_tests                PASS(try 1)     All 6 tests passed.
+boundary_range_tests               PASS(try 1)     All 10 tests passed.
+clause_block_tests                 PASS(try 1)     All 13 tests passed.

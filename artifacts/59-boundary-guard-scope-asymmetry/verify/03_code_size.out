@@ -1,0 +1,9 @@
+case   variant Code_bytes file_bytes   instrs   delta vs base (Code bytes / instrs)
+Rec3   base           125       1232       10   
+Rec3   narrow         113       1208        8   -12 B / -2 instrs (file -24; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec3   wide           125       1232       10   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec3   proj           146       1288       14   +21 B / +4 instrs (file +56; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec8   base           125       1288       10   
+Rec8   narrow         113       1264        8   -12 B / -2 instrs (file -24; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec8   wide           125       1288       10   0 B / 0 instrs (file 0; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
+Rec8   proj           204       1424       24   +79 B / +14 instrs (file +136; the file delta includes the debug_info chunk, i.e. the abstract code, which keeps guards the optimiser elided)
