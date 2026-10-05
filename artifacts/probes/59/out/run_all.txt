@@ -588,3 +588,5 @@ TOTAL                            pub_fns=30 priv_fns=64 priv_with_rec=8 priv_wit
 (exit 0)
 
 ################ p11 repo test suite under each option
+== base:   repl_tests: a_bare_function_name_is_not_a_failed_value_test...[0.932 s] ok   All 1312 tests passed. 
+   failing: 0

@@ -50,3 +50,51 @@ null-effect spread width attempt 1 = 2.38 ns (gate: <= 1.0)
 GATE FAILED: attempt 1 is too noisy to resolve ~1 ns; retrying
 ################ attempt 2
 R=9 rounds, ITERS=20000000 calls per timed run, nproc=4, OTP 28, JIT=jit
+none loop=4.98 pc1=8.07 pc2=7.23 sc1=7.34 sc2=7.85 effect=-0.05
+thin loop=4.97 pc1=6.10 pc2=6.92 sc1=7.39 sc2=7.97 effect=1.17
+dup loop=5.19 pc1=7.63 pc2=7.63 sc1=7.44 sc2=8.47 effect=0.32
+none loop=5.27 pc1=8.02 pc2=7.56 sc1=7.46 sc2=8.78 effect=0.33
+thin loop=5.00 pc1=6.95 pc2=6.17 sc1=7.74 sc2=7.81 effect=1.22
+dup loop=5.03 pc1=6.52 pc2=6.29 sc1=7.20 sc2=7.45 effect=0.92
+none loop=4.85 pc1=7.03 pc2=7.39 sc1=7.16 sc2=7.66 effect=0.20
+thin loop=5.04 pc1=6.40 pc2=6.23 sc1=8.42 sc2=7.66 effect=1.73
+dup loop=4.84 pc1=6.72 pc2=6.25 sc1=7.65 sc2=7.17 effect=0.92
+none loop=4.89 pc1=7.16 pc2=6.94 sc1=7.06 sc2=6.88 effect=-0.08
+thin loop=5.06 pc1=6.17 pc2=6.42 sc1=7.47 sc2=7.76 effect=1.32
+dup loop=5.01 pc1=6.44 pc2=6.08 sc1=7.02 sc2=6.95 effect=0.73
+none loop=5.09 pc1=7.12 pc2=7.27 sc1=7.24 sc2=7.05 effect=-0.05
+thin loop=5.02 pc1=6.62 pc2=6.07 sc1=7.51 sc2=7.44 effect=1.13
+dup loop=5.30 pc1=6.38 pc2=6.06 sc1=6.98 sc2=6.91 effect=0.73
+none loop=5.18 pc1=7.36 pc2=7.13 sc1=7.23 sc2=7.37 effect=0.05
+thin loop=5.18 pc1=6.23 pc2=6.61 sc1=7.80 sc2=7.51 effect=1.23
+dup loop=4.99 pc1=6.55 pc2=6.13 sc1=7.16 sc2=6.95 effect=0.72
+none loop=5.01 pc1=7.35 pc2=7.18 sc1=7.49 sc2=7.46 effect=0.21
+thin loop=5.10 pc1=6.17 pc2=6.44 sc1=7.62 sc2=7.75 effect=1.38
+dup loop=4.93 pc1=6.81 pc2=6.23 sc1=7.45 sc2=7.11 effect=0.76
+none loop=5.01 pc1=7.67 pc2=8.38 sc1=7.70 sc2=7.37 effect=-0.49
+thin loop=5.36 pc1=6.04 pc2=6.20 sc1=7.55 sc2=7.54 effect=1.43
+dup loop=5.52 pc1=7.19 pc2=6.55 sc1=7.58 sc2=7.54 effect=0.69
+none loop=5.44 pc1=7.37 pc2=7.31 sc1=7.50 sc2=7.39 effect=0.10
+thin loop=5.08 pc1=6.42 pc2=6.69 sc1=7.52 sc2=8.01 effect=1.21
+dup loop=5.53 pc1=6.71 pc2=6.45 sc1=7.27 sc2=7.13 effect=0.62
+--- median over rounds [min..max], ns per call
+none  loop     median=  5.01 [  4.85..  5.44]
+none  pc1      median=  7.36 [  7.03..  8.07]
+none  pc2      median=  7.27 [  6.94..  8.38]
+none  sc1      median=  7.34 [  7.06..  7.70]
+none  sc2      median=  7.39 [  6.88..  8.78]
+none  effect   median=  0.05 [ -0.49..  0.33]
+thin  loop     median=  5.06 [  4.97..  5.36]
+thin  pc1      median=  6.23 [  6.04..  6.95]
+thin  pc2      median=  6.42 [  6.07..  6.92]
+thin  sc1      median=  7.55 [  7.39..  8.42]
+thin  sc2      median=  7.75 [  7.44..  8.01]
+thin  effect   median=  1.23 [  1.13..  1.73]
+dup   loop     median=  5.03 [  4.84..  5.53]
+dup   pc1      median=  6.71 [  6.38..  7.63]
+dup   pc2      median=  6.25 [  6.06..  7.63]
+dup   sc1      median=  7.27 [  6.98..  7.65]
+dup   sc2      median=  7.13 [  6.91..  8.47]
+dup   effect   median=  0.73 [  0.32..  0.92]
+null-effect spread width attempt 2 = 0.82 ns (gate: <= 1.0)
+GATE PASSED on attempt 2

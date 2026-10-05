@@ -4,7 +4,7 @@ Scope: the one open decision in `wayfinder/issues/62-the-outbound-abi.md` (funct
 `Kind` documentation is answered (LANGUAGE.md §12) and the module-prefix question is settled; neither is
 reopened. Nothing in the repo was edited. Probes: `artifacts/probes/62/` (`run.sh` re-executes everything;
 raw output in `out/`; `verdict.sh` prints HOLDS/REFUTED/INCONCLUSIVE per claim; `CHANGELOG.md` logs every
-probe edit and why). The experimental compiler is `probes/62/compiler-alias.patch` (4 KB, applies to the
+probe edit and why). The experimental compiler is `probes/62/compiler-alias.patch` (5 KB, applies to the
 repo's `compiler/src`, built in scratch; the repo's compiler is untouched).
 
 **Headline.** The ticket's premise, *"Elixir cannot call a PascalCase export"*, is **half wrong**:
@@ -109,33 +109,36 @@ after compression). Export count is exactly `2×public + 3` (`module_info/0,1` a
 ticket candidate 2's "two exports per function" **holds**.
 **Real corpus** (22 beams from `compiler/examples`, small bodies): none 45,980 B, thin 50,804 (**+10.5%**),
 dup 53,140 (+15.6%); stripped 13,285 → 14,733 (+10.9%) → 15,554 (+17.1%). `Counter` (all public functions
-are callbacks) is unchanged. Thin is cheaper than dup on every module except `Label` (stripped).
+are callbacks) is unchanged. Thin is no larger than dup on every module except `Label` (stripped: 707 vs 696); `Counter` is equal.
 
-**Load time** (`p11`; `erlang:prepare_loading` timed, purge outside; R=3 rounds × 150 loads, fresh VM per
-cell; `none2` is a byte-identical second copy of the baseline, the noise floor): at N=100, median µs:
-none 507-570, none2 522-557, **thin 709-720 (+~150, +27%)**, **dup 1025-1041 (+~500, +90%)**. At N=10: none
-139-143, thin 147-160, dup 190-203: thin is inside noise, dup is not. At N=1 nothing separates. `finish_loading`
-is a ~2-3 ms fixed cost with ±0.5 ms spread: no difference resolvable there. Disk read, release boot and
-`code:atomic_load` were not measured.
+**Load time** (`p11`; `erlang:prepare_loading` timed, purge outside; R=3 rounds x 150 loads, fresh VM per
+cell; `none2` is a byte-identical second copy of the baseline, the noise floor). Three full runs, median
+microseconds at N=100: none 507-570 (none2 499-557), **thin 660-720 (+140 to +200, +25-40%)**, **dup
+1014-1041 (about +500, +90-100%)**. At N=10: none 119-143, thin 147-160, dup 174-203: thin's +8 to +30 µs
+is inside the noise in two runs and resolved in one; dup's +55 to +60 is resolved. At N=1 nothing is
+resolved (65 vs 76-80, spreads overlap). `finish_loading` is a ~2-3 ms fixed cost with ±0.5 ms spread: no
+difference resolvable there. Disk read, release boot and `code:atomic_load` were not measured.
 
 **Call cost** (`p10`; `Sz10:'ScoreAt1Value'(5)` vs `Sz10:score_at1_value(5)` through a literal remote call;
 20 M calls per timed run, min of 3, 9 interleaved rounds, two loop copies per target so placement bias
-cancels; the `none` row, where "snake" is the same Pascal function, is the null control). Per-iteration
-cost is ~6-7 ns, loop overhead ~5 ns. Effect = snake minus Pascal, ns/call:
+cancels; the `none` row, where "snake" is the same Pascal function, is the null control; a gate rejects an
+attempt whose null spread exceeds 1.0 ns). Per-iteration cost is ~6-7 ns, loop overhead ~5 ns. Effect =
+snake minus Pascal, ns/call, median [min..max over 9 rounds]:
 
-| attempt | null (none) median [min..max] | thin | dup |
+| run | null (none) | thin | dup |
 |---|---|---|---|
-| gated attempt (spread 0.88 ns, passed) | 0.03 [-0.09..0.79] | **1.42 [0.92..1.81]** | 0.77 [0.39..1.11] |
-| earlier clean run | 0.00 [-0.23..0.26] | 1.40 [1.15..1.81] | 0.79 [0.55..1.08] |
-| attempts 1 and 2 of the final script | spread 2.69 / 1.25: gate failed | 1.48 / 1.21 | 0.91 / 0.76 |
-| first run.sh run on a busy host | -0.34 [-1.74..2.23] | 1.85 [-0.06..4.09] | 1.57 [0.57..7.36] |
+| final `run.sh`, attempt 2 (gate passed, `out/p10.out`) | 0.05 [-0.49..0.33] | **1.23 [1.13..1.73]** | 0.73 [0.32..0.92] |
+| final `run.sh`, attempt 1 (gate failed, spread 2.38) | -0.12 [-1.14..1.24] | 2.05 [-0.22..2.56] | 0.70 [-0.13..1.81] |
+| a previous gated run (raw not retained, see CHANGELOG) | 0.03 [-0.09..0.79] | 1.42 [0.92..1.81] | 0.77 [0.39..1.11] |
+| an earlier clean run (raw not retained) | 0.00 [-0.23..0.26] | 1.40 [1.15..1.81] | 0.79 [0.55..1.08] |
+| first `run.sh` on a busy host (`out/p10_run1_noisy_in_run_sh.out`) | -0.34 [-1.74..2.23] | 1.85 [-0.06..4.09] | 1.57 [0.57..7.36] |
 
-Reading: **thin ≈ +1.2 to +1.5 ns per call**, above the null spread in the two clean runs (a jump through
-`call_only`, E15). dup's ≈ +0.8 ns is above the null in one clean run and inside it in the other, and I
-did not isolate its cause (code placement is the likely one); do not read it as real. The busy-host run
-could resolve neither and is kept (`out/p10_run1_noisy_in_run_sh.out`) rather than hidden. JIT only
-(`emu_flavor=jit`); no interpreter build measured. Against a real Elixir caller's work this is below
-anything else on the call path, but it is not zero.
+Reading: **thin is about +1.2 to +1.5 ns per call** and its minimum clears the null maximum in the three
+runs whose null was narrow (a jump through `call_only`, E15). dup's ~+0.75 ns clears the null in one clean
+run and sits inside it in the others; I did not isolate its cause (code placement is the likely one), so
+do not read it as real. The busy-host run resolved neither and is kept rather than hidden. JIT only
+(`emu_flavor=jit`); no interpreter build measured. This is below anything else on an Elixir caller's call
+path, but it is not zero.
 
 **`.api` / `-spec`**: `bsc --api` unchanged (E17). Dialyzer/ElixirLS read `-spec`, and with `thin` they see
 the alias typed (E17); with `thin_nospec` they see only the Pascal name.
@@ -178,11 +181,11 @@ Same B# source. Elixir: `:Shop.new(1)`, `&:Shop.new/1`, `import :Shop, only: [ne
 keeps `'Shop':'New'(1)`.
 
 *Compiler delta (built in the patch, 95-line `bs_alias.erl` plus a 3-line hook `forms(M) -> bs_alias:add(forms0(M))`
-in `bs_emit.erl:30`)*: after `bs_emit:forms/1` builds the form list, for each exported `{N,A}` that is not
+in `bs_emit.erl:31`)*: after `bs_emit:forms/1` builds the form list, for each exported `{N,A}` that is not
 `bs@…`, compute `snake(N)`; emit `snake(A1..An) -> 'N'(A1..An).`, add `{snake,A}` to the `export`
 attribute, and copy the `-spec`. Rule S: boundary before an uppercase that follows a lowercase letter or
 digit, or that ends an acronym; `_` kept; lowercase. Measured cost: §4 (thin: +10.5% beam on the corpus,
-+63 B/function, +~150 µs load at N=100, +~1.4 ns/call, crash frames name the Pascal function).
++63 B/function, +140-200 µs load at N=100, +~1.4 ns/call, crash frames name the Pascal function).
 *Not built, and owed*: a collision **diagnostic** instead of a crash (E12: `FooBar`/`Foo_Bar`/`FooBAR`,
 `HttpGet`/`HTTPGet`); a reserved list (`module_info`, and every name in `bs_otp`'s callback tables, E13,
 or an alias makes `Init/1` a live `gen_server` callback in a module that never said `behaviour`); a gate
@@ -193,7 +196,7 @@ copy: it is unreadable on acronyms and injective only because Gleam forbids `_`,
 `import`, and Elixir can already call every export (E3) or wrap it in one line (E6); in exchange the
 language gets its first name-mapping rule (reversing ticket 32's stated stance for the outbound
 direction), a collision class the grammar permits and the corpus never exercises (E14), a callback-capture
-hazard (E13), a doubled export surface in every `module_info`, `xref` and Dialyzer listing, and 10% more
+hazard (E13), a doubled export list in every module (`module_info(exports)`, E10), and 10% more
 beam on every module whether or not any Elixir code ever calls it.
 
 ### Option C — the author writes the foreign spelling, per function (opt-in, no derivation)

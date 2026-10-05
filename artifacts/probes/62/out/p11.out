@@ -1,0 +1,38 @@
+1 none prep_median=65 prep_min=46 prep_p90=96 fin_median=1831 fin_min=463 fin_p90=2326
+1 none2 prep_median=72 prep_min=54 prep_p90=106 fin_median=2009 fin_min=491 fin_p90=3373
+1 thin prep_median=76 prep_min=57 prep_p90=103 fin_median=2147 fin_min=556 fin_p90=2929
+1 dup prep_median=82 prep_min=56 prep_p90=110 fin_median=1958 fin_min=502 fin_p90=3119
+10 none prep_median=130 prep_min=94 prep_p90=168 fin_median=1963 fin_min=477 fin_p90=3426
+10 none2 prep_median=120 prep_min=83 prep_p90=168 fin_median=1877 fin_min=321 fin_p90=3226
+10 thin prep_median=149 prep_min=111 prep_p90=194 fin_median=1869 fin_min=511 fin_p90=3123
+10 dup prep_median=173 prep_min=127 prep_p90=219 fin_median=2298 fin_min=647 fin_p90=3004
+100 none prep_median=522 prep_min=424 prep_p90=908 fin_median=2273 fin_min=634 fin_p90=3913
+100 none2 prep_median=521 prep_min=443 prep_p90=709 fin_median=2465 fin_min=684 fin_p90=3625
+100 thin prep_median=660 prep_min=553 prep_p90=994 fin_median=2143 fin_min=698 fin_p90=4308
+100 dup prep_median=1014 prep_min=863 prep_p90=1423 fin_median=2777 fin_min=1064 fin_p90=3912
+... (36 raw cells in total; full file copied to out/p11_raw.txt)
+--- median over rounds of per-cell median, microseconds [min..max over rounds]
+prep N=1    none       65 [58..84]
+prep N=1    none2      67 [57..72]
+prep N=1    thin       76 [74..77]
+prep N=1    dup        80 [71..82]
+prep N=10   none      119 [117..130]
+prep N=10   none2     118 [117..120]
+prep N=10   thin      149 [147..165]
+prep N=10   dup       174 [173..195]
+prep N=100  none      520 [493..522]
+prep N=100  none2     499 [480..521]
+prep N=100  thin      660 [627..687]
+prep N=100  dup      1014 [983..1034]
+fin  N=1    none     1831 [1602..2373]
+fin  N=1    none2    1898 [1593..2009]
+fin  N=1    thin     2147 [1979..2170]
+fin  N=1    dup      1874 [1659..1958]
+fin  N=10   none     2006 [1963..2043]
+fin  N=10   none2    1877 [1774..1923]
+fin  N=10   thin     2018 [1869..2030]
+fin  N=10   dup      2186 [1853..2298]
+fin  N=100  none     2273 [2066..2454]
+fin  N=100  none2    1879 [1854..2465]
+fin  N=100  thin     2143 [1958..2368]
+fin  N=100  dup      2700 [2517..2777]

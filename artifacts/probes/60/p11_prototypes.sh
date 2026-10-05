@@ -19,7 +19,9 @@ case_() { # variant fixture module expect(0|1) [entry args...]
     echo "    exit=$rc"
     [ "$rc" -eq "$want" ] || { echo "    MISMATCH: wanted $want"; fail=1; }
 }
+build_variant base >/dev/null; echo "yecc conflicts, base grammar:  $(grep -h -o 'conflicts: [^,]*, [^ ]* reduce/reduce' "$WORK/base/build.log" | sort -u | tr '\n' ' ')"
 build_variant pA A.patch >/dev/null && {
+  echo "yecc conflicts, A grammar:     $(grep -h -o 'conflicts: [^,]*, [^ ]* reduce/reduce' "$WORK/pA/build.log" | sort -u | tr '\n' ' ')"
   echo "=========== A: Internal path segment"
   case_ pA shop Shop/Reports 0
   case_ pA shop Outsider 1
@@ -27,6 +29,7 @@ build_variant pA A.patch >/dev/null && {
   case_ pA shop Outsider2 1
 }
 build_variant pB B.patch >/dev/null && {
+  echo "yecc conflicts, B grammar:     $(grep -h -o 'conflicts: [^,]*, [^ ]* reduce/reduce' "$WORK/pB/build.log" | sort -u | tr '\n' ' ')"
   echo "=========== B: visible_to list (fixture shopB: Orders lists Shop.Billing, Shop.Reports)"
   case_ pB shopB Shop/Billing 0
   case_ pB shopB Shop/Reports 0
@@ -41,6 +44,7 @@ build_variant pB B.patch >/dev/null && {
   case_ pB shopB2 Outsider 1
 }
 build_variant pC C.patch >/dev/null && {
+  echo "yecc conflicts, C grammar:     $(grep -h -o 'conflicts: [^,]*, [^ ]* reduce/reduce' "$WORK/pC/build.log" | sort -u | tr '\n' ' ')"
   echo "=========== C: internal marker, scope = parent namespace of the callee module"
   case_ pC shopC Shop/Reports 0
   case_ pC shopC OutsiderPub 0       # public Fetch from outside: fine

@@ -1,0 +1,2 @@
+== base:   repl_tests: a_bare_function_name_is_not_a_failed_value_test...[0.932 s] ok   All 1312 tests passed. 
+   failing: 0

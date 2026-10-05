@@ -29,6 +29,6 @@ CLAIM-HOLDS N16 snake alias of a non-callback Init/1 makes gen_server reach it (
 CLAIM-HOLDS N17 import :Casing, only: [http_get: 1]; http_get(1) works with aliases
 CLAIM-HOLDS N18 import of a Pascal export cannot be CALLED unqualified (no alias)
 == p10: thin call-cost effect vs null spread
-null spread [-0.09....0.79]; thin median 1.42 (min 0.92..); dup median 0.77 (min 0.39..)
+null spread [-0.49....0.33]; thin median 1.23 (min 1.13..); dup median 0.73 (min 0.32..)
 CLAIM-HOLDS  thin effect lies above the null spread (real cost)
 CLAIM-REFUTED  dup effect lies above the null spread
