@@ -55,7 +55,13 @@ import sys
 from pathlib import Path
 
 SCORE = re.compile(r"visible\s+(\d+/\d+)\s+held-out\s+(\d+/\d+)")
-RETRY = re.compile(r"\[ringer\.py\] attempt 1 exited rc=-?\d+\n(.*?)Fix it", re.S)
+# A quoted retry prompt runs from the marker to `Fix it` and crosses no other
+# marker, so a forged marker printed ahead of the real one is cut off by it
+# and cannot lend its score to the real prompt's span.
+RETRY = re.compile(
+    r"\[ringer\.py\] attempt 1 exited rc=-?\d+\n"
+    r"((?:(?!\[ringer\.py\] attempt \d+ exited).)*?)Fix it", re.S)
+NO_DELIVERABLE = "no executable ./switchcheck"
 POINTER = re.compile(r"^machine-record:\s*(\S+)\s+tasks\[(\d+)\]", re.M)
 
 
@@ -63,9 +69,17 @@ def score(text: str) -> str:
     found = SCORE.findall(text)
     if found:
         return f"{found[-1][0]} visible, {found[-1][1]} held-out"
-    if "no executable ./switchcheck" in text:
+    if NO_DELIVERABLE in text:
         return "no deliverable"
     return "not in the record"
+
+
+def readings(text: str) -> set:
+    """Every outcome a stretch of log states, so two that differ can be seen."""
+    found = {f"{v} visible, {h} held-out" for v, h in SCORE.findall(text)}
+    if NO_DELIVERABLE in text:
+        found.add("no deliverable")
+    return found
 
 
 def machine_record(lane: Path, name: str, round_dir: Path):
@@ -99,8 +113,11 @@ def first_attempt(lane: Path, task) -> str:
         return "no `worker.log` archived"
     # The worker's own output is in this file too, so a worker can print a
     # retry prompt of its own. The real one is always there beside it, and two
-    # different scores are reported as a conflict, never resolved by position.
-    quoted = {score(q) for q in RETRY.findall(log.read_text(errors="replace"))}
+    # different outcomes are reported as a conflict, never resolved by position:
+    # not between prompts, and not within one.
+    quoted = set()
+    for prompt in RETRY.findall(log.read_text(errors="replace")):
+        quoted |= readings(prompt)
     if not quoted:
         return "not in `worker.log`"
     return quoted.pop() if len(quoted) == 1 else "conflicting in `worker.log`"
