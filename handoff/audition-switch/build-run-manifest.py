@@ -89,6 +89,22 @@ def readings(text: str) -> set:
     return found
 
 
+def tasks_of(src: Path) -> list:
+    """The task records in a `run.json`. Anything that is not one reads as empty.
+
+    Every read of a record comes through here, so an archived file that is
+    missing, is not JSON, or holds some other shape gives a row that says so
+    and never a traceback: `stage.sh` runs the summaries last.
+    """
+    try:
+        tasks = json.loads(src.read_text()).get("tasks")
+    except (OSError, ValueError, AttributeError):
+        return []
+    if not isinstance(tasks, list):
+        return []
+    return [t if isinstance(t, dict) else {} for t in tasks]
+
+
 def machine_record(lane: Path, name: str, round_dir: Path):
     """The task dict for a lane, and where it was read from."""
     note = lane / "RECORD"
@@ -103,18 +119,14 @@ def machine_record(lane: Path, name: str, round_dir: Path):
             root = round_dir.resolve()
             if root not in src.parents:
                 return None, "`RECORD` points outside its round"
-            try:
-                task = json.loads(src.read_text())["tasks"][index]
-                if not isinstance(task, dict):
-                    raise TypeError(task)
-            except (OSError, ValueError, KeyError, IndexError, TypeError):
+            tasks = tasks_of(src)
+            if index >= len(tasks) or not tasks[index]:
                 return None, "`RECORD` names a record that cannot be read"
-            return task, f"{os.path.relpath(src, root)} `tasks[{index}]`"
+            return tasks[index], f"{os.path.relpath(src, root)} `tasks[{index}]`"
     for src in (lane / "run.json", round_dir / "run.json"):
         if not src.is_file():
             continue
-        tasks = [t if isinstance(t, dict) else {}
-                 for t in json.loads(src.read_text()).get("tasks", [])]
+        tasks = tasks_of(src)
         keyed = [(i, t) for i, t in enumerate(tasks) if t.get("key") == name]
         if not keyed and src.parent == lane and len(tasks) == 1:
             keyed = [(0, tasks[0])]
@@ -146,8 +158,8 @@ def summary(round_dir: Path) -> str:
     lanes = sorted(p.name for p in round_dir.iterdir() if p.is_dir())
     shared = round_dir / "run.json"
     if shared.is_file():
-        for task in json.loads(shared.read_text()).get("tasks", []):
-            if isinstance(task, dict) and task.get("key") and task["key"] not in lanes:
+        for task in tasks_of(shared):
+            if task.get("key") and task["key"] not in lanes:
                 lanes.append(task["key"])
     rows = []
     for name in lanes:
@@ -246,7 +258,23 @@ def self_test() -> int:
             if log is not None:
                 (round_dir / name / "worker.log").write_text(log)
         tasks = [task(name, attempts) for name, (_, attempts, _) in lanes.items()]
-        (round_dir / "run.json").write_text(json.dumps({"tasks": tasks + [{"no": "key"}]}))
+        # Beside the real tasks: one with no key, and two that are not tasks.
+        (round_dir / "run.json").write_text(
+            json.dumps({"tasks": tasks + [{"no": "key"}, "not a task", None]}))
+        # Three rounds whose shared record is not a record at all. Each still
+        # gets a summary with its lane in it.
+        broken = {"2031-02-01-a-list": "[1, 2]", "2031-02-02-null-tasks": '{"tasks": null}',
+                  "2031-02-03-not-json": "{ not json"}
+        for name, body in broken.items():
+            (evidence / name / "lane").mkdir(parents=True)
+            (evidence / name / "run.json").write_text(body)
+        # A round reached through a symlink, with a pointer inside it. Compared
+        # unresolved, the round is not an ancestor of its own record.
+        real = Path(tmp).resolve() / "kept-elsewhere"
+        (real / "pointed").mkdir(parents=True)
+        (real / "shared.json").write_text(json.dumps({"tasks": [task("x", 1)]}))
+        (real / "pointed" / "RECORD").write_text("machine-record: ../shared.json tasks[0]\n")
+        (evidence / "2031-03-01-linked").symlink_to(real, target_is_directory=True)
         # A pointer out of the round, at a record that would read as a pass.
         (evidence / "outside.json").write_text(json.dumps({"tasks": [task("escape")]}))
         (round_dir / "escape").mkdir()
@@ -288,6 +316,13 @@ def self_test() -> int:
             failed.append("a RECORD pointing inside its round was not followed")
         if str(evidence) in text:
             failed.append("the summary names an absolute path")
+        for name in broken:
+            written = evidence / name / "SUMMARY.md"
+            if not written.is_file() or "| `lane` |" not in written.read_text():
+                failed.append(f"{name}: a round with an unreadable run.json got no summary row")
+        linked = (evidence / "2031-03-01-linked" / "SUMMARY.md").read_text()
+        if "shared.json `tasks[0]`" not in linked:
+            failed.append("a pointer inside a symlinked round was refused")
         (round_dir / "SUMMARY.md").write_text(text + "edited by hand\n")
         if summaries(evidence, check=True, quiet=True) != 1:
             failed.append("a hand-edited summary passed --check")
@@ -295,8 +330,9 @@ def self_test() -> int:
         print(f"SELF-TEST FAILED: {line}")
     if not failed:
         print("self-test: read the honest lane, refused three forged retry prompts, followed "
-              "a RECORD inside its round and refused three that are not, and told a missing, "
-              "a fresh and an edited summary apart")
+              "a RECORD inside its round, one of them through a symlink, and refused three "
+              "that are not, summarised three rounds whose run.json is not a record, and "
+              "told a missing, a fresh and an edited summary apart")
     return 1 if failed else 0
 
 
