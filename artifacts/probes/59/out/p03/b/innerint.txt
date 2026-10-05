@@ -1,0 +1,10 @@
+== 'InnerInt'/1
+   {line,4}
+   {label,9}
+   {func_info,{atom,'Scope'},{atom,'InnerInt'},1}
+   {label,10}
+   {test,is_ge,{f,11},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+   return
+   {label,11}
+   {move,{integer,0},{x,0}}
+   return

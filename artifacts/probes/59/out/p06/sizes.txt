@@ -1,0 +1,5 @@
+BenchBase (base) code=278 file=2032
+BenchBase2 (base) code=278 file=2040
+BenchA (a) code=266 file=1944
+BenchB (b) code=306 file=2196
+BenchC (c) code=306 file=2196

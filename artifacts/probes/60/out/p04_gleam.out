@@ -1,0 +1,26 @@
+gleam 1.18.1
+--- gleam build of the DEPENDENT package (separate package via path dependency; no hex needed)
+  Resolving versions
+      Added libpkg v1.0.0
+  Compiling libpkg
+  Compiling app
+   Compiled in 1.08s
+exit=0
+0
+(count of warning/error/internal lines in build output; grep exit tells 0 = none)
+--- gleam run (it really links and runs)
+   Compiled in 0.60s
+    Running app.main
+--- docs of the library package: which names appear?
+The documentation for libpkg has been rendered to 
+/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w60run/gleam/libpkg/build/dev/docs/libpkg/index.html
+recompute in generated docs: 
+marked in generated docs: 
+plain in generated docs: libpkg.html package-interface.json 
+total in generated docs: libpkg.html package-interface.json 
+--- modules listed in package-interface.json
+"modules":{"libpkg"
+"libpkg":{"documentation"
+"plain":{"documentation"
+"total":{"documentation"
+VERDICT[gleam-does-not-enforce-internal-on-dependents]: CONFIRMED

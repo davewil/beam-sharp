@@ -1,0 +1,6 @@
+module Shop.Reports
+
+using Shop.Orders
+
+public int Report(list<int> xs)
+Report(xs) -> RecomputeTotal(xs)

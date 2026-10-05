@@ -1,0 +1,7 @@
+module Fltp
+
+public int Entry(list<float> xs)
+Entry([x, ..r]) -> Get(x)
+Entry([]) -> 0
+private int Get(float f)
+Get(f) -> 1

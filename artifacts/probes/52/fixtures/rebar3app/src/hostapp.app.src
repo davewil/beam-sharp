@@ -1,0 +1,2 @@
+{application, hostapp, [{description, "x"}, {vsn, "0.1.0"}, {registered, []},
+  {applications, [kernel, stdlib]}, {env, []}, {modules, []}]}.

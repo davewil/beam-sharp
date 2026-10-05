@@ -1,0 +1,19 @@
+case   base_code   a_code   b_code   c_code | tag(base-a) kind(b-base)
+Rec1        128      116      128      128 |     12      0
+Rec3        128      116      128      128 |     12      0
+Rec8        128      116      128      128 |     12      0
+IntP        116      116      121      121 |      0      5
+Fltp        112      112      115      115 |      0      3
+Octt        128      128      140      140 |      0     12
+## whole .beam file bytes (compressed chunks), base / a / b
+Rec1   base=1280 a=1212 b=1276
+Rec3   base=1308 a=1240 b=1304
+Rec8   base=1364 a=1296 b=1360
+IntP   base=1092 a=1088 b=1132
+Fltp   base=1056 a=1052 b=1088
+Octt   base=1144 a=1140 b=1248
+tag deltas 1/3/8 fields: 12 12 12   int delta: 5
+PASS  tag delta flat in field count
+PASS  tag delta near ticket's +14 (12)
+PASS  int delta within ticket's +3..5 (5)
+p05 FAILS=0

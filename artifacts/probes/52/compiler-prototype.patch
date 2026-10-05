@@ -1,0 +1,129 @@
+diff -ruN a/src/bs_check.erl b/src/bs_check.erl
+--- a/src/bs_check.erl	2026-10-05 23:14:05.796816019 +0000
++++ b/src/bs_check.erl	2026-10-05 23:15:35.009004774 +0000
+@@ -90,7 +90,38 @@
+     %% Unknown-type errors can suggest a `using` from the reachable world.
+     with_type_hints(World, fun() -> check_dir1(Sources, World, Expect) end).
+ 
+-check_dir1(Sources0, World, Expect) ->
++check_dir1(Sources00, World, Expect) ->
++    Reqs = lists:append([[R || R <- D, element(1, R) =:= requires]
++                         || {_, D} <- Sources00]),
++    Sources0 = [{P, [X || X <- D, element(1, X) =/= requires]}
++                || {P, D} <- Sources00],
++    _ = [case code:lib_dir(App) of
++             {error, _} -> erlang:error({app_not_on_path, RL, App, RM});
++             LibDir ->
++                 %% PROBE: BS_PROTO_STRONG also demands that the module is
++                 %% found, and found inside the declared application.
++                 case os:getenv("BS_PROTO_STRONG") of
++                     false -> ok;
++                     _ when RM =:= module -> ok;
++                     _ -> case code:which(RM) of
++                              W when is_list(W) ->
++                                  case lists:prefix(LibDir, W) of
++                                      true -> ok;
++                                      false -> erlang:error({app_not_on_path, RL, App, RM})
++                                  end;
++                              _ -> erlang:error({app_not_on_path, RL, App, RM})
++                          end
++                 end
++         end || {requires, RL, App, RM} <- Reqs],
++    %% PROBE HOOK for variant C (no new syntax): refuse any foreign `using` whose
++    %% module is not loadable. Off unless BS_PROTO_CHECK_MODULES is set.
++    _ = case os:getenv("BS_PROTO_CHECK_MODULES") of
++            false -> ok;
++            _ -> [case code:which(FM) of
++                      non_existing -> erlang:error({app_not_on_path, FL, FM, FM});
++                      _ -> ok
++                  end || {foreign, FL, FM, _} <- lists:append([D || {_, D} <- Sources0])]
++        end,
+     {Imports, Env} = declared(Sources0, World, Expect, strict),
+     %% F64: an `implements` block becomes the function it defines, after
+     %% `declared/4` has refused it by kind.
+@@ -149,6 +180,7 @@
+                          type_vars => lists:usort(lists:append(
+                              [Ps || {type_alias, _, _, Ps, _} <- Decls])),
+                          behaviours => [B || {behaviour, _, B} <- Decls],
++                         requires => [{A, M} || {requires, _, A, M} <- Reqs],
+                          %% The emitter consumes imports resolved at check
+                          %% time.
+                          imports => resolved_funs(Imports, local_keys(Decls)),
+diff -ruN a/src/bs_diag.erl b/src/bs_diag.erl
+--- a/src/bs_diag.erl	2026-10-05 23:14:05.812815890 +0000
++++ b/src/bs_diag.erl	2026-10-05 23:15:07.590994650 +0000
+@@ -561,6 +561,9 @@
+     #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
+       line => Line, module => bs_types:atom_str(Mod), function => Fun,
+       type => Type, why => Why, name => Name, fields => Fields, at => At};
++built(Path, {app_not_on_path, Line, App, Mod}) ->
++    #{tag => app_not_on_path, severity => error, file => Path, line => Line,
++      app => App, module => bs_types:atom_str(Mod)};
+ built(Path, {unknown_generic, N}) ->
+     #{tag => unknown_generic, severity => error, file => Path, type => N};
+ built(Path, {generic_arity, N, Want, Got}) ->
+@@ -1861,6 +1864,11 @@
+     {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
+      placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
+                         beyond_edit(Why, At, Type, Name, Fields)]};
++message(#{tag := app_not_on_path, app := App, module := Mod} = D) ->
++    {placed(D) ++ "error: application `~s` is declared here and is not on the code path~n"
++     "  (declared for `~s`; no `~s` or `~s-<version>` directory with an ebin~n"
++     "  was found in the code path or in ERL_LIBS)~n",
++     placed_args(D) ++ [App, Mod, App, App]};
+ message(#{tag := unknown_generic, file := P, type := N}) ->
+     {"~s: error: no type named ~s takes a type argument~n"
+      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"
+diff -ruN a/src/bs_emit.erl b/src/bs_emit.erl
+--- a/src/bs_emit.erl	2026-10-05 23:14:05.803696727 +0000
++++ b/src/bs_emit.erl	2026-10-05 23:15:07.583082744 +0000
+@@ -76,6 +76,10 @@
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+                              ++ [{type_atoms_name(), 0}]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
++    ++ case maps:get(requires, Module, []) of
++           [] -> [];
++           Rq -> [{attribute, ?A, bs_requires, Rq}]
++       end
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+     ++ rec_type_attrs(Fns, Env)
+diff -ruN a/src/bs_parser.yrl b/src/bs_parser.yrl
+--- a/src/bs_parser.yrl	2026-10-05 23:14:05.789013371 +0000
++++ b/src/bs_parser.yrl	2026-10-05 23:15:07.568215585 +0000
+@@ -11,6 +11,7 @@
+   program decls decl
+   comp_quals comp_qual
+   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
++  app_attr app_names
+   behaviour_decl record_decl field_decls field_decl open_field_decls
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+@@ -100,6 +101,13 @@
+ block_clause -> '(' patterns ')' guard '->' body :
+     {line('$1'), '$2', '$4', '$6'}.
+ decl -> foreign_decl : '$1'.
++%% PROTOTYPE (ticket 52 probe): `[app: req] using :'Elixir.Req' { ... }` and
++%% `[app: req, jason] module Client`.
++decl -> app_attr foreign_decl : app_marks('$1', '$2').
++decl -> app_attr module_decl  : app_marks('$1', '$2').
++app_attr -> '[' lident ':' app_names ']' : {line('$1'), value('$2'), '$4'}.
++app_names -> lident : [value('$1')].
++app_names -> lident ',' app_names : [value('$1') | '$3'].
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
+@@ -816,6 +824,13 @@
+ 
+ line(T) -> element(2, T).
+ 
++app_marks({L, app, Apps}, {foreign, _, Mod, _} = D) ->
++    [{requires, L, A, Mod} || A <- Apps] ++ [D];
++app_marks({L, app, Apps}, {module, _, _} = D) ->
++    [{requires, L, A, module} || A <- Apps] ++ [D];
++app_marks({L, K, _}, _) ->
++    return_error(L, "unknown attribute " ++ atom_to_list(K)).
++
+ %% Each hole's tokens are parsed as an expression through the second root, and
+ %% a hole that does not parse is this template's syntax error, at the hole.
+ interp_parts(Parts) -> [interp_part(P) || P <- Parts].

@@ -1,0 +1,6 @@
+module Ds
+type Delta = int where value >= -100 and value <= 100
+public atom Sign(Delta d)
+Sign(>= -99 and <= -1) -> :neg
+Sign(0)                -> :zero
+Sign(>= 1 and <= 100)  -> :pos

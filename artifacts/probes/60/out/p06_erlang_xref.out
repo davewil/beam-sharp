@@ -1,0 +1,43 @@
+--- the documentation of the limitation (installed source, /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/env/lib/erlang/lib/tools-4.1.4/src/xref.erl)
+    40	_Unresolved calls_{: #unresolved_call } are calls to `apply` or
+    41	`spawn` with variable module, variable function, or variable
+    42	arguments. Examples are `M:F(a)`, [`apply(M, f, [a])`](`apply/3`), and
+    43	[`spawn(m, f(), Args)`](`spawn/3`). Unresolved calls are represented
+    44	by calls where variable modules have been replaced with the atom
+    45	`'$M_EXPR'`, variable functions have been replaced with the atom
+    46	`'$F_EXPR'`, and variable number of arguments have been replaced with
+    47	the number `-1`. The above mentioned examples are represented by calls
+    48	to `'$M_EXPR':'$F_EXPR'/1`, `'$M_EXPR':f/1`, and `m:'$F_EXPR'/-1`. The
+    49	unresolved calls are a subset of the external calls.
+    50	
+    51	> #### Warning {: .warning }
+    52	>
+    53	> Unresolved calls make module data incomplete, which implies that the results
+    54	> of analyses may be invalid.
+    55	
+modules that use callee (xref {module_use, callee}): [callee,literal,stranger]
+unresolved calls (xref query UC): [{{sneaky,go,1},{'$M_EXPR','$F_EXPR',1}},
+                                   {{stranger,dynamic,3},
+                                    {'$M_EXPR','$F_EXPR',1}},
+                                   {{stranger,via_apply,1},
+                                    {'$M_EXPR','$F_EXPR',1}}]
+edges FROM sneaky: [{{sneaky,go,1},{'$M_EXPR','$F_EXPR',1}}]
+exit=0 (0 = sneaky absent, stranger+literal present)
+VERDICT[xref-cannot-see-variable-module-calls]: CONFIRMED
+
+--- OTP's own convention for 'application-internal': documentation hiding, not enforcement
+kernel src modules: 103 total, 67 carry -moduledoc false
+stdlib erl_internal.erl lines 22-25 (a module that describes itself as internal):
+-module(erl_internal).
+-moduledoc """
+Internal Erlang definitions.
+
+and any user module can call it (no enforcement):
+erl_internal:bif(abs,1) = true
+an exported function whose NAME says internal, called across modules in kernel (os.erl calling logger):
+37:    ok = logger:internal_init_logger(),
+38:    ok = os:internal_init_cmd_shell(),
+54:    ok = os:internal_init_cmd_shell(),
+1572-%% tree is started.
+1573:internal_init_logger() ->
+1574-    try

@@ -1,0 +1,230 @@
+--- a/compiler/src/bs_emit.erl	2026-10-05 23:13:38.892860362 +0000
++++ b/compiler/src/bs_emit.erl	2026-10-05 23:13:38.896525813 +0000
+@@ -28,7 +28,9 @@
+ %%% as `'Readings':'Classify'(X)`.
+ %%% ---------------------------------------------------------------------------
+ 
+-forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
++forms(Module) -> elide_proven_tags(forms0(Module)).
++
++forms0(Module = #{module := Mod, functions := Fns, env := Env}) ->
+     %% A private function is emitted and `-spec`'d like a public one; it is
+     %% left out of the export list, the BEAM's only mechanism for the
+     %% distinction.
+@@ -272,7 +274,7 @@
+ %% The tag guard and the integer guard are mutually exclusive: a record type
+ %% has a `maps` part and an integer type does not, so no parameter is a
+ %% candidate for both.
+-guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
++guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, _Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+@@ -281,13 +283,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from
+@@ -2510,3 +2510,191 @@
+ to_abstr(Forms) ->
+     iolist_to_binary(["%% coding: latin-1\n"
+                       | [io_lib:format("~p.~n", [F]) || F <- Forms]]).
++
++
++%%% ---------------------------------------------------------------------------
++%%% OPTION C PROTOTYPE (ticket 59 probe, not for merge).
++%%%
++%%% Both boundary guards are emitted on every function (option b). This pass
++%%% then drops a PRIVATE function's record tag test at position I when every
++%%% reference to it in the module is a direct local call whose I-th argument is
++%%% already tag-tested by the caller: a top-level head variable that the caller's
++%%% own clause tests (or pins by a `Kind` map pattern), a private caller's own
++%%% proven position, or a map literal carrying the same `Kind`. Any other
++%%% reference (a fun capture, an atom mention, an argument one projection down,
++%%% a call from inside a fun or comprehension that rebinds the variable) keeps
++%%% the test. The `is_integer` half needs no such pass: erlc's beam_ssa_type
++%%% does it (see probe p04).
++%%% ---------------------------------------------------------------------------
++
++elide_proven_tags(Forms) ->
++    Exports = lists:append([Es || {attribute, _, export, Es} <- Forms]),
++    Fns = [F || F = {function, _, _, _, _} <- Forms],
++    Cand0 = lists:foldl(
++              fun({function, _, N, A, Cs}, Acc) ->
++                      case lists:member({N, A}, Exports) of
++                          true -> Acc;
++                          false ->
++                              lists:foldl(
++                                fun(Pos, Acc1) ->
++                                        case fn_tags(Cs, Pos) of
++                                            {ok, Tag} -> Acc1#{{N, A, Pos} => Tag};
++                                            none -> Acc1
++                                        end
++                                end, Acc, lists:seq(1, A))
++                      end
++              end, #{}, Fns),
++    Cand = fix_cands(Cand0, Fns),
++    case maps:size(Cand) of
++        0 -> Forms;
++        _ -> [elide_form(F, Cand) || F <- Forms]
++    end.
++
++%% All clauses test the same tag at Pos (head var + tag test).
++fn_tags(Cs, Pos) ->
++    Tags = [clause_tag(C, Pos) || C <- Cs],
++    case lists:usort(Tags) of
++        [{ok, Tag}] -> {ok, Tag};
++        _ -> none
++    end.
++
++%% The clause itself tests (guard) or pins (Kind map pattern) the tag.
++clause_tag({clause, _, Ps, G, _}, Pos) ->
++    case lists:nth(Pos, Ps) of
++        {var, _, V} ->
++            case [T || T <- tag_tests(G), element(1, T) =:= V] of
++                [{V, Tag} | _] -> {ok, Tag};
++                [] -> none
++            end;
++        {map, _, Fs} ->
++            case [T || {map_field_exact, _, {atom, _, 'Kind'}, {atom, _, T}} <- Fs] of
++                [Tag | _] -> {ok, Tag};
++                [] -> none
++            end;
++        _ -> none
++    end.
++
++tag_tests([Conj]) -> [{V, Tag} || {op, _, '=:=',
++                                    {call, _, {remote, _, {atom, _, erlang}, {atom, _, map_get}},
++                                     [{atom, _, 'Kind'}, {var, _, V}]},
++                                    {atom, _, Tag}} <- Conj];
++tag_tests(_) -> [].
++
++fix_cands(Cand, Fns) ->
++    Bad = [K || K = {N, A, Pos} <- maps:keys(Cand),
++                not proven(N, A, Pos, maps:get(K, Cand), Cand, Fns)],
++    case Bad of
++        [] -> Cand;
++        _  -> fix_cands(maps:without(Bad, Cand), Fns)
++    end.
++
++%% Every reference to N/A is a call whose Pos-th argument is proven.
++proven(N, A, Pos, Tag, Cand, Fns) ->
++    Refs = lists:append([refs(Cs, N, A, GN, GA, Cand) || {function, _, GN, GA, Cs} <- Fns]),
++    lists:all(fun({call, Proofs}) -> lists:nth(Pos, Proofs) =:= {ok, Tag};
++                 (escape) -> false
++              end, Refs).
++
++%% References to N/A inside one function's clauses, each as {call, [Proof]} with
++%% one proof per argument, or `escape`.
++refs(Cs, N, A, GN, GA, Cand) ->
++    lists:append([clause_refs(C, N, A, GN, GA, Cand) || C <- Cs]).
++
++clause_refs(C = {clause, _, Ps, _, _}, N, A, GN, GA, Cand) ->
++    Heads = head_proofs(C, GN, GA, Cand),   % var name => proven tag
++    Shadow = [],
++    walk(C, N, A, Heads, Shadow, Ps).
++
++head_proofs(C = {clause, _, Ps, _, _}, GN, GA, Cand) ->
++    lists:foldl(
++      fun({Pos, {var, _, V}}, Acc) ->
++              case clause_tag(C, Pos) of
++                  {ok, T} -> Acc#{V => T};
++                  none ->
++                      case maps:find({GN, GA, Pos}, Cand) of
++                          {ok, T} -> Acc#{V => T};
++                          error -> Acc
++                      end
++              end;
++         (_, Acc) -> Acc
++      end, #{}, lists:zip(lists:seq(1, length(Ps)), Ps)).
++
++walk({call, _, {atom, _, N}, Args}, N, A, Heads, Shadow, _) when length(Args) =:= A ->
++    [{call, [arg_proof(X, Heads, Shadow) || X <- Args]}
++     | lists:append([walk(X, N, A, Heads, Shadow, []) || X <- Args])];
++walk({'fun', _, {function, N, A}}, N, A, _, _, _) -> [escape];
++walk({atom, _, N}, N, _A, _, _, _) -> [escape];
++walk({'fun', _, {clauses, Cs}}, N, A, Heads, Shadow, _) ->
++    lists:append([walk(C, N, A, Heads, Shadow ++ pat_vars(Ps), []) || C = {clause, _, Ps, _, _} <- Cs]);
++walk({Lc, _, E, Quals}, N, A, Heads, Shadow, _) when Lc =:= lc; Lc =:= bc ->
++    Gen = lists:append([pat_vars(P) || {G, _, P, _} <- Quals, G =:= generate orelse G =:= b_generate]),
++    walk(E, N, A, Heads, Shadow ++ Gen, []) ++ walk(Quals, N, A, Heads, Shadow ++ Gen, []);
++walk({clause, _, Ps, G, B}, N, A, Heads, Shadow, Top) ->
++    %% The head patterns of the clause that owns Heads are not references.
++    _ = Top,
++    walk(Ps, N, A, Heads, Shadow, []) ++ walk(G, N, A, Heads, Shadow, []) ++ walk(B, N, A, Heads, Shadow, []);
++walk(T, N, A, Heads, Shadow, _) when is_tuple(T) ->
++    walk(tuple_to_list(T), N, A, Heads, Shadow, []);
++walk([H | T], N, A, Heads, Shadow, _) ->
++    walk(H, N, A, Heads, Shadow, []) ++ walk(T, N, A, Heads, Shadow, []);
++walk(_, _, _, _, _, _) -> [].
++
++arg_proof({var, _, V}, Heads, Shadow) ->
++    case lists:member(V, Shadow) of
++        true -> none;
++        false -> case maps:find(V, Heads) of {ok, T} -> {ok, T}; error -> none end
++    end;
++arg_proof({map, _, Fs}, _, _) ->
++    case [T || {map_field_assoc, _, {atom, _, 'Kind'}, {atom, _, T}} <- Fs] of
++        [T | _] -> {ok, T};
++        [] -> none
++    end;
++arg_proof(_, _, _) -> none.
++
++pat_vars(T) when is_tuple(T), element(1, T) =:= var -> [element(3, T)];
++pat_vars(T) when is_tuple(T) -> pat_vars(tuple_to_list(T));
++pat_vars([H | T]) -> pat_vars(H) ++ pat_vars(T);
++pat_vars(_) -> [].
++
++occurs(V, {var, _, V}) -> true;
++occurs(V, T) when is_tuple(T) -> occurs(V, tuple_to_list(T));
++occurs(V, [H | T]) -> occurs(V, H) orelse occurs(V, T);
++occurs(_, _) -> false.
++
++elide_form({function, L, N, A, Cs}, Cand) ->
++    Poss = [Pos || {N1, A1, Pos} <- maps:keys(Cand), N1 =:= N, A1 =:= A],
++    {function, L, N, A, [elide_clause(C, Poss) || C <- Cs]};
++elide_form(F, _) -> F.
++
++elide_clause(C, []) -> C;
++elide_clause({clause, L, Ps, [Conj], B}, Poss) ->
++    lists:foldl(
++      fun(Pos, {clause, L1, Ps1, [Conj1], B1}) ->
++              case lists:nth(Pos, Ps1) of
++                  {var, _, V} ->
++                      Conj2 = [E || E <- Conj1, not is_tag_test_on(E, V)],
++                      Rest = {clause, L1, Ps1, [Conj2], B1},
++                      Ps2 = case occurs_outside(V, Rest, Pos) of
++                                true -> Ps1;
++                                false ->
++                                    {var, LV, _} = lists:nth(Pos, Ps1),
++                                    list_replace(Pos, {var, LV, list_to_atom("_" ++ atom_to_list(V))}, Ps1)
++                            end,
++                      Conj3 = Conj2,
++                      {clause, L1, Ps2, case Conj3 of [] -> []; _ -> [Conj3] end, B1};
++                  _ -> {clause, L1, Ps1, [Conj1], B1}   %% Kind map pattern: nothing to remove
++              end;
++         (_, Cl) -> Cl
++      end, {clause, L, Ps, [Conj], B}, Poss);
++elide_clause(C, _) -> C.
++
++is_tag_test_on({op, _, '=:=', {call, _, {remote, _, {atom, _, erlang}, {atom, _, map_get}},
++                               [{atom, _, 'Kind'}, {var, _, V}]}, {atom, _, _}}, V) -> true;
++is_tag_test_on(_, _) -> false.
++
++occurs_outside(V, {clause, _, Ps, G, B}, Pos) ->
++    Others = [P || {I, P} <- lists:zip(lists:seq(1, length(Ps)), Ps), I =/= Pos],
++    occurs(V, Others) orelse occurs(V, G) orelse occurs(V, B).
++
++list_replace(1, X, [_ | T]) -> [X | T];
++list_replace(N, X, [H | T]) -> [H | list_replace(N - 1, X, T)].

@@ -1,0 +1,14 @@
+modules (directories holding .bs, exemplars excluded): 27
+  path-derived name != declared module name: 0  
+  files with no `module` line (inherit): 0 dirs
+  modules with a dotted path (have a parent namespace/module): 6 -> ['Shop.Billing', 'Shop.Collections.Ints', 'Shop.Discounts', 'Shop.Pricing', 'Shop.Reports', 'Shop.Rows']
+  single-segment modules (no parent; a subtree rule has nothing to scope): 21
+cross-module `using` edges (B# modules only; `using :erlang {..}` is foreign and excluded): 4
+    Pipeline         -> Shop.Collections         [namespace]  target parent scope "Shop"  caller under it: False
+    Shop.Reports     -> Shop.Collections.Ints    [module]  target parent scope "Shop.Collections"  caller under it: False
+    Shop.Reports     -> Shop.Collections         [namespace]  target parent scope "Shop"  caller under it: True
+    Shop.Billing     -> Shop                     [module]  target parent scope "Shop"  caller under it: True
+edges that WOULD be refused if every module were scoped to its parent namespace: 2 of 4
+modules that are the target of at least one edge: 3
+exemplars (do not all parse; text scan): native `using` lines: [('25g-jev-server', 'Support.Triage'), ('25g-jev-server', 'Jev'), ('25g-jev-server', 'Support.Triage'), ('25a-http-api-server', 'Shop.Orders')]
+VERDICT[directory-path-alone-decides-a-subtree-rule]: CONFIRMED

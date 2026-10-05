@@ -1,0 +1,4 @@
+module Shop.Orders
+
+// Who may name this module: Shop, and everything under it (a namespace entry is a subtree).
+visible_to Shop

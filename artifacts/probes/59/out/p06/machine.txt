@@ -1,0 +1,4 @@
+machine: 4 cpus,  Intel(R) Xeon(R) Processor @ 2.80GHz; loadavg at start: 16.36 23.25 18.11 (shared host: other jobs may run)
+OTP 28 erts 16.4
+jit: jit
+REPS=9 CALLS=20000 LEN=1000  => 20000000 element visits per rep per variant

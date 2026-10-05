@@ -1,0 +1,36 @@
+patch A: code lines +49 -3
+    src/bs_check.erl: +35 -3
+    src/bs_diag.erl: +14 -0
+patch B: code lines +52 -6
+    src/bs_check.erl: +30 -4
+    src/bs_diag.erl: +14 -0
+    src/bs_lexer.xrl: +1 -0
+    src/bs_parser.yrl: +6 -2
+    src/bsc.erl: +1 -0
+patch C: code lines +65 -19
+    src/bs_check.erl: +51 -17
+    src/bs_diag.erl: +9 -0
+    src/bs_emit.erl: +1 -1
+    src/bs_lexer.xrl: +1 -0
+    src/bs_parser.yrl: +2 -1
+    src/bsc.erl: +1 -0
+A: rule-specific code lines (visibility/internal_parent): 15
+B: rule-specific code lines at the check (visibility/visible_to_of/export): 9
+
+corpus modules (directories holding .bs, exemplars pruned): 27
+base: 15 interleaved batch runs (ms): 2058 2344 2499 3148 2965 2306 2181 2569 3541 2431 2630 2525 2853 2344 2484 
+    median=2499 min=2058 max=3541   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30   sha256 of the sorted per-beam hashes: dc296118af3e52b9
+pA: 15 interleaved batch runs (ms): 1851 2181 2608 2504 2643 2497 1831 2722 3158 1856 2400 2856 3259 2372 2203 
+    median=2497 min=1831 max=3259   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30   sha256 of the sorted per-beam hashes: f8fa1e631742e1b1
+pB: 15 interleaved batch runs (ms): 2026 1944 2754 2444 2330 1993 2111 2675 2916 2575 2153 2094 2458 3396 2825 
+    median=2444 min=1944 max=3396   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30   sha256 of the sorted per-beam hashes: 52a3e26f03ecdb7b
+pC: 15 interleaved batch runs (ms): 2008 2306 2689 2927 2443 2471 2432 2549 2664 2074 3003 3443 2890 2194 2321 
+    median=2471 min=2008 max=3443   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30   sha256 of the sorted per-beam hashes: 3bf3e183460fb84a
+
+median delta A vs base: -0.1%  (2497 ms vs 2499 ms)
+median delta B vs base: -2.2%  (2444 ms vs 2499 ms)
+median delta C vs base: -1.1%  (2471 ms vs 2499 ms)

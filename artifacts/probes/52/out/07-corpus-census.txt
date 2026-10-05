@@ -1,0 +1,32 @@
+### (a) foreign using-atoms by source set (repo files only; this probe's own fixtures excluded)
+examples (must compile)      4 distinct atoms
+exemplars (ticket 25)        6 distinct atoms
+prototypes                   7 distinct atoms
+LANGUAGE.md blocks           5 distinct atoms
+### loadable in a plain VM (no ERL_LIBS)?
+loadable: [binary,erlang,ets,file,gen_server,json,lists,maps,string]
+NOT loadable: ['Elixir.Application','Elixir.Enum','Elixir.Req',
+               'Elixir.String',analytics_db,epgsql]
+
+### (b) PROTOTYPE compiler over compiler/examples, with and without the module-presence hook
+example modules: 21   compile without hook: 21   compile with hook: 21
+
+### (c) a LANGUAGE.md block the language gate (check-language.sh) compiles and expects a SPECIFIC diagnostic from
+###     (using :analytics_db names a module that does not exist anywhere)
+    | module Analytics
+    | 
+    | using :analytics_db {
+    |     map<string, term> latest_row(binary site)
+    | }
+    | 
+    | public map<string, term> LatestRow(binary site)
+    | 
+    | LatestRow(site) -> :analytics_db.latest_row(site)
+--- without hook:
+/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/o07c/Analytics/analytics.bs:4:23: error: :analyt
+  a foreign return may promise only what one guard checks in O(1), and
+  every key and value of this map would need inspecting.
+--- with hook:
+/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/o07c/Analytics/analytics.bs:3:1: error: applicat
+  (declared for `:analytics_db`; no `analytics_db` or `analytics_db-<version>` directory with an ebin
+  was found in the code path or in ERL_LIBS)

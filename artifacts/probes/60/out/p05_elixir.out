@@ -1,0 +1,39 @@
+Elixir 1.19.5 (compiled with Erlang/OTP 26)
+--- compile (warnings, if any, are printed here)
+exit=0
+--- call from the unrelated module
+6
+--- docs chunk: what @moduledoc false / @doc false actually record
+moduledoc: :hidden
+per-function doc: [{{:function, :recompute, 1}, :hidden}]
+--- defp from another module (the shipped Elixir analogue of F12): compile error?
+    warning: Shop.Internal2.sum/1 is undefined or private
+    │
+  6 │   def peek(xs), do: Shop.Internal2.sum(xs)
+    │                                    ~
+    │
+    └─ priv.ex:6:36: Outsider2.peek/1
+
+exit=0
+--- mix help xref: the modes it offers (documentation text of the installed mix; no restriction mode is listed)
+## A brief introduction to xref
+## mix xref trace FILE
+## mix xref graph
+  * `--exclude` - path to exclude. Can be repeated to exclude multiple
+  * `--label` - only shows relationships with the given label. The labels
+  * `--group` - provide comma-separated paths to consider as a group.
+  * `--only-direct` - keeps only files with the direct relationship given
+  * `--only-nodes` - only shows the node names (no edges). Generally useful
+  * `--source` - displays all files that the given source file references
+  * `--sink` - displays all files that reference the given file (directly
+  * `--min-cycle-size` - controls the minimum cycle size on formats like
+  * `--min-cycle-label` - controls the minimum number of dependencies with
+  * `--format` - can be set to one of:
+  * `--output` *(since v1.15.0)* - can be used to override the location of
+## Shared options
+  * `--fail-above` - generates a failure if the relevant metric is above
+  * `--include-siblings` - includes dependencies that have `:in_umbrella`
+  * `--no-compile` - does not compile even if files require compilation
+  * `--no-deps-check` - does not check dependencies
+  * `--no-archives-check` - does not check archives
+VERDICT[elixir-hides-from-docs-but-does-not-enforce]: CONFIRMED

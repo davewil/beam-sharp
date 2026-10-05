@@ -1,0 +1,8 @@
+files=161  public signatures=252  distinct (module,name)=246  distinct names=155
+within-module collisions, rule S: []
+within-module collisions, rule G: []
+names where S and G differ: 0 of 155 distinct
+names whose S-alias equals the name (none expected): []
+corpus names with 2+ adjacent capitals: []
+corpus names containing underscore: []
+corpus names containing digits: []

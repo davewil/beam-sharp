@@ -1,0 +1,3 @@
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {ok,14}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]

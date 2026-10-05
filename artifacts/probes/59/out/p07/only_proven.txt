@@ -1,0 +1,7 @@
+== only_proven/1
+   {line,1}
+   {label,10}
+   {func_info,{atom,'Elixir.Scope'},{atom,only_proven},1}
+   {label,11}
+   {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+   return

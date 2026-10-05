@@ -1,0 +1,4 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/c1/m/OptA2/a.bs:14:11: error: Back hands Step an argument it does not accept
+  argument 1 is not covered by Step's declared type:
+    0
+[exit 1]

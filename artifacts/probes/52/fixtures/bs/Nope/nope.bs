@@ -1,0 +1,8 @@
+module Nope
+
+using :'Elixir.MyLib' {
+    term nope()
+}
+
+public term Call()
+Call() -> :'Elixir.MyLib'.nope()

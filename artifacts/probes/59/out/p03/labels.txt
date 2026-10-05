@@ -1,0 +1,1 @@
+call_only target label=2  ex_f entry label (after func_info)=2

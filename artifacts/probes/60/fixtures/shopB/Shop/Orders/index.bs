@@ -1,0 +1,4 @@
+module Shop.Orders
+
+// Who may name this module: Shop.Billing, and Shop.Reports with everything under it.
+visible_to Shop.Billing, Shop.Reports

@@ -1,0 +1,5 @@
+Counter exports: [{bs@type_atoms,0},{handle_call,3},{handle_cast,2},{init,1}]
+11:behaviour GenServer
+16:public (:ok, int) Init(int seed)
+22:public Reply HandleCall(Request request, term from, int state)
+39:public NoReply HandleCast(Cast msg, int state)

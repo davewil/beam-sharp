@@ -1,0 +1,9 @@
+go version go1.24.7 linux/amd64
+--- go build ./shop/... (inside the subtree: control)
+exit=0
+--- go build ./outsider (outside the subtree)
+package example.com/m/outsider
+	outsider/o.go:3:8: use of internal package example.com/m/shop/internal/calc not allowed
+exit=1
+--- go vet cannot be used to dodge it; and reflection/plugin dynamic calls are outside the rule: not measured
+VERDICT[go-internal-dir-is-enforced-from-the-path]: CONFIRMED

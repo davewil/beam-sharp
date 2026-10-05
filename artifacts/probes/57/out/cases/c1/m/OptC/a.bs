@@ -1,0 +1,6 @@
+module OptC
+type Delta = int where value >= -100 and value <= 100
+public atom Band(Delta d)
+Band(d) when d >= -5 and d <= 5 -> :mid
+Band(d) when d < -5             -> :low
+Band(d) when d > 5              -> :high

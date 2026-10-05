@@ -1,0 +1,24 @@
+V_public: exported=true  type-tests-in-Bump/1=1  instructions-in-Bump/1=7
+   tests: [{is_integer,{f,3}}]
+V_private: exported=false  type-tests-in-Bump/1=0  instructions-in-Bump/1=6
+   tests: []
+V_internal: exported=true  type-tests-in-Bump/1=1  instructions-in-Bump/1=7
+   tests: [{is_integer,{f,3}}]
+--- raw: Bump/1 disassembly, private vs internal
+== private
+{line,1}
+{label,3}
+{func_info,{atom,'V_private'},{atom,'Bump'},1}
+{label,4}
+{gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+return
+== internal
+{line,1}
+{label,3}
+{func_info,{atom,'V_internal'},{atom,'Bump'},1}
+{label,4}
+{test,is_integer,{f,3},[{x,0}]}
+{gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+return
+type tests: private=0 internal=1
+VERDICT[internal-pays-the-boundary-guard-private-elides]: CONFIRMED

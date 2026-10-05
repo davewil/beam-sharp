@@ -1,0 +1,17 @@
+pub_amount(#{total=>5})        => {error,badarg,
+                                   {erlang,element,
+                                    [3,#{total => 5}],
+                                    [{error_info,
+                                      #{module => erl_erts_errors}}]}}
+pub_amount(not_a_record)       => {error,badarg,
+                                   {erlang,element,
+                                    [3,not_a_record],
+                                    [{error_info,
+                                      #{module => erl_erts_errors}}]}}
+pub_double(1.5)                => {ok,3.0}
+use_double(1.5) [-> private]   => {ok,3.0}
+total_of([{order,1,2},{wrong,9,9}]) => {ok,11}
+doc_total({bogus,1,2}) [priv_doc] => {error,
+                                      {case_clause,{bogus,1,2}},
+                                      {scope,doc_total,1,
+                                       [{file,"src/scope.gleam"},{line,45}]}}

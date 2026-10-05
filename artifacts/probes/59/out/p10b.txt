@@ -1,0 +1,8 @@
+25a-http-api-server              pub_fns=3 priv_fns=6 priv_with_rec=0 priv_with_int=0 priv_with_flt=0 priv_with_any=0
+25b-websocket-handler            pub_fns=3 priv_fns=2 priv_with_rec=0 priv_with_int=1 priv_with_flt=0 priv_with_any=1
+25c-event-queue-consumer         pub_fns=5 priv_fns=4 priv_with_rec=0 priv_with_int=1 priv_with_flt=0 priv_with_any=1
+25d-database-querying            pub_fns=6 priv_fns=11 priv_with_rec=3 priv_with_int=0 priv_with_flt=0 priv_with_any=3
+25e-dynamic-web-page             pub_fns=3 priv_fns=9 priv_with_rec=1 priv_with_int=2 priv_with_flt=0 priv_with_any=3
+25f-llm-evaluation-client        pub_fns=5 priv_fns=25 priv_with_rec=2 priv_with_int=0 priv_with_flt=0 priv_with_any=2
+25g-jev-server                   pub_fns=5 priv_fns=7 priv_with_rec=2 priv_with_int=0 priv_with_flt=0 priv_with_any=2
+TOTAL                            pub_fns=30 priv_fns=64 priv_with_rec=8 priv_with_int=4 priv_with_flt=0 priv_with_any=12

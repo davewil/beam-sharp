@@ -1,0 +1,11 @@
+module Shop.Orders
+
+public int Fetch(int id)
+Fetch(id) -> id
+
+internal int RecomputeTotal(list<int> xs)
+RecomputeTotal(xs) -> Sum(xs, 0)
+
+private int Sum(list<int> xs, int acc)
+Sum([], acc)          -> acc
+Sum([x, ..rest], acc) -> Sum(rest, acc + x)

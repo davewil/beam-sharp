@@ -1,0 +1,8 @@
+== 'OuterInt'/1
+   {line,3}
+   {label,7}
+   {func_info,{atom,'Scope'},{atom,'OuterInt'},1}
+   {label,8}
+   {test,is_integer,{f,7},[{x,0}]}
+   {call_only,1,{'Scope','InnerInt',1}}
+== 'InnerInt'/1

@@ -1,0 +1,11 @@
+elixirc exit=0
+MyApp.Shop.new(4): %{Kind: :"Shop.Order", Total: 0, Id: 4}
+MyApp.Shop.which(o): :order
+MyApp.Shop.pay(o): %{Kind: :"Shop.Order", Total: 500, Id: 4}
+--- the typo case at compile time (does the xref check see through defdelegate?)
+    warning: :Shop."Nwe"/1 is undefined or private
+    │
+  2 │   defdelegate new(id), to: :Shop, as: :Nwe
+    │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ typo.ex:2: MyApp.ShopTypo.new/1

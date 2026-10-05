@@ -1,0 +1,8 @@
+module Clash5
+
+public int FooBAR(int n)
+FooBAR(n) -> n + 1
+
+public int FooBar(int n)
+FooBar(n) -> n + 1
+

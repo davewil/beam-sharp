@@ -1,0 +1,51 @@
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -4946,15 +4946,43 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++%% Probe 57, variant C: fold constant integer operands before matching.
++comparison({e_op, L, Op, A, B}) ->
++    comparison_1({e_op, L, Op, fold_const(A), fold_const(B)});
++comparison(_) ->
++    unknown.
++
++comparison_1({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
++comparison_1({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison_1({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison_1({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+-comparison(_) ->
++comparison_1(_) ->
+     unknown.
+ 
++%% A literal, a negation of a constant, or `+ - *` over two constants is the
++%% literal it computes; anything with a name in it is left alone.
++fold_const(E) ->
++    case const_int(E) of
++        {ok, N} -> {e_int, element(2, E), N};
++        error   -> E
++    end.
++
++const_int({e_int, _, N}) -> {ok, N};
++const_int({e_neg, _, E}) ->
++    case const_int(E) of {ok, N} -> {ok, -N}; error -> error end;
++const_int({e_op, _, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_int(A), const_int(B)} of
++        {{ok, X}, {ok, Y}} -> {ok, arith(Op, X, Y)};
++        _                  -> error
++    end;
++const_int(_) -> error.
++
++arith('+', X, Y) -> X + Y;
++arith('-', X, Y) -> X - Y;
++arith('*', X, Y) -> X * Y.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

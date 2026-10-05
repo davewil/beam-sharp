@@ -1,0 +1,58 @@
+refinement predicate               base      g1        g1b       c1        c2       
+value >= -5                        refused   accepted  accepted  accepted  accepted 
+value >= -5 and value <= 5         refused   accepted  accepted  accepted  accepted 
+value >= 1 or value <= -1          refused   accepted  accepted  accepted  accepted 
+-5 <= value                        refused   accepted  accepted  accepted  accepted 
+value != -3                        refused   accepted  accepted  accepted  accepted 
+value == -3                        refused   refused!=accepted refused!=accepted refused!=accepted refused!=accepted
+value >= -(5)                      refused   accepted  accepted  accepted  accepted 
+value >= - 5                       refused   accepted  accepted  accepted  accepted 
+value >= --5                       refused   accepted  refused!=accepted accepted  accepted 
+value >= - -5                      refused   accepted  refused!=accepted accepted  accepted 
+value >= 2 + 3                     refused   refused   refused   accepted  accepted 
+value >= 0 - 5                     refused   refused   refused   accepted  accepted 
+value >= -5 * 2                    refused   refused   refused   accepted  accepted 
+value >= 10 / 2                    refused   refused   refused   refused   refused  
+value >= n                         refused   refused   refused   refused   refused  
+value >= -n                        refused   refused   refused   refused   refused  
+-value >= 5                        refused   refused   refused   refused   refused  
+value + 5 >= 0                     refused   refused   refused   refused   refused  
+value >= 0 and value <= 255        accepted  accepted  accepted  accepted  accepted 
+
+# does the declared domain EXCLUDE what it should? (type Delta = -100..100) accepted+runs only if narrowing is real
+g1   Delta + three clauses, no catch-all: accepted
+g1   ...and with a `_` clause (12 s2: closed residual, must be refused): accepted
+g1   ...with Sign(0) deleted (must be refused, residual 0): refused
+g1b  Delta + three clauses, no catch-all: accepted
+g1b  ...and with a `_` clause (12 s2: closed residual, must be refused): accepted
+g1b  ...with Sign(0) deleted (must be refused, residual 0): refused
+c1   Delta + three clauses, no catch-all: accepted
+c1   ...and with a `_` clause (12 s2: closed residual, must be refused): accepted
+c1   ...with Sign(0) deleted (must be refused, residual 0): refused
+c2   Delta + three clauses, no catch-all: accepted
+c2   ...and with a `_` clause (12 s2: closed residual, must be refused): accepted
+c2   ...with Sign(0) deleted (must be refused, residual 0): refused
+
+# the guard side (G1 = exhaustive three-clause guard program with negative literals)
+base  G1 guard program, no catch-all: refused
+g1    G1 guard program, no catch-all: accepted
+g1b   G1 guard program, no catch-all: refused
+c1    G1 guard program, no catch-all: accepted
+c2    G1 guard program, no catch-all: accepted
+# AGREEMENT: one program that declares a signed refinement AND guards on the same bound:
+g1   refinement -100..100 + guards on -5/5, no catch-all: accepted
+        [exit 0]
+g1b  refinement -100..100 + guards on -5/5, no catch-all: refused
+          no clause matches:
+            Band(>= -100 and <= 5) -> ...
+        [exit 1]
+c1   refinement -100..100 + guards on -5/5, no catch-all: accepted
+        [exit 0]
+c2   refinement -100..100 + guards on -5/5, no catch-all: accepted
+        [exit 0]
+# guard that stops: a folded 2 + 3 in a guard
+base  `when n > 2 + 3` exhaustive pair: refused
+g1    `when n > 2 + 3` exhaustive pair: refused
+g1b   `when n > 2 + 3` exhaustive pair: refused
+c1    `when n > 2 + 3` exhaustive pair: accepted
+c2    `when n > 2 + 3` exhaustive pair: accepted

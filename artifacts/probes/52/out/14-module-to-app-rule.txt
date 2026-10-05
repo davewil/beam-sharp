@@ -1,0 +1,9 @@
+Elixir-compiled modules  modules=  412  rule-derives-the-right-app=  174  (42.2%)
+Erlang modules           modules= 1314  rule-derives-the-right-app=   26  (2.0%)
+Elixir apps: [eex,elixir,ex_unit,iex,logger,mix]
+  eex      e.g. Elixir.EEx (derivable)
+  elixir   e.g. Elixir.Access (no module of this app derives)
+  ex_unit  e.g. Elixir.ExUnit (derivable)
+  iex      e.g. Elixir.IEx (derivable)
+  logger   e.g. Elixir.Logger (derivable)
+  mix      e.g. Elixir.Collectable.Mix.Shell (derivable)

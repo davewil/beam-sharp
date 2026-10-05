@@ -1,0 +1,8 @@
+module Bypass2
+
+using :erlang {
+    int apply(atom m, atom f, list<list<int>> args)
+}
+
+public int Peek(list<int> xs)
+Peek(xs) -> :erlang.apply(:'Shop.Internal', :'RecomputeTotal', [xs])

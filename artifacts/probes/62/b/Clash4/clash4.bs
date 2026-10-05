@@ -1,0 +1,7 @@
+module Clash4
+
+public int FooBar(int n)
+FooBar(n) -> Foo_bar(n)
+
+private int Foo_bar(int n)
+Foo_bar(n) -> n + 1

@@ -1,0 +1,32 @@
+### (1) beam size, 10 usings over 4 apps (Req-shaped), patched bsc
+none       1180 bytes
+using      1580 bytes
+module     1312 bytes
+repo       1180 bytes  (repo bsc, no patch)
+ShopA/ShopB (2 usings, 1 app):
+ShopC      1144 bytes
+ShopA      1244 bytes
+ShopB      1204 bytes
+for scale: beam sizes of the repo's own shipped examples (repo bsc, no markers)
+  Shop         2576 bytes
+  Ledger       1632 bytes
+  Counter      1812 bytes
+  Intake       3664 bytes
+  Foreign      2884 bytes
+attribute payload as stored (term_to_binary size):
+per-using (10 pairs): 267 bytes
+ per-module (4 atoms)   : 32 bytes
+
+### (2a) microbenchmark of the candidate checks, inside one escript VM (bsc is one)
+code path entries: 540
+code:lib_dir(mylib)            hit                  5.495 us/call  (N=20000)
+code:lib_dir(nosuch)           miss                 8.204 us/call  (N=20000)
+code:which('Elixir.MyLib')     hit                 44.705 us/call  (N=20000)
+code:which('Elixir.NoSuch')    miss                43.508 us/call  (N=20000)
+code:where_is_file("mylib.app") hit (scans path)   40.933 us/call  (N=300)
+code:where_is_file("nosuch.app") miss (scans pat   62.940 us/call  (N=300)
+application:load+unload(mylib) (reads+parses .ap  224.587 us/call  (N=300)
+
+### (2b) end to end: patched bsc compiling the 10-using program, 40 alternating runs each (ms)
+no markers (no check)   : n=40 min=576.4 median=800.9 mean=851.7 max=1383.0 ms
+10 markers (10 checks)  : n=40 min=620.0 median=766.2 mean=795.1 max=1266.3 ms

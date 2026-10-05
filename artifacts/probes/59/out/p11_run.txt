@@ -1,0 +1,13 @@
+== base:   body_check_tests: a_value_that_already_failed_is_not_reported_twice_test...ok   Failed: 1.  Skipped: 0.  Passed: 305. 
+   failing: 1
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+== a:   body_check_tests: a_value_that_already_failed_is_not_reported_twice_test...ok   Failed: 1.  Skipped: 0.  Passed: 305. 
+   failing: 1
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+== b:   boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*   Failed: 3.  Skipped: 0.  Passed: 225. 
+   failing: 3
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
+== c: 
+   failing: 0

@@ -1,0 +1,18 @@
+### (a) dir name says 9.9.9, the .app inside says 0.3.1
+lib_dir(mylib)=/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/vers/a/mylib-9.9.9
+application vsn=0.3.1
+
+### (b1) two versions side by side in ONE ERL_LIBS dir: mylib-0.3.1 and mylib-0.10.0 (.app vsn patched to match)
+lib_dir(mylib)=/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/vers/b/mylib-0.10.0
+loaded vsn=0.10.0
+
+### (b2) two ERL_LIBS entries, the 0.3.1 one listed FIRST, 0.10.0 second
+lib_dir(mylib)=/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/vers/c/x/mylib
+loaded vsn=0.3.1
+(reversed order)
+loaded vsn=0.10.0
+
+### (c) every vsn in every .app file installed under the toolchain, classified
+app files: 40
+with an .app vsn: 40  dotted-numeric: 40  other: 0
+other forms: []

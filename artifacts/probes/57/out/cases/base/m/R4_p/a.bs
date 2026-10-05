@@ -1,0 +1,4 @@
+module R4_p
+public atom F(int d)
+F(<= -1) -> :neg
+F(>= 0) -> :pasted

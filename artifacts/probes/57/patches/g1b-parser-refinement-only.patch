@@ -1,0 +1,24 @@
+--- a/compiler/src/bs_parser.yrl
++++ b/compiler/src/bs_parser.yrl
+@@ -218,7 +218,7 @@
+ %% The predicate is an ordinary expression, read back by the same
+ %% `alternatives/1` a guard goes through, so a refinement and a guard cannot
+ %% disagree about what `value >= 0` means (F2.5).
+-refinement -> expr_low : '$1'.
++refinement -> expr_low : fold_neg('$1').
+ 
+ %% A parametric alias binds its variables here and substitutes them at the
+ %% use, so `Pair<int>` resolves to the tuple before `bs_types` sees it. A
+@@ -944,6 +944,12 @@
+ negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
+ negate(L, E)                 -> {e_neg, L, E}.
+ 
++%% Refinement-only fold (probe 57 variant): `-N` under a refinement is the
++%% literal, nowhere else.
++fold_neg({e_neg, _, {e_int, L, N}}) -> {e_int, L, -N};
++fold_neg({e_op, L, Op, A, B})      -> {e_op, L, Op, fold_neg(A), fold_neg(B)};
++fold_neg(E)                         -> E.
++
+ to_param_rest(_L, nil)               -> nil;
+ to_param_rest(_L, {e_wild, WL})      -> {p_wild, WL};
+ to_param_rest(_L, {e_var, VL, V})    -> {p_var, VL, V};

@@ -1,0 +1,40 @@
+### xref: undefined_function_calls over the emitted beam (mylib NOT added to xref's scope)
+plain: [{{'ShopC','Verb',0},{'Elixir.MyLib',new,1}},
+        {{'ShopC','Verb',0},{'Elixir.MyLib.Request',method,1}}]
+attr: [{{'ShopA','Verb',0},{'Elixir.MyLib',new,1}},
+       {{'ShopA','Verb',0},{'Elixir.MyLib.Request',method,1}}]
+### xref again, with the dependency's ebin added to the scope (Elixir's own ebin on the path: beam_lib needs its debug-info backend)
+undefined_function_calls: [{{'Elixir.MyLib',upcase,1},
+                            {'Elixir.String',upcase,1}},
+                           {{'Elixir.MyLib.Request','__struct__',1},
+                            {'Elixir.Enum',reduce,3}}]
+
+### dialyzer (-Wunknown): does it name the missing remote? (builds a minimal PLT first)
+plt build: 124s (exit 0)
+--- plain
+  Checking whether the PLT min.plt is up-to-date... yes
+  Proceeding with analysis...
+Unknown functions:
+  'Elixir.MyLib':new/1 (/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC/shop.bs:16:42)
+  'Elixir.MyLib.Request':method/1 (/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC/shop.bs:16:11)
+ done in 0m0.18s
+done (warnings were emitted)
+--- attr
+  Checking whether the PLT min.plt is up-to-date... yes
+  Proceeding with analysis...
+Unknown functions:
+  'Elixir.MyLib':new/1 (/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopA/shop.bs:16:42)
+  'Elixir.MyLib.Request':method/1 (/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopA/shop.bs:16:11)
+ done in 0m0.21s
+done (warnings were emitted)
+
+### systools: does a release script carry what the beam attribute says?
+make_script: ok
+script mentions mylib? 0   mentions shopapp? 4
+--- same release, .app now lists mylib in applications (what an author writes by hand today), mylib on the path
+make_script: {ok,systools_make,[{warning,missing_sasl}]}
+script mentions mylib? 6
+--- and WITHOUT mylib on the path: the failure is at release build, by name
+make_script: {error,systools_make,
+                    [{error_reading,{mylib,{not_found,"mylib.app"}}},
+                     {error_reading,{elixir,{not_found,"elixir.app"}}}]}

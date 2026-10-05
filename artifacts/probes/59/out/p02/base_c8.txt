@@ -1,0 +1,3 @@
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {ok,3}
+C9 forged    SumWeights([1, foo])  [atom element]

@@ -1,0 +1,34 @@
+== ticket 62's own claims
+CLAIM-HOLDS T1  62a rows 1-6 reproduce (Elixir dot-syntax on PascalCase = syntax error)
+CLAIM-HOLDS T2  Erlang calls 'Shop':'New'(1) with ordinary syntax
+CLAIM-HOLDS T3  record arrives as plain map; wrong tag / struct -> FunctionClauseError
+CLAIM-REFUTED T4  'Elixir cannot call a PascalCase export' (ticket §1 headline)  [expected REFUTED]
+CLAIM-HOLDS T5  Elixir reads .Capitalised as an alias (parser text)
+CLAIM-HOLDS T6  Gleam @external(erlang,"Shop","New") compiles AND runs against a bsc beam
+CLAIM-REFUTED T7  'Gleam downcases PascalCase to snake_case' for FUNCTIONS  [expected REFUTED]
+CLAIM-HOLDS T8  Gleam lowers PascalCase CONSTRUCTORS to snake_case atoms
+CLAIM-HOLDS T9  option 2 'costs two exports per function' (N=100: 100 -> 200 + 3)
+== new facts
+CLAIM-HOLDS N1  quoted call :Shop."New"(1) runs
+CLAIM-HOLDS N2  capture &:Shop."New"/1 runs; unquoted capture is a syntax error
+CLAIM-HOLDS N3  elixirc type-checks quoted names against the beam (typo warns)
+CLAIM-HOLDS N4  formatter keeps the quotes on "New" (needed) and drops them on "new"
+CLAIM-HOLDS N5  defdelegate facade over unmodified beams works
+CLAIM-HOLDS N6  rule S: FooBar & Foo_Bar collide
+CLAIM-HOLDS N7  rule S: HttpGet & HTTPGet collide
+CLAIM-HOLDS N8  Module_Info alias collides with the BEAM's module_info/1
+CLAIM-HOLDS   N9  private Foo_bar beside public FooBar does NOT collide
+CLAIM-HOLDS N10 every derived alias (incl. do/end/fn/nil/true/when/and/not) is an unquoted Elixir call
+CLAIM-HOLDS N11 thin alias is a tail call (no frame)
+CLAIM-HOLDS N12a thin alias hides itself in crash traces (frame names the Pascal fn)
+CLAIM-HOLDS N12b dup alias shows its own name in the crash trace
+CLAIM-HOLDS N13 callbacks of a behaviour module are ALREADY exported snake_case only
+CLAIM-HOLDS N14 corpus has no acronym/underscore/digit names (rules S and G agree on all)
+CLAIM-HOLDS N15 aliases invisible to bsc --api
+CLAIM-HOLDS N16 snake alias of a non-callback Init/1 makes gen_server reach it (callback-name capture)
+CLAIM-HOLDS N17 import :Casing, only: [http_get: 1]; http_get(1) works with aliases
+CLAIM-HOLDS N18 import of a Pascal export cannot be CALLED unqualified (no alias)
+== p10: thin call-cost effect vs null spread
+null spread [-0.09....0.79]; thin median 1.42 (min 0.92..); dup median 0.77 (min 0.39..)
+CLAIM-HOLDS  thin effect lies above the null spread (real cost)
+CLAIM-REFUTED  dup effect lies above the null spread

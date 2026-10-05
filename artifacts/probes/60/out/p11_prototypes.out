@@ -1,0 +1,63 @@
+=========== A: Internal path segment
+--- [pA] shop: bsc --src-root . Shop/Reports   (expected exit 0)
+    exit=0
+--- [pA] shop: bsc --src-root . Outsider   (expected exit 1)
+    Outsider/Peek.bs:3:1: error: Shop.Internal may only be named from Shop and the modules under it
+      this module is outside Shop. Name something Shop publishes instead,
+      or move this module under Shop.
+    exit=1
+--- [pA] shop: bsc --src-root . OutsiderNs   (expected exit 1)
+    OutsiderNs/N.bs:6:21: error: Shop.Internal may only be named from Shop and the modules under it
+      this module is outside Shop. Name something Shop publishes instead,
+      or move this module under Shop.
+    exit=1
+--- [pA] shop: bsc --src-root . Outsider2   (expected exit 1)
+    Outsider2/Peek.bs:4:26: error: Shop.Internal is called but never imported
+      add `using Shop.Internal` — a file's `using` lines are its dependency list,
+      and a call that skips them makes that list wrong.
+    exit=1
+=========== B: visible_to list (fixture shopB: Orders lists Shop.Billing, Shop.Reports)
+--- [pB] shopB: bsc --src-root . Shop/Billing   (expected exit 0)
+    exit=0
+--- [pB] shopB: bsc --src-root . Shop/Reports   (expected exit 0)
+    exit=0
+--- [pB] shopB: bsc --src-root . Shop/Audit   (expected exit 1)
+    Shop/Audit/Audit.bs:3:1: error: Shop.Orders declares `visible_to Shop.Billing, Shop.Reports`, and this module is not under any of them
+      add this module's path to that list in Shop.Orders, or name something else.
+    exit=1
+--- [pB] shopB: bsc --src-root . Outsider   (expected exit 1)
+    Outsider/Peek.bs:3:1: error: Shop.Orders declares `visible_to Shop.Billing, Shop.Reports`, and this module is not under any of them
+      add this module's path to that list in Shop.Orders, or name something else.
+    exit=1
+--- [pB] shopB minus Audit: bsc OutsiderNs  (namespace-tier import, short-qualified call; expected exit 1)
+    OutsiderNs/N.bs:6:19: error: Shop.Orders declares `visible_to Shop.Billing, Shop.Reports`, and this module is not under any of them
+      add this module's path to that list in Shop.Orders, or name something else.
+    exit=1
+=========== B': same construct, entry is a NAMESPACE (visible_to Shop = a subtree)
+--- [pB] shopB2: bsc --src-root . Shop/Audit   (expected exit 0)
+    exit=0
+--- [pB] shopB2: bsc --src-root . Outsider   (expected exit 1)
+    Outsider/Peek.bs:3:1: error: Shop.Orders declares `visible_to Shop`, and this module is not under any of them
+      add this module's path to that list in Shop.Orders, or name something else.
+    exit=1
+=========== C: internal marker, scope = parent namespace of the callee module
+--- [pC] shopC: bsc --src-root . Shop/Reports   (expected exit 0)
+    exit=0
+--- [pC] shopC: bsc --src-root . OutsiderPub   (expected exit 0)
+    exit=0
+--- [pC] shopC: bsc --src-root . Outsider   (expected exit 1)
+    Outsider/Peek.bs:6:13: error: Peek calls RecomputeTotal/1, which Shop.Orders declares `internal`
+      an internal function is callable from Shop and the modules under it,
+      and this module is outside it.
+    exit=1
+--- [pC] shopC: bsc --src-root . OutsiderQ   (expected exit 1)
+    OutsiderQ/Peek.bs:6:24: error: Peek calls Shop.Orders.RecomputeTotal/1, which Shop.Orders declares `internal`
+      an internal function is callable from Shop and the modules under it,
+      and this module is outside it.
+    exit=1
+--- [pC] shopC: bsc --src-root . OutsiderNs   (expected exit 1)
+    OutsiderNs/N.bs:6:19: error: Peek calls Shop.Orders.RecomputeTotal/1, which Shop.Orders declares `internal`
+      an internal function is callable from Shop and the modules under it,
+      and this module is outside it.
+    exit=1
+VERDICT[each-prototype-refuses-exactly-the-intended-callers]: CONFIRMED

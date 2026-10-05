@@ -1,0 +1,21 @@
+### ShopA (declared), the dependency PRESENT on the code path of the tool
+declared (bs_requires)      : [mylib]
+imported modules            : ['Elixir.MyLib','Elixir.MyLib.Request',erlang]
+inferred app via code:which : [mylib]
+imported, no app inferable  : []
+### ShopC (undeclared), dependency PRESENT
+declared (bs_requires)      : []
+imported modules            : ['Elixir.MyLib','Elixir.MyLib.Request',erlang]
+inferred app via code:which : [mylib]
+imported, no app inferable  : []
+### ShopC (undeclared), dependency ABSENT (e.g. the fleet's machine)
+declared (bs_requires)      : []
+imported modules            : ['Elixir.MyLib','Elixir.MyLib.Request',erlang]
+inferred app via code:which : []
+imported, no app inferable  : ['Elixir.MyLib','Elixir.MyLib.Request']
+### ShopA (declared), dependency ABSENT
+declared (bs_requires)      : [mylib]
+imported modules            : ['Elixir.MyLib','Elixir.MyLib.Request',erlang]
+inferred app via code:which : []
+imported, no app inferable  : ['Elixir.MyLib','Elixir.MyLib.Request']
+### size of the tool: 26 lines

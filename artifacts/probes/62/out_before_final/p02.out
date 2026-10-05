@@ -1,0 +1,18 @@
+:Shop."New"(1)                              {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+:"Shop"."New"(1)                            {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+:"Shop.Reports"."Restate"(3)                {:ok, 9}
+mod = :Shop; mod."New"(2)                   {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 2}}
+apply(:Shop, :New, [3])                     {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 3}}
+apply(:Shop, :"New", [3])                   {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 3}}
+f = &:Shop."New"/1; f.(4)                   {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 4}}
+f = &:Shop.New/1 (unquoted capture)         {:raised, SyntaxError, "invalid syntax found on nofile:1:12:"}
+Function.capture(:Shop, :New, 1).(5)        {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 5}}
+:erlang.apply(:Shop, :New, [6])             {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 6}}
+Kernel.apply(:Shop,:New,[1])                {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+1 |> :Shop."New"()                          {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+import :Shop (all) then New(1)              {:raised, SyntaxError, "invalid syntax found on nofile:1:18:"}
+import :Shop, only: [New: 1]; New(1)        {:raised, SyntaxError, "invalid syntax found on nofile:1:34:"}
+alias :Shop, as: S; S."New"(1)              {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+import :Shop, only: [New: 1]; "New"(1)      {:raised, SyntaxError, "invalid syntax found on nofile:1:36:"}
+import :Shop, only: [New: 1] (import alone) {:ok, :ok}
+:Shop.new(1)  (lowercase, no alias exports) {:raised, UndefinedFunctionError, "function :Shop.new/1 is undefined or private"}

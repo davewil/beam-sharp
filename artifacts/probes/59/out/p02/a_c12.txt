@@ -1,0 +1,2 @@
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {ok,[2,3.0]}

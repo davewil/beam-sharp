@@ -1,0 +1,6 @@
+module R1_p
+type Dd = int where value >= -10 and value <= 10
+public atom Sign(Dd d)
+Sign(0) -> :zero
+Sign(>= -10 and <= -1) -> :pasted
+Sign(>= 1 and <= 10) -> :pasted

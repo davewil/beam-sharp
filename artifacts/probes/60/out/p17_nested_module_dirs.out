@@ -1,0 +1,20 @@
+$ bsc --src-root . -o o Shop/Orders        (the parent module, with a nested directory that holds .bs)
+exit=0
+Shop.Orders.abstr
+Shop.Orders.beam
+$ bsc --src-root . -o o Shop/Orders/Internal
+exit=0
+Shop.Orders.Internal.abstr
+Shop.Orders.Internal.beam
+Shop.Orders.abstr
+Shop.Orders.beam
+$ bsc --src-root . -o o Shop/Billing 4   (a cousin names Shop.Orders.Internal)
+8
+exit=0
+Shop.Billing.abstr
+Shop.Billing.beam
+Shop.Orders.Internal.abstr
+Shop.Orders.Internal.beam
+Shop.Orders.abstr
+Shop.Orders.beam
+VERDICT[nested-dir-is-its-own-module (F15.11); 41-section-5 sub-module diagram REFUTED if CONFIRMED]: CONFIRMED

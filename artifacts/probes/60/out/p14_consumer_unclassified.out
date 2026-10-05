@@ -1,0 +1,24 @@
+--- bsc --api, helper is private (F12 default): is Recompute listed?
+module Orders
+behaviour GenServer
+int Apply(int, int)
+(:reply, int, int) HandleCall(:get | (:add, int), term, int)
+(:noreply, int) HandleCast(:reset | (:add, int), int)
+(:ok, int) Init(int)
+--- bsc --api, helper made public so a sibling module can call it: any distinction from the client API?
+module OrdersPub
+behaviour GenServer
+int Apply(int, int)
+(:reply, int, int) HandleCall(:get | (:add, int), term, int)
+(:noreply, int) HandleCast(:reset | (:add, int), int)
+(:ok, int) Init(int)
+int Recompute(int)
+--- a test module (ordinary B#, ticket 24 section 7) naming the private helper:
+OrdersTest/t.bs:6:13: error: Probe calls Recompute/1, which Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Orders, or move the call inside it.
+--- does the compiler have an unclassified boundary category anywhere in the api path?
+280:               unhandled -> #{tag => unclassified, severity => error,
+(grep exit 0: 1 = no such category in bs_api.erl; the only unclassified in src is the diagnostic tag in bs_diag.erl)
+VERDICT[private-helper-is-NOT-published-by-api (ticket claim stale for private helpers)]: CONFIRMED
+VERDICT[public-helper-IS-listed-undistinguished (narrower claim survives)]: CONFIRMED

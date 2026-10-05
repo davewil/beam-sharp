@@ -1,0 +1,16 @@
+module ShopLie
+
+[app: stdlib] using :'Elixir.MyLib' {
+    term new(list<(atom, term)> opts)
+}
+
+[app: stdlib] using :'Elixir.MyLib.Request' {
+    atom method(term r)
+}
+
+using :maps {
+    term get(atom k, term m)
+}
+
+public atom Verb()
+Verb() -> :'Elixir.MyLib.Request'.method(:'Elixir.MyLib'.new([]))

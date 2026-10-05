@@ -1,0 +1,22 @@
+== thin: Sz3:score_at1_value(<<"x">>)  (a non-integer: the boundary guard refuses it)
+  error:function_clause
+  [{'Sz3','ScoreAt1Value',[<<"x">>]},
+   {erl_eval,do_apply,7},
+   {erl_eval,try_clauses,10},
+   {erl_eval,exprs,6},
+   {init,start_it,1},
+   {init,start_em,1},
+   {init,do_boot,3}]
+   same call from Elixir, as the user reads it:
+  no function clause matching in :Sz3."ScoreAt1Value"/1
+== dup: Sz3:score_at1_value(<<"x">>)  (a non-integer: the boundary guard refuses it)
+  error:function_clause
+  [{'Sz3',score_at1_value,[<<"x">>]},
+   {erl_eval,do_apply,7},
+   {erl_eval,try_clauses,10},
+   {erl_eval,exprs,6},
+   {init,start_it,1},
+   {init,start_em,1},
+   {init,do_boot,3}]
+   same call from Elixir, as the user reads it:
+  no function clause matching in :Sz3.score_at1_value/1

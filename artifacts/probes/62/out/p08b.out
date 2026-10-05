@@ -1,0 +1,25 @@
+module                none    thin     dup |  none_s  thin_s   dup_s | pubfns
+Aliasing              1696    1944    2020 |     502     579     624 | exports(none)=7
+Counter               1868    1868    1868 |     515     515     515 | exports(none)=6
+Escalate              1476    1604    1664 |     442     481     510 | exports(none)=5
+Fib                   1580    1644    1660 |     415     443     448 | exports(none)=4
+Foreign               2940    3348    3652 |     757     879     963 | exports(none)=9
+Frame                 3048    3292    3588 |     971    1042    1121 | exports(none)=7
+Intake                3720    3868    3872 |    1135    1177    1179 | exports(none)=5
+Interop               1540    1732    1760 |     428     486     507 | exports(none)=6
+Label                 2016    2428    2432 |     580     707     696 | exports(none)=10
+Ledger                1692    1876    1960 |     487     544     581 | exports(none)=6
+Levels                1584    1728    1876 |     531     574     627 | exports(none)=5
+Math                  2144    2416    2600 |     605     693     748 | exports(none)=7
+Names                 1552    1692    1768 |     493     536     566 | exports(none)=5
+Parcel                1792    1968    2068 |     531     585     633 | exports(none)=6
+Pipeline              2488    2852    2924 |     699     795     808 | exports(none)=9
+Shop.Collections.Ints    1460    1592    1600 |     415     452     466 | exports(none)=5
+Queue                 2180    2384    2508 |     607     666     726 | exports(none)=6
+Readings              1388    1468    1508 |     424     440     480 | exports(none)=4
+Shop                  2632    3136    3320 |     729     886     945 | exports(none)=11
+Signalbox             3252    3596    3848 |     880     973    1033 | exports(none)=8
+Stats                 1732    1976    2072 |     537     616     633 | exports(none)=7
+Wire                  2200    2392    2572 |     602     664     745 | exports(none)=6
+TOTAL (22 beams)      45980   50804   53140 |   13285   14733   15554
+thin vs none: +10% (beam), +10% (stripped); dup vs none: +15% (beam), +17% (stripped)

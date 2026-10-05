@@ -1,0 +1,53 @@
+gleam 1.18.1
+### G1: @external to a module that is nowhere; no manifest mention at all
+  Resolving versions
+  Compiling gl1
+   Compiled in 0.94s
+[build exit=0]
+-- generated .app:
+{application, gl1, [
+    {vsn, "1.0.0"},
+    {applications, []},
+    {description, ""},
+    {modules, [gl1,
+               gl1@@main]},
+    {registered, []}
+]}.
+-- run, ERL_LIBS unset:
+   Compiled in 0.77s
+    Running gl1.main
+runtime error: Erlang error
+
+A function was called but it did not exist.
+
+stacktrace:
+  Elixir.MyLib.new unknown source
+### G2: gleam.toml gains [erlang] extra_applications = ["mylib"]
+  Compiling gl1
+   Compiled in 0.76s
+-- generated .app:
+{application, gl1, [
+    {vsn, "1.0.0"},
+    {applications, [mylib]},
+    {description, ""},
+    {modules, [gl1,
+               gl1@@main]},
+    {registered, []}
+]}.
+-- run, ERL_LIBS unset: failure moves to start-up and names the application
+
+An Erlang assignment pattern did not match.
+
+unmatched value:
+  {error,{mylib,{"no such file or directory","mylib.app"}}}
+-- run, ERL_LIBS = mix-built dep + Elixir lib dir
+   Compiled in 0.54s
+    Running gl1.main
+### G3: a [dependencies] entry (Hex package) offline
+  Resolving versions
+error: Dependency resolution failed
+
+An error occurred while choosing the version of gleam_stdlib: error sending
+request for url (https://repo.hex.pm/packages/gleam_stdlib)
+
+[exit=1]

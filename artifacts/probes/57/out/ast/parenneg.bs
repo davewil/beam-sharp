@@ -1,0 +1,2 @@
+module M
+type T = int where value >= -(5)

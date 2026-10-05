@@ -1,0 +1,20 @@
+## source lines read (bs_emit.erl):
+   275	guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+   276	    case record_tag(TypeExpr, Ctx) of
+   277	        {ok, Tag} ->
+   278	            case constrains_kind(Pat) of
+   279	                true  -> {Pat, []};
+   280	                false ->
+   281	                    {Var, Pat1} = ensure_var(Pat, I, Line),
+   282	                    {Pat1, [tag_test(Var, Tag, Line)]}
+   283	            end;
+   284	        none when Public ->
+   285	            case kind_only(TypeExpr, Ctx) of
+   286	                float -> float_guard(Pat, I, Line);
+   287	                _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+   288	            end;
+   289	        none ->
+   290	            {Pat, []}
+   291	    end.
+   292	
+   293	%% A public `float` parameter is tested with `is_float/1`, so an `int` from

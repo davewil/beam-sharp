@@ -1,0 +1,11 @@
+module Pure
+
+using :'Elixir.MyLib' {
+    term new(list<(atom, term)> opts)
+}
+
+public int Two()
+Two() -> 2
+
+public term Make()
+Make() -> :'Elixir.MyLib'.new([])

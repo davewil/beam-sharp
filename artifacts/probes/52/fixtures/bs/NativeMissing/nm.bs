@@ -1,0 +1,6 @@
+module NativeMissing
+
+using Shop.Nowhere
+
+public int Two()
+Two() -> 2

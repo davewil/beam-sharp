@@ -1,0 +1,4 @@
+module D2
+type T = int where value >= 0 and value <= 255
+public int Id(T b)
+Id(b) -> b

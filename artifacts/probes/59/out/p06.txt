@@ -1,0 +1,23 @@
+BenchBase (base) code=278 file=2032
+BenchBase2 (base) code=278 file=2040
+BenchA (a) code=266 file=1944
+BenchB (b) code=306 file=2196
+BenchC (c) code=306 file=2196
+machine: 4 cpus,  Intel(R) Xeon(R) Processor @ 2.80GHz; loadavg at start: 16.36 23.25 18.11 (shared host: other jobs may run)
+OTP 28 erts 16.4
+jit: jit
+REPS=9 CALLS=20000 LEN=1000  => 20000000 element visits per rep per variant
+
+'SumTotals'  (ns per element, 9 reps after 1 warm-up, 20000 calls x 1000 elements)
+  Base     min=15.4907  median=18.4334  max=23.4875   raw=18.433 19.802 19.275 15.714 21.624 23.487 15.491 16.086 16.409
+  Base2    min=13.7818  median=16.5591  max=19.2776   raw=18.966 13.812 13.782 16.171 19.278 16.142 18.920 17.633 16.559
+  A        min=8.3675  median=10.0040  max=11.8338   raw=9.074 8.367 10.004 11.687 8.444 9.416 10.249 11.349 11.834
+  B        min=14.2257  median=15.3818  max=19.5831   raw=14.998 15.382 18.686 16.058 15.013 14.226 17.291 14.915 19.583
+  C        min=13.8446  median=15.8346  max=19.1190   raw=17.379 14.085 15.344 16.450 19.119 16.010 15.835 13.845 14.195
+
+'SumWeights'  (ns per element, 9 reps after 1 warm-up, 20000 calls x 1000 elements)
+  Base     min=6.8217  median=8.2391  max=10.1108   raw=8.837 8.431 9.822 8.239 7.682 6.822 7.942 10.111 7.288
+  Base2    min=6.4582  median=8.2031  max=11.8371   raw=7.246 8.849 11.837 7.262 8.922 6.695 8.203 9.186 6.458
+  A        min=6.0868  median=7.1302  max=10.1451   raw=7.026 7.130 8.279 6.093 8.890 10.145 6.531 6.087 7.445
+  B        min=7.3277  median=8.3976  max=14.0060   raw=7.511 8.814 8.398 8.082 12.929 7.328 11.949 14.006 7.743
+  C        min=7.2878  median=9.0451  max=13.9743   raw=11.916 8.427 9.045 7.996 7.883 7.288 13.974 9.288 9.098

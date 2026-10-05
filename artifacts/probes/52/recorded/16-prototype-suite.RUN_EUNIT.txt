@@ -1,0 +1,12 @@
+### patched copy
+  body_check_tests: every_aoc_program_still_compiles_test...*failed*
+  body_check_tests: a_value_that_already_failed_is_not_reported_twice_test...ok
+  Failed: 1.  Skipped: 0.  Passed: 227.
+===> Error running tests
+wall 144s
+### baseline copy
+  body_check_tests: every_aoc_program_still_compiles_test...*failed*
+  body_check_tests: a_value_that_already_failed_is_not_reported_twice_test...ok
+  Failed: 1.  Skipped: 0.  Passed: 227.
+===> Error running tests
+wall 182s

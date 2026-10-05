@@ -1,0 +1,4 @@
+built base: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/base/compiler/_build/default/bin/bsc
+built a: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/a/compiler/_build/default/bin/bsc
+built b: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/b/compiler/_build/default/bin/bsc
+built c: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/c/compiler/_build/default/bin/bsc

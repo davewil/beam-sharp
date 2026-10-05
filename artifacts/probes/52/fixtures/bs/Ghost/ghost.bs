@@ -1,0 +1,8 @@
+module Ghost
+
+using :'Elixir.NoSuchLib' {
+    term new()
+}
+
+public term Call()
+Call() -> :'Elixir.NoSuchLib'.new()

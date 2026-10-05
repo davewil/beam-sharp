@@ -1,0 +1,39 @@
+patch A: code lines +49 -3
+    src/bs_check.erl: +35 -3
+    src/bs_diag.erl: +14 -0
+patch B: code lines +52 -6
+    src/bs_check.erl: +30 -4
+    src/bs_diag.erl: +14 -0
+    src/bs_lexer.xrl: +1 -0
+    src/bs_parser.yrl: +6 -2
+    src/bsc.erl: +1 -0
+patch C: code lines +65 -19
+    src/bs_check.erl: +51 -17
+    src/bs_diag.erl: +9 -0
+    src/bs_emit.erl: +1 -1
+    src/bs_lexer.xrl: +1 -0
+    src/bs_parser.yrl: +2 -1
+    src/bsc.erl: +1 -0
+A: rule-specific code lines (visibility/internal_parent): 15
+B: rule-specific code lines at the check (visibility/visible_to_of/export): 9
+(net code lines in bs_check.erl alone are the number to compare with the 20-line threshold in this file's header)
+
+corpus modules (directories holding .bs, exemplars pruned): 27
+base: 15 interleaved batch runs (ms): 1894 2772 2114 3008 2632 2189 2212 2008 1913 3160 2930 2100 2429 2211 1933 
+    median=2211 min=1894 max=3160   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30
+pA: 15 interleaved batch runs (ms): 2215 2179 2106 2912 2077 1879 2678 2099 2087 2476 2359 1986 2239 2314 2108 
+    median=2179 min=1879 max=2912   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30
+pB: 15 interleaved batch runs (ms): 2789 2309 3400 2971 2404 3071 2235 2642 2573 2328 2525 2997 2544 2190 2289 
+    median=2544 min=2190 max=3400   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30
+pC: 15 interleaved batch runs (ms): 2483 2711 3132 3176 2304 2207 2584 1962 2311 3410 2249 3607 2170 2071 2392 
+    median=2392 min=1962 max=3607   exit statuses of the 27 modules:      27 0 
+    beams emitted: 30
+
+median delta A vs base: -1.4%  (2179 ms vs 2211 ms)
+median delta B vs base: +15.1%  (2544 ms vs 2211 ms)
+median delta C vs base: +8.2%  (2392 ms vs 2211 ms)
+base min-max spread: 1266 ms
+VERDICT[no-measurable-compile-time-delta]: CONFIRMED (every median delta is inside the base spread or under 5%)

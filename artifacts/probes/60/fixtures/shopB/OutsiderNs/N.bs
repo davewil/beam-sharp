@@ -1,0 +1,6 @@
+module OutsiderNs
+
+using Shop
+
+public int Peek(list<int> xs)
+Peek(xs) -> Orders.RecomputeTotal(xs)

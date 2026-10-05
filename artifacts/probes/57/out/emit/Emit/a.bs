@@ -1,0 +1,8 @@
+module Emit
+
+public atom Band(int n)
+Band(n) when n >= -5 -> :a
+Band(n) -> :b
+
+public int Neg(int x)
+Neg(x) -> x - -5

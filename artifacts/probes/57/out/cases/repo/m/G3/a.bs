@@ -1,0 +1,4 @@
+module G3
+public atom Band(int n)
+Band(n) when n >= -5 -> :a
+Band(n) -> :b

@@ -1,0 +1,45 @@
+built base -> /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w60run/base/_build/default/bin/bsc
+$ bsc --src-root . Outsider Peek "[1,2,3]"     # Outsider is NOT under Shop; Shop.Internal is public
+6
+exit=0
+VERDICT[any-module-can-name-any-public-module]: CONFIRMED
+
+$ bsc --src-root . Shop/Reports        # sibling inside the Shop namespace (control)
+exit=0
+
+$ bsc --src-root . Outsider2 Peek ...   # no using line: fully-qualified call only
+Outsider2/Peek.bs:4:26: error: Shop.Internal is called but never imported
+  add `using Shop.Internal` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1 (expected 1: a call needs a using line -- F11)
+
+$ private callee from outside (the shipped *what* half, F12) -- control
+Outsider3/P.bs:6:13: error: Peek calls Sum/2, which Shop.Internal declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Internal, or move the call inside it.
+exit=1
+
+--- the checker source: any who-may-name construct? (word-boundary grep, case-insensitive)
+109:    %% Internal notes travel through the diagnostic channel; remove them before
+188:%% diagnostic, and every internal note, passes through.
+4861:%% instead of an internal `function_clause`.
+(grep exit 0; hits above are comments, not constructs, if any)
+(parser/lexer grep exit 1; 1 = no keyword)
+
+--- where is add_module_import/5 NOW? (ticket cites bs_check.erl:407-425 at 0b761f6)
+511:add_module_import(M, World, Acc) ->
+add_module_import(M, World, Acc) ->
+    Entry = maps:get(M, World),
+    Exports = maps:get(exports, Entry),
+    Funs0 = maps:get(funs, Acc),
+    Funs = maps:fold(fun(K, _Sig, F) ->
+                             %% Collisions are errors only at use sites.
+                             maps:update_with(K, fun(Ms) -> [M | Ms] end, [M], F)
+                     end, Funs0, Exports),
+    %% Type collisions are also refused at use sites. A missing `types` entry
+    %% means the module offers no types.
+    Types = maps:fold(fun(N, _T, T0) ->
+                              maps:update_with(N, fun(Ms) -> [M | Ms] end, [M], T0)
+                      end, maps:get(types, Acc), maps:get(types, Entry, #{})),
+    Acc#{funs := Funs, types := Types, imported := [M | maps:get(imported, Acc)]}.
+

@@ -1,0 +1,12 @@
+module ShopOtp
+
+[app: crypto] using :crypto {
+    binary hash(atom kind, binary data)
+}
+
+[app: stdlib] using :ets {
+    list<term> all()
+}
+
+public binary Digest(binary b)
+Digest(b) -> :crypto.hash(:sha256, b)

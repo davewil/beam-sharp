@@ -1,0 +1,8 @@
+module Clash2
+
+public int HttpGet(int n)
+HttpGet(n) -> n + 1
+
+public int HTTPGet(int n)
+HTTPGet(n) -> n + 1
+

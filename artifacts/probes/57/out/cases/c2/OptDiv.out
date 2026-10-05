@@ -1,0 +1,5 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/c2/m/OptDiv/a.bs:3:13: error: the right-hand side of `/` in Div is always zero
+  `/` needs no proof that a divisor is non-zero — a divisor that MIGHT
+  be zero compiles and crashes at run time. Only one the compiler can
+  prove is zero is refused, and this is one.
+[exit 1]

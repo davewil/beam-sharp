@@ -1,0 +1,17 @@
+// Probe module for ticket 59. Exported + private function over a record and over an int.
+module Scope
+
+record Order { Id: int, Total: int }
+
+public int OuterRec(Order o)
+OuterRec(o) -> InnerRec(o)
+
+private int InnerRec(Order o)
+InnerRec(o) -> o.Total
+
+public int OuterInt(int n)
+OuterInt(n) -> InnerInt(n)
+
+private int InnerInt(int n)
+InnerInt(n) when n >= 0 -> n
+InnerInt(n) -> 0

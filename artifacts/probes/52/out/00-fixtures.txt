@@ -1,0 +1,10 @@
+Compiling 1 file (.ex)
+Generated mylib app
+--- mix-built app layout (the shape ERL_LIBS means):
+./mylib/ebin/Elixir.MyLib.Request.beam
+./mylib/ebin/Elixir.MyLib.beam
+./mylib/ebin/mylib.app
+--- erllibs:
+./ghost-1.0.0/ebin/ghost.app
+./plainerl-1.2.0/ebin/plainerl.app
+./plainerl-1.2.0/ebin/plainerl.beam

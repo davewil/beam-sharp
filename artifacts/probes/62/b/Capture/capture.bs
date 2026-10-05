@@ -1,0 +1,10 @@
+module Capture
+
+public int Init(int seed)
+Init(seed) -> seed
+
+public int HandleCall(int a, int b)
+HandleCall(a, b) -> a + b
+
+public int Start(int a, int b)
+Start(a, b) -> a + b

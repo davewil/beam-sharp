@@ -1,0 +1,60 @@
+### V1: mix.exs declares nothing; code calls MyLib.new/1 and :ssl.versions/0
+    Compiling 1 file (.ex)
+        warning: MyLib.new/1 is undefined (module MyLib is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+        │
+      2 │   def lib, do: MyLib.new([])
+        │                      ~
+        │
+        └─ lib/c.ex:2:22: C.lib/0
+    
+        warning: :ssl.versions/0 is undefined (module :ssl is not available or is yet to be defined)
+        │
+      3 │   def otp, do: :ssl.versions()
+        │                     ~
+        │
+        └─ lib/c.ex:3:21: C.otp/0
+    
+    Generated c app
+### V2: declare the dependency (path dep, no network) and the OTP app
+    ==> mylib
+    Compiling 1 file (.ex)
+    Generated mylib app
+    ==> c
+    Compiling 1 file (.ex)
+    Generated c app
+### V3: declare only the dependency, not :ssl
+    ==> mylib
+    Compiling 1 file (.ex)
+    Generated mylib app
+    ==> c
+    Compiling 1 file (.ex)
+        warning: :ssl.versions/0 is undefined (module :ssl is not available or is yet to be defined)
+        │
+      3 │   def otp, do: :ssl.versions()
+        │                     ~
+        │
+        └─ lib/c.ex:3:21: C.otp/0
+    
+    Generated c app
+### what the generated .app of the consumer says (inferred from the manifest, not from the code)
+{application,c,[{modules,['Elixir.C']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,mylib]},{description,"c"},{registered,[]},{vsn,"0.1.0"}]}.
+### runtime counterparts (ERL_LIBS unset): Application.ensure_all_started / Code.ensure_compiled
+{:error, {:nosuch, {~c"no such file or directory", ~c"nosuch.app"}}}
+{:error, :nofile}
+false
+### the docs chunk of Mix.Tasks.Compile.App (installed beam), lines about the application list
+  doc line 13: 
+  doc line 14:   * `:extra_applications` - a list of OTP applications
+  doc line 15:     your application depends on which are not included in `:deps`
+  doc line 16:     (usually defined in `deps/0` in your `mix.exs`). For example,
+  doc line 17:     here you can declare a dependency on applications that ship
+  doc line 18:     with Erlang/OTP or Elixir, like `:crypto` or `:logger`.
+  doc line 44: Other options include:
+  doc line 45: 
+  doc line 46:   * `:applications` - all applications your application depends
+  doc line 47:     on at runtime. By default, this list is automatically inferred
+  doc line 48:     from your dependencies. Mix and other tools use the application
+  doc line 49:     list in order to start your dependencies before starting the
+  doc line 50:     application itself.
+  doc line 51: 
+  doc line 52:   * `:mod` - specifies a module to invoke when the application

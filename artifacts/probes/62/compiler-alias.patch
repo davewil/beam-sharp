@@ -1,0 +1,113 @@
+diff -ruN pristine/src/bs_alias.erl new/src/bs_alias.erl
+--- a/src/bs_alias.erl	1970-01-01 00:00:00.000000000 +0000
++++ b/src/bs_alias.erl	2026-10-05 23:13:00.831917778 +0000
+@@ -0,0 +1,95 @@
++%%% EXPERIMENT (ticket 62, probe p06+): snake_case alias exports for foreign callers.
++%%% Not in the repo's compiler. Mode comes from BS_ALIAS: none | thin | thin_nospec | dup.
++-module(bs_alias).
++-export([snake/1, snake_gleam/1, mode/0, add/1]).
++
++mode() ->
++    case os:getenv("BS_ALIAS") of
++        false -> none;
++        S -> list_to_atom(S)
++    end.
++
++%% Rule S: boundary before an uppercase that follows a lowercase/digit, or that
++%% ends an acronym (uppercase followed by lowercase). Existing `_` kept.
++snake(Atom) ->
++    Cs = atom_to_list(Atom),
++    list_to_atom(lists:flatten(s(none, Cs))).
++
++s(_, []) -> [];
++s(Prev, [C | Rest]) ->
++    Next = case Rest of [N | _] -> N; [] -> none end,
++    Up = is_up(C),
++    Sep = Up andalso Prev =/= none andalso
++          (is_low(Prev) orelse is_dig(Prev)
++           orelse (is_up(Prev) andalso Next =/= none andalso is_low(Next))),
++    [[$_ || Sep], lower(C) | s(C, Rest)].
++
++%% Gleam's observed constructor rule (probe p05): `_` before EVERY capital but the first.
++snake_gleam(Atom) ->
++    [F | Cs] = atom_to_list(Atom),
++    list_to_atom(lists:flatten([lower(F) | [case is_up(C) of true -> [$_, lower(C)]; false -> C end || C <- Cs]])).
++
++is_up(C) -> C >= $A andalso C =< $Z.
++is_low(C) -> C >= $a andalso C =< $z.
++is_dig(C) -> C >= $0 andalso C =< $9.
++lower(C) when C >= $A, C =< $Z -> C + 32;
++lower(C) -> C.
++
++add(Forms) ->
++    case mode() of
++        none -> Forms;
++        Mode -> add(Mode, Forms)
++    end.
++
++add(Mode, Forms) ->
++    [{attribute, _, export, Exps}] = [E || E = {attribute, _, export, _} <- Forms],
++    Pub = [{N, Ar} || {N, Ar} <- Exps, not is_bs(N)],
++    Pairs = [{N, Ar, snake(N)} || {N, Ar} <- Pub],
++    Existing = sets:from_list([{N, Ar} || {function, _, N, Ar, _} <- Forms]
++                              ++ [{module_info, 0}, {module_info, 1}]),
++    %% collision check: two exports -> same alias, or alias == an existing function
++    Seen = lists:foldl(
++             fun({N, Ar, S}, Acc) ->
++                     K = {S, Ar},
++                     case {maps:find(K, Acc), sets:is_element(K, Existing)} of
++                         {{ok, Other}, _} -> erlang:error({alias_collision, Other, N, S, Ar});
++                         {_, true} when S =/= N -> erlang:error({alias_shadows_existing, N, S, Ar});
++                         _ -> Acc#{K => N}
++                     end
++             end, #{}, [P || P = {N, _, S} <- Pairs, S =/= N]),
++    _ = Seen,
++    New = [P || P = {N, _, S} <- Pairs, S =/= N],
++    Fun = fun(F = {function, _, N, Ar, _}) ->
++                  case lists:keyfind({N, Ar}, 1, [{{N1, A1}, S} || {N1, A1, S} <- New]) of
++                      false -> [F];
++                      {_, S} -> [F | alias(Mode, F, S)]
++                  end;
++             (F) -> [F]
++          end,
++    Forms1 = lists:append([Fun(F) || F <- Forms]),
++    %% specs: add alias spec beside each spec (unless thin_nospec)
++    Forms2 = case Mode of
++                 thin_nospec -> Forms1;
++                 _ -> lists:append(
++                        [case F of
++                             {attribute, L, spec, {{N, Ar}, Ty}} ->
++                                 case [S || {N1, A1, S} <- New, N1 =:= N, A1 =:= Ar] of
++                                     [S] -> [F, {attribute, L, spec, {{S, Ar}, Ty}}];
++                                     [] -> [F]
++                                 end;
++                             _ -> [F]
++                         end || F <- Forms1])
++             end,
++    lists:map(fun({attribute, L, export, E}) ->
++                      {attribute, L, export, E ++ [{S, Ar} || {_, Ar, S} <- New]};
++                 (F) -> F end, Forms2).
++
++is_bs(N) -> lists:prefix("bs@", atom_to_list(N)).
++
++alias(thin, {function, L, N, Ar, _}, S) -> [thin(L, N, Ar, S)];
++alias(thin_nospec, {function, L, N, Ar, _}, S) -> [thin(L, N, Ar, S)];
++alias(dup, {function, L, _N, Ar, Clauses}, S) -> [{function, L, S, Ar, Clauses}].
++
++thin(L, N, Ar, S) ->
++    Vs = [{var, L, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, Ar)],
++    {function, L, S, Ar, [{clause, L, Vs, [], [{call, L, {atom, L, N}, Vs}]}]}.
+diff -ruN pristine/src/bs_emit.erl new/src/bs_emit.erl
+--- a/src/bs_emit.erl	2026-10-05 23:13:00.826858237 +0000
++++ b/src/bs_emit.erl	2026-10-05 23:13:00.830842797 +0000
+@@ -28,7 +28,9 @@
+ %%% as `'Readings':'Classify'(X)`.
+ %%% ---------------------------------------------------------------------------
+ 
+-forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
++forms(Module) -> bs_alias:add(forms0(Module)).
++
++forms0(Module = #{module := Mod, functions := Fns, env := Env}) ->
+     %% A private function is emitted and `-spec`'d like a public one; it is
+     %% left out of the export list, the BEAM's only mechanism for the
+     %% distinction.

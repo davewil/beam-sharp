@@ -1,0 +1,33 @@
+### 1. rebar3 compile + xref: calls 'Elixir.MyLib':new/1, .app.src applications = [kernel, stdlib], mylib absent
+===> Verifying dependencies...
+===> Analyzing applications...
+===> Compiling hostapp
+[compile exit=0]
+===> Verifying dependencies...
+===> Analyzing applications...
+===> Compiling hostapp
+===> Running cross reference analysis...
+===> Warning: Elixir.MyLib:new/1 is undefined function (Xref)
+src/hostapp.erl:3: Warning: hostapp:go/0 calls undefined function Elixir.MyLib:new/1 (Xref)
+
+[xref exit=1]
+### 2. start it: no mylib listed, none present -> starts fine, dies at the call
+start: {ok,[hostapp]}
+call: {'EXIT',{undef,[{'Elixir.MyLib',new,[[]],[]},
+                      {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                      {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,656}]},
+                      {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},
+                      {erl_eval,expr_list,7,
+                                [{file,"erl_eval.erl"},{line,1504}]},
+                      {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,630}]},
+                      {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},
+                      {init,start_it,1,[]}]}}
+### 3. list a dependency that is absent: rebar3 compile accepts it?
+===> Verifying dependencies...
+===> Analyzing applications...
+===> Compiling hostapp
+[compile exit=0]
+start: {error,{mylib,{"no such file or directory","mylib.app"}}}
+### 4. same listing, dependency present on ERL_LIBS
+start: ok
+call: #{opts => [],'__struct__' => 'Elixir.MyLib.Request',method => get}

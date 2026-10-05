@@ -1,0 +1,35 @@
+######## S1: ERL_LIBS = mix-built dep : OTP-style apps : Elixir's lib dir
+ERL_LIBS="/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/mixlib/mylib/_build/dev/lib:/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/erllibs:/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/env/lib/elixir/lib"
+target                        app      module                 | code:which/1                 | lib_dir/1    | where_is_file  | get_app(M)   | application:load/1 ; vsn
+mix-built Elixir dep          mylib    'Elixir.MyLib'         | mylib/ebin/Elixir.MyLib.beam | mylib        | mylib/ebin/myl | undefined    | ok ; "0.3.1"
+same dep, 2nd module          mylib    'Elixir.MyLib.Request' | mylib/ebin/Elixir.MyLib.Requ | mylib        | mylib/ebin/myl | {ok,mylib}   | {error,{already_loaded,mylib}} ; "0.3.1"
+OTP app, not loaded at boot   crypto   crypto                 | crypto-5.8.3/ebin/crypto.bea | crypto-5.8.3 | crypto-5.8.3/e | undefined    | ok ; "5.8.3"
+OTP app, loaded at boot       stdlib   ets                    | stdlib-7.3/ebin/ets.beam     | stdlib-7.3   | stdlib-7.3/ebi | {ok,stdlib}  | {error,{already_loaded,stdlib}} ; "7.3"
+Elixir's own app              elixir   'Elixir.String'        | elixir/ebin/Elixir.String.be | elixir       | elixir/ebin/el | undefined    | ok ; "1.19.5"
+.app file only, no beam       ghost    ghost_mod              | non_existing                 | ghost-1.0.0  | ghost-1.0.0/eb | undefined    | ok ; "1.0.0"
+loose beam via -pa, no .app   loose    loosemod               | p52work/loose/loosemod.beam  | loose        | none           | undefined    | {error,no such file or directory: loose.app} ; undefined
+absent                        nosuch   'Elixir.NoSuch'        | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: nosuch.app} ; undefined
+
+######## S2: ERL_LIBS unset
+ERL_LIBS=false
+target                        app      module                 | code:which/1                 | lib_dir/1    | where_is_file  | get_app(M)   | application:load/1 ; vsn
+mix-built Elixir dep          mylib    'Elixir.MyLib'         | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: mylib.app} ; undefined
+same dep, 2nd module          mylib    'Elixir.MyLib.Request' | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: mylib.app} ; undefined
+OTP app, not loaded at boot   crypto   crypto                 | crypto-5.8.3/ebin/crypto.bea | crypto-5.8.3 | crypto-5.8.3/e | undefined    | ok ; "5.8.3"
+OTP app, loaded at boot       stdlib   ets                    | stdlib-7.3/ebin/ets.beam     | stdlib-7.3   | stdlib-7.3/ebi | {ok,stdlib}  | {error,{already_loaded,stdlib}} ; "7.3"
+Elixir's own app              elixir   'Elixir.String'        | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: elixir.app} ; undefined
+.app file only, no beam       ghost    ghost_mod              | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: ghost.app} ; undefined
+loose beam via -pa, no .app   loose    loosemod               | p52work/loose/loosemod.beam  | loose        | none           | undefined    | {error,no such file or directory: loose.app} ; undefined
+absent                        nosuch   'Elixir.NoSuch'        | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: nosuch.app} ; undefined
+
+######## S3: ERL_LIBS = OTP-style apps only
+ERL_LIBS="/tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/p52work/erllibs"
+target                        app      module                 | code:which/1                 | lib_dir/1    | where_is_file  | get_app(M)   | application:load/1 ; vsn
+mix-built Elixir dep          mylib    'Elixir.MyLib'         | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: mylib.app} ; undefined
+same dep, 2nd module          mylib    'Elixir.MyLib.Request' | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: mylib.app} ; undefined
+OTP app, not loaded at boot   crypto   crypto                 | crypto-5.8.3/ebin/crypto.bea | crypto-5.8.3 | crypto-5.8.3/e | undefined    | ok ; "5.8.3"
+OTP app, loaded at boot       stdlib   ets                    | stdlib-7.3/ebin/ets.beam     | stdlib-7.3   | stdlib-7.3/ebi | {ok,stdlib}  | {error,{already_loaded,stdlib}} ; "7.3"
+Elixir's own app              elixir   'Elixir.String'        | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: elixir.app} ; undefined
+.app file only, no beam       ghost    ghost_mod              | non_existing                 | ghost-1.0.0  | ghost-1.0.0/eb | undefined    | ok ; "1.0.0"
+loose beam via -pa, no .app   loose    loosemod               | p52work/loose/loosemod.beam  | loose        | none           | undefined    | {error,no such file or directory: loose.app} ; undefined
+absent                        nosuch   'Elixir.NoSuch'        | non_existing                 | bad_name     | none           | undefined    | {error,no such file or directory: nosuch.app} ; undefined

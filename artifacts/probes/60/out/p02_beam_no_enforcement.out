@@ -1,0 +1,22 @@
+--- static literal call from an unrelated module
+{f,1,2}
+--- variable module/function (M:F(A))
+{f,2,3}
+--- apply/3 with atoms built at run time
+{f,3,4}
+--- the non-exported function from outside: the only thing the VM refuses
+{'EXIT',{undef,[{callee,hidden,[1],[]},
+                {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,656}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},
+                {erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,1504}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,630}]},
+                {init,start_it,1,[]},
+                {init,start_em,1,[]}]}}
+--- a bsc-emitted beam is the same: public function callable from a hand-written Erlang module
+15
+--- ExpT (export table) of that beam: the only per-function visibility fact a beam carries
+[{'RecomputeTotal',1},{bs@type_atoms,0},{module_info,0},{module_info,1}]
+--- chunk ids present in the beam (looking for any caller-restricted export record)
+["AtU8","Code","StrT","ImpT","ExpT","LocT","Attr","CInf","Dbgi","Line","Type"]
+VERDICT[beam-cannot-restrict-callers-of-an-exported-function]: CONFIRMED

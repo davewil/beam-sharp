@@ -1,0 +1,15 @@
+module OptA2
+type Delta = int where value >= -100 and value <= 100
+type Nz    = int where value != 0
+
+int Step(Nz n)
+Step(n) -> n
+
+public atom Band(int n)
+Band(n) when n >= -5 and n <= 5 -> :mid
+Band(n) when n < -5             -> :low
+Band(n) when n > 5              -> :high
+
+public int Back()
+Back() -> Step(-5)
+

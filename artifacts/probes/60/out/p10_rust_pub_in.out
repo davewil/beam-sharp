@@ -1,0 +1,19 @@
+rustc 1.97.0 (2d8144b78 2026-07-07)
+--- control (caller inside crate::shop)
+6
+exit=0
+--- caller outside crate::shop
+error[E0603]: function `recompute` is private
+ --> bad.rs:4:72
+  |
+4 | mod outsider { pub fn peek(xs: &[i32]) -> i32 { crate::shop::internal::recompute(xs) } }
+  |                                                                        ^^^^^^^^^ private function
+  |
+note: the function `recompute` is defined here
+ --> bad.rs:2:24
+  |
+2 |     pub mod internal { pub(in crate::shop) fn recompute(xs: &[i32]) -> i32 { xs.iter().sum() } }
+  |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+exit=1
+VERDICT[rust-pub-in-path-is-enforced]: CONFIRMED

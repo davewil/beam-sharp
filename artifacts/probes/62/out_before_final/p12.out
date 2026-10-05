@@ -1,0 +1,6 @@
+== BS_ALIAS=thin
+  specs visible for [:HTTPGet, :http_get, :Add2, :add2]: [Add2: 1, HTTPGet: 1, add2: 1, http_get: 1]
+  HTTPGet spec as Elixir prints it: HTTPGet(integer()) :: integer()
+== BS_ALIAS=thin_nospec
+  specs visible for [:HTTPGet, :http_get, :Add2, :add2]: [Add2: 1, HTTPGet: 1]
+  HTTPGet spec as Elixir prints it: HTTPGet(integer()) :: integer()

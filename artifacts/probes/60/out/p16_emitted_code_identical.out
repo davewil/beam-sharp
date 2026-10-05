@@ -1,0 +1,8 @@
+base: 31 modules, md5-of-md5s c3989ba0222d901d
+pA: 31 modules, md5-of-md5s c3989ba0222d901d
+pB: 31 modules, md5-of-md5s c3989ba0222d901d
+pC: 31 modules, md5-of-md5s c3989ba0222d901d
+pA: identical to base
+pB: identical to base
+pC: identical to base
+VERDICT[emitted-code-unchanged-for-programs-not-using-the-rule]: CONFIRMED

@@ -1,0 +1,13 @@
+javac 21.0.11
+--- javac, module-source-path, all three modules (friend is listed; stranger is not)
+Picked up JAVA_TOOL_OPTIONS: 
+src/stranger/stranger/Use.java:2: error: package lib.internal is not visible
+public class Use { public static int peek(int[] xs) { return lib.internal.Calc.recompute(xs); } }
+                                                                ^
+  (package lib.internal is declared in module lib, which does not export it to module stranger)
+1 error
+exit=1
+--- friend alone (control)
+Picked up JAVA_TOOL_OPTIONS: 
+exit=0
+VERDICT[java-qualified-export-is-an-enforced-named-list]: CONFIRMED

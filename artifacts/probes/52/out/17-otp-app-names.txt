@@ -1,0 +1,37 @@
+before loading any application:
+  erlang      get_application=undefined
+  ets         get_application={ok,stdlib}
+  lists       get_application={ok,stdlib}
+  file        get_application={ok,kernel}
+  maps        get_application={ok,stdlib}
+  binary      get_application={ok,stdlib}
+  string      get_application={ok,stdlib}
+  gen_server  get_application={ok,stdlib}
+  json        get_application={ok,stdlib}
+  crypto      get_application=undefined
+after application:load of erts, crypto, kernel, stdlib:
+  erlang      get_application={ok,erts}
+  ets         get_application={ok,stdlib}
+  lists       get_application={ok,stdlib}
+  file        get_application={ok,kernel}
+  maps        get_application={ok,stdlib}
+  binary      get_application={ok,stdlib}
+  string      get_application={ok,stdlib}
+  gen_server  get_application={ok,stdlib}
+  json        get_application={ok,stdlib}
+  crypto      get_application={ok,crypto}
+count of foreign using blocks per module atom, repo .bs corpus: compiler/examples (incl. exemplars) and wayfinder/prototypes:
+     10 erlang
+      4 maps
+      2 gen_server
+      1 string
+      1 lists
+      1 json
+      1 file
+      1 ets
+      1 epgsql
+      1 binary
+      1 'Elixir.String'
+      1 'Elixir.Req'
+      1 'Elixir.Enum'
+      1 'Elixir.Application'

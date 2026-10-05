@@ -1,0 +1,27 @@
+module BenchBase
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+// private tag test per element (record one projection down)
+public int SumTotals(list<Order> os)
+SumTotals(os) -> FoldTotals(os, 0)
+
+private int FoldTotals(list<Order> os, int acc)
+FoldTotals([], acc) -> acc
+FoldTotals([o, ..rest], acc) -> FoldTotals(rest, acc + Amount(o))
+
+private int Amount(Order o)
+Amount(o) -> o.Total
+
+// private is_integer + range per element
+public int SumWeights(list<Octet> xs)
+SumWeights(xs) -> FoldWeights(xs, 0)
+
+private int FoldWeights(list<Octet> xs, int acc)
+FoldWeights([], acc) -> acc
+FoldWeights([x, ..rest], acc) -> FoldWeights(rest, acc + Weight(x))
+
+private int Weight(Octet o)
+Weight(>= 9) -> 2
+Weight(<= 8) -> 1

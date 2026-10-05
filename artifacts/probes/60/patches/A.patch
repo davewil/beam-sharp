@@ -1,0 +1,110 @@
+
+--- a/src/bs_check.erl	2026-10-05 23:03:36.000000000 +0000
++++ b/src/bs_check.erl	2026-10-05 23:14:12.081847270 +0000
+@@ -496,17 +496,61 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> refuse_unless_visible(L, M, Self, World),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, Children,
++                                                      hide(Children, Self, World, Acc))
+             end
+     end.
+ 
++%% Who may name a module. Asked where a dependency is formed: every route to a
++%% callee passes a `using` (`qualified_module/3` refuses a call that skips one),
++%% so a module-level rule is one refusal at the `using` line for a module-tier
++%% import, and one memo for a namespace-tier import, read when the short name is
++%% resolved. A rule that only filtered the namespace's children would report
++%% `module_not_imported` to an author who has the `using` -- F12's `unknown` for
++%% `private`, again.
++refuse_unless_visible(L, M, Self, World) ->
++    case visibility(M, Self, World) of
++        visible         -> ok;
++        {hidden, Scope} -> erlang:error({module_not_visible, M, Scope, L})
++    end.
++
++hide(Children, Self, World, Acc) ->
++    Hidden = maps:from_list([{C, S} || C <- Children,
++                                       {hidden, S} <- [visibility(C, Self, World)]]),
++    Acc#{denied => maps:merge(maps:get(denied, Acc, #{}), Hidden)}.
++
++%% A module whose path has a segment `Internal` may be named only from the
++%% segment's parent and what sits under it. Decided from the two atoms alone.
++visibility(M, Self, _World) ->
++    case internal_parent(M) of
++        none   -> visible;
++        Parent -> case under(Self, Parent) of
++                      true  -> visible;
++                      false -> {hidden, Parent}
++                  end
++    end.
++
++internal_parent(M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case [I || {I, "Internal"} <- lists:zip(lists:seq(1, length(Segs)), Segs), I > 1] of
++        [] -> none;
++        Is -> list_to_atom(lists:flatten(
++                             lists:join(".", lists:sublist(Segs, lists:last(Is) - 1))))
++    end.
++
++%% `Self` is `Parent` or sits under it.
++under(Self, Parent) ->
++    S = atom_to_list(Self), P = atom_to_list(Parent),
++    S =:= P orelse lists:prefix(P ++ ".", S).
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+@@ -4356,7 +4400,10 @@
+ qualified_module(Mod, L, C) ->
+     Mods = maps:get(mods, C#ctx.imports, #{}),
+     case maps:get(Mod, Mods, []) of
+-        [M]  -> M;
++        [M]  -> case maps:get(M, maps:get(denied, C#ctx.imports, #{}), visible) of
++                    visible -> M;
++                    Scope   -> erlang:error({module_not_visible, M, Scope, L})
++                end;
+         []   -> require_imported(Mod, L, C);
+         Many -> erlang:error({ambiguous_module, Mod, lists:sort(Many), L})
+     end.
+
+--- a/src/bs_diag.erl	2026-10-05 23:03:36.000000000 +0000
++++ b/src/bs_diag.erl	2026-10-05 23:14:12.078796192 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {module_not_visible, Mod, Scope, Line}) ->
++    #{tag => module_not_visible, severity => error, file => Path, line => Line,
++      module => Mod, scope => Scope};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2029,17 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := module_not_visible, file := P, line := L, column := C, module := Mod,
++          scope := Scope}) when is_atom(Scope) ->
++    {"~s:~p:~p: error: ~s may only be named from ~s and the modules under it~n"
++     "  this module is outside ~s. Name something ~s publishes instead,~n"
++     "  or move this module under ~s.~n",
++     [P, L, C, Mod, Scope, Scope, Scope, Scope]};
++message(#{tag := module_not_visible, file := P, line := L, column := C, module := Mod,
++          scope := Scope}) when is_list(Scope) ->
++    {"~s:~p:~p: error: ~s declares `visible_to ~s`, and this module is not under any of them~n"
++     "  add this module's path to that list in ~s, or name something else.~n",
++     [P, L, C, Mod, lists:join(", ", [atom_to_list(S) || S <- Scope]), Mod]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

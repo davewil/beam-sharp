@@ -1,0 +1,20 @@
+== Can a non-zero divisor be declared? ==
+ok  NotEqualZero                       accepted (expected accepted)
+== ...and does it actually EXCLUDE zero, or is it a silent no-op? ==
+ok  ZeroRejected                       refused (expected refused)
+== Is a DISJOINT refinement the problem? (no -- this is accepted) ==
+ok  DisjointOr                         accepted (expected accepted)
+== It is the NEGATIVE LITERAL. All three of these are refused. ==
+ok  NegSingle                          refused (expected refused)
+ok  NegAnd                             refused (expected refused)
+ok  NegOr                              refused (expected refused)
+== ...while a relational PATTERN reads the same literal fine. ==
+ok  NegPattern                         accepted (expected accepted)
+
+== The residuals the algebra hands back for a divisor ==
+  unbounded int, minus zero : int <= -1 | int >= 1
+  -10..10,       minus zero : -10..-1 | 1..10
+  The second is the one that matters: a BOUNDED divisor's residual names a
+  negative bound, and the probes above show the surface cannot spell it.
+
+all 7 probes matched expectation

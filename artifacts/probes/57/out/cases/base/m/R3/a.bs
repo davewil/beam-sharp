@@ -1,0 +1,3 @@
+module R3
+public atom F(int d)
+F(>= -10 and <= 10) -> :in

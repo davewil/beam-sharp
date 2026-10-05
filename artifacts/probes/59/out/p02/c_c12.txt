@@ -1,0 +1,2 @@
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {error,error,function_clause,{'Deep','Twice',1}}

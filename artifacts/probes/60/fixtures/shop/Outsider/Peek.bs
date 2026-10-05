@@ -1,0 +1,6 @@
+module Outsider
+
+using Shop.Internal
+
+public int Peek(list<int> xs)
+Peek(xs) -> RecomputeTotal(xs)

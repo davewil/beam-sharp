@@ -1,0 +1,8 @@
+module Client
+
+using :'Elixir.MyLib' {
+    term new(list<(atom, term)> opts)
+}
+
+public term Make()
+Make() -> :'Elixir.MyLib'.new([])

@@ -1,0 +1,27 @@
+=== pA
+--- control: outsider names the module with `using` (must be REFUSED)
+Outsider/Peek.bs:3:1: error: Shop.Internal may only be named from Shop and the modules under it
+  this module is outside Shop. Name something Shop publishes instead,
+  or move this module under Shop.
+control exit=1
+--- bypass: same outsider reaches it via :erlang.apply (foreign declaration, run-time atoms)
+6
+bypass exit=0
+=== pB
+--- control: outsider names the module with `using` (must be REFUSED)
+Outsider/Peek.bs:3:1: error: Shop.Orders declares `visible_to Shop.Billing, Shop.Reports`, and this module is not under any of them
+  add this module's path to that list in Shop.Orders, or name something else.
+control exit=1
+--- bypass: same outsider reaches it via :erlang.apply (foreign declaration, run-time atoms)
+6
+bypass exit=0
+=== pC
+--- control: outsider names the module with `using` (must be REFUSED)
+Outsider/Peek.bs:6:13: error: Peek calls RecomputeTotal/1, which Shop.Orders declares `internal`
+  an internal function is callable from Shop and the modules under it,
+  and this module is outside it.
+control exit=1
+--- bypass: same outsider reaches it via :erlang.apply (foreign declaration, run-time atoms)
+6
+bypass exit=0
+VERDICT[compile-time-check-is-bypassable-by-foreign-apply]: CONFIRMED

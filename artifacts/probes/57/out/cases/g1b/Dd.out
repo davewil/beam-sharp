@@ -1,0 +1,4 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/g1b/m/Dd/a.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(0) -> ...
+[exit 1]

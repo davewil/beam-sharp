@@ -1,0 +1,87 @@
+######## ERL_LIBS unset
+$ [unset] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC
+[exit=0]
+
+$ [unset] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopA
+/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopA/shop.bs:3:1: error: application `mylib` is declared here and is not on the code path
+  (declared for `:'Elixir.MyLib'`; no `mylib` or `mylib-<version>` directory with an ebin
+  was found in the code path or in ERL_LIBS)
+[exit=1]
+
+$ [unset] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopB
+/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopB/shop.bs:1:1: error: application `mylib` is declared here and is not on the code path
+  (declared for `:module`; no `mylib` or `mylib-<version>` directory with an ebin
+  was found in the code path or in ERL_LIBS)
+[exit=1]
+
+######## variant C hook (module presence on every using, no syntax), ERL_LIBS unset
+$ [C-hook] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC
+/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC/shop.bs:3:1: error: application `Elixir.MyLib` is declared here and is not on the code path
+  (declared for `:'Elixir.MyLib'`; no `Elixir.MyLib` or `Elixir.MyLib-<version>` directory with an ebin
+  was found in the code path or in ERL_LIBS)
+[exit=1]
+
+######## ERL_LIBS correct
+$ [libs] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC Verb
+:get
+[exit=0]
+
+$ [libs] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopA Verb
+:get
+[exit=0]
+
+$ [libs] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopB Verb
+:get
+[exit=0]
+
+$ [libs+C-hook] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopC Verb
+:get
+[exit=0]
+
+######## the declaration lies: right module, wrong app (stdlib) / typo (mylb) -- cheap check
+$ [libs] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopLie Verb
+:get
+[exit=0]
+
+$ [libs] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopTypo Verb
+/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopTypo/shop.bs:3:1: error: application `mylb` is declared here and is not on the code path
+  (declared for `:'Elixir.MyLib'`; no `mylb` or `mylb-<version>` directory with an ebin
+  was found in the code path or in ERL_LIBS)
+[exit=1]
+
+######## same, STRONG check (module must be found inside the declared app's directory)
+$ [strong] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopLie Verb
+/home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopLie/shop.bs:3:1: error: application `stdlib` is declared here and is not on the code path
+  (declared for `:'Elixir.MyLib'`; no `stdlib` or `stdlib-<version>` directory with an ebin
+  was found in the code path or in ERL_LIBS)
+[exit=1]
+
+$ [strong] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopA Verb
+:get
+[exit=0]
+
+######## per-MODULE marker naming the wrong app (stdlib) while the module is in mylib: ERL_LIBS unset, then strong check
+$ [B-lie,strong,no deps] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopBLie Verb
+crashed: error:undef
+[exit=1]
+
+######## OTP modules with their app declared (crypto is not loaded at boot, stdlib is)
+$ [unset] bsc /home/user/beam-sharp/artifacts/probes/52/fixtures/bs/ShopOtp Digest "abc"
+<<186,120,22,191,143,1,207,234,65,65,64,222,93,174,34,35,176,3,97,163,150,23,
+  122,156,180,16,255,97,242,0,21,173>>
+[exit=0]
+
+######## what the beam carries
+ShopA: [{bs_requires,[{mylib,'Elixir.MyLib'},{mylib,'Elixir.MyLib.Request'}]}]
+ShopB: [{bs_requires,[{mylib,module}]}]
+ShopC: []
+ShopOtp: [{bs_requires,[{crypto,crypto},{stdlib,ets}]}]
+
+######## does the clean-room's reading surface (--api, nothing built) go through the check? ERL_LIBS unset
+$ bsc --api ShopA   (prototype)
+module ShopA
+atom Verb()
+[exit=0]
+
+######## the attribute is visible to the VM itself (module_info/1) and loading is unaffected
+[{bs_requires,[{mylib,'Elixir.MyLib'},{mylib,'Elixir.MyLib.Request'}]}]

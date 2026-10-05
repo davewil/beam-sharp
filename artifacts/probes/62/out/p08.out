@@ -1,0 +1,19 @@
+N    mode         bytes (beam; stripped; counts)
+1    none         total=1240 stripped=382 exports=4 ExpT=52 Code=113 Dbgi=456 AtU8=73 LocT=4 Attr=39 specs=1
+1    thin         total=1332 stripped=407 exports=5 ExpT=64 Code=126 Dbgi=508 AtU8=89 LocT=4 Attr=39 specs=2
+1    thin_nospec  total=1328 stripped=407 exports=5 ExpT=64 Code=126 Dbgi=495 AtU8=89 LocT=4 Attr=39 specs=1
+1    dup          total=1348 stripped=417 exports=5 ExpT=64 Code=156 Dbgi=494 AtU8=89 LocT=4 Attr=39 specs=2
+10   none         total=2944 stripped=831 exports=13 ExpT=160 Code=543 Dbgi=1274 AtU8=201 LocT=4 Attr=39 specs=10
+10   thin         total=3584 stripped=1017 exports=23 ExpT=280 Code=714 Dbgi=1462 AtU8=363 LocT=4 Attr=39 specs=20
+10   thin_nospec  total=3548 stripped=1017 exports=23 ExpT=280 Code=714 Dbgi=1419 AtU8=363 LocT=4 Attr=39 specs=10
+10   dup          total=3952 stripped=1077 exports=23 ExpT=280 Code=1045 Dbgi=1497 AtU8=363 LocT=4 Attr=39 specs=20
+100  none         total=20648 stripped=5040 exports=103 ExpT=1240 Code=5570 Dbgi=9359 AtU8=1553 LocT=4 Attr=39 specs=100
+100  thin         total=26980 stripped=6905 exports=203 ExpT=2440 Code=7270 Dbgi=11011 AtU8=3336 LocT=4 Attr=39 specs=200
+100  thin_nospec  total=26584 stripped=6905 exports=203 ExpT=2440 Code=7270 Dbgi=10605 AtU8=3336 LocT=4 Attr=39 specs=100
+100  dup          total=31176 stripped=7410 exports=203 ExpT=2440 Code=11097 Dbgi=11378 AtU8=3336 LocT=4 Attr=39 specs=200
+
+--- bsc --api output, baseline vs alias compiler (aliases invisible to B#'s own view?)
+243 /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w62/p08/api_base.txt
+243 /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w62/p08/api_alias.txt
+486 total
+api identical

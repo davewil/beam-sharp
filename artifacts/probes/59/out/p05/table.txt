@@ -1,0 +1,7 @@
+case   base_code   a_code   b_code   c_code | tag(base-a) kind(b-base)
+Rec1        128      116      128      128 |     12      0
+Rec3        128      116      128      128 |     12      0
+Rec8        128      116      128      128 |     12      0
+IntP        116      116      121      121 |      0      5
+Fltp        112      112      115      115 |      0      3
+Octt        128      128      140      140 |      0     12

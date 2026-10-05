@@ -1,0 +1,7 @@
+exemplar examples/exemplars/25a-http-api-server/: error: this directory holds `.bs` files and no `module` line
+exemplar examples/exemplars/25b-websocket-handler/: examples/exemplars/25b-websocket-handler/handle_info.bs:12:17: error: syntax error before: ','
+exemplar examples/exemplars/25c-event-queue-consumer/: examples/exemplars/25c-event-queue-consumer/encode.bs:13:19: error: syntax error before: '<<'
+exemplar examples/exemplars/25d-database-querying/: error: this directory holds `.bs` files and no `module` line
+exemplar examples/exemplars/25e-dynamic-web-page/: examples/exemplars/25e-dynamic-web-page/index.bs:10:1: error: `module Shop.Page` does not match its directory
+exemplar examples/exemplars/25f-llm-evaluation-client/: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory
+exemplar examples/exemplars/25g-jev-server/: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory

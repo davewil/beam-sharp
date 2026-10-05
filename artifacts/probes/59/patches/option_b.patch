@@ -1,0 +1,27 @@
+--- a/compiler/src/bs_emit.erl	2026-10-05 23:13:38.877332382 +0000
++++ b/compiler/src/bs_emit.erl	2026-10-05 23:13:38.879759250 +0000
+@@ -272,7 +272,7 @@
+ %% The tag guard and the integer guard are mutually exclusive: a record type
+ %% has a `maps` part and an integer type does not, so no parameter is a
+ %% candidate for both.
+-guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
++guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, _Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+@@ -281,13 +281,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from

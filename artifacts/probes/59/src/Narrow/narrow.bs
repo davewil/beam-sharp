@@ -1,0 +1,9 @@
+// F24 section 6 / ENG-330 program, verbatim shape: a private int helper fed through a narrowing guard.
+module Narrow
+
+type T = int | atom
+private int Tag(int x)
+Tag(x) -> x
+public int Bump(T n)
+Bump(n) when n >= 0 -> Tag(n)
+Bump(n)             -> 0

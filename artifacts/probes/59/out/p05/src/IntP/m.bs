@@ -1,0 +1,7 @@
+module IntP
+
+public int Entry(list<int> xs)
+Entry([x, ..r]) -> Get(x)
+Entry([]) -> 0
+private int Get(int n)
+Get(n) -> n * 2

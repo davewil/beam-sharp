@@ -1,0 +1,115 @@
+=============== variant base
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {ok,3}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {ok,3}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {ok,3}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {ok,[2,3.0]}
+=============== variant a
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {ok,14}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,{badkey,'Total'},{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {ok,3}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {ok,3}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {ok,3}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {ok,[2,3.0]}
+=============== variant b
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {error,error,function_clause,{'Deep','Twice',1}}
+=============== variant c
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {error,error,function_clause,{'Deep','Twice',1}}
+## assertions
+PASS  T1 base: forged Order at Top is refused BY Top (exported tag test)
+PASS  T2 base: forged element refused BY private Amount
+PASS  T3a base: float element returns silently
+PASS  T3b base: out-of-range int element returns silently
+PASS  a: forged element is NOT refused (silent {ok,14})
+PASS  b: forged element refused by Amount
+PASS  c: forged element refused by Amount (test kept: caller is one projection down)
+PASS  b: float element refused by private Weight
+PASS  c: float element refused by private Weight
+PASS  base: C12 float through List.Map reaches private Twice silently ([2,3.0])
+PASS  a:    C12 silent
+PASS  b:    C12 refused by private Twice
+PASS  c:    C12 refused by private Twice
+p02 FAILS=0

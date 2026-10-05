@@ -1,0 +1,8 @@
+module Octt
+type Octet = int where value >= 0 and value <= 255
+public int Entry(list<Octet> xs)
+Entry([x, ..r]) -> Get(x)
+Entry([]) -> 0
+private int Get(Octet o)
+Get(>= 9) -> 2
+Get(<= 8) -> 1

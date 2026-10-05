@@ -1,0 +1,8 @@
+module AttrToday
+
+[external: elixir, app: req] using :'Elixir.MyLib' {
+    term new(list<(atom, term)> opts)
+}
+
+public int Two()
+Two() -> 2

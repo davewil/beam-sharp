@@ -1,0 +1,3 @@
+module R4
+public atom F(int d)
+F(<= -1) -> :neg

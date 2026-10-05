@@ -1,0 +1,6 @@
+Rec1   base=1280 a=1212 b=1276
+Rec3   base=1308 a=1240 b=1304
+Rec8   base=1364 a=1296 b=1360
+IntP   base=1092 a=1088 b=1132
+Fltp   base=1056 a=1052 b=1088
+Octt   base=1144 a=1140 b=1248

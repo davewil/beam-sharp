@@ -1,0 +1,68 @@
+module Casing
+
+public int HTTPGet(int n)
+HTTPGet(n) -> n + 1
+
+public int ToJSON(int n)
+ToJSON(n) -> n + 1
+
+public int Add2(int n)
+Add2(n) -> n + 1
+
+public int Vec3Dot(int n)
+Vec3Dot(n) -> n + 1
+
+public int FooBar(int n)
+FooBar(n) -> n + 1
+
+public int GetHTTPResponse(int n)
+GetHTTPResponse(n) -> n + 1
+
+public int IOList(int n)
+IOList(n) -> n + 1
+
+public int New(int n)
+New(n) -> n + 1
+
+public int Spawn(int n)
+Spawn(n) -> n + 1
+
+public int Abs(int n)
+Abs(n) -> n + 1
+
+public int Do(int n)
+Do(n) -> n + 1
+
+public int End(int n)
+End(n) -> n + 1
+
+public int If(int n)
+If(n) -> n + 1
+
+public int Fn(int n)
+Fn(n) -> n + 1
+
+public int Nil(int n)
+Nil(n) -> n + 1
+
+public int True(int n)
+True(n) -> n + 1
+
+public int When(int n)
+When(n) -> n + 1
+
+public int And(int n)
+And(n) -> n + 1
+
+public int Not(int n)
+Not(n) -> n + 1
+
+public int Case(int n)
+Case(n) -> n + 1
+
+public int Receive(int n)
+Receive(n) -> n + 1
+
+public int Of(int n)
+Of(n) -> n + 1
+

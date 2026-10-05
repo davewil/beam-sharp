@@ -1,0 +1,3 @@
+module OptDiv
+public int Div(int x)
+Div(x) -> x / -0

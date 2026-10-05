@@ -1,0 +1,5 @@
+module Clash3
+
+public int Module_Info(int n)
+Module_Info(n) -> n + 1
+

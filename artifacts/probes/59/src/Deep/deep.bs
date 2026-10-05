@@ -1,0 +1,45 @@
+// Probe module for ticket 59: how a forged value reaches a private function.
+module Deep
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+// --- top-level parameter: the exported function's own guard sees the value
+public int Top(Order o)
+Top(o) -> Amount(o)
+
+// --- one projection down: the exported guard covers the LIST, not its elements
+public int SumTotals(list<Order> os)
+SumTotals(os) -> FoldTotals(os, 0)
+
+private int FoldTotals(list<Order> os, int acc)
+FoldTotals([], acc) -> acc
+FoldTotals([o, ..rest], acc) -> FoldTotals(rest, acc + Amount(o))
+
+private int Amount(Order o)
+Amount(o) -> o.Total
+
+// --- same shape, int kind and range (F24 / F37) at a private function
+public int SumWeights(list<Octet> xs)
+SumWeights(xs) -> FoldWeights(xs, 0)
+
+private int FoldWeights(list<Octet> xs, int acc)
+FoldWeights([], acc) -> acc
+FoldWeights([x, ..rest], acc) -> FoldWeights(rest, acc + Weight(x))
+
+private int Weight(Octet o)
+Weight(>= 9) -> 2
+Weight(<= 8) -> 1
+
+// --- exported control: the guard is on the function the caller reaches
+public int WeightPub(Octet o)
+WeightPub(>= 9) -> 2
+WeightPub(<= 8) -> 1
+
+// --- a private function reached through a library walker, not a B# call site
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Twice/1)
+
+private int Twice(int n)
+Twice(n) -> n * 2

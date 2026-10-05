@@ -1,0 +1,7 @@
+.bs files:                    161
+signature lines (pub|priv):   362
+clause-head lines  Name(..)->: 604
+qualified calls   Mod.Fn(:    30
+lexer rules that key on case: 150:{UPPER}{ALNUM}*         : {token, {uident, TokenLoc, list_to_atom(TokenChars)}}. 153:{LOWER}{ALNUM}*         : {token, {lident, TokenLoc, list_to_atom(TokenChars)}}. 
+grammar productions using uident for a function: 50 lines mention uident in bs_parser.yrl
+bs_otp.erl callback table rows (B# name -> OTP snake name): 30

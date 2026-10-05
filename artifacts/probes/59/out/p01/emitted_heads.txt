@@ -1,0 +1,12 @@
+'OuterRec'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    'InnerRec'(O).
+                   'Kind' := 'Scope.Order',
+--
+'InnerRec'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    map_get('Total', O).
+'OuterInt'(N) when is_integer(N) ->
+    'InnerInt'(N).
+'InnerInt'(N) when N >= 0 ->
+    N;
+'InnerInt'(_N) ->
+    0.

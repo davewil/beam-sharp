@@ -1,0 +1,15 @@
+pattern -5                         ACCEPTED
+pattern - 5 (space)                error: Syntax error Found `-`, expected one of:  
+pattern -(5)                       error: Syntax error Found `-`, expected one of:  
+pattern --5                        error: Syntax error Found `-`, expected one of:  
+pattern 2 - 3                      error: Syntax error Found `-`, expected one of:  
+guard n >= -5                      ACCEPTED
+guard n >= - 5 (space)             error: Syntax error 
+guard n >= 2 + 3                   ACCEPTED
+guard n == -m                      error: Syntax error 
+const c = -5                       ACCEPTED
+const c = -(5)                     error: Syntax error 
+const c = - -5                     error: Syntax error 
+const c = 2 + 3                    error: Syntax error Found `+`, expected one of:  
+expression -x                      ACCEPTED
+expression - -5                    ACCEPTED

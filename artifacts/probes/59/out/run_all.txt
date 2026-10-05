@@ -1,0 +1,590 @@
+
+################ build
+built base: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/base/compiler/_build/default/bin/bsc
+built a: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/a/compiler/_build/default/bin/bsc
+built b: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/b/compiler/_build/default/bin/bsc
+built c: /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w59/work/c/compiler/_build/default/bin/bsc
+(exit 0)
+
+################ p01 reproduce
+## source lines read (bs_emit.erl):
+   275	guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+   276	    case record_tag(TypeExpr, Ctx) of
+   277	        {ok, Tag} ->
+   278	            case constrains_kind(Pat) of
+   279	                true  -> {Pat, []};
+   280	                false ->
+   281	                    {Var, Pat1} = ensure_var(Pat, I, Line),
+   282	                    {Pat1, [tag_test(Var, Tag, Line)]}
+   283	            end;
+   284	        none when Public ->
+   285	            case kind_only(TypeExpr, Ctx) of
+   286	                float -> float_guard(Pat, I, Line);
+   287	                _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+   288	            end;
+   289	        none ->
+   290	            {Pat, []}
+   291	    end.
+   292	
+   293	%% A public `float` parameter is tested with `is_float/1`, so an `int` from
+'OuterRec'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    'InnerRec'(O).
+                   'Kind' := 'Scope.Order',
+--
+'InnerRec'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    map_get('Total', O).
+'OuterInt'(N) when is_integer(N) ->
+    'InnerInt'(N).
+'InnerInt'(N) when N >= 0 ->
+    N;
+'InnerInt'(_N) ->
+    0.
+CODE_CHUNK_BYTES 164
+== 'OuterRec'/1
+   {line,1}
+   {label,3}
+   {func_info,{atom,'Scope'},{atom,'OuterRec'},1}
+   {label,4}
+   {bif,map_get,{f,3},[{atom,'Kind'},{x,0}],{x,1}}
+   {test,is_eq_exact,{f,3},[{x,1},{atom,'Scope.Order'}]}
+   {call_only,1,{'Scope','InnerRec',1}}
+== 'InnerRec'/1
+   {line,2}
+   {label,5}
+   {func_info,{atom,'Scope'},{atom,'InnerRec'},1}
+   {label,6}
+   {bif,map_get,{f,5},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+   {test,is_eq_exact,{f,5},[{x,1},{atom,'Scope.Order'}]}
+   {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+   return
+== 'OuterInt'/1
+   {line,3}
+   {label,7}
+   {func_info,{atom,'Scope'},{atom,'OuterInt'},1}
+   {label,8}
+   {test,is_integer,{f,7},[{x,0}]}
+   {call_only,1,{'Scope','InnerInt',1}}
+== 'InnerInt'/1
+   {line,4}
+   {label,9}
+   {func_info,{atom,'Scope'},{atom,'InnerInt'},1}
+   {label,10}
+   {test,is_ge,{f,11},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+   return
+   {label,11}
+   {move,{integer,0},{x,0}}
+   return
+## assertions
+PASS  emitted private InnerRec has the tag test
+PASS  beam private InnerRec has Kind test
+PASS  emitted private InnerInt has NO is_integer
+PASS  emitted exported OuterInt has is_integer
+PASS  source line 284 reads 'none when Public' (int kind exported-only)
+PASS  source line 276-277: tag branch has no Public condition
+p01 FAILS=0
+(exit 0)
+
+################ p02 forged values (base/a/b/c)
+=============== variant base
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {ok,3}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {ok,3}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {ok,3}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {ok,[2,3.0]}
+=============== variant a
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {ok,14}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,{badkey,'Total'},{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {ok,3}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {ok,3}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {ok,3}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {ok,[2,3.0]}
+=============== variant b
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {error,error,function_clause,{'Deep','Twice',1}}
+=============== variant c
+C1 control   Top(valid Order)
+      => {ok,5}
+C2 forged    Top(Invoice-as-Order)  [top-level param -> private Amount]
+      => {error,error,function_clause,{'Deep','Top',1}}
+C3 control   SumTotals([Order 5, Order 7])
+      => {ok,12}
+C4 forged    SumTotals([Order 5, Invoice 9])  [element one projection down]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C5 forged    SumTotals([Order 5, #{} ])  [empty map, no Total]
+      => {error,error,function_clause,{'Deep','Amount',1}}
+C6 control   SumWeights([1, 100])
+      => {ok,3}
+C7 forged    SumWeights([1, 100.5])  [float element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C8 forged    SumWeights([1, 300])  [out-of-range int element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C9 forged    SumWeights([1, foo])  [atom element]
+      => {error,error,function_clause,{'Deep','Weight',1}}
+C10 forged   WeightPub(100.5)  [exported control]
+      => {error,error,function_clause,{'Deep','WeightPub',1}}
+C11 control  Doubled([1, 2])
+      => {ok,[2,4]}
+C12 forged   Doubled([1, 1.5])  [float element, private fun handed to List.Map]
+      => {error,error,function_clause,{'Deep','Twice',1}}
+## assertions
+PASS  T1 base: forged Order at Top is refused BY Top (exported tag test)
+PASS  T2 base: forged element refused BY private Amount
+PASS  T3a base: float element returns silently
+PASS  T3b base: out-of-range int element returns silently
+PASS  a: forged element is NOT refused (silent {ok,14})
+PASS  b: forged element refused by Amount
+PASS  c: forged element refused by Amount (test kept: caller is one projection down)
+PASS  b: float element refused by private Weight
+PASS  c: float element refused by private Weight
+PASS  base: C12 float through List.Map reaches private Twice silently ([2,3.0])
+PASS  a:    C12 silent
+PASS  b:    C12 refused by private Twice
+PASS  c:    C12 refused by private Twice
+p02 FAILS=0
+(exit 0)
+
+################ p03 erlc elision + entry label
+OTP 28
+---- ex_f
+{function, ex_f, 1, 2}.
+  {label,1}.
+    {line,[{location,"src/elide.erl",7}]}.
+    {func_info,{atom,elide},{atom,ex_f},1}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+---- lo_f
+{function, lo_f, 1, 6}.
+  {label,5}.
+    {line,[{location,"src/elide.erl",11}]}.
+    {func_info,{atom,elide},{atom,lo_f},1}.
+  {label,6}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+---- un_f
+{function, un_f, 1, 10}.
+  {label,9}.
+    {line,[{location,"src/elide.erl",15}]}.
+    {func_info,{atom,elide},{atom,un_f},1}.
+  {label,10}.
+    {test,is_integer,{f,9},[{x,0}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+---- tag_f
+{function, tag_f, 1, 14}.
+  {label,13}.
+    {line,[{location,"src/elide.erl",19}]}.
+    {func_info,{atom,elide},{atom,tag_f},1}.
+  {label,14}.
+    {'%',{var_info,{x,0},[{type,{t_map,any,any}}]}}.
+    {bif,map_get,{f,13},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}.
+    {test,is_eq_exact,{f,13},[{x,1},{atom,'Order'}]}.
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+    return.
+
+
+## assertions (erlc)
+PASS  a  exported callee keeps is_integer (called locally, proven)
+PASS  b  private callee, proven caller: is_integer elided
+PASS  c  private callee, unproven caller: is_integer kept
+PASS  d  private callee, proven caller: record tag test KEPT (not elided)
+## BEAM entry label: the local call from ex_caller targets the label that carries ex_f's guard
+{function, ex_caller, 1, 4}.
+  {label,3}.
+    {line,[{location,"src/elide.erl",8}]}.
+    {func_info,{atom,elide},{atom,ex_caller},1}.
+  {label,4}.
+    {test,is_integer,{f,3},[{x,0}]}.
+    {call_only,1,{f,2}}. % ex_f/1
+
+
+call_only target label=2  ex_f entry label (after func_info)=2
+PASS  local call lands on the label whose first instruction is the guard
+## bsc, option b emits is_integer on private InnerInt; does erlc drop it?
+PASS  option b emits is_integer on private InnerInt in the Erlang forms
+PASS  option b: erlc drops it from the beam (caller OuterInt proved it)
+PASS  option b: tag test stays in the beam
+p03 FAILS=0
+(exit 0)
+
+################ p05 bytes per guard
+case   base_code   a_code   b_code   c_code | tag(base-a) kind(b-base)
+Rec1        128      116      128      128 |     12      0
+Rec3        128      116      128      128 |     12      0
+Rec8        128      116      128      128 |     12      0
+IntP        116      116      121      121 |      0      5
+Fltp        112      112      115      115 |      0      3
+Octt        128      128      140      140 |      0     12
+## whole .beam file bytes (compressed chunks), base / a / b
+Rec1   base=1280 a=1212 b=1276
+Rec3   base=1308 a=1240 b=1304
+Rec8   base=1364 a=1296 b=1360
+IntP   base=1092 a=1088 b=1132
+Fltp   base=1056 a=1052 b=1088
+Octt   base=1144 a=1140 b=1248
+tag deltas 1/3/8 fields: 12 12 12   int delta: 5
+PASS  tag delta flat in field count
+PASS  tag delta near ticket's +14 (12)
+PASS  int delta within ticket's +3..5 (5)
+p05 FAILS=0
+(exit 0)
+
+################ p06 microbenchmark
+BenchBase (base) code=278 file=2032
+BenchBase2 (base) code=278 file=2040
+BenchA (a) code=266 file=1944
+BenchB (b) code=306 file=2196
+BenchC (c) code=306 file=2196
+machine: 4 cpus,  Intel(R) Xeon(R) Processor @ 2.80GHz; loadavg at start: 16.36 23.25 18.11 (shared host: other jobs may run)
+OTP 28 erts 16.4
+jit: jit
+REPS=9 CALLS=20000 LEN=1000  => 20000000 element visits per rep per variant
+
+'SumTotals'  (ns per element, 9 reps after 1 warm-up, 20000 calls x 1000 elements)
+  Base     min=15.4907  median=18.4334  max=23.4875   raw=18.433 19.802 19.275 15.714 21.624 23.487 15.491 16.086 16.409
+  Base2    min=13.7818  median=16.5591  max=19.2776   raw=18.966 13.812 13.782 16.171 19.278 16.142 18.920 17.633 16.559
+  A        min=8.3675  median=10.0040  max=11.8338   raw=9.074 8.367 10.004 11.687 8.444 9.416 10.249 11.349 11.834
+  B        min=14.2257  median=15.3818  max=19.5831   raw=14.998 15.382 18.686 16.058 15.013 14.226 17.291 14.915 19.583
+  C        min=13.8446  median=15.8346  max=19.1190   raw=17.379 14.085 15.344 16.450 19.119 16.010 15.835 13.845 14.195
+
+'SumWeights'  (ns per element, 9 reps after 1 warm-up, 20000 calls x 1000 elements)
+  Base     min=6.8217  median=8.2391  max=10.1108   raw=8.837 8.431 9.822 8.239 7.682 6.822 7.942 10.111 7.288
+  Base2    min=6.4582  median=8.2031  max=11.8371   raw=7.246 8.849 11.837 7.262 8.922 6.695 8.203 9.186 6.458
+  A        min=6.0868  median=7.1302  max=10.1451   raw=7.026 7.130 8.279 6.093 8.890 10.145 6.531 6.087 7.445
+  B        min=7.3277  median=8.3976  max=14.0060   raw=7.511 8.814 8.398 8.082 12.929 7.328 11.949 14.006 7.743
+  C        min=7.2878  median=9.0451  max=13.9743   raw=11.916 8.427 9.045 7.996 7.883 7.288 13.974 9.288 9.098
+(exit 0)
+
+################ p07 Elixir def/defp
+
+Elixir 1.19.5 (compiled with Erlang/OTP 26)
+CODE_CHUNK_BYTES 567
+== only_proven/1
+   {line,1}
+   {label,10}
+   {func_info,{atom,'Elixir.Scope'},{atom,only_proven},1}
+   {label,11}
+   {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+   return
+== priv_int/1
+   {line,2}
+   {label,12}
+   {func_info,{atom,'Elixir.Scope'},{atom,priv_int},1}
+   {label,13}
+   {test,is_integer,{f,12},[{x,0}]}
+   {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+   return
+== priv_rec/1
+   {line,3}
+   {label,14}
+   {func_info,{atom,'Elixir.Scope'},{atom,priv_rec},1}
+   {label,15}
+   {test,is_map,{f,14},[{x,0}]}
+   {get_map_elements,{f,14},
+                     {tr,{x,0},{t_map,any,any}},
+                     {list,[{atom,'__struct__'},{x,1}]}}
+   {test,is_eq_exact,{f,14},[{x,1},{atom,'Elixir.Scope.Order'}]}
+   {get_map_elements,{f,16},
+                     {tr,{x,0},{t_map,any,any}},
+                     {list,[{atom,total},{x,1}]}}
+   {move,{x,1},{x,0}}
+   return
+   {label,16}
+   {allocate,0,1}
+   {move,{atom,total},{x,1}}
+   {call_ext,2,{extfunc,elixir_erl_pass,no_parens_remote,2}}
+   {test,is_tuple,{f,19},[{x,0}]}
+   {test,test_arity,{f,19},[{x,0},2]}
+   {get_tuple_element,{x,0},0,{x,1}}
+   {get_tuple_element,{x,0},1,{x,2}}
+   {select_val,{x,1},{f,19},{list,[{atom,error},{f,18},{atom,ok},{f,17}]}}
+   {label,17}
+   {move,{x,2},{x,0}}
+   {deallocate,0}
+   return
+   {label,18}
+   {move,{x,2},{x,0}}
+   {call_ext_last,1,{extfunc,erlang,error,1},0}
+   {label,19}
+   {case_end,{x,0}}
+== pub_int/1
+   {line,4}
+   {label,20}
+   {func_info,{atom,'Elixir.Scope'},{atom,pub_int},1}
+   {label,21}
+   {test,is_integer,{f,20},[{x,0}]}
+   {gc_bif,'*',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,2}],{x,0}}
+   return
+== pub_rec/1
+   {line,5}
+   {label,22}
+   {func_info,{atom,'Elixir.Scope'},{atom,pub_rec},1}
+   {label,23}
+   {test,is_map,{f,22},[{x,0}]}
+   {get_map_elements,{f,22},
+                     {tr,{x,0},{t_map,any,any}},
+                     {list,[{atom,'__struct__'},{x,1}]}}
+   {test,is_eq_exact,{f,22},[{x,1},{atom,'Elixir.Scope.Order'}]}
+   {get_map_elements,{f,24},
+                     {tr,{x,0},{t_map,any,any}},
+                     {list,[{atom,total},{x,1}]}}
+   {move,{x,1},{x,0}}
+   return
+   {label,24}
+   {allocate,0,1}
+   {move,{atom,total},{x,1}}
+   {call_ext,2,{extfunc,elixir_erl_pass,no_parens_remote,2}}
+   {test,is_tuple,{f,27},[{x,0}]}
+   {test,test_arity,{f,27},[{x,0},2]}
+   {get_tuple_element,{x,0},0,{x,1}}
+   {get_tuple_element,{x,0},1,{x,2}}
+   {select_val,{x,1},{f,27},{list,[{atom,error},{f,26},{atom,ok},{f,25}]}}
+   {label,25}
+   {move,{x,2},{x,0}}
+   {deallocate,0}
+   return
+   {label,26}
+   {move,{x,2},{x,0}}
+   {call_ext_last,1,{extfunc,erlang,error,1},0}
+   {label,27}
+   {case_end,{x,0}}
+== run_proven/1
+   {line,8}
+   {label,32}
+   {func_info,{atom,'Elixir.Scope'},{atom,run_proven},1}
+   {label,33}
+   {test,is_integer,{f,32},[{x,0}]}
+   {call_only,1,{'Elixir.Scope',priv_int,1}}
+PASS  def pub_rec keeps the struct tag test
+PASS  defp priv_rec keeps the struct tag test
+PASS  def pub_int keeps is_integer
+PASS  defp priv_int keeps is_integer: it is ALSO captured as &priv_int/1 in run/1
+PASS  (non-vacuous) only_proven slice holds the function body
+PASS  defp only_proven (sole caller proves integer, no capture): is_integer elided by erlc
+p07 FAILS=0
+(exit 0)
+
+################ p08 Gleam pub/private
+gleam 1.18.1
+  Resolving versions
+  Compiling scope
+   Compiled in 1.01s
+-module(scope).
+-export([pub_amount/1, pub_double/1, total_of/1, use_double/1, doc_total/1]).
+-export_type([order/0, doc/0]).
+-type order() :: {order, integer(), integer()}.
+-type doc() :: {invoice, integer(), integer()} | {receipt, integer(), integer()}.
+-file("src/scope.gleam", 10).
+-spec pub_amount(order()) -> integer().
+pub_amount(O) ->
+    erlang:element(3, O).
+-file("src/scope.gleam", 14).
+-spec priv_amount(order()) -> integer().
+priv_amount(O) ->
+    erlang:element(3, O).
+-file("src/scope.gleam", 18).
+-spec pub_double(integer()) -> integer().
+pub_double(N) ->
+    N * 2.
+-file("src/scope.gleam", 22).
+-spec priv_double(integer()) -> integer().
+priv_double(N) ->
+    N * 2.
+-file("src/scope.gleam", 30).
+-spec sum(list(order()), integer()) -> integer().
+sum(Xs, Acc) ->
+    case Xs of
+        [] ->
+            Acc;
+        [X | Rest] ->
+            sum(Rest, Acc + priv_amount(X))
+    end.
+-file("src/scope.gleam", 26).
+-spec total_of(list(order())) -> integer().
+total_of(Xs) ->
+    sum(Xs, 0).
+-file("src/scope.gleam", 37).
+-spec use_double(integer()) -> integer().
+use_double(N) ->
+    priv_double(N).
+-file("src/scope.gleam", 42).
+-spec priv_doc(doc()) -> integer().
+priv_doc(D) ->
+    case D of
+        {invoice, _, T} ->
+            T;
+        {receipt, _, T@1} ->
+            T@1
+    end.
+-file("src/scope.gleam", 49).
+-spec doc_total(doc()) -> integer().
+doc_total(D) ->
+    priv_doc(D).
+pub_amount(#{total=>5})        => {error,badarg,
+                                   {erlang,element,
+                                    [3,#{total => 5}],
+                                    [{error_info,
+                                      #{module => erl_erts_errors}}]}}
+pub_amount(not_a_record)       => {error,badarg,
+                                   {erlang,element,
+                                    [3,not_a_record],
+                                    [{error_info,
+                                      #{module => erl_erts_errors}}]}}
+pub_double(1.5)                => {ok,3.0}
+use_double(1.5) [-> private]   => {ok,3.0}
+total_of([{order,1,2},{wrong,9,9}]) => {ok,11}
+doc_total({bogus,1,2}) [priv_doc] => {error,
+                                      {case_clause,{bogus,1,2}},
+                                      {scope,doc_total,1,
+                                       [{file,"src/scope.gleam"},{line,45}]}}
+PASS  no is_integer/is_float guard in any generated Gleam function
+PASS  pub_amount applies no check of its own: a non-record dies only in the body's BIF (badarg from erlang:element/2)
+PASS  forged 3-tuple {wrong,9,9} is accepted silently through private priv_amount (total_of => {ok,11})
+PASS  float accepted silently by pub_double AND via private
+PASS  pub_double(1.5) also silent (no scope difference: nothing is checked at either)
+p08 FAILS=0
+(exit 0)
+
+################ p09 Elm (expected: cannot run)
+0.19.0
+-- HTTP PROBLEM ----------------------------------------------------------------
+
+The following HTTP request failed:
+
+    <https://package.elm-lang.org/all-packages>
+
+Here is the error message I was able to extract:
+
+    HttpExceptionRequest Request { host = "package.elm-lang.org" port = 443
+    secure = True requestHeaders =
+    [("User-Agent","elm/0.19.0"),("Accept-Encoding","gzip")] path =
+    "/all-packages" queryString = "" method = "GET" proxy = Nothing rawBody =
+    False redirectCount = 10 responseTimeout = ResponseTimeoutDefault
+    requestVersion = HTTP/1.1 } (ProxyConnectException "package.elm-lang.org"
+    443 (Status {statusCode = 403, statusMessage = "Forbidden"}))
+
+exit=1
+RESULT: Elm could not run here (package download blocked). Survey item is NOT first-hand.
+(exit 0)
+
+################ p10 corpus census
+modules: 27
+exemplar examples/exemplars/25a-http-api-server/: error: this directory holds `.bs` files and no `module` line
+exemplar examples/exemplars/25b-websocket-handler/: examples/exemplars/25b-websocket-handler/handle_info.bs:12:17: error: syntax error before: ','
+exemplar examples/exemplars/25c-event-queue-consumer/: examples/exemplars/25c-event-queue-consumer/encode.bs:13:19: error: syntax error before: '<<'
+exemplar examples/exemplars/25d-database-querying/: error: this directory holds `.bs` files and no `module` line
+exemplar examples/exemplars/25e-dynamic-web-page/: examples/exemplars/25e-dynamic-web-page/index.bs:10:1: error: `module Shop.Page` does not match its directory
+exemplar examples/exemplars/25f-llm-evaluation-client/: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory
+exemplar examples/exemplars/25g-jev-server/: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory
+variant base: compiled 27/27 modules
+base  distinct modules: 27
+base  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=0 pub_flt=4 priv_flt=0 priv_fns_tested=0
+base  total Code-chunk bytes over all beams: 8004
+variant a: compiled 27/27 modules
+a  distinct modules: 27
+a  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=0 pub_flt=4 priv_flt=0 priv_fns_tested=0
+a  total Code-chunk bytes over all beams: 8004
+variant b: compiled 27/27 modules
+b  distinct modules: 27
+b  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=9 pub_flt=4 priv_flt=0 priv_fns_tested=7
+b  total Code-chunk bytes over all beams: 8013
+variant c: compiled 27/27 modules
+c  distinct modules: 27
+c  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=9 pub_flt=4 priv_flt=0 priv_fns_tested=7
+c  total Code-chunk bytes over all beams: 8013
+## modules whose private-function guard count differs from base (priv_tag/priv_int/priv_flt per module)
+-- a vs base
+-- b vs base
+Foreign.abstr 1 0 0 0 0 1 0 2 0 1
+Pipeline.abstr 5 0 0 0 0 5 0 3 0 3
+Shop.Collections.Ints.abstr 1 0 0 0 0 1 0 2 0 1
+Shop.Pricing.abstr 3 0 0 0 0 3 0 2 0 2
+TOTAL 24 0 0 0 0 24 0 9 0 7
+-- c vs base
+Foreign.abstr 1 0 0 0 0 1 0 2 0 1
+Pipeline.abstr 5 0 0 0 0 5 0 3 0 3
+Shop.Collections.Ints.abstr 1 0 0 0 0 1 0 2 0 1
+Shop.Pricing.abstr 3 0 0 0 0 3 0 2 0 2
+TOTAL 24 0 0 0 0 24 0 9 0 7
+p10 done
+(exit 0)
+
+################ p10b exemplar source census
+25a-http-api-server              pub_fns=3 priv_fns=6 priv_with_rec=0 priv_with_int=0 priv_with_flt=0 priv_with_any=0
+25b-websocket-handler            pub_fns=3 priv_fns=2 priv_with_rec=0 priv_with_int=1 priv_with_flt=0 priv_with_any=1
+25c-event-queue-consumer         pub_fns=5 priv_fns=4 priv_with_rec=0 priv_with_int=1 priv_with_flt=0 priv_with_any=1
+25d-database-querying            pub_fns=6 priv_fns=11 priv_with_rec=3 priv_with_int=0 priv_with_flt=0 priv_with_any=3
+25e-dynamic-web-page             pub_fns=3 priv_fns=9 priv_with_rec=1 priv_with_int=2 priv_with_flt=0 priv_with_any=3
+25f-llm-evaluation-client        pub_fns=5 priv_fns=25 priv_with_rec=2 priv_with_int=0 priv_with_flt=0 priv_with_any=2
+25g-jev-server                   pub_fns=5 priv_fns=7 priv_with_rec=2 priv_with_int=0 priv_with_flt=0 priv_with_any=2
+TOTAL                            pub_fns=30 priv_fns=64 priv_with_rec=8 priv_with_int=4 priv_with_flt=0 priv_with_any=12
+(exit 0)
+
+################ p11 repo test suite under each option

@@ -1,0 +1,7 @@
+module Rec3
+record R { A: int, B: int, C: int }
+public int Entry(list<R> xs)
+Entry([x, ..r]) -> Get(x)
+Entry([]) -> 0
+private int Get(R r)
+Get(r) -> r.A

@@ -1,0 +1,6 @@
+module Shop.Billing
+
+using Shop.Orders
+
+public int Bill(list<int> xs)
+Bill(xs) -> RecomputeTotal(xs)

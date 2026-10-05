@@ -1,0 +1,4 @@
+module R1
+type Dd = int where value >= -10 and value <= 10
+public atom Sign(Dd d)
+Sign(0) -> :zero

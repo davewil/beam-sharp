@@ -1,0 +1,7 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/g1b/m/OptA2/a.bs:8:13: error: Band is not exhaustive
+  no clause matches:
+    Band(<= 5) -> ...
+/home/user/beam-sharp/artifacts/probes/57/out/cases/g1b/m/OptA2/a.bs:14:11: error: Back hands Step an argument it does not accept
+  argument 1 is not covered by Step's declared type:
+    0
+[exit 1]
