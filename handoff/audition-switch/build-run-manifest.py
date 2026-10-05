@@ -41,7 +41,9 @@ whose `machine-record:` line names a `run.json` and a task index; the lane's own
 LAST attempt, and attempt 1 is the clean-room measurement, so that score is read
 from the lane's `worker.log`, where the retry prompt quotes attempt 1's check
 output between `attempt 1 exited` and `Fix it`. A lane with one attempt has no
-retry prompt and its record is the clean-room score.
+retry prompt and its record is the clean-room score. The log also holds the
+worker's own output, so a log quoting two different scores is reported as
+conflicting and neither is chosen.
 """
 
 from __future__ import annotations
@@ -95,8 +97,13 @@ def first_attempt(lane: Path, task) -> str:
     log = lane / "worker.log"
     if not log.is_file():
         return "no `worker.log` archived"
-    retry = RETRY.search(log.read_text(errors="replace"))
-    return score(retry.group(1)) if retry else "not in `worker.log`"
+    # The worker's own output is in this file too, so a worker can print a
+    # retry prompt of its own. The real one is always there beside it, and two
+    # different scores are reported as a conflict, never resolved by position.
+    quoted = {score(q) for q in RETRY.findall(log.read_text(errors="replace"))}
+    if not quoted:
+        return "not in `worker.log`"
+    return quoted.pop() if len(quoted) == 1 else "conflicting in `worker.log`"
 
 
 def summary(round_dir: Path) -> str:
@@ -132,7 +139,10 @@ def summary(round_dir: Path) -> str:
         "",
         "**Attempt 1 is the clean-room score.** The final score is what the orchestrator",
         "recorded, after any retry. A lane whose `attempts` is 2 was retried with",
-        "attempt 1's check output in its prompt.",
+        "attempt 1's check output in its prompt. That prompt is quoted in the lane's",
+        "`worker.log`, which is where the attempt 1 column is read from. The worker's",
+        "own output is in that log as well, so the column is the log's word and not",
+        "the orchestrator's: two different quoted scores are shown as conflicting.",
         "",
         "| lane | model | attempt 1 | final | attempts | tokens | elapsed | machine record |",
         "|---|---|---|---|---|---|---|---|",
@@ -142,6 +152,9 @@ def summary(round_dir: Path) -> str:
 
 
 def summaries(evidence: Path, check: bool) -> int:
+    # Resolved once, so a summary reads the same through a symlinked harness
+    # and names no path outside its round.
+    evidence = evidence.resolve()
     stale = []
     for round_dir in sorted(evidence.glob("2026-*")):
         if not round_dir.is_dir():
