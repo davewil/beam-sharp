@@ -7,4 +7,6 @@ base          decls=1003 check=error parse: 557687 reductions 7.9 ms | check: 33
 grammar       decls=1003 check=ok parse: 556356 reductions 4.1 ms | check: 417608 reductions 3.9 ms
 checker_full  decls=1003 check=ok parse: 555452 reductions 4.9 ms | check: 423054 reductions 4.0 ms
 === lit.bs (1004 lines)
-base          
+base          decls=1003 check=ok parse: 387663 reductions 5.8 ms | check: 4843371 reductions 21.3 ms
+grammar       decls=1003 check=ok parse: 388057 reductions 3.6 ms | check: 4581074 reductions 26.3 ms
+checker_full  decls=1003 check=ok parse: 392619 reductions 6.7 ms | check: 4666328 reductions 24.1 ms

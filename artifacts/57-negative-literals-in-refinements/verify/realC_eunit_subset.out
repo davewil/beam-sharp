@@ -1,0 +1,9 @@
+boundary_range_tests       try1   All 10 tests passed.
+division_tests             try1   All 10 tests passed.
+intervals_tests            try3   Failed: 1.  Skipped: 0.  Passed: 34.
+negation_tests             try1   All 7 tests passed.
+heads_tests                try1   All 12 tests passed.
+boundary_kind_tests        try1   All 6 tests passed.
+guard_kind_tests           try1   All 7 tests passed.
+type_prefix_tests          try1   All 21 tests passed.
+corpus_tests               try1   All 11 tests passed.

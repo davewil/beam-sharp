@@ -1,0 +1,130 @@
+=== abstract code of Elixir.Probe (guards the compiler produced, def vs defp) ===
+'__info__'(module) ->
+    'Elixir.Probe';
+'__info__'(functions) ->
+    [{field_int, 1},
+     {nested, 1},
+     {pub_bare, 1},
+     {pub_guard, 1},
+     {pub_int, 1},
+     {pub_pat, 1},
+     {via_bare, 1},
+     {via_pat, 1}];
+'__info__'(macros) ->
+    [];
+'__info__'(struct) ->
+    nil;
+'__info__'(exports_md5) ->
+    <<"À·\025£ºÙwf$¸-ùÏÖ¸C">>;
+'__info__'(Key = attributes) ->
+    erlang:get_module_info('Elixir.Probe', Key);
+'__info__'(Key = compile) ->
+    erlang:get_module_info('Elixir.Probe', Key);
+'__info__'(Key = md5) ->
+    erlang:get_module_info('Elixir.Probe', Key);
+'__info__'(deprecated) ->
+    [].
+
+field_int(#{qty := _q@1}) ->
+    priv_int(_q@1).
+
+nested(#{item := _item@1}) ->
+    priv_pat(_item@1).
+
+priv_bare(_o@1) ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+priv_int(_n@1) ->
+    _n@1 * 2.
+
+priv_pat(#{'__struct__' := 'Elixir.Order'} = _o@1) ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+pub_bare(_o@1) ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+pub_guard(_o@1)
+    when
+        ((is_map(_o@1)
+          andalso
+          (is_atom('Elixir.Order')
+           orelse
+           fail))
+         andalso
+         is_map_key('__struct__', _o@1))
+        andalso
+        map_get('__struct__', _o@1) == 'Elixir.Order' ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+pub_int(_n@1) when is_integer(_n@1) ->
+    priv_int(_n@1).
+
+pub_pat(#{'__struct__' := 'Elixir.Order'} = _o@1) ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+via_bare(_o@1) ->
+    priv_bare(_o@1).
+
+via_pat(_o@1) ->
+    priv_pat(_o@1).
+
+=== exports (defp is simply not exported; nothing else differs) ===
+[{'__info__',1},
+ {field_int,1},
+ {module_info,0},
+ {module_info,1},
+ {nested,1},
+ {pub_bare,1},
+ {pub_guard,1},
+ {pub_int,1},
+ {pub_pat,1},
+ {via_bare,1},
+ {via_pat,1}]
+=== runtime: struct patterns check only __struct__; @enforce_keys is construction-time only ===
+pub_pat good: 7
+pub_bare(%{total: 1})  (no check at all): {:ok, 1}
+pub_pat(%{total: 1})   (head pattern refuses): {:error, FunctionClauseError}
+via_pat(%{total: 1})   (def->defp: defp's own pattern refuses): {:error, FunctionClauseError}
+via_bare(%{total: 1})  (def->defp bare: nothing refuses): {:ok, 1}
+nested(%{item: %{total: 1}}) (defp pattern is the only check): {:error, FunctionClauseError}
+pub_pat(%Order{id: 1}) via struct/2? bypass @enforce_keys:: {:ok, nil}
+pub_pat(%{__struct__: Order, total: 9}) forged map accepted: {:ok, 9}
+pub_int(1.5): {:error, FunctionClauseError}
+field_int(%{qty: 1.5}) -> defp priv_int: {:ok, 3.0}
+=== @enforce_keys at the literal: a compile-time check on the %Order{} construction expression only ===
+literal %Order{id: 1}: ArgumentError: the following keys must also be given when building struct Order: [:total]

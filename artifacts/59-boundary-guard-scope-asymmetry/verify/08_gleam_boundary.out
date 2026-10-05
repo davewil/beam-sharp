@@ -1,0 +1,55 @@
+  Resolving versions
+  Compiling gp
+   Compiled in 0.50s
+=== generated Erlang (the whole module body) ===
+-module(gp).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+-define(FILEPATH, "src/gp.gleam").
+-export([direct/1, nested/1, field/1, is_big/1, make/1, unwrap/1, add/2]).
+-export_type([order/0, token/0, cart/0]).
+-type order() :: {order, integer(), integer()}.
+-opaque token() :: {token, integer()}.
+-type cart() :: {cart, order(), integer()}.
+-spec inner(order()) -> integer().
+inner(O) ->
+    erlang:element(3, O).
+-spec scale(integer()) -> integer().
+scale(N) ->
+    N * 2.
+-spec big(integer()) -> boolean().
+big(N) ->
+    N >= 100.
+-spec direct(order()) -> integer().
+direct(O) ->
+    inner(O).
+-spec nested(cart()) -> integer().
+nested(C) ->
+    inner(erlang:element(2, C)).
+-spec field(cart()) -> integer().
+field(C) ->
+    scale(erlang:element(3, C)).
+-spec is_big(cart()) -> boolean().
+is_big(C) ->
+    big(erlang:element(3, C)).
+-spec make(integer()) -> token().
+make(N) ->
+    {token, N}.
+-spec unwrap(token()) -> integer().
+unwrap(T) ->
+    erlang:element(2, T).
+-spec add(integer(), integer()) -> integer().
+add(A, B) ->
+    A + B.
+=== guard count (when / is_integer / is_map / map_get) in generated code ===
+0
+=== forged calls from Erlang ===
+direct({order,1,7}) good                 {ok,7}
+direct(#{k=>v}) forged                   {error,badarg,
+                                          {in,erlang,element,[3,#{k => v}]}}
+nested({cart,#{},3}) forged item         {error,badarg,
+                                          {in,erlang,element,[3,#{}]}}
+field({cart,_,1.5}) forged qty           {ok,3.0}
+is_big({cart,_,foo}) forged qty          {ok,true}
+add(1.5,2.5)                             {ok,4.0}
+unwrap(#{}) on an opaque Token           {error,badarg,
+                                          {in,erlang,element,[2,#{}]}}

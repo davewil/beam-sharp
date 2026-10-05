@@ -1,0 +1,658 @@
+################ 26a (record erasure) - size sections ################
+
+===========================================================================================
+PROTOTYPE 26a -- record erasure cost, OTP 28
+===========================================================================================
+erts               : 16.0
+compiler           : 9.0
+compile options    : [{outdir,"/tmp/26a_variants"},
+                      deterministic,return_errors]
+reps per timing    : 2000000
+
+===========================================================================================
+1. Code size on disk -- the number ticket 18 owed
+===========================================================================================
+module         file     Code     AtU8     ImpT   instrs
+rc_nf3_a        544       73       60       40        3
+rc_nf3_b        544       73       60       40        3
+rc_tu3_u        544       73       60       40        3
+rc_tu3_g        544       86       58       28        7
+rc_mp3_u        552       73       66       40        3
+rc_mp3_g        632      102       85       52        8
+rc_mv3_g        648      117       85       52       11
+rc_tg3_g        580       87       81       40        6
+rc_tu8_u        544       73       60       40        3
+rc_tu8_g        544       86       58       28        7
+rc_mp8_u        552       73       66       40        3
+rc_mp8_g        648      107      100       52        8
+rc_tg8_g        580       87       81       40        6
+
+pair                                                       .beam file         Code chunk   instrs
+NOISE FLOOR: two identical unguarded modules               +0 (+0.0%)         +0 (+0.0%)       +0
+3f tuple  discriminator (is_tuple+size+element)            +0 (+0.0%)       +13 (+17.8%)       +4
+3f map    discriminator (shape only, exact set)          +80 (+14.5%)       +29 (+39.7%)       +5
+3f map    discriminator (shape + 2 value tests)          +96 (+17.4%)       +44 (+60.3%)       +8
+3f tagged map discriminator (one map_get)                 +28 (+5.1%)       +14 (+19.2%)       +3
+8f tuple  discriminator (is_tuple+size+element)            +0 (+0.0%)       +13 (+17.8%)       +4
+8f map    discriminator (shape only, exact set)          +96 (+17.4%)       +34 (+46.6%)       +5
+8f tagged map discriminator (one map_get)                 +28 (+5.1%)       +14 (+19.2%)       +3
+
+===========================================================================================
+2. How each discriminator SCALES with field count
+===========================================================================================
+discriminator                      3 fields   8 fields    per field
+tuple (tag + arity)                     +13        +13         +0.0
+map, exact field set                    +29        +34         +1.0
+tagged map (one map_get)                +14        +14         +0.0
+
+Bytes of the Code chunk. 'per field' is the slope between the two widths.
+Ticket 18 emits this guard on EVERY exported function taking a record, and
+unconditionally wherever the value feeds a codegen obligation, so a slope
+that is not flat is a cost the whole language pays.
+
+===========================================================================================
+3. Match and projection time (3-field record)
+===========================================================================================
+The ticket asserts maps are 'slower to match'. Measured, not assumed.
+Three runs; read a difference only if it exceeds the spread WITHIN a row.
+
+variant                                   run 1        run 2        run 3      ns/call
+tuple  element/3, unguarded               18866        28814        19881         9.43
+tuple  element/3, guarded                 20827        20086        73071        10.04
+map    map_get,   unguarded               25130        32609        35190        12.56
+map    map_get,   guarded                 28979        28973        26211        13.11
+map    map_get,   guarded+values          23076        30833        27382        11.54
+tagged map,       guarded                 28435        25638        22937        11.47
+
+Microseconds for the whole loop; ns/call from the fastest of the three.
+
+===========================================================================================
+4. Term-model facts the erasure choice turns on
+===========================================================================================
+--- 4.1 does a map PATTERN match a map with extra keys? ---
+  #{id := _, total := _, status := _} vs a 4-key map : matched
+  => a map pattern is OPEN. Ticket 27 sec7 declined row polymorphism, so a
+     record type is an EXACT field set -- which the pattern alone cannot say.
+  same map, with map_size(X) =:= 3 added               : no_match
+
+--- 4.2 does a TUPLE pattern match a wider tuple? ---
+  {order, _, _} vs {order, 1, 2, 99}                   : no_match
+  => a tuple pattern is CLOSED. Arity is exact for free.
+
+--- 4.3 map_get/2 in a guard, on an ABSENT key ---
+  guard `map_get('__type__', X) =:= order`, key absent : guard_failed_silently
+  same guard, key present and equal                    : matched
+  => it fails the guard rather than raising, so ONE map_get is a complete
+     discriminator for a tagged map: no is_map, no map_size, no is_map_key.
+
+--- 4.4 is field ORDER observable in each erasure? ---
+  #{b => 1, a => 2} =:= #{a => 2, b => 1}             : true
+  {order,1,2}       =:= {order,2,1}                   : false
+  => ticket 09 says a record type IS its field SET. A set has no order, so a
+     tuple erasure must invent a canonical one and put it in the wire format.
+
+--- 4.5 what an Elixir struct looks like coming in (ticket 06) ---
+  an Elixir %Order{} term                             : #{id => 1,total => 2,
+                                                          '__struct__' =>
+                                                              'Elixir.Order'}
+  map_size                                            : 3
+  => it is a map with one extra key. Under a map erasure it arrives as a
+     record with an extra field; under a tuple erasure it needs conversion.
+
+===========================================================================================
+5. json:encode/1 -- ticket 16 sec4's generated encoder
+===========================================================================================
+Ticket 16 established json:encode/1 REFUSES tuples at any depth, and made the
+encoder a codegen obligation. A record is the main thing anyone serialises.
+
+  map    #{id=>1,total=>2,status=>open}    -> <<"{\"id\":1,\"status\":\"open\",\"total\":2}">>
+  tuple  {order,1,2}                       -> {caught,error,unsupported_type}
+  tagged map (__type__ key)                -> <<"{\"id\":1,\"total\":2,\"__type__\":\"order\"}">>
+  nested: map holding a tuple              -> {caught,error,unsupported_type}
+
+################ 18a (guard cost) - size sections ################
+
+===========================================================================================
+PROTOTYPE 18a -- cost of a defensive guard on an exported function
+Erlang/OTP 28 [erts-16.0] [source] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [jit:ns]
+
+OTP release        : 28
+compiler version   : 9.0
+scratch directory  : /tmp/18a_guard_cost
+compile options    : [{outdir,"/tmp/18a_guard_cost"},
+                      deterministic,return_errors]
+
+===========================================================================================
+1. CODE SIZE
+Chunk byte counts are chunk PAYLOAD (beam_lib), excluding the 8-byte chunk
+header and 4-byte padding. Because the paired modules are identical apart
+from the guard, the Code delta is the function's own bytecode delta exactly.
+`instrs` counts symbolic BEAM instructions in the function under test only
+(beam_disasm), which is attributable by construction. ImpT is the imported
+MFA table -- a guard that proves a term's shape lets a CHECKED bif be
+replaced by an UNCHECKED instruction, dropping the import, which shows here.
+
+module       file     Code     AtU8     ImpT   instrs
+------       ----     ----     ----     ----   ------
+v_id_u        516       67       49       28        5
+v_id_g        520       70       49       28        6
+v_id_x        516       67       49       28        5
+v_id_y        516       67       49       28        5
+v_a1_u        536       74       52       40        6
+v_a1_g        540       79       52       40        7
+v_a2_u        536       74       52       40        6
+v_a2_g        544       84       52       40        8
+v_a4_u        552       92       52       40        8
+v_a4_g        576      114       52       40       13
+v_tp_u        544       73       58       40        6
+v_tp_g        540       86       56       28       10
+
+pair                                                             d_file         d_Code  d_AtU8  d_ImpT  d_inst
+id/1  1 guard (body cannot benefit; isolates entry cost)     +4 (+0.8%)     +3 (+4.5%)      +0      +0      +1
+id/1  NOISE FLOOR: two identical unguarded modules           +0 (+0.0%)     +0 (+0.0%)      +0      +0      +0
+add/2 1 guard                                                +4 (+0.7%)     +5 (+6.8%)      +0      +0      +1
+add/2 2 guards                                               +8 (+1.5%)   +10 (+13.5%)      +0      +0      +2
+add/4 4 guards                                              +24 (+4.3%)   +22 (+23.9%)      +0      +0      +5
+amt/1 tuple discriminator (is_tuple+tuple_size+element)      -4 (-0.7%)   +13 (+17.8%)      -2     -12      +4
+
+columns d_file / d_Code are `+N (+P%)`; the rest are absolute bytes,
+except d_inst which counts instructions.
+
+===========================================================================================
+1b. EMITTED ASSEMBLY FOR EACH PAIR
+
+--- id/1  1 guard (body cannot benefit; isolates entry cost) ---
+
+[unguarded v_id_u]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_u.erl",4}]}.
+    {func_info,{atom,v_id_u},{atom,id},1}.
+  {label,2}.
+    return.
+
+
+[guarded   v_id_g]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_g.erl",4}]}.
+    {func_info,{atom,v_id_g},{atom,id},1}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    return.
+
+
+
+--- id/1  NOISE FLOOR: two identical unguarded modules ---
+
+[unguarded v_id_x]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_x.erl",4}]}.
+    {func_info,{atom,v_id_x},{atom,id},1}.
+  {label,2}.
+    return.
+
+
+[guarded   v_id_y]
+{function, id, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_id_y.erl",4}]}.
+    {func_info,{atom,v_id_y},{atom,id},1}.
+  {label,2}.
+    return.
+
+
+
+--- add/2 1 guard ---
+
+[unguarded v_a1_u]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a1_u.erl",4}]}.
+    {func_info,{atom,v_a1_u},{atom,add},2}.
+  {label,2}.
+    {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}.
+    return.
+
+
+[guarded   v_a1_g]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a1_g.erl",4}]}.
+    {func_info,{atom,v_a1_g},{atom,add},2}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {gc_bif,'+',{f,0},2,[{tr,{x,0},{t_integer,any}},{x,1}],{x,0}}.
+    return.
+
+
+
+--- add/2 2 guards ---
+
+[unguarded v_a2_u]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a2_u.erl",4}]}.
+    {func_info,{atom,v_a2_u},{atom,add},2}.
+  {label,2}.
+    {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}.
+    return.
+
+
+[guarded   v_a2_g]
+{function, add, 2, 2}.
+  {label,1}.
+    {line,[{location,"v_a2_g.erl",4}]}.
+    {func_info,{atom,v_a2_g},{atom,add},2}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {test,is_integer,{f,1},[{x,1}]}.
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,1},{t_integer,any}}],
+            {x,0}}.
+    return.
+
+
+
+--- add/4 4 guards ---
+
+[unguarded v_a4_u]
+{function, add, 4, 2}.
+  {label,1}.
+    {line,[{location,"v_a4_u.erl",4}]}.
+    {func_info,{atom,v_a4_u},{atom,add},4}.
+  {label,2}.
+    {gc_bif,'+',{f,0},4,[{x,0},{x,1}],{x,0}}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,0},{t_number,any}},{x,2}],{x,0}}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,0},{t_number,any}},{x,3}],{x,0}}.
+    return.
+
+
+[guarded   v_a4_g]
+{function, add, 4, 2}.
+  {label,1}.
+    {line,[{location,"v_a4_g.erl",4}]}.
+    {func_info,{atom,v_a4_g},{atom,add},4}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {test,is_integer,{f,1},[{x,1}]}.
+    {test,is_integer,{f,1},[{x,2}]}.
+    {test,is_integer,{f,1},[{x,3}]}.
+    {line,[{location,"v_a4_g.erl",5}]}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,1},{t_integer,any}}],
+            {x,0}}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,2},{t_integer,any}}],
+            {x,0}}.
+    {gc_bif,'+',
+            {f,0},
+            4,
+            [{tr,{x,0},{t_integer,any}},{tr,{x,3},{t_integer,any}}],
+            {x,0}}.
+    return.
+
+
+
+--- amt/1 tuple discriminator (is_tuple+tuple_size+element) ---
+
+[unguarded v_tp_u]
+{function, amt, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_tp_u.erl",4}]}.
+    {func_info,{atom,v_tp_u},{atom,amt},1}.
+  {label,2}.
+    {bif,element,{f,0},[{integer,3},{x,0}],{x,0}}.
+    return.
+
+
+[guarded   v_tp_g]
+{function, amt, 1, 2}.
+  {label,1}.
+    {line,[{location,"v_tp_g.erl",4}]}.
+    {func_info,{atom,v_tp_g},{atom,amt},1}.
+  {label,2}.
+    {test,is_tuple,{f,1},[{x,0}]}.
+    {test,test_arity,{f,1},[{x,0},3]}.
+    {get_tuple_element,{x,0},0,{x,1}}.
+    {test,is_eq_exact,{f,1},[{x,1},{atom,order}]}.
+    {get_tuple_element,{x,0},2,{x,0}}.
+    return.
+
+
+
+===========================================================================================
+2. CALL OVERHEAD THROUGH THE EXPORTED ENTRY POINT
+N = 200000000 calls per rep, 6 reps per variant, first rep of each discarded as
+warmup. Variants are interleaved (U,G,U,G,...) so thermal or scheduler drift
+hits both arms equally. Figures are ns/call.
+
+linearity check on d_id_u (unguarded id/1):
+  N =     50000000  elapsed =     616.6 ms   12.332 ns/call
+  N =    100000000  elapsed =    1319.9 ms   13.199 ns/call
+  N =    200000000  elapsed =    2710.1 ms   13.550 ns/call
+  N =    400000000  elapsed =    5328.3 ms   13.321 ns/call
+
+pair (unguarded -> guarded)                      min    median       max
+
+id/1  1 guard (body cannot benefit; isolates entry cost)
+  unguarded d_id_u                            12.060    12.806    13.296
+  guarded   d_id_g                            12.279    12.903    13.668
+  delta (guarded - unguarded)                 +0.219    +0.097
+    as % of unguarded                         +1.81%    +0.76%
+  raw unguarded: 13.296 13.071 12.806 12.060 12.758
+  raw guarded  : 12.802 12.903 13.616 12.279 13.668
+
+
+id/1  NOISE FLOOR: two identical unguarded modules
+  unguarded d_id_x                            11.754    12.460    13.102
+  guarded   d_id_y                            11.807    12.745    12.989
+  delta (guarded - unguarded)                 +0.052    +0.285
+    as % of unguarded                         +0.45%    +2.29%
+  raw unguarded: 12.103 11.754 12.494 13.102 12.460
+  raw guarded  : 11.807 12.745 12.971 12.540 12.989
+
+
+add/2 1 guard
+  unguarded d_a1_u                            12.000    12.419    13.642
+  guarded   d_a1_g                            12.149    12.719    13.821
+  delta (guarded - unguarded)                 +0.149    +0.300
+    as % of unguarded                         +1.24%    +2.42%
+  raw unguarded: 13.642 12.212 12.419 12.000 12.947
+  raw guarded  : 12.300 12.149 12.729 12.719 13.821
+
+
+add/2 2 guards
+  unguarded d_a2_u                            12.577    12.975    13.437
+  guarded   d_a2_g                            12.324    13.316    13.720
+  delta (guarded - unguarded)                 -0.253    +0.341
+    as % of unguarded                         -2.01%    +2.63%
+  raw unguarded: 12.577 13.437 12.975 12.876 13.004
+  raw guarded  : 13.316 12.902 13.646 13.720 12.324
+
+
+add/4 4 guards
+  unguarded d_a4_u                            11.081    11.370    12.317
+  guarded   d_a4_g                            10.636    11.237    11.629
+  delta (guarded - unguarded)                 -0.445    -0.133
+    as % of unguarded                         -4.02%    -1.17%
+  raw unguarded: 11.975 11.370 11.081 11.308 12.317
+  raw guarded  : 11.370 10.636 11.174 11.629 11.237
+
+
+amt/1 tuple discriminator (is_tuple+tuple_size+element)
+  unguarded d_tp_u                            10.344    10.497    10.678
+  guarded   d_tp_g                            10.353    10.715    10.976
+  delta (guarded - unguarded)                 +0.009    +0.218
+    as % of unguarded                         +0.08%    +2.08%
+  raw unguarded: 10.622 10.678 10.428 10.497 10.344
+  raw guarded  : 10.868 10.353 10.715 10.473 10.976
+
+
+===========================================================================================
+3. WHAT HAPPENS WHEN THE DECLARED TYPE IS VIOLATED
+Raw Erlang caller passes a float where the guard declares an integer.
+
+--- 3.1 unguarded  v_a2_u:add(1.0, 3) ---
+returns: 4.0
+
+--- 3.2 guarded    v_a2_g:add(1.0, 3) ---
+caught class  : error
+caught reason : function_clause
+stacktrace    : [{v_a2_g,add,[1.0,3],[{file,"v_a2_g.erl"},{line,4}]},
+                 {'18a_guard_cost',catch_it,1,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,356}]},
+                 {'18a_guard_cost',report_violation,2,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,336}]},
+                 {'18a_guard_cost',section_3_violation,0,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,326}]},
+                 {'18a_guard_cost',go,1,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,75}]},
+                 {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                 {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},
+                 {init,start_it,1,[]}]
+top frame     : {v_a2_g,add,[1.0,3],[{file,"v_a2_g.erl"},{line,4}]}
+offending arg 1.0 present in top frame? {yes,[1.0,3]}
+shell rendering (erl_error:format_exception/3):
+exception error: no function clause matching v_a2_g:add(1.0,3) (v_a2_g.erl:4)
+  in function  '18a_guard_cost':catch_it/1 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:356)
+  in call from '18a_guard_cost':report_violation/2 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:336)
+  in call from '18a_guard_cost':section_3_violation/0 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:326)
+  in call from '18a_guard_cost':go/1 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:75)
+  in call from erl_eval:do_apply/7 (erl_eval.erl:920)
+  in call from erl_eval:exprs/6 (erl_eval.erl:276)
+  in call from init:start_it/1 
+process exit reason (spawn_monitor): {function_clause,
+                                      [{v_a2_g,add,
+                                        [1.0,3],
+                                        [{file,"v_a2_g.erl"},{line,4}]}]}
+
+--- 3.3 unguarded tuple  v_tp_u:amt({customer, 7}) ---
+=ERROR REPORT==== 5-Oct-2026::00:03:08.097797 ===
+Error in process <0.239.0> with exit value:
+{function_clause,[{v_a2_g,add,[1.0,3],[{file,"v_a2_g.erl"},{line,4}]}]}
+
+caught class  : error
+caught reason : badarg
+stacktrace    : [{erlang,element,
+                     [3,{customer,7}],
+                     [{error_info,#{module => erl_erts_errors}}]},
+                 {v_tp_u,amt,1,[{file,"v_tp_u.erl"},{line,4}]},
+                 {'18a_guard_cost',catch_it,1,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,356}]},
+                 {'18a_guard_cost',report_violation,2,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,336}]},
+                 {'18a_guard_cost',section_3_violation,0,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,329}]},
+                 {'18a_guard_cost',go,1,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,75}]},
+                 {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                 {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]}]
+top frame     : {erlang,element,
+                        [3,{customer,7}],
+                        [{error_info,#{module => erl_erts_errors}}]}
+offending arg {customer,7} present in top frame? {yes,[3,{customer,7}]}
+shell rendering (erl_error:format_exception/3):
+exception error: bad argument
+  in function  element/2
+     called as element(3,{customer,7})
+     *** argument 1: out of range
+  in call from v_tp_u:amt/1 (v_tp_u.erl:4)
+  in call from '18a_guard_cost':catch_it/1 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:356)
+  in call from '18a_guard_cost':report_violation/2 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:336)
+  in call from '18a_guard_cost':section_3_violation/0 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:329)
+  in call from '18a_guard_cost':go/1 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:75)
+  in call from erl_eval:do_apply/7 (erl_eval.erl:920)
+  in call from erl_eval:exprs/6 (erl_eval.erl:276)
+process exit reason (spawn_monitor): {badarg,
+                                      [{erlang,element,
+                                        [3,{customer,7}],
+                                        [{error_info,
+                                          #{module => erl_erts_errors}}]},
+                                       {v_tp_u,amt,1,
+                                        [{file,"v_tp_u.erl"},{line,4}]}]}
+=ERROR REPORT==== 5-Oct-2026::00:03:08.101389 ===
+Error in process <0.240.0> with exit value:
+{badarg,[{erlang,element,
+                 [3,{customer,7}],
+                 [{error_info,#{module => erl_erts_errors}}]},
+         {v_tp_u,amt,1,[{file,"v_tp_u.erl"},{line,4}]}]}
+
+
+--- 3.4 guarded tuple    v_tp_g:amt({customer, 7}) ---
+caught class  : error
+caught reason : function_clause
+stacktrace    : [{v_tp_g,amt,[{customer,7}],[{file,"v_tp_g.erl"},{line,4}]},
+                 {'18a_guard_cost',catch_it,1,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,356}]},
+                 {'18a_guard_cost',report_violation,2,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,336}]},
+                 {'18a_guard_cost',section_3_violation,0,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,332}]},
+                 {'18a_guard_cost',go,1,
+                     [{file,
+                          "/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl"},
+                      {line,75}]},
+                 {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                 {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},
+                 {init,start_it,1,[]}]
+top frame     : {v_tp_g,amt,[{customer,7}],[{file,"v_tp_g.erl"},{line,4}]}
+offending arg {customer,7} present in top frame? {yes,[{customer,7}]}
+shell rendering (erl_error:format_exception/3):
+exception error: no function clause matching v_tp_g:amt({customer,7}) (v_tp_g.erl:4)
+  in function  '18a_guard_cost':catch_it/1 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:356)
+  in call from '18a_guard_cost':report_violation/2 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:336)
+  in call from '18a_guard_cost':section_3_violation/0 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:332)
+  in call from '18a_guard_cost':go/1 (/home/user/beam-sharp/wayfinder/prototypes/18a_guard_cost.erl:75)
+  in call from erl_eval:do_apply/7 (erl_eval.erl:920)
+  in call from erl_eval:exprs/6 (erl_eval.erl:276)
+  in call from init:start_it/1 
+process exit reason (spawn_monitor): {function_clause,
+                                      [{v_tp_g,amt,
+                                        [{customer,7}],
+                                        [{file,"v_tp_g.erl"},{line,4}]}]}
+=ERROR REPORT==== 5-Oct-2026::00:03:08.101927 ===
+Error in process <0.241.0> with exit value:
+{function_clause,[{v_tp_g,amt,[{customer,7}],[{file,"v_tp_g.erl"},{line,4}]}]}
+
+
+===========================================================================================
+4. IS THE GUARD EVER ELIDED FOR AN INTRA-MODULE CALL?
+
+--- e_ex: exported guarded f/1, called locally with a PROVEN integer ---
+-module(e_ex).
+-export([f/1, caller/1]).
+
+f(A) when is_integer(A) -> A + 1.
+
+caller(X) when is_integer(X) -> f(X).
+
+{function, f, 1, 2}.
+  {label,1}.
+    {line,[{location,"e_ex.erl",4}]}.
+    {func_info,{atom,e_ex},{atom,f},1}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+{function, caller, 1, 4}.
+  {label,3}.
+    {line,[{location,"e_ex.erl",6}]}.
+    {func_info,{atom,e_ex},{atom,caller},1}.
+  {label,4}.
+    {test,is_integer,{f,3},[{x,0}]}.
+    {call_only,1,{f,2}}. % f/1
+
+
+
+--- e_lo: local-only guarded f/1, called with a PROVEN integer ---
+-module(e_lo).
+-export([caller/1]).
+
+f(A) when is_integer(A) -> A + 1.
+
+caller(X) when is_integer(X) -> f(X).
+
+{function, f, 1, 2}.
+  {label,1}.
+    {line,[{location,"e_lo.erl",4}]}.
+    {func_info,{atom,e_lo},{atom,f},1}.
+  {label,2}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+{function, caller, 1, 4}.
+  {label,3}.
+    {line,[{location,"e_lo.erl",6}]}.
+    {func_info,{atom,e_lo},{atom,caller},1}.
+  {label,4}.
+    {test,is_integer,{f,3},[{x,0}]}.
+    {call_only,1,{f,2}}. % f/1
+
+
+
+--- e_un: local-only guarded f/1, called with an UNKNOWN-type argument ---
+-module(e_un).
+-export([caller/1]).
+
+f(A) when is_integer(A) -> A + 1.
+
+caller(X) -> f(X).
+
+{function, f, 1, 2}.
+  {label,1}.
+    {line,[{location,"e_un.erl",4}]}.
+    {func_info,{atom,e_un},{atom,f},1}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+{function, caller, 1, 4}.
+  {label,3}.
+    {line,[{location,"e_un.erl",6}]}.
+    {func_info,{atom,e_un},{atom,caller},1}.
+  {label,4}.
+    {call_only,1,{f,2}}. % f/1
+
+
+
+===========================================================================================
+5. LOADED CODE SIZE (erlang:memory(code)), NOT DISK BYTES
+100 modules per arm, loaded in the order shown.
+
+arm    kind             before        after      delta delta/module
+1      unguarded       9757407      9958079     200672       2006.7
+2      guarded         9958079     10158079     200000       2000.0
+3      unguarded      10158079     10386399     228320       2283.2
+4      guarded        10386399     10586399     200000       2000.0
+
+same-kind, different position:
+  unguarded arm3 - unguarded arm1 : +27648 bytes (+276.5/module)
+  guarded   arm4 - guarded   arm2 : +0 bytes (+0.0/module)
+adjacent U->G steps:
+  arm2 - arm1 : -672 bytes (-6.7/module)
+  arm4 - arm3 : -28320 bytes (-283.2/module)
+
+erlang:memory(code) is a whole-node counter over coarse-grained allocations
+and includes per-module metadata, not only JIT-emitted instructions. It counts
+a DIFFERENT thing from the .beam bytes in section 1. Read a per-module guard
+cost out of it ONLY if the two U->G steps agree with each other AND the two
+same-kind, different-position comparisons are near zero.
+
+===========================================================================================
+end
