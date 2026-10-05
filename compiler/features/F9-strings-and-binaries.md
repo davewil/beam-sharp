@@ -35,7 +35,7 @@ what F9 builds:
 |---|---|
 | a literal | **compile time, zero runtime cost** — 20 §4, *"a literal is a `string` by construction"*. The compiler sees the bytes |
 | an interior value | statically, from the signature that declared it. Nothing is re-checked |
-| a binary from outside | **the generated O(n) entry check** — the sixth codegen obligation, and **out of scope here** |
+| a binary from outside | **the generated O(n) entry check** — the sixth codegen obligation, and **out of scope here** *(built since, by F18: `ValidateAs<string>`)* |
 
 So F9 gives the language strings it can *have* without giving it strings it can *acquire*. That is
 a real boundary and it is where the honest version of the AoC claim sits.
@@ -234,7 +234,10 @@ not do.
 exemplars table lists that as its own capability blocking 25a and 25c — and `ValidateAs<string>` is
 already the shape ticket 11 published for *"validate a foreign term against `T`, return
 `result<T, ValidationError>`"*. F9 does not pick that spelling; it stops one step short of needing
-to.
+to. *(Amended 2026-10-05, ENG-461: the step was taken by [F18](F18-validate-as.md).
+`ValidateAs<string>` over a `binary` is the entry check: it returns the `string` for valid UTF-8
+and a `ValidationError` with `Expected = "string"` otherwise, scenario F18.15. `LANGUAGE.md`'s
+status table and the tour listed it as unbuilt until this date.)*
 
 **String operations.** Concatenation, splitting, length, `to_int`. All collection-library, all
 blocked on the module system. `byte_size` via the FFI is what F9 leaves you with, and F9.10 makes

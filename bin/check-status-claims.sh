@@ -160,13 +160,18 @@ EOF
 
 # `string` IS NOT A SUBJECT HERE, AND THE REASON IS THE INTERESTING PART.
 #
-# It was, and it produced this gate's only false positive: LANGUAGE.md's line
-# "the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen
-# obligation" is TRUE. The `string` TYPE shipped with F9; the CONVERSION INTO it
-# has never been built, and the two are one backtick apart on the page.
+# It was, and it was dropped over LANGUAGE.md's line "the UTF-8 entry check
+# (`binary` → `string`) | not started — the sixth codegen obligation", which
+# this comment called TRUE: the `string` TYPE shipped with F9 and the CONVERSION
+# INTO it had not been built. CORRECTED 2026-10-05 (ENG-461): that line was
+# false when this was written. F18 had built the conversion as
+# `ValidateAs<string>` (F18.15), so the report dismissed here as this gate's
+# only false positive was a true one, about the right row for the wrong reason.
+# The row now says shipped, and no subject here reads it.
 #
-# A subject whose name appears inside the description of a genuinely-unbuilt
-# neighbour cannot be told apart by matching a line, and a gate that cries wolf
+# The rule the episode was used to state still holds. A subject whose name
+# appears inside the description of a neighbour cannot be told apart by matching
+# a line, and a gate that cries wolf
 # gets suppressed. `string`'s status is already held by check A above — its
 # PRELUDE row is marked **built** and the probe resolves it — so dropping it
 # here costs no coverage at all. That is the test for adding a subject: the

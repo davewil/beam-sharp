@@ -3573,7 +3573,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | a `string` pattern's tail after string-literal segments is a `string` | **shipped** — F56 |
 | the template string, `$"Order {o.Id} for {o.Customer}"` — `string`, `int`, `float` and atom holes | **shipped** — F66 |
 | a spelling for a **sized binary type** | not coming — a width refines the value it binds, so no type form arises |
-| the UTF-8 entry check (`binary` → `string`) | not started — the sixth codegen obligation |
+| the UTF-8 entry check (`binary` → `string`) | **shipped** — F18, as `ValidateAs<string>` |
 | pipe and valve | **shipped** — F14 |
 | list comprehensions, `[r for Receipt r in cs when …]` — generators, guards, a pattern that narrows and skips | **shipped** — F65 |
 | parametric types — `result<T, E>`, `option<T>`, `type Pair<T>`, nesting | **shipped** |

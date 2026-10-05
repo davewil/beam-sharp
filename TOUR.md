@@ -1708,7 +1708,6 @@ produce.
 
 | | |
 |---|---|
-| the UTF-8 entry check, `binary` → `string` | the one direction chapter 10 has no spelling for |
 | the behaviour contract checked as a type | Dialyzer does it at the boundary today |
 | `Map.Get`, and the `map<K, V>` type beside it | the name `Map` is reserved; its operations are not built |
 | `cond`, or whatever serves a long ladder of unrelated conditions | open |
