@@ -47,3 +47,9 @@ tree compiler/features *.md
 # a manifest that described the corpus by file type instead of by content.
 # Everything in this tree is package material; enumerate it that way.
 tree compiler/examples *
+
+# --- The terms of an audition ------------------------------------------------
+# The audition is the author's instrument and does not ship: its harness holds
+# the answer sets. What an orchestrator has to do to run one does ship, so a
+# recipient can run a trial of their own with whatever tool they use.
+file handoff/audition-switch/CONTRACT.md

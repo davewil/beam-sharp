@@ -166,9 +166,20 @@ packet, or it measures the specification rather than the worker.
 ./check.sh --self-test           # prove the check can fail before trusting it
 ./check.sh <dir>                 # score one submission: visible, then held-out
 ./stage.sh ~/.ringer/audition-<date>   # one sandbox per candidate; neither answer set
+```
+
+Then run the staged candidates with any orchestrator that meets
+[`CONTRACT.md`](CONTRACT.md): closed stdin, a deadline per candidate, the check
+bound to the staged tree, and no revealed marking in a retry prompt. The author
+used `ringer.py`, whose invocation is:
+
+```sh
 ringer.py lint  manifest.run.json
 ringer.py run   manifest.run.json --identity <who-you-are>
 ```
+
+`ringer.py` is one such orchestrator and is not in this repository.
+[`ENGINES.md`](ENGINES.md) is its configuration, not a step of the audition.
 
 **`manifest.run.json`, not `manifest.json`, and the difference is the one that
 leaked.** `stage.sh` writes the run manifest and rewrites both the workdir and

@@ -54,4 +54,7 @@ looking.
 
 [`audition-switch/`](audition-switch/) is a bounded clean-room trial over the
 `switch` slice. It is evidence about that slice and not about the language, and
-its README says so. It does not ship inside the package.
+its README says so. It does not ship inside the package. What does ship is
+[`audition-switch/CONTRACT.md`](audition-switch/CONTRACT.md): the terms an
+orchestrator has to meet, so that a recipient can run a trial of their own with
+whatever tool they use.
