@@ -21,9 +21,9 @@
 #   `cli_tests` REMOVED its guard and throws, on the grounds that the workflow
 #   builds the escript first so a missing one is a real failure.
 #
-#   `repl_tests` KEPT its guard and announces, routing 20 tests through a
-#   `built()` helper that prints SKIPPED — "Twelve tests reporting `ok` while
-#   running nothing is the precise failure this file was written to end".
+#   `repl_tests` KEPT its guard and announces, routing every test through a
+#   `built()` helper that prints SKIPPED, because tests reporting `ok` while
+#   running nothing is the precise failure that file was written to end.
 #
 # Either satisfies this gate. What does not is the third thing: a guard that
 # returns `ok` and says nothing, which is indistinguishable from a pass.

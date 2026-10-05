@@ -66,11 +66,13 @@ dispatch(":reload", File, Dir, Mod, Env) ->
             code:delete(Mod),
             code:purge(Mod),
             {module, Mod} = code:ensure_loaded(Mod),
-            io:format("reloaded ~s~n", [File]);
+            io:format("reloaded ~s~n", [File]),
+            %% The bindings held values from the code just replaced.
+            loop(File, Dir, Mod, #{});
         _ ->
-            io:format(standard_error, "not reloaded~n", [])
-    end,
-    loop(File, Dir, Mod, Env);
+            io:format(standard_error, "not reloaded~n", []),
+            loop(File, Dir, Mod, Env)
+    end;
 dispatch([$: | Unknown], File, Dir, Mod, Env) ->
     io:format(standard_error, "unknown command :~s~n", [Unknown]),
     loop(File, Dir, Mod, Env);

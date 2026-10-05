@@ -249,3 +249,28 @@ exports_and_reload_both_answer_test() ->
             %% The source is unchanged; only command recognition is asserted.
             silent(Out, "cannot read")
     end.
+
+env_lists_what_is_bound_and_says_when_nothing_is_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl([":env", "var x = 7", ":env"]),
+            said(Out, "(no bindings)"),
+            said(Out, "x = 7")
+    end.
+
+an_unknown_command_is_refused_by_name_test() ->
+    case built() of
+        false -> ok;
+        true  -> said(repl([":frobnicate"]), "unknown command :frobnicate")
+    end.
+
+%% The values at the prompt came from the code `:reload` replaces.
+a_name_bound_before_reload_is_unbound_after_test() ->
+    case built() of
+        false -> ok;
+        true  ->
+            Out = repl(["var x = 7", ":reload", "Echo(x)"]),
+            said(Out, "reloaded"),
+            said(Out, "x is not bound")
+    end.
