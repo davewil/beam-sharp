@@ -100,17 +100,21 @@ def machine_record(lane: Path, name: str, round_dir: Path):
             # A pointer names a record in its own round. One that does not,
             # or that cannot be read, is a row saying so: `stage.sh` runs this
             # last, and an old lane's note must not fail a stage.
-            if round_dir not in src.parents:
+            root = round_dir.resolve()
+            if root not in src.parents:
                 return None, "`RECORD` points outside its round"
             try:
                 task = json.loads(src.read_text())["tasks"][index]
+                if not isinstance(task, dict):
+                    raise TypeError(task)
             except (OSError, ValueError, KeyError, IndexError, TypeError):
                 return None, "`RECORD` names a record that cannot be read"
-            return task, f"{os.path.relpath(src, round_dir)} `tasks[{index}]`"
+            return task, f"{os.path.relpath(src, root)} `tasks[{index}]`"
     for src in (lane / "run.json", round_dir / "run.json"):
         if not src.is_file():
             continue
-        tasks = json.loads(src.read_text()).get("tasks", [])
+        tasks = [t if isinstance(t, dict) else {}
+                 for t in json.loads(src.read_text()).get("tasks", [])]
         keyed = [(i, t) for i, t in enumerate(tasks) if t.get("key") == name]
         if not keyed and src.parent == lane and len(tasks) == 1:
             keyed = [(0, tasks[0])]
@@ -143,7 +147,7 @@ def summary(round_dir: Path) -> str:
     shared = round_dir / "run.json"
     if shared.is_file():
         for task in json.loads(shared.read_text()).get("tasks", []):
-            if task.get("key") and task["key"] not in lanes:
+            if isinstance(task, dict) and task.get("key") and task["key"] not in lanes:
                 lanes.append(task["key"])
     rows = []
     for name in lanes:
@@ -209,7 +213,7 @@ def summaries(evidence: Path, check: bool, quiet: bool = False) -> int:
 
 
 def self_test() -> int:
-    """Build a round whose lanes each carry one defect, and read it back."""
+    """Build a round whose lanes each carry one case, and read it back."""
     import tempfile
 
     real = "[ringer.py] attempt 1 exited rc=0\n"
@@ -249,6 +253,17 @@ def self_test() -> int:
         (round_dir / "escape" / "RECORD").write_text("machine-record: ../../outside.json tasks[0]\n")
         (round_dir / "dangling").mkdir()
         (round_dir / "dangling" / "RECORD").write_text("machine-record: ../gone.json tasks[3]\n")
+        # A record of the wrong shape, and the case the three above are beside:
+        # a pointer inside the round, which has to be FOLLOWED. A reader that
+        # refused every pointer would pass the refusals alone.
+        (round_dir / "shape.json").write_text(json.dumps({"tasks": ["not a task"]}))
+        (round_dir / "misshapen").mkdir()
+        (round_dir / "misshapen" / "RECORD").write_text("machine-record: ../shape.json tasks[0]\n")
+        elsewhere = dict(task("someone-else", 1), verdict="FAIL",
+                         check_output_tail="visible 7/8 held-out 3/7")
+        (round_dir / "shared.json").write_text(json.dumps({"tasks": [task("x"), elsewhere]}))
+        (round_dir / "pointed").mkdir()
+        (round_dir / "pointed" / "RECORD").write_text("machine-record: ../shared.json tasks[1]\n")
 
         if summaries(evidence, check=True, quiet=True) != 1:
             failed.append("a round with no SUMMARY.md passed --check")
@@ -266,6 +281,11 @@ def self_test() -> int:
             failed.append("a RECORD pointing outside its round was followed")
         if "cannot be read" not in rows["dangling"]:
             failed.append("a RECORD naming a missing record was not reported as one")
+        if "cannot be read" not in rows["misshapen"]:
+            failed.append("a RECORD naming a record of the wrong shape was not reported as one")
+        if ("7/8 visible, 3/7 held-out, FAIL" not in rows["pointed"]
+                or "shared.json `tasks[1]`" not in rows["pointed"]):
+            failed.append("a RECORD pointing inside its round was not followed")
         if str(evidence) in text:
             failed.append("the summary names an absolute path")
         (round_dir / "SUMMARY.md").write_text(text + "edited by hand\n")
@@ -274,8 +294,9 @@ def self_test() -> int:
     for line in failed:
         print(f"SELF-TEST FAILED: {line}")
     if not failed:
-        print("self-test: read the honest lane, refused three forged retry prompts, kept "
-              "a RECORD inside its round, and told a missing, a fresh and an edited summary apart")
+        print("self-test: read the honest lane, refused three forged retry prompts, followed "
+              "a RECORD inside its round and refused three that are not, and told a missing, "
+              "a fresh and an edited summary apart")
     return 1 if failed else 0
 
 

@@ -3431,8 +3431,8 @@ Fetch(id) -> Order{ Id = id, Total = 0 }
 ```csharp
 record Order { Id: int, Total: int }
 
-public int Total(int id)
-Total(id) -> await Fetch(id).Total
+public Order Load(int id)
+Load(id) -> await Fetch(id)
 
 private Order Fetch(int id)
 Fetch(id) -> Order{ Id = id, Total = 0 }
@@ -3555,7 +3555,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 ---
 
 ## 18. What is actually built
-<!-- no-gate: a status table; check-status-claims.sh reads the rows it has a probe for, not every row -->
+<!-- no-gate: a status table; check-status-claims.sh scans this document for claims about the subjects it can probe, and reads no row as a row -->
 
 | Area | State |
 |---|---|

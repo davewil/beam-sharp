@@ -30,7 +30,7 @@ same reason *(respelled `result<atom, string>` by ticket 67 on 2026-09-03 and bu
 compiler does not have.
 
 F18 built the predicate at the `ValidateAs<T>` obligation site and nowhere else.
-The comment on `bs_diag`'s `validate_collapses` descriptor clause says so in as
+The comment on the `validate_collapses` clause of `bs_diag`'s `built/2` says so in as
 many words — *"Ticket 15 §1's collapse, met at an
 instantiation rather than at a declaration."* That comment is accurate and it is
 the whole gap *(the comment was removed 2026-09-23 by ENG-277)*.

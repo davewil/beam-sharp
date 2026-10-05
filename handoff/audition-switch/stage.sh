@@ -94,10 +94,13 @@ if [ "${1:-}" = "--self-test" ]; then
   # repaired and reads as current (seen 2026-10-05: a tampered summary, exit 0).
   # The generator reads its own forged rounds back, and every archived round's
   # SUMMARY.md has to be the one it would write today.
-  if ! python3 "$HERE/build-run-manifest.py" --summaries --self-test >/dev/null; then
-    python3 "$HERE/build-run-manifest.py" --summaries --self-test
+  if ! summaries_selftest="$(python3 "$HERE/build-run-manifest.py" --summaries --self-test 2>&1)"; then
+    echo "$summaries_selftest"
     fail=1
   fi
+  # The staging controls below must not write into `evidence/`: a self-test that
+  # repairs the file it has just reported is red once and green on the rerun.
+  export AUDITION_NO_SUMMARIES=1
   if ! python3 "$HERE/build-run-manifest.py" --summaries --check "$HERE/evidence"; then
     echo "SELF-TEST FAILED: a round's SUMMARY.md is missing or stale — run"
     echo "                  build-run-manifest.py --summaries and commit what it writes."
@@ -282,4 +285,4 @@ fi
 
 # Every archived round gets its SUMMARY.md here, so a round copied into
 # `evidence/` since the last stage is summarised before the next one runs.
-python3 "$HERE/build-run-manifest.py" --summaries "$HERE/evidence"
+[ "${AUDITION_NO_SUMMARIES:-}" = "1" ] || python3 "$HERE/build-run-manifest.py" --summaries "$HERE/evidence"

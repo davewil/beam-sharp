@@ -464,6 +464,12 @@ if [ "${1:-}" = "--self-test" ]; then
     doc fenced
     accept fenced "a heading inside a plain fence was read as a section"
 
+    # 17 — a fence that is opened and never closed.
+    cp "$REPO/LANGUAGE.md" "$CTL/unclosed.md"
+    printf '\n```\na transcript nobody finished\n' >> "$CTL/unclosed.md"
+    doc unclosed
+    expect "UNBALANCED" unclosed "an unclosed fence"
+
     # NEGATIVE CONTROL — the reference as committed.
     launch committed CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md"
     accept committed "the reference as committed was rejected, so this gate
@@ -486,6 +492,12 @@ if [ "${1:-}" = "--self-test" ]; then
                 *) echo "SELF-TEST FAILED: ${WHAT[$i]} was not reported — the ${MARK[$i]} check cannot fire"
                    st_fail=1 ;;
             esac
+            # Reported is not refused. A defect the gate names and then exits
+            # 0 on passes CI, so the status is read as well as the text.
+            if [ "$status" = "0" ]; then
+                echo "SELF-TEST FAILED: ${WHAT[$i]} was reported, and the gate still exited 0"
+                st_fail=1
+            fi
         elif [ "$status" != "0" ]; then
             echo "SELF-TEST FAILED: ${WHAT[$i]}"
             echo "                  (exit status: $status)"
@@ -501,7 +513,8 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "           and claimed twice; four ways an \`expect-after\` example can be"
         echo "           wrong — drifted, naming no line, showing no output, or too few"
         echo "           production displays remaining; a section left ungated without"
-        echo "           saying so, and an absent construct that now compiles; accepted a"
+        echo "           saying so, an unclosed fence, and an absent construct that now"
+        echo "           compiles; accepted a heading inside a fence, a"
         echo "           correct one of each and the committed reference — the gate"
         echo "           discriminates in both directions"
         exit 0
@@ -600,6 +613,7 @@ wantfor && /^```/ { inwant = 1; want = ""; next }
 { if (!inpre) flush_preamble() }
 END {
     print n > (out "/count")
+    if (fenced) print "open" > (out "/unbalanced")
     printf "" > (out "/sections")
     for (s = 1; s <= sec; s++)
         printf "%d\t%s\t%s\n", gated[s], title[s], nogate[s] > (out "/sections")
@@ -926,6 +940,12 @@ fi
 nogate=0
 ungated=0
 NOGATE=""
+# An unclosed fence leaves every heading after it unread, which would pass as
+# "no ungated sections". It is reported and counted as one.
+if [ -f "$WORK/unbalanced" ]; then
+    ungated=$((ungated + 1))
+    printf '  %-12s a code fence is never closed, so the sections after it were not read\n' "UNBALANCED"
+fi
 while IFS="$(printf '\t')" read -r blocks title reason; do
     [ "$blocks" -gt 0 ] && continue
     if [ -n "$reason" ]; then
@@ -952,7 +972,7 @@ fi
 echo
 echo "$COUNT blocks: $pass ok, $fail wrong, $skipped illustrative; $mutated replayed after an edit"
 [ "$nogate" -eq 0 ] || echo "$nogate sections deliberately ungated:$NOGATE"
-[ "$ungated" -eq 0 ] || echo "$ungated sections ungated without a marker"
+[ "$ungated" -eq 0 ] || echo "$ungated faults in what the sections gate, named above"
 [ "$fail" -eq 0 ] && [ "$ungated" -eq 0 ] || {
     echo
     echo "Re-run with -v to see the source and the compiler's output."
