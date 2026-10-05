@@ -263,3 +263,7 @@ if [ -f "$HERE/manifest.json" ]; then
     exit 1
   fi
 fi
+
+# Every archived round gets its SUMMARY.md here, so a round copied into
+# `evidence/` since the last stage is summarised before the next one runs.
+python3 "$HERE/build-run-manifest.py" --summaries "$HERE/evidence"

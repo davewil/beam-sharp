@@ -1,0 +1,7 @@
+`run.json` here records ATTEMPT 2: verdict PASS, 8/8 visible and 7/7 held-out.
+
+The clean-room score is attempt 1's: 7/8 visible and 7/7 held-out. The one miss
+was `c07-guarded`, and the retry prompt named that case and what the compiler
+says for it, so attempt 2's 8/8 was reached with the marking in hand. The retry
+prompt is in `worker.log`, after `[ringer.py] attempt 1 exited rc=0`. The
+audition README's findings 7 and 8 have the account.

@@ -42,14 +42,23 @@ tells them apart.
 |---|---|---|---|---|---|
 | `codex` | `gpt-6-astra` | 12/13 | 11/12 | **13/13** | **12/12** |
 | `grok` | `grok-4.6` | 12/13 | 11/12 | **13/13** | **12/12** |
-| `copilot-sonnet5` | Claude Sonnet 5 | 13/13 | 11/12 | 13/13 | 11/12 |
-| `copilot-haiku45` | Claude Haiku 4.5 | 13/13 | 9/12 | 13/13 | 9/12 |
+| `copilot-sonnet5` | Claude Sonnet 5 | 12/13 | 10/12 | 13/13 | 11/12 |
+| `copilot-haiku45` | Claude Haiku 4.5 | 13/13 | 8/12 | 13/13 | 9/12 |
 | `codex-sol` | `gpt-5.6-sol` | — | — | — | — |
 | `codex-terra` | `gpt-5.6-terra` | — | — | — | — |
 | `codex-luna` | `gpt-5.6-luna` | — | — | — | — |
 | `free-deepseek` | `opencode/deepseek-v4-flash-free` | — | — | — | — |
 
 Elapsed: codex 647s, grok 2296s, copilot-sonnet5 867s, copilot-haiku45 1156s.
+
+**Corrected 2026-10-05 (ENG-302): the two copilot rows showed their final scores
+in the attempt-1 columns.** Each lane's `worker.log` quotes attempt 1's check
+output in the retry prompt: sonnet 12/13 and 10/12, haiku 13/13 and 8/12. The
+generated [`SUMMARY.md`](SUMMARY.md) reads the logs and is what found it. So the
+"improved" paragraph below compares FINAL scores. On attempt 1, the clean-room
+measurement, sonnet's held-out score is 10/12 in round 3 and in round 4, and
+haiku's is 7/12 and then 8/12. Whether that changes the variance conclusion is
+David's to say; the paragraph is left as written.
 
 **`astra` and `grok-4.6` reproduced round 3 exactly** — 12/13 and 11/12 on attempt
 1, 25/25 after. Two identical results a day apart on the same instrument is worth

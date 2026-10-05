@@ -4,6 +4,11 @@ Nothing in this directory is used for marking. It is kept because it is the only
 surviving artifact of a real audition run, and because deleting it would delete
 the reason the held-out set exists.
 
+**This file is about the recovered submission of 2026-08-20 only.** Its scores
+are not any round's. Each dated round directory beside it carries a `SUMMARY.md`
+with one row per lane, written by `../build-run-manifest.py --summaries` and
+refreshed whenever `stage.sh` stages a run.
+
 ## `unattributed-switchcheck.py`
 
 A worker's `switchcheck`, recovered untracked from the repository root on

@@ -1,0 +1,7 @@
+machine-record: ../copilot-sonnet5/run.json tasks[1]
+
+This lane has no `run.json` of its own. It is the clean re-run of
+`copilot-haiku45` after the leak kept beside it as `copilot-haiku45-LEAKED/`,
+and it ran in the same orchestrator invocation as `copilot-sonnet5`, so its
+record is the second task of that lane's `run.json`: FAIL, 7/8 visible and
+3/7 held-out, two attempts. The audition README's finding 10 has the account.
