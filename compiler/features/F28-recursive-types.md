@@ -22,7 +22,7 @@ coinductively. Four separate places have since written "when it lands" and route
 | `LANGUAGE.md` | recursive types are refused **by name**; the algebra cannot hold one |
 | [F6](F6-angle-brackets.md) out-of-scope | *"Implementing them is 09's equirecursive machinery arriving for real"* |
 | [F18](F18-validate-as.md) out-of-scope | already states the obligation: the generator needs **a name assigned before the body is built** |
-| `bs_check.erl:855` | the two refusals are distinguished in the source, with the contractive one called *"a feature, not a defect"* |
+| the comment on `resolve/3` in `bs_check`, as it stood | the two refusals are distinguished in the source, with the contractive one called *"a feature, not a defect"* |
 
 **F6 did not merely document it — it shipped a stopwatch.** A cyclic alias did not error on master,
 it **hung**, and the guard arrived with the feature that made recursive aliases the natural thing to

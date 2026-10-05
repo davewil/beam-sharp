@@ -37,7 +37,7 @@ Ticket 73's round 1 measured every position; the last two rows of its table were
 | the same, qualified | `Go(Shapes.Circle c)` | `syntax error before: '.'` |
 
 `import_env/3` built three tables — functions, namespace shorts, every qualified callee — and
-no table of types. `bs_api.erl:6` described that as *"a type NAME does not cross the module
+no table of types. `bs_api`'s module header described that as *"a type NAME does not cross the module
 boundary"*, and ticket 16's 2026-08-27 amendment cited the sentence as a ground for refusing
 open extension. Ticket 73 withdrew the ground: it was the compiler's behaviour, never a
 decision, and with the hand-written tag legal in source (ENG-307 item 3) the hatch was the only

@@ -30,9 +30,10 @@ same reason *(respelled `result<atom, string>` by ticket 67 on 2026-09-03 and bu
 compiler does not have.
 
 F18 built the predicate at the `ValidateAs<T>` obligation site and nowhere else.
-`bs_diag.erl:280` says so in as many words — *"Ticket 15 §1's collapse, met at an
+The comment on `bs_diag`'s `validate_collapses` descriptor clause says so in as
+many words — *"Ticket 15 §1's collapse, met at an
 instantiation rather than at a declaration."* That comment is accurate and it is
-the whole gap.
+the whole gap *(the comment was removed 2026-09-23 by ENG-277)*.
 
 ## Measured before this file was written, not assumed
 
@@ -64,7 +65,9 @@ collapses identically, and this is the spelling `ToExistingAtom` is written in:
 
 **A bare union cannot be written in a signature at all.** `public atom | :nothing
 Go(...)` is a *syntax error before `'|'`* — `foreign_sig` and `signature` take a
-`type_prim`, not a `type_expr` (`bs_parser.yrl:140`). So the hand-written case
+`type_prim`, not a `type_expr` (the `foreign_sig` and `signature` productions of
+`bs_parser.yrl`; *true when written, and both take a `type_expr` since `b3d468d`,
+2026-09-07, so a bare union is writable in a signature now*). So the hand-written case
 always arrives through a `type_alias`, which is why the alias body is a site and
 why there is no "bare union in a return position" scenario below.
 
@@ -85,7 +88,7 @@ and both are now pinned in `collapse_tests.erl`.
 
 **There is no local-binding annotation site.** 15 §1's illustration writes
 `option<atom> z;`, and the language has no such form: a binding is `var pattern =
-expr` (`bs_parser.yrl:323`). The illustration is 15's prose, not a surface the
+expr` (the `binding` production of `bs_parser.yrl`). The illustration is 15's prose, not a surface the
 compiler owes. Recorded so a later reader does not go looking for the site.
 
 ## The predicate — one implementation, not two
@@ -100,13 +103,13 @@ So the whole of 15 §1 is `bs_types:is_subtype(Failure, Success)`, and `F18`'s
 `validate_collapses/2` is **already that**, with the failure member synthesised
 rather than passed in. This feature does not add a second predicate beside it —
 15 §1 would then have two implementations that can drift, which is precisely what
-`bs_check.erl:25` exists to warn against. It **generalises the existing one** to
+the comment on `bs_check`'s `check_dir/2` export warned against. It **generalises the existing one** to
 take the member as an argument, and the `ValidateAs` site passes the member it
 was already synthesising. The obligation site's behaviour and its diagnostic text
 are unchanged; `check-diagnostics.sh` pins that text and stays green.
 
 **What counts as a failure member.** The two the prelude defines, and only those
-— `:nothing` (`bs_check.erl:714`) and `(:error, E)` (`bs_check.erl:716`). This is
+— `:nothing` and `(:error, E)`, both in `bs_check`'s `stratum_one/0`. This is
 15 §1's own wording: the diagnostic says *"the failure channel does not survive
 normalisation"*, a sentence that has no meaning about a type with no failure
 channel.
@@ -125,11 +128,12 @@ measured table; see *Residuals*.
 
 **Not in `resolve/3`.** No type-expression node carries a line number — not
 `t_union`, not `t_generic`, not `param`, not `field` — and lines live only on the
-enclosing declaration tuple (`bs_parser.yrl:95, 140, 177, 192, 265`). A check
+enclosing declaration tuple (the `record_decl`, `foreign_sig`, `type_decl` and
+`signature` productions of `bs_parser.yrl`). A check
 inside the resolver could not say *where*. `compiler_known_redeclared/1`
-(`bs_check.erl:779`) is the existing template: it walks `Decls`, pairs each name
-with its `L`, and reports. This runs in the same block, `check/2`
-`bs_check.erl:103-117`.
+is the existing template: it walks `Decls`, pairs each name
+with its `L`, and reports. This runs in the same block, the declaration pass
+*(`check/2` when this was written; `bs_check:declared/4` since ENG-371)*.
 
 Five declaration forms carry a type an author wrote:
 
@@ -149,8 +153,8 @@ following it would report the same defect once per use.
 **Parametric aliases need no guard.** `type myopt<T> = T | :nothing` is a syntax
 error (`type_decl` admits parameters only in the prelude's shape), and the
 prelude's own `option<T>` is an Erlang literal in `stratum_one()`, never a parsed
-declaration. `type_env/1` already passes `{parametric, _, _}` through unresolved
-(`bs_check.erl:683`). So no unbound `T` ever reaches the check, and there is no
+declaration. `type_env/1` (`type_env/3` today) already passes `{parametric, _, _}`
+through unresolved. So no unbound `T` ever reaches the check, and there is no
 risk of refusing the prelude.
 
 ## Expected verdicts — written before the code

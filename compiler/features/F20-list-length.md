@@ -175,7 +175,7 @@ is there because the gate failed it — see item 5 below.
    stale artifacts.
 6. **The corpus** — `examples/exemplars/25a-http-api-server/route.bs` loses its four `..[]`
    clauses, and LANGUAGE.md's `Dispatch` block goes with them.
-7. **A stale comment** — `test/lists_tests.erl:12-13` asserts *"Ticket 08 settled prefix-plus-rest
+7. **A stale comment** — the header of `test/lists_tests.erl` asserts *"Ticket 08 settled prefix-plus-rest
    only"*, now false. No gate reads a comment.
 
 ## Measured before this file was written

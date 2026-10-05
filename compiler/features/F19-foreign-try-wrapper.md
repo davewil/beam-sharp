@@ -63,7 +63,7 @@ STANDARD-ENVIRONMENT.md stratum 2, **decided** and unbuilt, and nothing can be d
 ```erlang
 A = try erlang:binary_to_integer(X) catch C:R -> {error, {C, R}} end,
 B = try erlang:binary_to_integer(X) catch C:R -> {error, {C, R}} end.
-%% vt.erl:5:47: variable 'C' unsafe in 'try' (line 4)
+%% erlc, on a scratch vt.erl at 5:47: variable 'C' unsafe in 'try' (line 4)
 ```
 
 Two wrapped calls in one clause, or one nested in another, need **distinct** names. This is F14's

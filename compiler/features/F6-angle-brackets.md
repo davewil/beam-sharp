@@ -333,7 +333,7 @@ error inside `result<int, atom>` with a grammar that was already correct — the
 - **`>>` is pinned but not solved.** `list<list<int>>` parses and has a test. Ticket 28's owed item
   stands: when binaries land and `>>` becomes a delimiter, that test is what trips. *(Amended
   2026-09-12: it never tripped. F13 landed binaries with `<<` alone and there is no `>>` token —
-  `bs_lexer.xrl:131` says so — so `list<list<int>>` still parses and nothing is owed. Struck from
+  the comment on the `<<` rule in `bs_lexer.xrl` says so — so `list<list<int>>` still parses and nothing is owed. Struck from
   ENG-295 the same day.)*
 - **A type parameter shadows a type of the same name**, silently. `type Box<Order> = (Order, int)`
   binds `Order` as a variable inside the body even where a `record Order` is declared, and

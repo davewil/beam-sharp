@@ -130,8 +130,8 @@ F15 cannot compile its own corpus without it, and the reason is sharper than "30
 - **`aoc/` is a second corpus and it is worse**, which F8 already had to learn once. All three of
   its files declare `module Day01` — `aoc/2019/Day01/day01.bs`, `aoc/2025/Day01/day01.bs` and
   `aoc/bench/Day01/bench_bs.bs` — and not one sits in a directory that matches. Two are `day01` against
-  `Day01` (a case difference, which is a mismatch), and the third is in `bench/`. `bsc.erl:159-165`
-  names this file exactly, as the reason it refused to infer a module name from a path:
+  `Day01` (a case difference, which is a mismatch), and the third is in `bench/`. The comment on
+  `source_index/1` in `bsc` *(removed by this feature's own build)* named this file exactly, as the reason it refused to infer a module name from a path:
   *"the repo's own files do not keep that correspondence — `aoc/2019/Day01/day01.bs` declares
   `module Day01` — and inventing a filename rule is ticket 41 §5's `module_path_mismatch`, which
   belongs with the directory-as-module work."* This is that work.
@@ -177,19 +177,22 @@ source index today, and F15 is the feature most likely to make them parse.
 
 ## Three things reading the compiler found, before a line of it was changed
 
-**`compile_only/2` is not a map over a file list, and its own comment says it is.** The comment at
-`bsc.erl:74-77` describes the code as it stood *before* F11; today it delegates to `compile_set/2`,
+*(2026-10-05, ENG-311: this section describes the source as F15 found it. The two comments it
+quotes are no longer in `bsc` or `bs_emit`; each is named by the function it sat on.)*
+
+**`compile_only/2` is not a map over a file list, and its own comment says it is.** The comment above
+`compile_set/2` in `bsc` describes the code as it stood *before* F11; today `compile_only/2` delegates to `compile_set/2`,
 a dependency-ordered fold carrying a `World` accumulator. A plan written against the comment would
 have been a plan against code that no longer exists.
 
-**`bs_emit` emits no `file` attribute at all**, and a comment at `bs_emit.erl:434` says ticket 13
+**`bs_emit` emits no `file` attribute at all**, and the comment on `var_name/1` in `bs_emit` says ticket 13
 *"keeps per-file `file` attributes precisely so crashes point at the right `.bs`"*. It describes an
 intention. The technique is real and measured — in the **prototype**, `13b`, and nowhere in `src/`.
 F15.9 is where it stops being a comment.
 
 **Two defaults for a missing `module` line disagree**, and directory-as-module is what makes it
-bite. `bsc.erl:184-188`'s `module_of/1` returns `undefined` and the file is then **silently dropped
-from the source index**; `bs_check.erl:121-125`'s `module_name/1` defaults to `'Main'` and the file
+bite. `module_of/1` in `bsc` returns `undefined` and the file is then **silently dropped
+from the source index**; `module_name/1` in `bs_check` defaults to `'Main'` and the file
 is emitted under that name. Under one-file-per-module a file without a `module` line is a rarity.
 Under aggregation it is the *common case* — a sibling file next to an `index.bs` that already names
 the module. F15.13 makes the two agree: a file with no `module` declaration **inherits the module of

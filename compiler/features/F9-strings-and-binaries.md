@@ -282,7 +282,7 @@ widening anywhere, which is the property that makes the rest of the checker's su
 
 ## Traps carried in from earlier features
 
-**`is_none/1` matches the `ty()` map literally in its head** (`bs_types.erl:142`). Erlang map
+**`is_none/1` matches the `ty()` map literally in its head** (today the ground clause of `is_none/2` in `bs_types`). Erlang map
 patterns are partial, so a sixth component added to `none/0` and forgotten there makes a
 binary-only type report empty — and **every containment over it then passes vacuously**. The
 compiler goes quieter, not red. This is F5's `Certain`/`Possible` trap in a third costume and it is

@@ -64,7 +64,7 @@ Q7's "one type family", Q3's boundary.
 ### Subtyping is where this is decided, and Q2 does not spare it
 
 Worth stating plainly because 48 Q2 makes it easy to assume otherwise.
-`is_subtype(A, B) -> is_none(subtract(A, B))` at `bs_types.erl:431`, so **every
+`is_subtype(A, B) -> is_none(subtract(A, B))` in `bs_types`, so **every
 parameter pass in the language routes through map subtraction**. Deferring the
 pattern form spares `m_decompose/3`; it does not spare `m_minus/3`. A domain cell
 returning the minuend unconditionally would type-check nothing and refuse
@@ -141,7 +141,7 @@ else, which is one of the four ways a pattern reaches a `map<K, V>` parameter:
 | written | parses to | verdict |
 |---|---|---|
 | `{ Status: s }` | `p_map` | **refused** — the deferral |
-| `{ Status: s } whole` | `p_bind` around a `p_map` (`bs_parser.yrl:539`) | **refused** — ticket 55 made naming and binding independent, so the bind wraps the destructuring rather than replacing it |
+| `{ Status: s } whole` | `p_bind` around a `p_map` (`pattern`'s `'{' pat_fields '}' lident` production) | **refused** — ticket 55 made naming and binding independent, so the bind wraps the destructuring rather than replacing it |
 | `{ Status: s } => …` in a `switch` | an arm, classified in `walk/6` | **refused** |
 | `Order o` | `p_bind` around a `p_rec` | **not** refused — the ordinary message is correct here |
 

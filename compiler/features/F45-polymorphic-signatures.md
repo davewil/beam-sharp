@@ -143,7 +143,7 @@ name and the list alone tells the two apart. `yecc:file/2` with `{report, true}`
 The signature tuple gains a seventh element, the variable list, and every one of its
 sixteen consumers in `bs_check` and `bs_api` was rewritten in one sweep, because a
 comprehension over a six-tuple yields nothing on a seven-tuple and reports no error — the
-`--api` filter at `bs_api.erl:179` would have printed *exports nothing*. `#fn` gains `tvars`
+`--api` filter in `bs_api`'s `operations/3` would have printed *exports nothing*. `#fn` gains `tvars`
 **last**, because the emitter reads the record by element position.
 
 **Two bindings, for two readers.** `erased_env/2` puts every variable at `term`; `opaque_env/2`
