@@ -1,2 +1,4 @@
 == base:   repl_tests: a_bare_function_name_is_not_a_failed_value_test...[0.932 s] ok   All 1312 tests passed. 
    failing: 0
+== a:   body_check_tests: a_value_that_already_failed_is_not_reported_twice_test...ok   Failed: 0.  Skipped: 0.  Passed: 306. 
+   failing: 0
