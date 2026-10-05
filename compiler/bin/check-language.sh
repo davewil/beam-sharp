@@ -27,6 +27,12 @@
 #                            of unchecked blocks stays visible rather than
 #                            drifting upward unnoticed.
 #
+#   <!-- no-gate: reason -->   a section with no gated block is reported unless
+#                              it carries this, and the summary names each one
+#                              with its reason. A section about the toolchain or
+#                              the roadmap has no program to compile; the marker
+#                              makes that a statement instead of an omission.
+#
 # THE THIRD CLAIM: AN EXAMPLE THAT DEMONSTRATES A DIAGNOSTIC
 #
 #   <!-- diagnoses: unbound_variable -->
@@ -425,6 +431,30 @@ if [ "${1:-}" = "--self-test" ]; then
     doc oneafter
     expect "TOO FEW" oneafter "a reference with only one expect-after directive"
 
+    # 14 — a section with prose and nothing gated, and no marker saying so. The
+    # committed reference below is the other half: it is accepted only if the
+    # markers on its ungated sections are read.
+    cp "$REPO/LANGUAGE.md" "$CTL/ungated.md"
+    printf '\n## 20. A section nobody gated\n\nProse about the language, and no block.\n' \
+        >> "$CTL/ungated.md"
+    doc ungated
+    expect "UNGATED" ungated "a section with no gated block and no no-gate marker"
+
+    # 15 — an absent construct that has started compiling. §15 shows each one
+    # under the parser's own tag, so the day one is built its block publishes
+    # nothing and the claim is wrong.
+    cp "$REPO/LANGUAGE.md" "$CTL/absent.md"
+    {
+        printf '\n<!-- diagnoses: parse_error -->\n'
+        printf '```csharp\n'
+        printf 'module AbsentNoLonger\n'
+        printf 'public int Twice(int n)\n'
+        printf 'Twice(n) -> n * 2\n'
+        printf '```\n'
+    } >> "$CTL/absent.md"
+    doc absent
+    expect "WRONG DIAG" absent "an absent construct that now compiles"
+
     # NEGATIVE CONTROL — the reference as committed.
     launch committed CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md"
     accept committed "the reference as committed was rejected, so this gate
@@ -461,7 +491,8 @@ if [ "${1:-}" = "--self-test" ]; then
         echo "           can be wrong — silent, mislabelled, carrying a second diagnostic,"
         echo "           and claimed twice; four ways an \`expect-after\` example can be"
         echo "           wrong — drifted, naming no line, showing no output, or too few"
-        echo "           production displays remaining; accepted a"
+        echo "           production displays remaining; a section left ungated without"
+        echo "           saying so, and an absent construct that now compiles; accepted a"
         echo "           correct one of each and the committed reference — the gate"
         echo "           discriminates in both directions"
         exit 0
@@ -487,6 +518,18 @@ function flush_preamble() { pre = ""; dg = ""; ea = ""; }
 /^<!-- check:/ { inpre = 1; pre = ""; next }
 inpre && /^-->/ { inpre = 0; next }
 inpre { pre = pre $0 "\n"; next }
+
+# A `## ` heading opens a section, and `<!-- no-gate: reason -->` says the
+# section it sits in is ungated on purpose. Written to `sections`, one line a
+# section: gated blocks, title, reason.
+!inblock && !inwant && /^## / { sec++; title[sec] = substr($0, 4) }
+/^<!-- no-gate:/ {
+    ng = $0
+    sub(/^<!-- no-gate:[ \t]*/, "", ng)
+    sub(/[ \t]*-->.*$/, "", ng)
+    if (sec) nogate[sec] = ng
+    next
+}
 
 # `<!-- expect-after: edit; edit -->`. Binds to the fence below it like
 # `diagnoses:`; the block must compile as written, and after the edits it must
@@ -519,6 +562,7 @@ inpre { pre = pre $0 "\n"; next }
     if (tag != "" && dg != "") tag = "both:" tag ":" dg
     else if (tag == "" && dg != "") tag = "diagnoses:" dg
     else if (tag == "") tag = "must-compile"
+    if (tag != "illustrative") gated[sec]++
     print tag > (out "/" n ".tag")
     print NR + 1 > (out "/" n ".line")
     # A previous block still waiting for its expected fence has lost it: the
@@ -543,7 +587,12 @@ inwant && /^```/ { printf "%s", want > (out "/" wantfor ".want"); inwant = 0; wa
 inwant { want = want $0 "\n"; next }
 wantfor && /^```/ { inwant = 1; want = ""; next }
 { if (!inpre) flush_preamble() }
-END { print n > (out "/count") }
+END {
+    print n > (out "/count")
+    printf "" > (out "/sections")
+    for (s = 1; s <= sec; s++)
+        printf "%d\t%s\t%s\n", gated[s], title[s], nogate[s] > (out "/sections")
+}
 ' "$DOC"
 
 COUNT="$(cat "$WORK/count")"
@@ -860,6 +909,24 @@ if [ "$fail" -eq 0 ] && [ "$mutated" -lt "$EXPECT_AFTER_FLOOR" ]; then
     fail=$((fail + 1))
 fi
 
+# A section with no gated block says nothing the compiler has confirmed. That is
+# right for a section about the toolchain or the roadmap, and it has to be said:
+# a `no-gate` marker with a reason, or the section is reported.
+nogate=0
+NOGATE=""
+while IFS="$(printf '\t')" read -r blocks title reason; do
+    [ "$blocks" -gt 0 ] && continue
+    if [ -n "$reason" ]; then
+        nogate=$((nogate + 1))
+        NOGATE="$NOGATE
+  no-gate      $title -- $reason"
+    else
+        fail=$((fail + 1))
+        printf '  %-12s %s  no gated block, and no `<!-- no-gate: reason -->` saying that is deliberate\n' \
+               "UNGATED" "$title"
+    fi
+done < "$WORK/sections"
+
 if [ "$VERBOSE" = 1 ] && [ -n "$FAILURES" ]; then
     for i in $FAILURES; do
         echo
@@ -872,6 +939,7 @@ fi
 
 echo
 echo "$COUNT blocks: $pass ok, $fail wrong, $skipped illustrative; $mutated replayed after an edit"
+[ "$nogate" -eq 0 ] || echo "$nogate sections deliberately ungated:$NOGATE"
 [ "$fail" -eq 0 ] || {
     echo
     echo "Re-run with -v to see the source and the compiler's output."

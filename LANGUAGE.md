@@ -3388,9 +3388,112 @@ something else already covers it, not because it was disliked.
 | optional record fields | *k* optional fields denote 2^k shapes for a guard emitted everywhere |
 | JS/WASM backends | doubles the codegen surface and forces semantic compromises |
 
+### What the compiler says to each
+
+Every row that has a spelling is shown below as a program, with the diagnostic it gets. Most are
+refused where the parser stops, with no special wording: the construct is not in the grammar, and
+the day one of these blocks compiles this section is out of date. Macros, type classes, nominal
+types and a second backend have no single form to write, so they have no block.
+
+`if` / `else`, and the ternary:
+
+<!-- diagnoses: parse_error -->
+```csharp
+public atom Shipping(int total)
+Shipping(total) -> if (total >= 50) :free else :standard
+```
+
+<!-- diagnoses: parse_error -->
+```csharp
+public atom Shipping(int total)
+Shipping(total) -> total >= 50 ? :free : :standard
+```
+
+A `;` is the one absence with a message of its own, because it is the one a C# hand types without
+thinking:
+
+<!-- diagnoses: stray_semicolon -->
+```csharp
+public int Gross(int net, int vat)
+Gross(net, vat) -> net + vat;
+```
+
+`async`, and `try`:
+
+<!-- diagnoses: parse_error -->
+```csharp
+record Order { Id: int, Total: int }
+
+public async Order Fetch(int id)
+Fetch(id) -> Order{ Id = id, Total = 0 }
+```
+
+<!-- diagnoses: parse_error -->
+```csharp
+public int Quantity(binary field)
+Quantity(field) -> try { Decode(field) } catch { 0 }
+
+private int Decode(binary field)
+Decode(field) -> 1
+```
+
+Method-call syntax and LINQ query syntax, over the same list:
+
+<!-- diagnoses: parse_error -->
+```csharp
+record Order { Id: int, Total: int }
+
+public list<int> Totals(list<Order> orders)
+Totals(orders) -> orders.Map(o => o.Total)
+```
+
+<!-- diagnoses: parse_error -->
+```csharp
+record Order { Id: int, Total: int }
+
+public list<int> Totals(list<Order> orders)
+Totals(orders) -> from o in orders select o.Total
+```
+
+A bound on a type variable:
+
+<!-- diagnoses: parse_error -->
+```csharp
+public T Cheapest<T>(T a, T b) where T : Comparable
+Cheapest(a, b) -> a
+```
+
+`dynamic` parses, as any lowercase type name does, and is refused as a type the language does not
+have:
+
+<!-- diagnoses: unknown_builtin -->
+```csharp
+public dynamic Echo(dynamic payload)
+Echo(payload) -> payload
+```
+
+Spread, and an optional field:
+
+<!-- diagnoses: parse_error -->
+```csharp
+record Order { Id: int, Total: int }
+
+public Order Refunded(Order o)
+Refunded(o) -> Order{ ...o, Total = 0 }
+```
+
+<!-- diagnoses: parse_error -->
+```csharp
+record Order { Id: int, Note?: string }
+
+public int Id(Order o)
+Id(o) -> o.Id
+```
+
 ---
 
 ## 16. How it compiles
+<!-- no-gate: the compilation pipeline and its artefacts; there is no B# program here to compile -->
 
 ```
 .bs → lex → parse → exhaustiveness check → Erlang abstract format → erlc +from_abstr → .beam
@@ -3422,6 +3525,7 @@ offending argument rather than returning something wrong.
 ---
 
 ## 17. Using the compiler
+<!-- no-gate: shell transcripts of bsc and ibs; cli_tests and repl_tests drive both -->
 
 ```
 $ bsc fib.bs 5
@@ -3440,6 +3544,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 ---
 
 ## 18. What is actually built
+<!-- no-gate: a status table, read row by row by check-status-claims.sh -->
 
 | Area | State |
 |---|---|
@@ -3511,6 +3616,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 ---
 
 ## 19. Open questions
+<!-- no-gate: questions not yet answered; nothing in this section is built -->
 
 - The language's **name**. <!-- tracked by ENG-280 -->
 - ~~**Module and namespace system**~~ — **built**. What remains open is only whether `using` gains
