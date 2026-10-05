@@ -973,8 +973,8 @@ echo
 echo "$COUNT blocks: $pass ok, $fail wrong, $skipped illustrative; $mutated replayed after an edit"
 [ "$nogate" -eq 0 ] || echo "$nogate sections deliberately ungated:$NOGATE"
 [ "$ungated" -eq 0 ] || echo "$ungated faults in what the sections gate, named above"
-[ "$fail" -eq 0 ] && [ "$ungated" -eq 0 ] || {
+if [ "$fail" -ne 0 ] || [ "$ungated" -ne 0 ]; then
     echo
     echo "Re-run with -v to see the source and the compiler's output."
     exit 1
-}
+fi
