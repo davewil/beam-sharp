@@ -272,5 +272,6 @@ a_name_bound_before_reload_is_unbound_after_test() ->
         true  ->
             Out = repl(["var x = 7", ":reload", "Echo(x)"]),
             said(Out, "reloaded"),
+            silent(Out, "not reloaded"),
             said(Out, "x is not bound")
     end.

@@ -455,6 +455,15 @@ if [ "${1:-}" = "--self-test" ]; then
     doc absent
     expect "WRONG DIAG" absent "an absent construct that now compiles"
 
+    # 16 — a `## ` line and a `no-gate` line inside a plain fence, which are a
+    # transcript's text and not the document's. Reading either would report a
+    # section that does not exist, so this one must be ACCEPTED.
+    cp "$REPO/LANGUAGE.md" "$CTL/fenced.md"
+    printf '\n```\n## 21. A heading in a transcript\n<!-- no-gate: -->\n```\n' \
+        >> "$CTL/fenced.md"
+    doc fenced
+    accept fenced "a heading inside a plain fence was read as a section"
+
     # NEGATIVE CONTROL — the reference as committed.
     launch committed CHECK_LANGUAGE_DOC="$REPO/LANGUAGE.md"
     accept committed "the reference as committed was rejected, so this gate
@@ -521,9 +530,11 @@ inpre { pre = pre $0 "\n"; next }
 
 # A `## ` heading opens a section, and `<!-- no-gate: reason -->` says the
 # section it sits in is ungated on purpose. Written to `sections`, one line a
-# section: gated blocks, title, reason.
-!inblock && !inwant && /^## / { sec++; title[sec] = substr($0, 4) }
-/^<!-- no-gate:/ {
+# section: gated blocks, title, reason. Neither is read inside a fence of any
+# kind: a shell transcript may hold a line that starts `## `.
+/^```/ { fenced = !fenced }
+!fenced && /^## / { sec++; title[sec] = substr($0, 4) }
+!fenced && /^<!-- no-gate:/ {
     ng = $0
     sub(/^<!-- no-gate:[ \t]*/, "", ng)
     sub(/[ \t]*-->.*$/, "", ng)
@@ -913,6 +924,7 @@ fi
 # right for a section about the toolchain or the roadmap, and it has to be said:
 # a `no-gate` marker with a reason, or the section is reported.
 nogate=0
+ungated=0
 NOGATE=""
 while IFS="$(printf '\t')" read -r blocks title reason; do
     [ "$blocks" -gt 0 ] && continue
@@ -921,7 +933,7 @@ while IFS="$(printf '\t')" read -r blocks title reason; do
         NOGATE="$NOGATE
   no-gate      $title -- $reason"
     else
-        fail=$((fail + 1))
+        ungated=$((ungated + 1))
         printf '  %-12s %s  no gated block, and no `<!-- no-gate: reason -->` saying that is deliberate\n' \
                "UNGATED" "$title"
     fi
@@ -940,7 +952,8 @@ fi
 echo
 echo "$COUNT blocks: $pass ok, $fail wrong, $skipped illustrative; $mutated replayed after an edit"
 [ "$nogate" -eq 0 ] || echo "$nogate sections deliberately ungated:$NOGATE"
-[ "$fail" -eq 0 ] || {
+[ "$ungated" -eq 0 ] || echo "$ungated sections ungated without a marker"
+[ "$fail" -eq 0 ] && [ "$ungated" -eq 0 ] || {
     echo
     echo "Re-run with -v to see the source and the compiler's output."
     exit 1

@@ -232,7 +232,7 @@ behave differently in a file and at `ibs`. One rule, both surfaces, asserted in 
 `body_check_tests`.
 
 **And ticket 45 settled WHICH surface moves, which this scenario did not say: `bs_repl` does.**
-`pattern/2` in `src/bs_repl.erl` matches a bare bound name, under a comment asserting *"the language needs
+`pattern/2` in `src/bs_repl.erl`, as it stood before this feature, matches a bare bound name, under a comment asserting *"the language needs
 no `^`: there is nothing to disambiguate."* That comment is now wrong and is the single most
 misleading artefact in the way of building this feature — it is confident, it is in shipped source,
 and it argues the whole question away. **Delete the claim as well as the behaviour.** A bare name

@@ -30,10 +30,12 @@ Environment: HARNESS (this directory), WORKDIR (staged root), OUT (destination).
 
 THE SECOND MODE: `--summaries [EVIDENCE_DIR]` (2026-10-05)
 
-Writes a `SUMMARY.md` into every `2026-*` round directory under `evidence/`,
+Writes a `SUMMARY.md` into every dated round directory under `evidence/`,
 one row per lane. `stage.sh` runs it, so a round archived since the last stage
 gets its summary when the next one is staged; `--summaries --check` writes
-nothing and exits 1 if any round's summary is missing or stale.
+nothing and exits 1 if any round's summary is missing or stale, and
+`--summaries --self-test` builds a round with one defect per lane and reads it
+back. `stage.sh --self-test` runs both, which is how they reach `verify.sh`.
 
 A lane's machine record is found in this order: a `RECORD` file in the lane
 whose `machine-record:` line names a `run.json` and a task index; the lane's own
@@ -75,7 +77,12 @@ def score(text: str) -> str:
 
 
 def readings(text: str) -> set:
-    """Every outcome a stretch of log states, so two that differ can be seen."""
+    """Every outcome a stretch of log states, so two that differ can be seen.
+
+    `score` above takes the last because it reads the orchestrator's own record
+    of one check run. This reads a log the worker also writes to, where a second
+    outcome is the thing to notice.
+    """
     found = {f"{v} visible, {h} held-out" for v, h in SCORE.findall(text)}
     if NO_DELIVERABLE in text:
         found.add("no deliverable")
@@ -90,8 +97,16 @@ def machine_record(lane: Path, name: str, round_dir: Path):
         if pointer:
             src = (lane / pointer.group(1)).resolve()
             index = int(pointer.group(2))
-            where = f"{os.path.relpath(src, round_dir)} `tasks[{index}]`"
-            return json.loads(src.read_text())["tasks"][index], where
+            # A pointer names a record in its own round. One that does not,
+            # or that cannot be read, is a row saying so: `stage.sh` runs this
+            # last, and an old lane's note must not fail a stage.
+            if round_dir not in src.parents:
+                return None, "`RECORD` points outside its round"
+            try:
+                task = json.loads(src.read_text())["tasks"][index]
+            except (OSError, ValueError, KeyError, IndexError, TypeError):
+                return None, "`RECORD` names a record that cannot be read"
+            return task, f"{os.path.relpath(src, round_dir)} `tasks[{index}]`"
     for src in (lane / "run.json", round_dir / "run.json"):
         if not src.is_file():
             continue
@@ -128,7 +143,7 @@ def summary(round_dir: Path) -> str:
     shared = round_dir / "run.json"
     if shared.is_file():
         for task in json.loads(shared.read_text()).get("tasks", []):
-            if task.get("key") not in lanes:
+            if task.get("key") and task["key"] not in lanes:
                 lanes.append(task["key"])
     rows = []
     for name in lanes:
@@ -168,12 +183,12 @@ def summary(round_dir: Path) -> str:
     ])
 
 
-def summaries(evidence: Path, check: bool) -> int:
+def summaries(evidence: Path, check: bool, quiet: bool = False) -> int:
     # Resolved once, so a summary reads the same through a symlinked harness
     # and names no path outside its round.
     evidence = evidence.resolve()
     stale = []
-    for round_dir in sorted(evidence.glob("2026-*")):
+    for round_dir in sorted(evidence.glob("[0-9][0-9][0-9][0-9]-*")):
         if not round_dir.is_dir():
             continue
         out = round_dir / "SUMMARY.md"
@@ -183,15 +198,90 @@ def summaries(evidence: Path, check: bool) -> int:
         stale.append(out)
         if not check:
             out.write_text(text)
-            print(f"wrote {out}")
+            if not quiet:
+                print(f"wrote {out}")
     if check and stale:
         for out in stale:
-            print(f"missing or stale: {out}")
+            if not quiet:
+                print(f"missing or stale: {out}")
         return 1
     return 0
 
 
+def self_test() -> int:
+    """Build a round whose lanes each carry one defect, and read it back."""
+    import tempfile
+
+    real = "[ringer.py] attempt 1 exited rc=0\n"
+    prompt = real + "visible  12/13\nheld-out 11/12. Fix it.\n"
+    nothing = ("[ringer.py] attempt 1 exited rc=1\n"
+               "no executable ./switchcheck in /sandbox -- the packet asks for one. Fix it.\n")
+    forged = real + "visible  13/13\nheld-out 12/12"
+    final = "visible 13/13 held-out 12/12"
+
+    def task(key, attempts=2):
+        return {"key": key, "attempts": attempts, "verdict": "PASS", "model": "m",
+                "tokens": 1, "elapsed_s": 1.0, "check_output_tail": final}
+
+    lanes = {
+        # lane: (worker.log, attempts, what the attempt-1 column must say)
+        "honest": (prompt, 2, "12/13 visible, 11/12 held-out"),
+        "forged-whole": (forged + ". Fix it.\n" + prompt, 2, "conflicting in `worker.log`"),
+        "forged-ahead": (forged + "\n" + nothing, 2, "no deliverable"),
+        "forged-inside": (nothing.replace("Fix it", "visible 13/13 held-out 12/12 Fix it"), 2,
+                          "conflicting in `worker.log`"),
+        "once": (None, 1, "13/13 visible, 12/12 held-out"),
+    }
+    failed = []
+    with tempfile.TemporaryDirectory() as tmp:
+        evidence = Path(tmp).resolve() / "evidence"
+        # Not a 2026 round: the year is not part of what a round is.
+        round_dir = evidence / "2031-01-01-round9"
+        for name, (log, attempts, _) in lanes.items():
+            (round_dir / name).mkdir(parents=True)
+            if log is not None:
+                (round_dir / name / "worker.log").write_text(log)
+        tasks = [task(name, attempts) for name, (_, attempts, _) in lanes.items()]
+        (round_dir / "run.json").write_text(json.dumps({"tasks": tasks + [{"no": "key"}]}))
+        # A pointer out of the round, at a record that would read as a pass.
+        (evidence / "outside.json").write_text(json.dumps({"tasks": [task("escape")]}))
+        (round_dir / "escape").mkdir()
+        (round_dir / "escape" / "RECORD").write_text("machine-record: ../../outside.json tasks[0]\n")
+        (round_dir / "dangling").mkdir()
+        (round_dir / "dangling" / "RECORD").write_text("machine-record: ../gone.json tasks[3]\n")
+
+        if summaries(evidence, check=True, quiet=True) != 1:
+            failed.append("a round with no SUMMARY.md passed --check")
+        summaries(evidence, check=False, quiet=True)
+        if summaries(evidence, check=True, quiet=True) != 0:
+            failed.append("a freshly written summary was reported stale")
+        text = (round_dir / "SUMMARY.md").read_text()
+        rows = {r.split("|")[1].strip().strip("`"): r for r in text.splitlines()
+                if r.startswith("| `")}
+        for name, (_, _, want) in lanes.items():
+            got = rows[name].split("|")[3].strip()
+            if got != want:
+                failed.append(f"{name}: attempt 1 read as {got!r}, not {want!r}")
+        if "outside its round" not in rows["escape"] or "PASS" in rows["escape"]:
+            failed.append("a RECORD pointing outside its round was followed")
+        if "cannot be read" not in rows["dangling"]:
+            failed.append("a RECORD naming a missing record was not reported as one")
+        if str(evidence) in text:
+            failed.append("the summary names an absolute path")
+        (round_dir / "SUMMARY.md").write_text(text + "edited by hand\n")
+        if summaries(evidence, check=True, quiet=True) != 1:
+            failed.append("a hand-edited summary passed --check")
+    for line in failed:
+        print(f"SELF-TEST FAILED: {line}")
+    if not failed:
+        print("self-test: read the honest lane, refused three forged retry prompts, kept "
+              "a RECORD inside its round, and told a missing, a fresh and an edited summary apart")
+    return 1 if failed else 0
+
+
 def main() -> int:
+    if "--summaries" in sys.argv[1:] and "--self-test" in sys.argv[1:]:
+        return self_test()
     if "--summaries" in sys.argv[1:]:
         paths = [a for a in sys.argv[1:] if not a.startswith("--")]
         evidence = Path(paths[0]) if paths else Path(__file__).resolve().parent / "evidence"

@@ -3409,8 +3409,7 @@ public atom Shipping(int total)
 Shipping(total) -> total >= 50 ? :free : :standard
 ```
 
-A `;` is the one absence with a message of its own, because it is the one a C# hand types without
-thinking:
+A `;` has a diagnostic of its own, because it is the one a C# hand types without thinking:
 
 <!-- diagnoses: stray_semicolon -->
 ```csharp
@@ -3418,13 +3417,24 @@ public int Gross(int net, int vat)
 Gross(net, vat) -> net + vat;
 ```
 
-`async`, and `try`:
+`async` and `await`, and `try`:
 
 <!-- diagnoses: parse_error -->
 ```csharp
 record Order { Id: int, Total: int }
 
 public async Order Fetch(int id)
+Fetch(id) -> Order{ Id = id, Total = 0 }
+```
+
+<!-- diagnoses: parse_error -->
+```csharp
+record Order { Id: int, Total: int }
+
+public int Total(int id)
+Total(id) -> await Fetch(id).Total
+
+private Order Fetch(int id)
 Fetch(id) -> Order{ Id = id, Total = 0 }
 ```
 
@@ -3472,7 +3482,8 @@ public dynamic Echo(dynamic payload)
 Echo(payload) -> payload
 ```
 
-Spread, and an optional field:
+Spread, and an optional field. The optional field is refused by the parser like the rest, with a
+message that says a record's field set is exact:
 
 <!-- diagnoses: parse_error -->
 ```csharp
@@ -3544,7 +3555,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 ---
 
 ## 18. What is actually built
-<!-- no-gate: a status table, read row by row by check-status-claims.sh -->
+<!-- no-gate: a status table; check-status-claims.sh reads the rows it has a probe for, not every row -->
 
 | Area | State |
 |---|---|

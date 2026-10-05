@@ -88,6 +88,22 @@ if [ "${1:-}" = "--self-test" ]; then
   trap 'rm -rf "$CTL"' EXIT
   mkdir -p "$CTL/clean/worker/cases" "$CTL/leaky/worker/expected" "$CTL/held/worker/heldout"
   fail=0
+
+  # The round summaries, FIRST, before anything below stages. Staging rewrites
+  # them, so a stale summary checked after a staging control has already been
+  # repaired and reads as current (seen 2026-10-05: a tampered summary, exit 0).
+  # The generator reads its own forged rounds back, and every archived round's
+  # SUMMARY.md has to be the one it would write today.
+  if ! python3 "$HERE/build-run-manifest.py" --summaries --self-test >/dev/null; then
+    python3 "$HERE/build-run-manifest.py" --summaries --self-test
+    fail=1
+  fi
+  if ! python3 "$HERE/build-run-manifest.py" --summaries --check "$HERE/evidence"; then
+    echo "SELF-TEST FAILED: a round's SUMMARY.md is missing or stale — run"
+    echo "                  build-run-manifest.py --summaries and commit what it writes."
+    fail=1
+  fi
+
   [ -z "$(leaks "$CTL/clean")" ] || { echo "SELF-TEST FAILED: a clean tree was reported as leaking"; fail=1; }
   [ -n "$(leaks "$CTL/leaky")" ] || { echo "SELF-TEST FAILED: a planted expected/ was NOT found"; fail=1; }
   # Planted separately from expected/, not alongside it: a check that only ever
