@@ -201,7 +201,7 @@ ForBilling(n) -> n + 1
 This reaches the case `60j` J3 leaves open (a function public only for one sibling, beside
 `Total/1` which is public for everyone), where a module-level rule forces moving `ForBilling` into
 its own directory. That move changes its module atom for every caller. Estimated delta, by reading
-`private_callee/3` at `bs_check.erl:4268` and `private_table/1` at `:~590`: the `visibility`
+`private_callee/3` at `bs_check.erl:4268` and `private_table/1` at `:554`: the `visibility`
 production grows an argument; `World` entries carry `restricted => #{{N,A} => [Mods]}`; and
 `import_env` moves a function from `exports` into `privates` *for importers outside the list*,
 so the existing call-site checks at `:3653` and `:4196` and the "declares `private`" diagnostic

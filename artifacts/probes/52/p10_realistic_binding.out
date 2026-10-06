@@ -1,0 +1,46 @@
+   yecc: shift/reduce conflicts reported: 232
+   erlc errors: none
+   | module Req
+   | using :'Elixir.Req' in :req {
+   |     term new(list<(atom, term)> opts)
+   | }
+   | 
+   | using :'Elixir.Application' in :elixir {
+   |     term ensure_all_started(atom app)
+   | }
+   | 
+   | using :maps in :stdlib {
+   |     term get(atom k, term m)
+   | }
+   | 
+   | using :erlang in :erts {
+   |     int system_time(atom unit)
+   | }
+   | 
+   | public term Method()
+   | Method() -> :maps.get(:method, :'Elixir.Req'.new([(:method, :post)]))
+   | 
+   | public bool Started()
+   | Started() -> :erlang.system_time(:second) > 0
+== R1/R2 all applications on ERL_LIBS
+Method() -> :post
+ok  R2 runs
+== R3 control: req removed
+src/Req/Req.bs:2:1: error: application `req` (needed by :'Elixir.Req') is not on the code path
+  add its lib directory to ERL_LIBS, or remove the declaration
+ok  R3 refused at compile time, naming req
+ok  R3 not a run-time crash
+== R3b same source under the STOCK compiler (control for 'the delta is what moved it'):
+stock, req absent: crashed: error:undef
+ok  R3b stock compiles it and dies at run time
+== R4 the :erlang block
+Started() -> :true
+ok  R4 'in :erts' accepted
+'in :erlang' (the natural guess): src/Req/Req.bs:14:1: error: application `erlang` (needed by :erlang) is not on the code path
+  add its lib directory to ERL_LIBS, or remove the declaration
+ok  R4 control: 'in :erlang' is refused (no such application)
+== R5 churn
+using :atom blocks in compiler/examples that would need an 'in :app' if it were required: 18
+   LANGUAGE.md fenced blocks with a foreign using: 11
+
+ALL CLAIMS HELD

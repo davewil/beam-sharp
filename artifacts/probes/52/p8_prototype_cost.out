@@ -40,3 +40,11 @@ ok  P3 ... not a run-time crash
    | using :fakelib_mod {
 P1 stock compiler : src/Vmodule/Vmodule.bs:2:7: error: syntax error before: fakelib
 ok  P1 stock refuses module
+P2 patched, app present: 42
+ok  P2 module runs with the app present
+P3 patched, app absent : src/Vmodule/Vmodule.bs:2:1: error: application `fakelib` (needed by the module) is not on the code path
+  add its lib directory to ERL_LIBS, or remove the declaration
+ok  P3 module refused at compile time
+ok  P3 ... not a run-time crash
+
+=================== P5 regression control: compiler/examples, stock vs patched
