@@ -19,4 +19,7 @@ erl -noshell -eval 'io:format("OTP ~s erts ~s~n",[erlang:system_info(otp_release
 erl -noshell +S 1:1 -s init stop >/dev/null 2>&1
 erl -noshell -eval 'io:format("jit: ~p~n",[erlang:system_info(emu_flavor)]),halt().' | tee -a "$O/machine.txt"
 echo "REPS=$REPS CALLS=$CALLS LEN=$LEN  => $((CALLS*LEN)) element visits per rep per variant" | tee -a "$O/machine.txt"
-./bench.escript "$O" $REPS $CALLS $LEN Base=BenchBase Base2=BenchBase2 A=BenchA B=BenchB C=BenchC 2>&1 | tee "$O/bench.txt"
+for round in 1 2 3; do
+  echo "=========== round $round   loadavg $(cut -d' ' -f1-3 /proc/loadavg)" | tee -a "$O/bench.txt"
+  ./bench.escript "$O" $REPS $CALLS $LEN Base=BenchBase Base2=BenchBase2 A=BenchA B=BenchB C=BenchC 2>&1 | tee -a "$O/bench.txt"
+done

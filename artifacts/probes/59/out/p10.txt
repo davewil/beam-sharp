@@ -6,3 +6,6 @@ exemplar examples/exemplars/25d-database-querying/: error: this directory holds 
 exemplar examples/exemplars/25e-dynamic-web-page/: examples/exemplars/25e-dynamic-web-page/index.bs:10:1: error: `module Shop.Page` does not match its directory
 exemplar examples/exemplars/25f-llm-evaluation-client/: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory
 exemplar examples/exemplars/25g-jev-server/: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory
+variant base: compiled 27/27 modules
+base  distinct modules: 27
+base  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=0 pub_flt=4 priv_flt=0 priv_fns_tested=0

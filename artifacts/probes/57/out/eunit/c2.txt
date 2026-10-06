@@ -1199,4 +1199,54 @@ module 'strings_tests'
   strings_tests: a_string_survives_a_print_and_read_round_trip_test...ok
   strings_tests: a_quoted_argument_honours_escapes_test...ok
   strings_tests: an_empty_quoted_argument_is_an_empty_binary_test...ok
-  strings_tests: the_boundary_error_names_the_replacement_test...
+  strings_tests: the_boundary_error_names_the_replacement_test...[0.488 s] ok
+  [done in 6.272 s]
+module 'switch_tests'
+  switch_tests: a_switch_dispatches_and_runs_test...[0.018 s] ok
+  switch_tests: a_tuple_subject_is_exhaustive_without_a_catch_all_test...[0.016 s] ok
+  switch_tests: bare_true_and_false_are_atoms_not_variables_test...[0.019 s] ok
+  switch_tests: an_inexhaustive_switch_names_the_missing_arm_test...ok
+  switch_tests: a_guard_on_an_arm_is_credited_test...[0.018 s] ok
+  switch_tests: a_guard_on_an_arm_leaves_the_gap_it_should_test...ok
+  switch_tests: an_untranslatable_arm_guard_credits_nothing_test...ok
+  switch_tests: an_arm_body_under_an_unreadable_guard_is_still_checked_test...ok
+  switch_tests: a_redundant_arm_is_a_warning_about_an_arm_test...ok
+  switch_tests: an_arm_binds_its_own_names_test...[0.045 s] ok
+  switch_tests: an_unbound_name_in_an_arm_body_is_reported_test...ok
+  switch_tests: an_arm_may_not_rebind_a_name_in_scope_test...ok
+  switch_tests: a_parameter_read_only_inside_an_arm_is_not_underscored_test...[0.010 s] ok
+  switch_tests: a_switch_return_is_checked_against_the_signature_test...ok
+  switch_tests: braces_nest_three_ways_test...[0.011 s] ok
+  switch_tests: a_switch_in_a_guard_is_refused_test...ok
+  switch_tests: a_binding_then_a_switch_on_the_bound_name_test...[0.013 s] ok
+  switch_tests: an_arm_may_not_rebind_a_name_a_binding_introduced_test...ok
+  switch_tests: a_switch_in_tail_position_keeps_the_tail_call_test...[0.026 s] ok
+  switch_tests: a_vacuous_arm_is_not_reported_as_shadowed_test...ok
+  switch_tests: a_vacuous_arm_carries_the_domain_it_is_not_a_member_of_test...ok
+  switch_tests: a_vacuous_arm_does_not_make_a_covered_switch_inexhaustive_test...ok
+  switch_tests: an_unsatisfiable_arm_guard_is_its_own_diagnostic_test...ok
+  switch_tests: an_untranslatable_arm_guard_is_not_called_unsatisfiable_test...ok
+  switch_tests: a_switch_residual_is_spelled_as_a_head_spells_it_test...ok
+  [done in 0.252 s]
+module 'template_tests'
+  template_tests: the_model_key_joins_three_strings_test...[0.688 s] ok
+  template_tests: a_receipt_line_prints_each_part_test...[0.892 s] ok
+  template_tests: numbers_print_as_written_test...[0.851 s] ok
+  template_tests: a_doubled_brace_is_literal_test...[0.725 s] ok
+  template_tests: a_hole_balances_braces_and_skips_strings_test...[1.310 s] ok
+  template_tests: text_takes_a_strings_escapes_test...[0.652 s] ok
+  template_tests: a_record_hole_is_refused_test...[0.861 s] ok
+  template_tests: a_union_hole_is_not_told_about_formattable_test...[0.437 s] ok
+  template_tests: a_hole_spanning_two_parts_is_refused_test...[1.191 s] ok
+  template_tests: a_string_template_is_a_guard_test...[1.415 s] ok
+  template_tests: an_int_hole_in_a_guard_is_refused_test...[1.313 s] ok
+  template_tests: a_malformed_template_is_refused_test...[1.488 s] ok
+  template_tests: a_hole_is_an_expression_test...[0.913 s] ok
+  template_tests: invalid_utf8_text_is_refused_test...[0.416 s] ok
+  template_tests: it_lowers_to_one_binary_test...[1.560 s] ok
+  template_tests: the_term_channel_is_the_same_in_a_batch...[1.407 s] ok
+  template_tests: a_plain_string_keeps_its_braces_test...[0.653 s] ok
+  template_tests: sibling_files_keep_their_own_holes_test...[0.669 s] ok
+  template_tests: a_holes_lex_error_is_refused_test...[1.044 s] ok
+  template_tests: an_uninhabited_hole_adds_nothing_test...[0.645 s] ok
+  template_tests: a_hole_spans_lines_test...

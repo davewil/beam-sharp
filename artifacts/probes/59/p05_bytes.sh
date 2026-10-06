@@ -33,4 +33,10 @@ echo "tag deltas 1/3/8 fields: $T1 $T3 $T8   int delta: $I"
 [ "$T1" = "$T3" ] && [ "$T3" = "$T8" ] && echo "PASS  tag delta flat in field count" || { echo "FAIL  tag delta not flat"; FAILS=$((FAILS+1)); }
 [ "$T1" -ge 10 ] && [ "$T1" -le 16 ] && echo "PASS  tag delta near ticket's +14 ($T1)" || { echo "FAIL  tag delta $T1 far from +14"; FAILS=$((FAILS+1)); }
 [ "$I" -ge 3 ] && [ "$I" -le 5 ] && echo "PASS  int delta within ticket's +3..5 ($I)" || { echo "FAIL  int delta $I outside +3..5"; FAILS=$((FAILS+1)); }
+echo "## src/Scope: OuterRec->InnerRec (top-level pass, caller tested) and OuterInt->InnerInt (caller proved int); Code bytes"
+for v in base a b c; do mkdir -p "$OUT/p05/scope_$v"; "$(bscv $v)" -o "$OUT/p05/scope_$v" src/Scope >/dev/null; echo "$v $(./bytes_one.escript $OUT/p05/scope_$v/Scope.beam)"; done | tee "$OUT/p05/scope.txt"
+expect "Scope base=164"                                         "$OUT/p05/scope.txt" "^base code=164 "
+expect "Scope a=152 (private tag test removed, -12)"           "$OUT/p05/scope.txt" "^a code=152 "
+expect "Scope b=164 (int test elided by erlc; tag kept)"        "$OUT/p05/scope.txt" "^b code=164 "
+expect "Scope c=152 (tag elided by the c pass; int by erlc)"    "$OUT/p05/scope.txt" "^c code=152 "
 echo "p05 FAILS=$FAILS"; exit $FAILS
