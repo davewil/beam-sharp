@@ -248,3 +248,15 @@ Could not verify:
 - **Embedded-mode releases** (fixed code path at boot), **Windows `ERL_LIBS` separator**, **archive (.ez) application layout**: not probed.
 - Whether a real checker should report every marker (prototype stops at the first), and the error-vs-warning choice (a design decision, not a measurement).
 - Timing noise: the end-to-end bsc comparison has a ~500 ms spread, so it can only rule out a large cost, not measure a small one.
+
+## Verification errata (independent verifier, `probes/52/VERIFICATION.md`)
+
+The verifier re-ran all 18 probes from a fresh copy; F1–F10 and the neighbour survey reproduce. Corrections to the text above — **read these before relying on the recommendation**:
+
+1. **Option B's "a wrong app compiles clean" is an artefact of the prototype, not of the option.** The patch has `_ when RM =:= module -> ok;`, so a module-level marker is never checked against anything. A 7-line change that checks each foreign `using` module against the listed apps refuses `[app: stdlib] module ShopBLie` and still passes the correct `ShopB`. So **B can catch the wrong-app case**, and the claim "only A can verify module-belongs-to-app" (recommendation reason 2, finding F6) describes the prototype. A's real advantage over B is locality (the marker sits beside the block it describes), not checkability.
+2. **F9 timings are stale.** The final `out/06` gives end-to-end medians 800.9 / 766.2 ms and `lib_dir` 5.5 / 8.2 µs (about 41× vs `application:load`), not 685 / 741 ms, 2.9 / 1.7 µs and about 70×. "No measurable end-to-end difference" still holds (verifier's own medians 731.7 vs 838.9 ms inside a 500–700 ms spread); it only rules out a large cost.
+3. **"14 corpus blocks" is unsupported.** `out/17` shows `:erlang` ×10 and about 22 OTP blocks in total.
+4. **"About 36 core compiler lines" for A excludes the strong check** (module-found-in-app), which exists only as probe hook code; the recommendation needs it, so A's cost is understated.
+5. The strong-check diagnostic prints "no `stdlib` directory was found" when `stdlib` exists (wording bug in the prototype).
+6. Probe 16 (eunit) was not re-run by the verifier; only the author's 227 pass / 1 fail (same on unpatched) is on file, and the cause of the one failure was not investigated.
+7. Mutation checks held: neutralising the `lib_dir` check makes the module compile then die with `undef`; the unpatched compiler rejects `[app:]`; removing the dependency from the Mix consumer restores its warning.

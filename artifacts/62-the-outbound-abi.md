@@ -253,3 +253,15 @@ the choice is yours.
   real modules would widen the dup/thin gap.
 - The `Kind`-tag / struct friction (ticket §2, §3) is unchanged by every option and was not re-measured
   beyond E1.
+
+## Verification errata (independent verifier, `probes/62/VERIFICATION.md`)
+
+All 18 probes re-ran from a fresh copy; all 28 `verdict.out` claim lines are identical. The verifier independently confirmed: `:Mine."Make"(1)`, capture and `defdelegate` work while unquoted and `import` calls are SyntaxErrors; Gleam rejects PascalCase functions and lowers constructors per capital (`HTTPGet` → `h_t_t_p_get`); the alias patch collides on `HttpGet`/`HTTPGet` and `Module_Info` (and `erlc` rejects a second `module_info/1`); Counter exports snake_case only and LANGUAGE.md §12 (3103–3230) carries no callback caveat. Corrections:
+
+1. `out/p10_run1_noisy_in_run_sh.out` is cited as retained but **does not exist**. The "three full runs" load-time ranges are likewise not retained (only the final run).
+2. The Elixir 1.19 warning "quoted call … quotes are not required" is true (reproduced) but appears in no retained output because p07 filters it. It bears on Option A: Elixir nudges callers toward unquoted calls that cannot work for PascalCase.
+3. "No total rule over this alphabet is injective" is false as written (identity is injective); it should read *no readable rule*.
+4. The refuted Gleam claim is pinned on ticket 10 §7, but that text is about constructors and is correct; only ticket 62 lines 116–117 apply it to functions.
+5. The N9 verdict ("private `Foo_bar` does not collide") passes on absence of an error string, so a broken compiler also prints HOLDS; the converse (a public `Foo_bar` beside `FooBar` does collide) is unreported.
+6. Absolute beam bytes shift ≈24 B with source-path length, so "deterministic" holds per path; percentages and stripped totals are unchanged.
+7. p10: thin-alias call cost real (1.59 ns [1.06..1.77] vs null [−0.30..0.51]); dup alias unresolved; the noise gate cannot manufacture a result (thin is positive in every attempt, including rejected ones).

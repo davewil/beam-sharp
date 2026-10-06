@@ -1,0 +1,5 @@
+base  All 1312 tests passed.  (wall_seconds=482)
+g1    Failed: 0.  Skipped: 0.  Passed: 228.  (wall_seconds=115)
+g1b   All 1312 tests passed.  (wall_seconds=503)
+c1    All 1312 tests passed.  (wall_seconds=421)
+c2    All 1312 tests passed.  (wall_seconds=436)

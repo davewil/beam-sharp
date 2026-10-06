@@ -42,3 +42,9 @@ change replaced rows.
    (`bs_process:collect/2`) and eunit CANCELLED the run (228/177 tests "passed" of
    ~1312, `One or more tests were cancelled`). That is load, not a verdict: the run
    is now sequential and the parallel output was discarded.
+10. `10_eunit.sh` takes `ONLY="g1"` to run a subset. The first sequential g1 run
+    timed out at the same subprocess test (228 tests, cancelled) because I ran
+    probe 12 (several bsc invocations) while it was in progress; that output is
+    kept as `evidence/10_g1_run_overlapped_with_other_probes.txt` and the g1
+    suite was re-run alone on an idle machine. Nothing else about the run changed.
+    Do not run other probes while 10_eunit.sh is running.

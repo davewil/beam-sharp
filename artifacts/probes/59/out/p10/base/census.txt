@@ -26,3 +26,4 @@ Signalbox.abstr pub_fns=5 priv_fns=0 pub_tag=1 priv_tag=0 pub_int=2 priv_int=0 p
 Stats.abstr pub_fns=4 priv_fns=0 pub_tag=0 priv_tag=0 pub_int=0 priv_int=0 pub_flt=2 priv_flt=0 priv_fns_tested=0
 Wire.abstr pub_fns=3 priv_fns=0 pub_tag=0 priv_tag=0 pub_int=0 priv_int=0 pub_flt=0 priv_flt=0 priv_fns_tested=0
 TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=0 pub_flt=4 priv_flt=0 priv_fns_tested=0
+base  total Code-chunk bytes over all beams: 8004

@@ -546,3 +546,45 @@ exemplar examples/exemplars/25g-jev-server/: examples/exemplars/25f-llm-evaluati
 variant base: compiled 27/27 modules
 base  distinct modules: 27
 base  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=0 pub_flt=4 priv_flt=0 priv_fns_tested=0
+base  total Code-chunk bytes over all beams: 8004
+variant a: compiled 27/27 modules
+a  distinct modules: 27
+a  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=0 pub_flt=4 priv_flt=0 priv_fns_tested=0
+a  total Code-chunk bytes over all beams: 8004
+variant b: compiled 27/27 modules
+b  distinct modules: 27
+b  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=9 pub_flt=4 priv_flt=0 priv_fns_tested=7
+b  total Code-chunk bytes over all beams: 8013
+variant c: compiled 27/27 modules
+c  distinct modules: 27
+c  TOTAL pub_fns=95 priv_fns=24 pub_tag=10 priv_tag=0 pub_int=36 priv_int=9 pub_flt=4 priv_flt=0 priv_fns_tested=7
+c  total Code-chunk bytes over all beams: 8013
+## modules whose private-function guard count differs from base (priv_tag/priv_int/priv_flt per module)
+-- a vs base
+-- b vs base
+Foreign.abstr 1 0 0 0 0 1 0 2 0 1
+Pipeline.abstr 5 0 0 0 0 5 0 3 0 3
+Shop.Collections.Ints.abstr 1 0 0 0 0 1 0 2 0 1
+Shop.Pricing.abstr 3 0 0 0 0 3 0 2 0 2
+TOTAL 24 0 0 0 0 24 0 9 0 7
+-- c vs base
+Foreign.abstr 1 0 0 0 0 1 0 2 0 1
+Pipeline.abstr 5 0 0 0 0 5 0 3 0 3
+Shop.Collections.Ints.abstr 1 0 0 0 0 1 0 2 0 1
+Shop.Pricing.abstr 3 0 0 0 0 3 0 2 0 2
+TOTAL 24 0 0 0 0 24 0 9 0 7
+p10 done
+(exit 0)
+
+################ p10b exemplar source census
+25a-http-api-server              pub_fns=3 priv_fns=6 priv_with_rec=0 priv_with_int=0 priv_with_flt=0 priv_with_any=0
+25b-websocket-handler            pub_fns=3 priv_fns=2 priv_with_rec=0 priv_with_int=1 priv_with_flt=0 priv_with_any=1
+25c-event-queue-consumer         pub_fns=5 priv_fns=4 priv_with_rec=0 priv_with_int=1 priv_with_flt=0 priv_with_any=1
+25d-database-querying            pub_fns=6 priv_fns=11 priv_with_rec=3 priv_with_int=0 priv_with_flt=0 priv_with_any=3
+25e-dynamic-web-page             pub_fns=3 priv_fns=9 priv_with_rec=1 priv_with_int=2 priv_with_flt=0 priv_with_any=3
+25f-llm-evaluation-client        pub_fns=5 priv_fns=25 priv_with_rec=2 priv_with_int=0 priv_with_flt=0 priv_with_any=2
+25g-jev-server                   pub_fns=5 priv_fns=7 priv_with_rec=2 priv_with_int=0 priv_with_flt=0 priv_with_any=2
+TOTAL                            pub_fns=30 priv_fns=64 priv_with_rec=8 priv_with_int=4 priv_with_flt=0 priv_with_any=12
+(exit 0)
+
+################ p11 repo test suite under each option

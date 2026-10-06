@@ -176,3 +176,17 @@ What would flip the pick to building A or B: a logged instance of agent-written 
 3. **REFUTED (superseded):** 41 section 5's tree marking `Internal/` "inside a module" as a "SUB-MODULE, source-only". F15.11/p17: a nested directory holding `.bs` is its own module with its own beam. Relevant because candidate A's `Shop.Orders.Internal` is a legal module path.
 4. **NOT REPRODUCED (not testable here):** the neighbours Elm (`exposed-modules`) and C# (`internal`).
 5. **Confirmed, no change:** no `internal`/`friend`/`sealed`/`visible_to` in the checker (three unrelated comments only); a module can name any other's public functions today; the BEAM cannot enforce callers; "one entry label per function, exported-vs-local" (p13 reproduces the guard difference).
+
+## Verification errata (independent verifier, `probes/60/VERIFICATION.md`)
+
+All 17 probes re-ran from a fresh copy: 16 REPRODUCED, p07 (Elm) NOT MEASURED (registry 403). Ten mutations (unpatched compiler, declaration deleted, helper made private, caller moved, …) each turned the probe red. Corrections:
+
+1. "md5 identical across 31 modules" is a miscount: it is **30 beam files, 27 distinct modules**; the equality holds.
+2. "2 of 4 refused" depends on how namespace targets are counted; counting child modules gives 3 of 4.
+3. "Ticket 18 §1" for *one entry label per function* is wrong: the text is at ticket 18 lines 440, 931, 975.
+4. "Five visibility readers" omits `bs_api.erl:152,158`: under Option 3, `bsc --api` silently omits `internal` functions, which the brief and patch C do not mention.
+5. **A module-level rule (Options 2 and 3) refuses every `using` of the module, including its other public functions** (verifier tested `Fetch` from an outsider under B: refused). This belongs in Option 2's strongest counterargument.
+6. "Twice → Bump hits the guard" is unsupported by raw output (p13 disassembles only Bump).
+7. "9 rule lines vs 15" compares unlike things: total change is +52 (Option 2) vs +49 (Option 3).
+8. The compile-time delta has no statistical power (verifier: A +3.5%, B −1.3%, C +2.6%, base spread ~1000 ms; signs differ from the author's run). Read it as "not measured", not "no cost".
+9. Weak verdict lines: the Go/Rust probes print CONFIRMED with `exit=127` if the tool is absent; p04's warning grep runs on a cached second build (vacuous); p11's "must be refused" cases check exit code only. The Go/Java/Rust claims themselves are backed by executed output (go1.24.7, javac 21.0.11, rustc 1.97.0).
