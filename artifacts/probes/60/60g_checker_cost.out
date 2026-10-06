@@ -1,0 +1,5 @@
+modules=201 using-edges=595 (K=3) runs=9
+(a) pristine, no visible_to      : min=1186 median=1615 max=1843 ms
+(b) patched,  no visible_to      : min=1391 median=1614 max=1896 ms
+(c) patched,  visible_to on all  : min=1406 median=1619 max=2980 ms
+(a') pristine again (noise floor) : min=1456 median=2351 max=3446 ms

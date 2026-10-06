@@ -1,0 +1,42 @@
+=== UNALIASED beam (control)
+beam dir: plain
+  :Shop.New(1)  parse                                 :SYNTAX_ERROR
+  :Shop.new(1)  eval                                  {:raised, UndefinedFunctionError}
+  &:Shop.new/1 applied to 2                           {:raised, UndefinedFunctionError}
+  [1,2] |> Enum.map(&:Shop.new/1)                     {:raised, UndefinedFunctionError}
+  3 |> :Shop.new()                                    {:raised, UndefinedFunctionError}
+warning: cannot import :Shop.new/1 because it is undefined or private
+└─ nofile:1
+error: undefined function new/1 (there is no such import)
+└─ nofile:1
+  import :Shop, only: [new: 1]; new(4)                {:raised, CompileError}
+  alias-style: Shop.new(1) with `alias :Shop, as: S`  {:raised, UndefinedFunctionError}
+  :Shop.which(%{Kind: :"Shop.Order", Id: 1, Total: 2}){:raised, UndefinedFunctionError}
+-- Elixir reserved words as the dotted function name
+
+=== ALIASED beam
+beam dir: aliased
+  :Shop.New(1)  parse                                 :SYNTAX_ERROR
+  :Shop.new(1)  eval                                  %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  &:Shop.new/1 applied to 2                           %{Kind: :"Shop.Order", Total: 0, Id: 2}
+  [1,2] |> Enum.map(&:Shop.new/1)                     [%{Kind: :"Shop.Order", Total: 0, Id: 1}, %{Kind: :"Shop.Order", Total: 0, Id: 2}]
+  3 |> :Shop.new()                                    %{Kind: :"Shop.Order", Total: 0, Id: 3}
+  import :Shop, only: [new: 1]; new(4)                %{Kind: :"Shop.Order", Total: 0, Id: 4}
+  alias-style: Shop.new(1) with `alias :Shop, as: S`  %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  :Shop.which(%{Kind: :"Shop.Order", Id: 1, Total: 2}):order
+-- Elixir reserved words as the dotted function name
+  :Shop.end(1) parse                                  :parses
+  :Shop.fn(1) parse                                   :parses
+  :Shop.do(1) parse                                   :parses
+  :Shop.when(1) parse                                 :parses
+  :Shop.not(1) parse                                  :parses
+  :Shop.and(1) parse                                  :parses
+  :Shop.or(1) parse                                   :parses
+  :Shop.in(1) parse                                   :parses
+  :Shop.nil(1) parse                                  :parses
+  :Shop.true(1) parse                                 :parses
+  :Shop.false(1) parse                                :parses
+  :Shop.catch(1) parse                                :parses
+  :Shop.rescue(1) parse                               :parses
+  :Shop.after(1) parse                                :parses
+  :Shop.else(1) parse                                 :parses

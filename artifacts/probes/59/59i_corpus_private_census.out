@@ -1,0 +1,3 @@
+records declared in corpus: Ack Demand Events Hello Invoice Message ModelIdentity Order OrderRow Parcel Reading Stop Tag Task ToolCall ToolResult
+private signatures: 15 ; with a record param: 0 ; with an int/float param: 9
+public signatures: 93 ; with a record param: 10 ; with an int/float param: 33

@@ -1,0 +1,44 @@
+== D1 one query, two environments
+ERL_LIBS unset      : code:lib_dir(fakelib) -> error
+ERL_LIBS=$WORK/libs : code:lib_dir(fakelib) -> fakelib-1.0
+ok  D1 absent -> {error,bad_name}
+ok  D1 present -> fakelib-1.0
+== D2 module present, app absent (plain directory via -pa)
+which=fakelib_mod.beam lib_dir={error,bad_name} call=42
+ok  D2 the module loads and runs
+ok  D2 yet the app check says bad_name
+== D3 what counts as an application directory?
+noapp="noapp-1.0" dirmismatch="dirmismatch-1.0" other_name={error,bad_name}
+ok  D3 a dir with ebin and no .app IS reported as an application
+ok  D3 lookup keys on the DIRECTORY name, not the .app's name
+== D5 census: is the app derivable from a module name?  (method: read every .app 'modules' list in OTP 28 + Elixir 1.20.4)
+OTP: 1279 modules in 34 apps
+  module name == app name: 25 (2.0%)
+  module name == app or app_ prefix: 404 (31.6%)
+Elixir.*: 413 modules in 6 apps; first segment, snake_case OR lowercased, == app: 175 (42.4%)
+  misses by app: [{elixir,237},{mix,1}]
+  sample misses: [{'Elixir.Access',wrongly,access},
+                  {'Elixir.Agent.Server',wrongly,agent},
+                  {'Elixir.Agent',wrongly,agent},
+                  {'Elixir.Application',wrongly,application},
+                  {'Elixir.ArgumentError',wrongly,argument_error},
+                  {'Elixir.ArithmeticError',wrongly,arithmetic_error}]
+apps whose name is not [a-z_]+: [asn1]
+ok  D5 OTP: module name rarely equals app name
+== D6 which application owns each foreign module the shipped examples use?
+erlang       get_application=undefined        which=preloaded
+lists        get_application={ok,stdlib}      which=lists.beam
+maps         get_application={ok,stdlib}      which=maps.beam
+ets          get_application={ok,stdlib}      which=ets.beam
+file         get_application={ok,kernel}      which=file.beam
+binary       get_application={ok,stdlib}      which=binary.beam
+gen_server   get_application={ok,stdlib}      which=gen_server.beam
+json         get_application={ok,stdlib}      which=json.beam
+ok  D6 erlang is preloaded, no owning application
+ok  D6 control: lists belongs to stdlib
+using :atom blocks in compiler/examples: 18, of which :erlang: 8
+the corpus already names a NON-OTP application (exemplar 25d):
+   compiler/examples/exemplars/25d-database-querying/index.bs:12:using :epgsql {
+   code:lib_dir(epgsql) on this machine = {error,bad_name}
+
+ALL CLAIMS HELD

@@ -1,0 +1,25 @@
+corpus                             files  lexed fn names clauseHds  call-like
+compiler/examples (non-exemplar)      28     28       98       188        350
+compiler/examples/exemplars           46     46      109       189        414
+aoc/                                   3      3       15        38         89
+handoff/audition-switch               25     25       19        31         62
+compiler/bin/fixtures                 14     14       14        28         49
+wayfinder/prototypes                  45     45       48       144        257
+TOTAL files 161, distinct (per-set) function names 303, call-like tokens 1221
+function-like names over all corpora: 249 distinct; containing '_': 0 []; two adjacent capitals: 0 []; digits: 0 []
+CONTROL the three patterns do fire on known inputs ('Get_x','HTTPGet','Md5'): [true,
+                                                                               true,
+                                                                               true]
+CONTROL (known answer: names=[Fib] clause heads=2 call-like=5 [1 signature + 2 heads + 2 calls]): {['Fib'],
+                                                                                                   2,
+                                                                                                   5}
+
+-- exact: exported names of the 27 compiled example modules (beam export tables)
+modules 27, exported author-visible functions 95, PascalCase 92, lowercase (behaviour callbacks lowered by bs_otp) 3
+distinct PascalCase export names 77
+lowercase exports: [{handle_call,3},{handle_cast,2},{init,1}]
+
+-- compiler-known standard operations (bs_check:reserved_table/0): inlined or generated locally, no .beam export, so no ABI surface
+10 operations: ['List.Sum','List.Length','List.Reverse','List.Sort',
+                'List.Map','List.Filter','List.Fold','List.FoldRight',
+                'Float.FromInt','Term.Compare']

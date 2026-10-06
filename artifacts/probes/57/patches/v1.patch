@@ -1,0 +1,10 @@
+--- bs_parser.yrl
++++ bs_parser.yrl
+@@ -942,6 +942,7 @@
+ %% A negated float literal is the literal; anything else is the BEAM's unary
+ %% minus, typed by its operand (F51).
+ negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
++negate(_L, {e_int, IL, N})   -> {e_int, IL, -N};
+ negate(L, E)                 -> {e_neg, L, E}.
+ 
+ to_param_rest(_L, nil)               -> nil;

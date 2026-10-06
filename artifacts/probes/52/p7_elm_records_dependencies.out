@@ -1,0 +1,14 @@
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/json" dependency your elm.json file. It helps me handle
+flags and ports.
+
+If you modified your elm.json by hand, try to change it back! And if you are
+ok  L2 offline refusal names the missing dependency, from elm.json alone
+ok  L1 it names the file that records dependencies
+== L3 control: anything needing the network fails, so the import-vs-elm.json check is unobserved
+I am trying to fetch work in your browser? Maybe the site is down? Does your internet connection have a firewall that blocks certain domains? It is usually something like that!  
+ok  L3 elm init cannot reach the registry
+NOT PROBED: whether the compiler refuses `import Html` when elm/html is absent from elm.json (needs package download).
+
+ALL CLAIMS HELD

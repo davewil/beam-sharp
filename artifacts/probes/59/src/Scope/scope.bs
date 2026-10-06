@@ -1,0 +1,23 @@
+module Scope
+
+record Order { Id: int, Total: int }
+
+// private helpers: one record param, one int param
+int InnerTotal(Order o)
+InnerTotal(o) -> o.Total
+
+int InnerInt(int n)
+InnerInt(n) -> n + 1
+
+public int OuterTotal(Order o)
+OuterTotal(o) -> o.Total
+
+public int OuterInt(int n)
+OuterInt(n) -> n + 1
+
+// pass-through: exported function whose analysis stops at its boundary
+public int ViaTotal(Order o)
+ViaTotal(o) -> InnerTotal(o)
+
+public int ViaInt(int n)
+ViaInt(n) -> InnerInt(n)

@@ -1,0 +1,15 @@
+V1 pristine bsc, no visible_to: Lab.Web names Lab.Grp.Core exit=0
+V2 patched: Lab.Billing exit=0
+V3 patched: Lab.Billing.Deep (subtree) exit=0
+Lab/Web/Web.bs:2:1: error: Lab.Web may not name Lab.Grp.Core
+  Lab.Grp.Core declares `visible_to` Lab.Billing; Lab.Web is not under any of them.
+V4 patched: Lab.Web exit=1
+Lab/WebNs/WebNs.bs:2:1: error: Lab.WebNs may not name Lab.Grp.Core
+  Lab.Grp.Core declares `visible_to` Lab.Billing; Lab.WebNs is not under any of them.
+V5 patched: Lab.WebNs via namespace exit=1
+Lab/WebNoUsing/WebNoUsing.bs:3:21: error: Lab.Grp.Core is called but never imported
+  add `using Lab.Grp.Core` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+V6 patched: Lab.WebNoUsing exit=1
+V7 patched: Lab.Sneak (dynamic) exit=0
+   run Lab.Sneak:Dyn(Lab.Grp.Core, Sum, 1) = 4

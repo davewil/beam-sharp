@@ -1,0 +1,15 @@
+--- E1 compile (expect exit 0, no warning lines)
+compile exit=0
+moduledoc of Lab.Core: :hidden
+function docs: [{:helper, 1, :hidden}, {:sum, 2, :none}, {:uses_hidden, 1, :none}]
+callers actually work: {102, 3}
+--- E3 mix xref callers Lab.Core (query; literal edges only)
+lib/stranger.ex (runtime)
+--- E3 gate form: --fail-above 0
+xref callers --fail-above 0 exit=1
+--- E3 only the dynamic caller present (remove direct): gate should NOT see it
+xref callers --fail-above 0 exit=0  (0 = gate green although Stranger can call Core)
+--- E2 CONTROL: defp across modules
+    warning: Lab.Core.hidden/1 is undefined or private
+compile exit=0
+run: function Lab.Core.hidden/1 is undefined or private

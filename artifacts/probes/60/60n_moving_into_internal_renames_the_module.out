@@ -1,0 +1,4 @@
+N1 before (Lab.Core.Pricing)          : #{'Id' => 1,'Kind' => 'Lab.Core.Pricing.Order'}
+N1 after  (Lab.Core.Internal.Pricing) : #{'Id' => 1,'Kind' => 'Lab.Core.Internal.Pricing.Order'}
+N2 declaration form, before           : #{'Id' => 1,'Kind' => 'Lab.Core.Pricing.Order'}
+N2 declaration form, after visible_to : #{'Id' => 1,'Kind' => 'Lab.Core.Pricing.Order'}

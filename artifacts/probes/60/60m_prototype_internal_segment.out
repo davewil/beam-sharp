@@ -1,0 +1,10 @@
+M1 pristine Lab/Core exit=0
+M1 pristine Lab/Core/Sub exit=0
+M1 pristine Lab/Web exit=0
+M1 pristine Lab/WebOk exit=0
+patched Lab/Core exit=0
+patched Lab/Core/Sub exit=0
+Lab/Web/Web.bs:2:1: error: Lab.Web may not name Lab.Core.Internal.Pricing
+  an `Internal` module is visible only under Lab.Core.
+patched Lab/Web exit=1
+patched Lab/WebOk (control) exit=0

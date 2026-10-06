@@ -1,0 +1,7 @@
+OTP beams scanned 1345 ; uppercase-first exports 19, modules [diameter_types,
+                                                              wxImage,wxMenu,
+                                                              wxRegion,
+                                                              wxWindow]
+Elixir beams scanned 447 ; uppercase-first exports (MACRO- excluded: the macro namespace) 0, []
+CONTROL lists.beam exports reverse/1: true
+CONTROL bsc beam dir scanned 1 ; uppercase-first exports 8

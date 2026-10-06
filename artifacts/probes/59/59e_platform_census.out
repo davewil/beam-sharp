@@ -1,0 +1,9 @@
+
+OTP stdlib+kernel  (199 modules with debug info)
+  exported   functions 4193  all-params-defended 512 ( 12.2%)  positions 7606  defended 1273 ( 16.7%)  bare  83.3%
+  local-only functions 8873  all-params-defended 600 (  6.8%)  positions 26642  defended 2837 ( 10.6%)  bare  89.4%
+  CONTROL vs 18b recorded (7606 exported positions): PASS (got 7606)
+
+Elixir stdlib (elixir app)  (271 modules with debug info)
+  exported   functions 3026  all-params-defended 620 ( 20.5%)  positions 5569  defended 1472 ( 26.4%)  bare  73.6%
+  local-only functions 4077  all-params-defended 211 (  5.2%)  positions 12506  defended 948 (  7.6%)  bare  92.4%

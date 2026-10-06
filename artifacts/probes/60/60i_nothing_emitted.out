@@ -1,0 +1,11 @@
+Lab.Grp.Core.beam      pristine=756d31140dec patched+decl=884de096d838 patched,body-changed=484ea75eceb7
+Lab.Grp.Core.abstr     pristine=fdc60138fe0b patched+decl=fdc60138fe0b patched,body-changed=a87da5d28203
+Lab.Billing.beam       pristine=81223a25018c patched+decl=4367dba7b023 patched,body-changed=5e57554f2937
+chunk-level comparison, Lab.Grp.Core: pristine vs patched+decl (expect none), then vs body-changed (control, expect some)
+   chunks differing (of 8 compared): []
+   chunks differing (of 8 compared): [abstract_code,attributes,"Code"]
+bytes Lab.Grp.Core.beam: pristine=980 patched+decl=980
+exports patched+decl: [{bs@type_atoms,0},
+                       {'Sum',2},
+                       {module_info,0},
+                       {module_info,1}]

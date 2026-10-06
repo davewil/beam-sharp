@@ -1,0 +1,77 @@
+artifacts/probes/62/alias_trace.erl:34:33: Warning: variable 'Mem' is unused
+%   34|               receive {done, R, Mem, Heap} -> {bytes_of_process_memory_at_the_bottom, R} after 20000 -> {timeout, P} end
+%     |                                 ^
+
+artifacts/probes/62/alias_trace.erl:34:38: Warning: variable 'Heap' is unused
+%   34|               receive {done, R, Mem, Heap} -> {bytes_of_process_memory_at_the_bottom, R} after 20000 -> {timeout, P} end
+%     |                                      ^
+
+== (1) asm of the alias `which/1` (from `erlc -S` equivalent):
+[{function,which,1,23,
+           [{label,22},
+            {line,[]},
+            {func_info,{atom,'Shop'},{atom,which},1},
+            {label,23},
+            {call_only,1,{f,4}}]}]
+
+== (2) stack trace of a function_clause crash
+   via 'Which'/1 : {function_clause,[{'Shop','Which',1},
+                                     {alias_trace,'-main/1-fun-2-',3},
+                                     {alias_trace,main,1},
+                                     {erl_eval,do_apply,7},
+                                     {erl_eval,exprs,6},
+                                     {init,start_it,1},
+                                     {init,start_em,1},
+                                     {init,do_boot,3}]}
+   via  which/1  : {function_clause,[{'Shop','Which',1},
+                                     {alias_trace,'-main/1-fun-2-',3},
+                                     {alias_trace,main,1},
+                                     {erl_eval,do_apply,7},
+                                     {erl_eval,exprs,6},
+                                     {init,start_it,1},
+                                     {init,start_em,1},
+                                     {init,do_boot,3}]}
+   CONTROL non-tail wrapper nt/1 (must show an EXTRA alias_trace frame): {function_clause,
+                                                                          [{'Shop',
+                                                                            'Which',
+                                                                            1},
+                                                                           {alias_trace,
+                                                                            nt,
+                                                                            1},
+                                                                           {alias_trace,
+                                                                            '-main/1-fun-2-',
+                                                                            3},
+                                                                           {alias_trace,
+                                                                            main,
+                                                                            1},
+                                                                           {erl_eval,
+                                                                            do_apply,
+                                                                            7},
+                                                                           {erl_eval,
+                                                                            exprs,
+                                                                            6},
+                                                                           {init,
+                                                                            start_it,
+                                                                            1},
+                                                                           {init,
+                                                                            start_em,
+                                                                            1}]}
+
+== (3) 1,000,000 tail calls through alias vs original: stack/heap growth
+   direct  loop_a (tail via local) : {bytes_of_process_memory_at_the_bottom,
+                                      2624}
+   via alias loop_b (tail via exported alias, wrapper non-tail would grow) : {bytes_of_process_memory_at_the_bottom,
+                                                                              2624}
+   CONTROL non-tail recursion c_nontail (must grow) : {bytes_of_process_memory_at_the_bottom,
+                                                       16583424}
+
+== (4) one code label exported under two names (hand-patched ExpT/AtU8 of the real Shop.beam)
+   atom table: 24 atoms, 'which' present before patch: false
+   'Which'/1 entry label: 4
+   LOADED. exports now contain which/1: true
+   'Which'(Order) == which(Order): true ; value order
+   crash via 'Which': {function_clause,[{'Which',1}]}
+   crash via which (SAME label, second export name): {function_clause,
+                                                      [{'Which',1}]}
+   -> the trace names the label's func_info ('Which'), not the export name used.
+   erlang:function_exported(Shop,which,1): true

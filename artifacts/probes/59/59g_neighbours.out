@@ -1,0 +1,26 @@
+  Compiling scope
+   Compiled in 0.52s
+--- Gleam: emitted Erlang for a private and a public fn taking a custom type
+inner_total(O) ->
+    erlang:element(3, O).
+
+public_total(O) ->
+    erlang:element(3, O).
+
+--- Gleam: forged {invoice,1,5} where order() is declared
+public_total(F) -> {ok,5}   (exported, nothing checks)
+outer_total(F)  -> {error,{case_clause,{invoice,1,5}}}   (private inner_total reads element(3); inner_match matches {order,_,T})
+outer_int(1.5)  -> {ok,2.5}   (private inner_int)
+--- Erlang: -spec is not a runtime check, a guard is, at any scope (control)
+pub_spec(1.5)    {ok,2.5}
+pub_guard(1.5)   {error,function_clause}
+via_spec(1.5)    {ok,2.5}
+via_guard(1.5)   {error,function_clause}
+--- Elixir: defp with and without an author-written struct pattern / guard
+defp without pattern, forged %I{}: {:ok, 5}
+defp with %O{} pattern, forged %I{}: {:raised, FunctionClauseError}
+--- Elm: not probed
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:

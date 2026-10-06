@@ -1,0 +1,30 @@
+cur == shipped bs_emit.beam
+module                     cur                narrow             widen                (beams/Code-bytes md5)
+Aliasing                   1/242 dGAGl2KH     1/242 dGAGl2KH     1/242 dGAGl2KH    
+Counter                    1/223 KuA3uX0w     1/223 KuA3uX0w     1/223 KuA3uX0w    
+Escalate                   1/164 M0zo/06I     1/164 M0zo/06I     1/164 M0zo/06I    
+Fib                        1/205 DMh7V0Iz     1/205 DMh7V0Iz     1/205 DMh7V0Iz    
+Foreign                    1/432 2Vp8kQSf     1/432 2Vp8kQSf     1/432 2Vp8kQSf    
+Frame                      1/628 vjoV7WWy     1/628 vjoV7WWy     1/628 vjoV7WWy    
+Intake                     1/870 JPsYkfvP     1/870 JPsYkfvP     1/870 JPsYkfvP    
+Interop                    1/158 ByGMWd3Y     1/158 ByGMWd3Y     1/158 ByGMWd3Y    
+Label                      1/194 gg/gX0jX     1/194 gg/gX0jX     1/194 gg/gX0jX    
+Ledger                     1/206 FnZpokyS     1/206 FnZpokyS     1/206 FnZpokyS    
+Levels                     1/254 4xIJO5QH     1/254 4xIJO5QH     1/254 4xIJO5QH    
+Math                       1/314 fFFFIQ/h     1/314 fFFFIQ/h     1/314 fFFFIQ/h    
+Names                      1/184 OXfrk4XI     1/184 OXfrk4XI     1/184 OXfrk4XI    
+Parcel                     1/213 jEWPaBOr     1/213 jEWPaBOr     1/213 jEWPaBOr    
+Pipeline                   2/535 lIMAPwRS     2/535 lIMAPwRS     2/535 lIMAPwRS    
+Queue                      1/241 5fkd1ZRV     1/241 5fkd1ZRV     1/241 5fkd1ZRV    
+Readings                   1/142 /ajCpAXq     1/142 /ajCpAXq     1/142 /ajCpAXq    
+Shop                       1/398 iMc5gLVW     1/398 iMc5gLVW     1/398 iMc5gLVW    
+Shop/Billing               2/540 FKdFl3/9     2/540 FKdFl3/9     2/540 FKdFl3/9    
+Shop/Collections/Ints      1/174 WEf1HhM4     1/174 WEf1HhM4     1/174 WEf1HhM4    
+Shop/Discounts             1/348 UkmgU1Y8     1/348 UkmgU1Y8     1/348 UkmgU1Y8    
+Shop/Pricing               1/522 hGmYsHpj     1/522 hGmYsHpj     1/531 y0j/tXJm    
+Shop/Reports               2/331 wTtBQvpu     2/331 wTtBQvpu     2/331 wTtBQvpu    
+Shop/Rows                  1/322 2FU0tt9Z     1/322 2FU0tt9Z     1/322 2FU0tt9Z    
+Signalbox                  1/395 r81w2PeO     1/395 r81w2PeO     1/395 r81w2PeO    
+Stats                      1/238 4VdwX+Q8     1/238 4VdwX+Q8     1/238 4VdwX+Q8    
+Wire                       1/277 PQtWP1x7     1/277 PQtWP1x7     1/277 PQtWP1x7    
+modules compiled: 27 ; Code changed by narrow: 0 ; by widen: 1 ; CONTROL cur-vs-cur2 changed: 0

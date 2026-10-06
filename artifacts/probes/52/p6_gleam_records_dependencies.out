@@ -1,0 +1,40 @@
+      Added dep v1.0.0
+  Compiling dep
+  Compiling app
+   Compiled in 0.47s
+ok  G3 no diagnostic about fakelib_mod
+--- generated .app:
+{application, app, [ {vsn, "1.0.0"}, {applications, [dep, inets]}, {description, ""}, {modules, [app, app@@main]}, {registered, []} ]}. 
+ok  G1 .app lists the declared dep
+ok  G1 .app lists extra_applications
+ok  G3 .app does not list fakelib (it was never declared)
+--- G5 manifest.toml:
+# Do not manually edit this file, it is managed by Gleam.
+#
+# This file locks the dependency versions used, to make your build
+# deterministic and to prevent unexpected versions from being included
+# in your application.
+#
+# You should check this file into your source control repository.
+
+packages = [
+  { name = "dep", version = "1.0.0", build_tools = ["gleam"], requirements = [], source = "local", path = "../dep" },
+]
+
+[requirements]
+dep = { path = "../dep" }
+ok  G5 manifest exists
+--- G4 run with fakelib absent, then present
+absent : {'EXIT',{undef,[{fakelib_mod,hello,[],[]},
+                {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,656}]},
+             
+present: 42
+ok  G4 absent -> undef
+ok  G4 control: present -> 42
+== G2 control: remove the dependency
+--- .app now:
+{application, app, [ {vsn, "1.0.0"}, {applications, []}, {description, ""}, {modules, [app, app@@main]}, {registered, []} ]}. 
+ok  G2 dependency gone from .app
+
+ALL CLAIMS HELD

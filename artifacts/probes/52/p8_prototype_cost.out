@@ -1,0 +1,42 @@
+== building variant: attr
+   yecc: shift/reduce conflicts reported: 232
+   erlc errors: none
+== building variant: inline
+   yecc: shift/reduce conflicts reported: 232
+   erlc errors: none
+== building variant: module
+   yecc: shift/reduce conflicts reported: 232
+   erlc errors: none
+
+=================== spelling: attr
+   | [app: fakelib]
+   | using :fakelib_mod {
+   |     int hello()
+P1 stock compiler : src/Vattr/Vattr.bs:2:1: error: syntax error before: '['
+ok  P1 stock refuses attr
+P2 patched, app present: 42
+ok  P2 attr runs with the app present
+P3 patched, app absent : src/Vattr/Vattr.bs:3:1: error: application `fakelib` (needed by :fakelib_mod) is not on the code path
+  add its lib directory to ERL_LIBS, or remove the declaration
+ok  P3 attr refused at compile time
+ok  P3 ... not a run-time crash
+
+=================== spelling: inline
+   | using :fakelib_mod in :fakelib {
+   |     int hello()
+   | }
+P1 stock compiler : src/Vinline/Vinline.bs:2:20: error: syntax error before: in
+ok  P1 stock refuses inline
+P2 patched, app present: 42
+ok  P2 inline runs with the app present
+P3 patched, app absent : src/Vinline/Vinline.bs:2:1: error: application `fakelib` (needed by :fakelib_mod) is not on the code path
+  add its lib directory to ERL_LIBS, or remove the declaration
+ok  P3 inline refused at compile time
+ok  P3 ... not a run-time crash
+
+=================== spelling: module
+   | needs :fakelib
+   | 
+   | using :fakelib_mod {
+P1 stock compiler : src/Vmodule/Vmodule.bs:2:7: error: syntax error before: fakelib
+ok  P1 stock refuses module

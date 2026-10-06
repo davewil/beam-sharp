@@ -1,0 +1,40 @@
+module Names
+
+public int GetX(int n)
+GetX(n) -> n
+
+public int Get_x(int n)
+Get_x(n) -> n + 1
+
+public int HTTPGet(int n)
+HTTPGet(n) -> n
+
+public int HttpGet(int n)
+HttpGet(n) -> n
+
+public int Md5Sum(int n)
+Md5Sum(n) -> n
+
+public int New2(int n)
+New2(n) -> n
+
+public int New(int n)
+New(n) -> n
+
+public int New(int a, int b)
+New(a, b) -> a + b
+
+public int ModuleInfo(int n)
+ModuleInfo(n) -> n
+
+public int Init(int n)
+Init(n) -> n
+
+public int Length(int n)
+Length(n) -> n
+
+public int End(int n)
+End(n) -> n
+
+public int Self(int n)
+Self(n) -> n

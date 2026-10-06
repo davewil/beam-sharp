@@ -1,0 +1,5 @@
+go build lab/core/sub: exit=0
+go build lab/web: exit=1
+    package example.com/lab/lab/web
+    	lab/web/web.go:2:8: use of internal package example.com/lab/lab/core/internal/x not allowed
+go build lab/web2: exit=0

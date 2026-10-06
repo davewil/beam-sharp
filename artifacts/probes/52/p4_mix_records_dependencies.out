@@ -1,0 +1,30 @@
+== M1 dep declared
+Generated liba app
+==> app
+Compiling 1 file (.ex)
+Generated app app
+--- generated app resource file:
+{application,app,[{modules,['Elixir.App']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,logger,liba]},{description,"app"},{registered,[]},{vsn,"0.1.0"}]}.
+ok  M1 .app records liba in applications
+ok  M1 no 'undefined' warning when declared
+== M2 control: dep NOT declared and NOT on path
+Compiling 1 file (.ex)
+    warning: LibA.hi/0 is undefined (module LibA is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+  1 │ defmodule App do def go, do: LibA.hi() end
+    │                                   ~
+    │
+    └─ lib/app.ex:1:35: App.go/0
+
+ok  M2 compile-time warning about the missing module
+ok  M2 .app does not list liba
+== M3 present on the code path via ERL_LIBS but undeclared in mix.exs
+Compiling 1 file (.ex)
+    warning: LibA.hi/0 is undefined (module LibA is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+ok  M3 ERL_LIBS alone does NOT satisfy Mix: still 'is undefined' (Mix prunes undeclared code paths)
+--- control: outside mix, the same ERL_LIBS does expose liba
+plain erl: ensure_loaded(Elixir.LibA) -> {module,'Elixir.LibA'}
+ok  M3 control: plain erl sees it
+
+ALL CLAIMS HELD

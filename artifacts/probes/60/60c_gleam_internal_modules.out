@@ -1,0 +1,17 @@
+liba itself (imports its own internal modules): exit=0
+G1 import liba/internal/helper: exit=0
+G2 import liba/secret/vault: exit=0
+G3 call @internal liba.marked: exit=0
+G4 CONTROL non-pub liba.hidden: exit=1
+warning: Unused imported module
+error: Unknown module value
+--- G5 docs of liba
+docs exit=0
+index.html
+liba.html
+sidebar/index links containing 'internal' or 'secret':
+build/dev/docs/liba/index.html:href="./liba/internal/helper.html"
+build/dev/docs/liba/index.html:href="./liba/secret/vault.html"
+build/dev/docs/liba/liba.html:href="./liba/internal/helper.html"
+build/dev/docs/liba/liba.html:href="./liba/secret/vault.html"
+(end)

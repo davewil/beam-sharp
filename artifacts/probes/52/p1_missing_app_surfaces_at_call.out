@@ -1,0 +1,26 @@
+== C1/C2 app absent
+compile: exit=0 out=[]
+ok  C1 compile succeeds with app absent (no diagnostics)
+ok  C1 beam produced
+run: crashed: error:undef
+ok  C2 absent app -> error:undef at run time
+== C3 control: app present
+run: 42
+ok  C3 present app -> 42
+== C4 artefact identical
+beam_lib:cmp -> ok
+ok  C4 beams equal modulo compile_info
+  (raw cmp, for the record:)
+/tmp/tmp.p7uuEFQ9Ha/out_absent/Probe.beam /tmp/tmp.p7uuEFQ9Ha/out_present/Probe.beam differ: byte 388, line 2
+  CONTROL: a beam for a different program must NOT compare equal
+ok  C4-control different program differs
+== C5 function that does not exist, in a module that does
+compile: exit=0 out=[]
+ok  C5 compiles
+ok  C5 dies at run time
+== C6 module that exists nowhere
+ok  C6 compiles
+== CONTROL that the harness can see a compile refusal at all
+ok  control: a real syntax error IS refused
+
+ALL CLAIMS HELD

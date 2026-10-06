@@ -1,0 +1,56 @@
+elixir: Elixir 1.20.4 (compiled with Erlang/OTP 27)
+-- controls
+  :lists.reverse([1])  (parse)                              :parses
+  malformed `:a.(` (parse)  [must be SYNTAX_ERROR]          :SYNTAX_ERROR
+-- parse of source forms
+  :Shop.New(1)                                              :SYNTAX_ERROR
+  :"Shop".New(1)                                            :SYNTAX_ERROR
+  :"BSharp.Shop".New(1)                                     :SYNTAX_ERROR
+  :"Shop.Reports".Totals(1)                                 :SYNTAX_ERROR
+  :"Elixir.Shop".New(1)                                     :SYNTAX_ERROR
+  :Shop.new(1)                                              :parses
+  &:Shop.New/1                                              :SYNTAX_ERROR
+  &:Shop.new/1                                              :parses
+  &:"Shop".New/1                                            :SYNTAX_ERROR
+  apply(:Shop, :New, [1])                                   :parses
+  Kernel.apply(:Shop, :New, [1])                            :parses
+  :erlang.apply(:Shop, :New, [1])                           :parses
+  Shop.New(1)                                               :SYNTAX_ERROR
+  Shop.new(1)                                               :parses
+  mod = :Shop; mod.New(1)                                   :SYNTAX_ERROR
+  :Shop.unquote(:New)(1)                                    :parses
+  :Shop."New"(1)                                            :parses
+warning: single quotes around calls are deprecated. Use double quotes instead
+└─ nofile:1:7
+  :Shop.'New'(1)                                            :parses
+-- run
+  apply(:Shop, :New, [1])                                   %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  Kernel.apply(:Shop, :New, [1])                            %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  :erlang.apply(:Shop, :New, [1])                           %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  Code.eval_string("apply(:Shop,:New,[1])")                 %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  :erlang.make_fun(:Shop,:New,1).(1)                        %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  Function.capture(:Shop,:New,1).(1)                        %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  [1,2] |> Enum.map(Function.capture(:Shop,:New,1))         [%{Kind: :"Shop.Order", Total: 0, Id: 1}, %{Kind: :"Shop.Order", Total: 0, Id: 2}]
+-- QUOTED function name (the form the ticket did not test)
+  :Shop."New"(1)                                            :parses
+  &:Shop."New"/1                                            :parses
+  :"Shop.Reports"."Totals"(1)                               :parses
+  eval :Shop."New"(1)                                       %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  eval (&:Shop."New"/1).(2)                                 %{Kind: :"Shop.Order", Total: 0, Id: 2}
+  eval pipe: 3 |> :Shop."New"()                             %{Kind: :"Shop.Order", Total: 0, Id: 3}
+  CONTROL eval :Shop."Nope"(1) (must raise UndefinedFunctionError){:raised, UndefinedFunctionError}
+-- macros: quote/unquote with a capitalised function atom
+  quote do: unquote(:Shop).unquote(:New)(1)                 ":Shop.\"New\"(1)"
+    AST                                                     {{:., [], [:Shop, :New]}, [], [1]}
+    Code.eval_quoted(that)                                  %{Kind: :"Shop.Order", Total: 0, Id: 1}
+    Macro.to_string re-parses?                              :parses
+  macro M.shop_new(5)                                       %{Kind: :"Shop.Order", Total: 0, Id: 5}
+  macro M.call(:Shop, :New, [6])                            %{Kind: :"Shop.Order", Total: 0, Id: 6}
+-- an Elixir module that wraps it once (the idiom today)
+  ShopEx.new(3)                                             %{Kind: :"Shop.Order", Total: 0, Id: 3}
+-- Elixir `import :Shop` (would let callers write New(1)?)
+  import :Shop (parse)                                      :parses
+  import :Shop; New(1)   (eval)                             {:raised, SyntaxError}
+error: undefined function new/1 (there is no such import)
+└─ nofile:1
+  import :Shop; new(1)   (eval)                             {:raised, CompileError}

@@ -1,0 +1,4 @@
+Lab/Web/Web.bs:3:1: error: Lab.Web `forbids` Lab.Grp.Core, which it names
+Lab.Web exit=1
+Lab.Billing exit=0
+Lab.Web2 exit=0

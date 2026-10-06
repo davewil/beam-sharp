@@ -1,0 +1,37 @@
+--- bs_check.erl
++++ bs_check.erl
+@@ -2871,6 +2871,7 @@
+ %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
++type_of({e_neg, _, {e_int, _, N}}, _S, _C) -> {bs_types:range(-N, -N), []};
+ type_of({e_neg, L, E}, S, C) ->
+     {Ty, D} = type_of(E, S, C),
+     case operand_verdict(Ty, C) of
+@@ -4946,8 +4947,12 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) when element(1, R) =/= e_var,
++                                                  element(1, R) =/= e_atom ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when element(1, L) =/= e_var,
++                                                  element(1, L) =/= e_atom ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -4955,6 +4960,11 @@
+ comparison(_) ->
+     unknown.
+ 
++%% A comparand is an integer literal, possibly under unary minus.
++const_int({e_int, _, K})  -> {ok, K};
++const_int({e_neg, _, E})  -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int(_)              -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

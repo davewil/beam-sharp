@@ -1,0 +1,6 @@
+cur == shipped bs_emit.beam
+widen: Scope:InnerInt  (private, caller proves int)  is_integer test: false  tag compare (is_eq_exact): false
+widen: Forge:Plus1     (private, list-element fed)   is_integer test: true   tag compare (is_eq_exact): false
+widen: Scope:OuterInt  (CONTROL exported)            is_integer test: true   tag compare (is_eq_exact): false
+cur:   Scope:InnerTotal (private, caller did the tag test) is_integer test: false  tag compare (is_eq_exact): true
+cur:   Scope:InnerInt  (shipped: nothing emitted)    is_integer test: false  tag compare (is_eq_exact): false

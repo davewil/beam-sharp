@@ -1,0 +1,15 @@
+--- J1 bsc --api Orders (RecomputeTotal unmarked => private by default)
+module Orders
+int ForBilling(int)
+int Total(int)
+--- J1 control: mark it public
+module Orders
+int ForBilling(int)
+int RecomputeTotal(int)
+int Total(int)
+--- J2 a test-like module naming the helper
+Peek/Peek.bs:4:9: error: P calls RecomputeTotal/1, which Orders declares `private`
+  a private function is not exported, so no other module can
+exit=1
+--- J3 ForBilling is public only for Billing, yet --api cannot say so (it appears like Total)
+1

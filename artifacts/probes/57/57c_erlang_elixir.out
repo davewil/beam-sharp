@@ -1,0 +1,31 @@
+== Erlang: erl_parse:parse_exprs ==
+  -5.        [{op,0,'-',{integer,0,5}}]
+  0-5.       [{op,0,'-',{integer,0,0},{integer,0,5}}]
+  - -5.      [{op,0,'-',{op,0,'-',{integer,0,5}}}]
+  -(5).      [{op,0,'-',{integer,0,5}}]
+  2+3.       [{op,0,'+',{integer,0,2},{integer,0,3}}]
+  X >= -5.   [{op,0,'>=',{var,0,'X'},{op,0,'-',{integer,0,5}}}]
+  erl_parse:normalise(-5 node)   = -5
+  erl_eval:partial_eval(-5 node) = {integer,1,-5}
+  erl_eval:partial_eval(2+3)     = {integer,1,5}
+  erl_lint:is_pattern_expr(-5)   = true
+  erl_lint:is_pattern_expr(2+3) = true
+  erl_lint:is_pattern_expr(X-5) = false
+== Erlang: compile a module with -5 in pattern, guard, type range; 2+3 in a pattern; a var in a pattern arithmetic ==
+  neg.erl compiled: f(-5)=a b yes
+  control (must be an ERROR: arithmetic with a variable in a PATTERN is not constant):
+bad.erl:5:25: illegal pattern
+%    5| f2(X, N) -> case X of N - 5 -> ok end.
+%     |                         ^
+== Elixir: Code.string_to_quoted ==
+  -5      {:-, [line: 1], [5]}
+  0 - 5   {:-, [line: 1], [0, 5]}
+  - -5    {:-, [line: 1], [{:-, [line: 1], [5]}]}
+  -(5)    {:-, [line: 1], [5]}
+  2 + 3   {:+, [line: 1], [2, 3]}
+  x >= -5 {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+  N.f(-5), N.f(0), N.f(-9): {:a, :b, :c}
+error: cannot invoke remote function :erlang.-/2 inside a match
+└─ nofile:2: M2.f/2
+
+  control (must error) pattern `n - 5`: nofile: cannot compile module M2 (errors have been logged)

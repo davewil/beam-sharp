@@ -1,0 +1,17 @@
+pattern -5                         compiled
+      erl: -5 ->
+guard n >= -5                      compiled
+      erl: N when N >= -5 ->
+guard n >= 2 + 3                   compiled
+      erl: N when N >= (2 + 3) ->
+guard n >= - -5                    REFUSED
+      error: Syntax error
+        │                                    ^^ This operator has no value on its right side
+guard n >= m (var)                 compiled
+      erl: N when N >= M ->
+CONTROL pattern 2 + 3              REFUSED
+      error: Syntax error
+        │                               ^ I was not expecting this
+CONTROL guard bad type             REFUSED
+      error: Type mismatch
+        │                                       ^^^

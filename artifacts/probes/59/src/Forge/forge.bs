@@ -1,0 +1,36 @@
+module Forge
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Box     { Item: Order }
+
+// private: what the tag test (or its absence) decides
+int Total(Order o)
+Total(o) -> o.Total
+
+int Plus1(int n)
+Plus1(n) -> n + 1
+
+// A. exported, record param is a closed record: its own tag test fires
+public int ViaOrder(Order o)
+ViaOrder(o) -> Total(o)
+
+// B. exported, forgery is one level DOWN (a field): the Box tag test says
+// nothing about Box.Item; the private Total's tag test is the only check
+public int ViaBox(Box b)
+ViaBox(b) -> Total(b.Item)
+
+// C. exported, forgery in a list element
+public int ViaList(list<Order> os)
+ViaList([])       -> 0
+ViaList([o, ..t]) -> Total(o) + ViaList(t)
+
+// D. same shapes with int: the private Plus1 has no kind test
+public int ViaInts(list<int> xs)
+ViaInts([])       -> 0
+ViaInts([n, ..t]) -> Plus1(n) + ViaInts(t)
+
+// E. forgery one level down but the body never calls a private function
+public int Inline(Box b)
+Inline(b) -> var i = b.Item
+    i.Total

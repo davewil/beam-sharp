@@ -1,0 +1,4 @@
+allow-list size  1: 2000.6 us per 595-edge project, accepted 595/595
+allow-list size  4: 5075.3 us per 595-edge project, accepted 595/595
+allow-list size 16: 17159.9 us per 595-edge project, accepted 595/595
+CONTROL non-matching list : 2510.1 us per 595-edge project, accepted 0/595

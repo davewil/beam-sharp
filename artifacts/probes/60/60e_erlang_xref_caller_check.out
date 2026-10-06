@@ -1,0 +1,8 @@
+modules using callee (static)   : [caller_bad,caller_ok]
+unresolved calls (UC)           : [{{caller_bad,f,0},{'$M_EXPR','$F_EXPR',0}},
+                                   {{caller_dyn,f,1},{'$M_EXPR',exported,0}}]
+policy 'only caller_ok may call': violators seen = [caller_bad]
+   caller_dyn is NOT in that list although caller_dyn:f(callee) returns ok
+--- X4 grep for ignore_xref in OTP 28 lib sources
+files mentioning ignore_xref: 0
+CONTROL same grep for 'Unresolved calls': 1 file(s)

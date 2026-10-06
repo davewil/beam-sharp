@@ -1,0 +1,22 @@
+== ticket's table ==
+ok  NegSingle              refused   (expected refused ) NegSingle/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  NegAnd                 refused   (expected refused ) NegAnd/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  NegOr                  refused   (expected refused ) NegOr/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  DisjointPos            accepted  (expected accepted) 
+ok  NotEqZero              accepted  (expected accepted) 
+ok  ZeroRejected           refused   (expected refused ) ZeroRejected/a.bs:6:9: error: Go hands Id an argument it does not accept
+ok  NegPattern             accepted  (expected accepted) 
+== neighbours: where does an unread comparand stop? (refinement site) ==
+ok  Flipped                refused   (expected refused ) Flipped/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  Sum                    refused   (expected refused ) Sum/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  ParenNeg               refused   (expected refused ) ParenNeg/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  DoubleNeg              refused   (expected refused ) DoubleNeg/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  ZeroMinus              refused   (expected refused ) ZeroMinus/a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok  VarComparand           refused   (expected refused ) VarComparand/a.bs:3:1: error: this refinement is not a predicate the checker can read
+ok  NegFloat               refused   (expected refused ) NegFloat/a.bs:2:1: error: this refinement is not a predicate the checker can read
+== neighbours: guard site ==
+ok  GuardPosCovers         accepted  (expected accepted) 
+ok  GuardNegCovers         refused   (expected refused ) GuardNegCovers/a.bs:2:13: error: S is not exhaustive
+ok  PatternNegCovers       accepted  (expected accepted) 
+ok  GuardNegWithCatchAll   accepted  (expected accepted) 
+fails=0

@@ -1,0 +1,116 @@
+== (a) exports of the real B# module `Names` (compiled by bsc): [{'GetX',1},
+                                                                 {'Get_x',1},
+                                                                 {'HTTPGet',1},
+                                                                 {'HttpGet',1},
+                                                                 {'Md5Sum',1},
+                                                                 {'New2',1},
+                                                                 {'New',1},
+                                                                 {'New',2},
+                                                                 {'ModuleInfo',
+                                                                  1},
+                                                                 {'Init',1},
+                                                                 {'Length',1},
+                                                                 {'End',1},
+                                                                 {'Self',1}]
+
+== (b) derived alias under each rule
+   End        simple=end                smart=end
+   GetX       simple=get_x              smart=get_x
+   Get_x      simple=get_x              smart=get_x
+   HTTPGet    simple=h_t_t_p_get        smart=http_get
+   HttpGet    simple=http_get           smart=http_get
+   Init       simple=init               smart=init
+   Length     simple=length             smart=length
+   Md5Sum     simple=md5_sum            smart=md5_sum
+   ModuleInfo simple=module_info        smart=module_info
+   New        simple=new                smart=new
+   New        simple=new                smart=new
+   New2       simple=new2               smart=new2
+   Self       simple=self               smart=self
+
+== (c) collisions (two B# names, one alias) on that module: [{simple,
+                                                              {get_x,1},
+                                                              ['GetX',
+                                                               'Get_x']},
+                                                             {smart,
+                                                              {get_x,1},
+                                                              ['GetX',
+                                                               'Get_x']},
+                                                             {smart,
+                                                              {http_get,1},
+                                                              ['HTTPGet',
+                                                               'HttpGet']}]
+
+== (d) does OTP accept the aliased module?
+   CONTROL baseline compiles: ok
+:0: Warning: function get_x/1 already exported
+:0: Warning: function module_info/1 already exported
+   rule=simple -> {error,[{"artifacts/probes/62/src/Names/names.bs",
+                           [{0,erl_lint,{redefine_function,{get_x,1}}},
+                            {0,erl_lint,
+                             {redefine_function,{module_info,1}}}]}],
+                         [{[],
+                           [{0,erl_lint,{duplicated_export,{get_x,1}}},
+                            {0,erl_lint,
+                             {duplicated_export,{module_info,1}}}]}]}
+:0: Warning: function get_x/1 already exported
+:0: Warning: function http_get/1 already exported
+:0: Warning: function module_info/1 already exported
+   rule=smart -> {error,[{"artifacts/probes/62/src/Names/names.bs",
+                          [{0,erl_lint,{redefine_function,{get_x,1}}},
+                           {0,erl_lint,{redefine_function,{http_get,1}}},
+                           {0,erl_lint,{redefine_function,{module_info,1}}}]}],
+                        [{[],
+                          [{0,erl_lint,{duplicated_export,{get_x,1}}},
+                           {0,erl_lint,{duplicated_export,{http_get,1}}},
+                           {0,erl_lint,
+                            {duplicated_export,{module_info,1}}}]}]}
+
+== (e) exhaustive injectivity: every identifier [A-Z][A,B,a,b,1,_]{0,4} (what the lexer admits, restricted alphabet)
+   3110 identifiers
+   rule=simple distinct aliases 2634, colliding groups 332, names with no unique alias 476; example [["A11_a",
+                                                                                                      "A11A"],
+                                                                                                     ["A11_b",
+                                                                                                      "A11B"]]
+   rule=smart  distinct aliases 1706, colliding groups 788, names with no unique alias 1404; example [["A11_a",
+                                                                                                       "A11_A",
+                                                                                                       "A11A"],
+                                                                                                      ["A11_b",
+                                                                                                       "A11_B",
+                                                                                                       "A11B"]]
+   restricted to names WITHOUT '_': rule=simple colliding groups 0 of 1562 names
+   restricted to names WITHOUT '_': rule=smart  colliding groups 396 of 1562 names
+
+== (f) derived names that are Erlang auto-imported BIFs / keywords
+   from `Names`: alias is an auto-imported BIF: [{'Length',1}]
+   Erlang keywords a PascalCase B# name derives to (single-word): ['after',
+                                                                   'and',
+                                                                   'andalso',
+                                                                   'band',
+                                                                   'begin',
+                                                                   'bnot',
+                                                                   'bor',
+                                                                   'bsl',
+                                                                   'bsr',
+                                                                   'bxor',
+                                                                   'case',
+                                                                   'catch',
+                                                                   'cond',
+                                                                   'div',
+                                                                   'end',
+                                                                   'fun','if',
+                                                                   'let',
+                                                                   'not','of',
+                                                                   'or',
+                                                                   'orelse',
+                                                                   'receive',
+                                                                   'rem',
+                                                                   'try',
+                                                                   'when',
+                                                                   'xor',
+                                                                   'maybe',
+                                                                   'else']
+== (g) collisions over the 27 real example modules, both rules: []
+   alias would be a BIF/module_info among the real names: [{'Length',1,length},
+                                                           {'Now',0,now},
+                                                           {'Size',1,size}]

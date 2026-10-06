@@ -1,0 +1,24 @@
+gleam: gleam 1.18.1
+  Compiling pkg
+   Compiled in 0.41s
+--- (a)(b) emitted pkg.erl: exports, type, constructor atoms
+3:-export([new/1, http_get/1, md5_sum/0, new2/1, tags/0]).
+6:-type order() :: {order, integer(), integer()} | h_t_t_p_get_error | md5_sum | {new2, integer()} | pending | a_bc | ab_c | {x_m_l_http, integer()}.
+tags() ->
+    [h_t_t_p_get_error, md5_sum, {new2, 1}, pending, {order, 1, 2}, a_bc, ab_c, {x_m_l_http, 1}].
+
+--- (c) module path a/b
+a@b.cache
+a@b.cache_meta
+a@b.erl
+pkg.cache
+pkg.cache_meta
+pkg.erl
+1:-module(a@b).
+--- (d) CONTROL: does Gleam accept a PascalCase function name?
+error: Syntax error
+  │        ^^^ I'm expecting a lowercase name here
+--- (e) run a Gleam caller of PascalCase B# exports (stdlib is not installed, so no gleam/io)
+   Compiled in 0.40s
+#{'Kind'=>'Shop.Order','Total'=>0,'Id'=>3}
+CONTROL (Shop:Nope must crash): {error,undef}

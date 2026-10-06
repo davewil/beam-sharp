@@ -1,0 +1,56 @@
+cur == shipped bs_emit.beam
+=== variant: cur
+  ViaOrder(Invoice)           [control: exported test]     function_clause
+  ViaOrder(Order)             [control: legit call]        {ok,5}
+  ViaBox(Box{Item=Invoice})   [deep forgery -> private]    function_clause
+  ViaBox(Box{Item=42})        [deep non-map]               function_clause
+  ViaBox(Box{Item=#{}})       [deep map, no Kind]          function_clause
+  ViaBox(Box{Item=Order})     [legit]                      {ok,5}
+  ViaList([Invoice])          [forgery in list elem]       function_clause
+  Inline(Box{Item=Invoice})   [control: no private call]   {ok,5}
+  ViaBox(Box{Item=Order{Total=:x}}) [tier-2: bad field]    {ok,x}
+  ViaInts([1.5])              [float via exported list]    {ok,2.5}
+  ViaInts([1])                [legit]                      {ok,2}
+  ViaInts([foo])              [atom via exported list]     badarith
+  Hof:Run([1.5]) [private Bump via lists:map]              {ok,[2.5]}
+  Hof:Run([1])   [legit]                                   {ok,[2]}
+=== variant: narrow
+  ViaOrder(Invoice)           [control: exported test]     function_clause
+  ViaOrder(Order)             [control: legit call]        {ok,5}
+  ViaBox(Box{Item=Invoice})   [deep forgery -> private]    {ok,5}
+  ViaBox(Box{Item=42})        [deep non-map]               badmap
+  ViaBox(Box{Item=#{}})       [deep map, no Kind]          badkey
+  ViaBox(Box{Item=Order})     [legit]                      {ok,5}
+  ViaList([Invoice])          [forgery in list elem]       {ok,5}
+  Inline(Box{Item=Invoice})   [control: no private call]   {ok,5}
+  ViaBox(Box{Item=Order{Total=:x}}) [tier-2: bad field]    {ok,x}
+  ViaInts([1.5])              [float via exported list]    {ok,2.5}
+  ViaInts([1])                [legit]                      {ok,2}
+  ViaInts([foo])              [atom via exported list]     badarith
+  Hof:Run([1.5]) [private Bump via lists:map]              {ok,[2.5]}
+  Hof:Run([1])   [legit]                                   {ok,[2]}
+=== variant: widen
+  ViaOrder(Invoice)           [control: exported test]     function_clause
+  ViaOrder(Order)             [control: legit call]        {ok,5}
+  ViaBox(Box{Item=Invoice})   [deep forgery -> private]    function_clause
+  ViaBox(Box{Item=42})        [deep non-map]               function_clause
+  ViaBox(Box{Item=#{}})       [deep map, no Kind]          function_clause
+  ViaBox(Box{Item=Order})     [legit]                      {ok,5}
+  ViaList([Invoice])          [forgery in list elem]       function_clause
+  Inline(Box{Item=Invoice})   [control: no private call]   {ok,5}
+  ViaBox(Box{Item=Order{Total=:x}}) [tier-2: bad field]    {ok,x}
+  ViaInts([1.5])              [float via exported list]    function_clause
+  ViaInts([1])                [legit]                      {ok,2}
+  ViaInts([foo])              [atom via exported list]     function_clause
+  Hof:Run([1.5]) [private Bump via lists:map]              function_clause
+  Hof:Run([1])   [legit]                                   {ok,[2]}
+=== Elixir caller, variant cur (ViaBox with forged Item, ViaInts with 1.5)
+ViaBox(forged Item): %FunctionClauseError{
+  module: :Forge,
+  function: :Total,
+  arity: 1,
+  kind: nil,
+  args: nil,
+  clauses: nil
+}
+ViaInts([1.5]): 2.5

@@ -1,0 +1,38 @@
+--- emitted Erlang (abstract code in the .beam) ---
+'InnerTotal'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    map_get('Total', O).
+
+'InnerInt'(N) ->
+    N + 1.
+
+'OuterTotal'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    map_get('Total', O).
+
+'OuterInt'(N) when is_integer(N) ->
+    N + 1.
+
+'ViaTotal'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    'InnerTotal'(O).
+
+'ViaInt'(N) when is_integer(N) ->
+    'InnerInt'(N).
+
+--- final optimised BEAM instructions (beam_disasm) ---
+InnerTotal/1
+    {bif,map_get,{f,3},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+    {test,is_eq_exact,{f,3},[{x,1},{atom,'Scope.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+InnerInt/1
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+OuterTotal/1
+    {bif,map_get,{f,7},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,7},[{x,1},{atom,'Scope.Order'}]}
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+OuterInt/1
+    {test,is_integer,{f,9},[{x,0}]}
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+--- assertions ---
+PASS  private record fn has tag test (expected=yes)
+PASS  private int fn has is_integer (expected=no)
+PASS  CONTROL exported record has tag (expected=yes)
+PASS  CONTROL exported int is_integer (expected=yes)

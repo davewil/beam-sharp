@@ -1,0 +1,23 @@
+S1 shipped form: ACCEPTED
+ok  S1 control: shipped form accepted
+S2 ticket's literal form: src/S2/S2.bs:2:1: error: syntax error before: '['
+ok  S2 ticket form is refused
+S3 ticket 32's form: src/S3/S3.bs:2:1: error: syntax error before: '['
+ok  S3 ticket 32 form is refused
+S4 bare attribute: src/S4/S4.bs:2:1: error: syntax error before: '['
+ok  S4 no attribute grammar
+S5 [module: GenServer]: src/S5/S5.bs:2:1: error: syntax error before: '['
+ok  S5 module attribute refused
+S6 parser productions mentioning '[' :
+   32:  '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+   544:pattern -> '[' ']'          : {p_nil, line('$1')}.
+   545:pattern -> '[' plist_items ']' :
+   565:plist_items -> '..' '[' ']'             :
+   569:plist_items -> '..' '[' plist_items ']' :
+   777:expr_low -> '[' ']'          : {e_nil, line('$1')}.
+   781:expr_low -> '[' expr 'for' pattern 'in' expr comp_quals ']' :
+   783:expr_low -> '[' elist_items ']' :
+   declaration-level '[' productions: 0
+ok  S6 none at declaration level
+
+ALL CLAIMS HELD

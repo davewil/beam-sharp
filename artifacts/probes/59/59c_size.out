@@ -1,0 +1,48 @@
+cur == shipped bs_emit.beam
+### K=1 private record fns + 1 private int fns
+variant  run  beam stripped Code instrs Code-md5
+cur      1      1452 439 181 21 wYv+by
+cur      2      1452 439 181 21 wYv+by
+cur      3      1452 439 181 21 wYv+by
+cur      4      1452 439 181 21 wYv+by
+cur      5      1452 439 181 21 wYv+by
+cur: distinct whole-.beam byte-streams over 5 compiles: 5; distinct sizes: 1
+narrow   1      1420 429 169 19 0PNQgz
+narrow   2      1420 429 169 19 0PNQgz
+narrow   3      1420 429 169 19 0PNQgz
+narrow   4      1420 429 169 19 0PNQgz
+narrow   5      1420 429 169 19 0PNQgz
+narrow: distinct whole-.beam byte-streams over 5 compiles: 5; distinct sizes: 1
+widen    1      1468 439 181 21 wYv+by
+widen    2      1468 439 181 21 wYv+by
+widen    3      1468 439 181 21 wYv+by
+widen    4      1468 439 181 21 wYv+by
+widen    5      1468 439 181 21 wYv+by
+widen: distinct whole-.beam byte-streams over 5 compiles: 5; distinct sizes: 1
+### K=10 private record fns + 10 private int fns
+variant  run  beam stripped Code instrs Code-md5
+cur      1      3828 885 1110 125 cPLIJK
+cur      2      3828 885 1110 125 cPLIJK
+cur      3      3828 885 1110 125 cPLIJK
+cur      4      3828 885 1110 125 cPLIJK
+cur      5      3828 885 1110 125 cPLIJK
+cur: distinct whole-.beam byte-streams over 5 compiles: 5; distinct sizes: 1
+narrow   1      3464 826 978 105 zYl/qJ
+narrow   2      3464 826 978 105 zYl/qJ
+narrow   3      3464 826 978 105 zYl/qJ
+narrow   4      3464 826 978 105 zYl/qJ
+narrow   5      3464 826 978 105 zYl/qJ
+narrow: distinct whole-.beam byte-streams over 5 compiles: 5; distinct sizes: 1
+widen    1      3984 885 1110 125 cPLIJK
+widen    2      3984 885 1110 125 cPLIJK
+widen    3      3984 885 1110 125 cPLIJK
+widen    4      3984 885 1110 125 cPLIJK
+widen    5      3984 885 1110 125 cPLIJK
+widen: distinct whole-.beam byte-streams over 5 compiles: 5; distinct sizes: 1
+### Forge (src/Forge/forge.bs): the private fns here are fed by UNPROVEN values (list elements, nested fields)
+variant  beam stripped Code instrs Code-md5
+cur      2128 641 328 41 Oh7KYD
+narrow   2100 632 316 39 XtLZrW
+widen    2168 648 333 42 fSIcdp
+(Code-md5 equal for cur and widen on Many = the optimiser removed every private is_integer there;
+ on Forge it cannot, so widen costs real bytes exactly where the extra test is doing work.)

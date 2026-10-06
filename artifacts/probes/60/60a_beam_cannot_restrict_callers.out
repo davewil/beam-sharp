@@ -1,0 +1,15 @@
+caller_ok:direct (authorised)        {ok,secret}
+caller_bad:direct (NOT authorised)   {ok,secret}
+CONTROL local-only across modules    {undef,{callee,helper,[]}}
+apply(M,exported,[]) M=callee        {ok,secret}
+list_to_atom("call"++"ee")           {ok,secret}
+fun callee:exported/0                {ok,secret}
+erlang:make_fun(M,exported,0)        {ok,secret}
+
+static edges to callee a checker sees per function of caller_bad:
+  direct         [exported]
+  local_attempt  [helper]
+  dynamic        []
+  dynamic_split  []
+  as_fun         [exported]
+  as_make_fun    []

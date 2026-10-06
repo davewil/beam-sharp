@@ -1,0 +1,27 @@
+== E1 installed source: what the system treats as the declared dependency list
+systools_make.erl:734:check_item({_,{applications,Apps}},I) ->
+systools_make.erl:824:    case undefined_applications(Appls) of
+systools_make.erl:2386:format_error({undefined_applications,Apps}) ->
+application.erl:85:                         | {'applications', [Application :: atom()]}
+== E2 systools:make_script
+fakelib absent : {error,systools_make,[{error_reading,{fakelib,{not_found,"fakelib.app"}}}]}
+fakelib on ERL_LIBS: {ok,systools_make,[]}
+ok  E2 absent -> error value naming the app
+ok  E2 absent names fakelib
+ok  E2 control: present -> ok
+ok  E2 control: present is not an error
+== E3 run-time: ensure_all_started of an app whose declared dep is missing
+{error,{fakelib,{"no such file or directory","fakelib.app"}}}
+ok  E3 a value, naming the missing app's .app file
+control (both on ERL_LIBS): {ok,[fakelib,top]}
+ok  E3 control: with fakelib present it starts
+== E4/E5 erlc accepts a caller of an absent module; xref flags it
+erlc: exit=0 out=[]
+ok  E5 erlc says nothing
+xref (fakelib absent from the library path): {ok,[{{caller,go,0},{fakelib_mod,hello,0}}]}
+ok  E4 xref names the undefined call
+ok  E4 ... as an undefined call
+xref (fakelib on ERL_LIBS, so on the default library path): {ok,[]}
+ok  E4 control: with the app on the path xref is clean
+
+ALL CLAIMS HELD

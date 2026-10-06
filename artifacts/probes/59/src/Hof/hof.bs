@@ -1,0 +1,11 @@
+module Hof
+
+using :lists {
+    list<term> map(fn(int) -> int f, list<int> xs)
+}
+
+int Bump(int n)
+Bump(n) -> n + 1
+
+public list<term> Run(list<int> xs)
+Run(xs) -> :lists.map(Bump, xs)

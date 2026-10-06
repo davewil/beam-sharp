@@ -1,0 +1,10 @@
+cur == shipped bs_emit.beam
+OTP 28 JIT=jit schedulers_online=4
+ViaList  cur    min  15.828  median  16.186  max  24.336 ns/call
+ViaList  cur2   min  15.574  median  16.410  max  25.648 ns/call
+ViaList  narrow min  13.367  median  13.692  max  15.644 ns/call
+ViaList  widen  min  15.435  median  15.665  max  16.812 ns/call
+ViaInts  cur    min  12.516  median  13.077  max  15.309 ns/call
+ViaInts  cur2   min  12.432  median  13.126  max  17.688 ns/call
+ViaInts  narrow min  13.745  median  14.889  max  19.575 ns/call
+ViaInts  widen  min  12.279  median  14.014  max  20.387 ns/call
