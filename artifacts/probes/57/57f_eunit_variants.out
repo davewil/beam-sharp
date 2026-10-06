@@ -1,0 +1,6 @@
+== v0: 5 failed, 0 timed out
+     body_check_tests: every_aoc_program_still_compiles_test
+     corrected_signature_tests: a_declared_form_nothing_can_write_is_named_as_printed_test
+     corrected_signature_tests: an_unnamed_paste_back_failure_is_reported_as_a_defect_test
+     corrected_signature_tests: a_refused_declaration_is_reported_as_a_defect_test
+     diagnostic_term_tests: the_diagnostics_gate_passes_test
