@@ -1,0 +1,14 @@
+== (a) AST of the refinement predicate, as parsed by each variant's own bs_parser
+base  {e_op,{2,32}, 'and', {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},5}}}, {e_op,{2,42},'<=',{e_var,{2,36},value},{e_int,{2,45},5}}} 
+g1    {e_op,{2,32}, 'and', {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,30},-5}}, {e_op,{2,42},'<=',{e_var,{2,36},value},{e_int,{2,45},5}}} 
+g1b   {e_op,{2,32}, 'and', {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,30},-5}}, {e_op,{2,42},'<=',{e_var,{2,36},value},{e_int,{2,45},5}}} 
+c1    {e_op,{2,32}, 'and', {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},5}}}, {e_op,{2,42},'<=',{e_var,{2,36},value},{e_int,{2,45},5}}} 
+c2    {e_op,{2,32}, 'and', {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},5}}}, {e_op,{2,42},'<=',{e_var,{2,36},value},{e_int,{2,45},5}}} 
+== (b) compile time, median of 7, milliseconds
+variant  empty(VM)  P1:300 nonneg    P2:300 signed
+base         574            947             FAIL
+g1           640           1007              987
+g1b          643           1058             1047
+c1           633           1071             1067
+c2           672           1044             1043
+(FAIL in P2 for base/g1b-less variants is the ticket itself: base cannot read a negative bound)

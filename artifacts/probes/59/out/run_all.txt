@@ -590,3 +590,16 @@ TOTAL                            pub_fns=30 priv_fns=64 priv_with_rec=8 priv_wit
 ################ p11 repo test suite under each option
 == base:   All 211 tests passed. 
    failing: 0
+== a:   All 211 tests passed. 
+   failing: 0
+== b:   Failed: 2.  Skipped: 0.  Passed: 209. 
+   failing: 2
+boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
+== c:   Failed: 2.  Skipped: 0.  Passed: 209. 
+   failing: 2
+boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
+(exit 0)
+
+TOTAL failed assertions: 0

@@ -48,3 +48,9 @@ change replaced rows.
     kept as `evidence/10_g1_run_overlapped_with_other_probes.txt` and the g1
     suite was re-run alone on an idle machine. Nothing else about the run changed.
     Do not run other probes while 10_eunit.sh is running.
+11. `09_measure.sh` timing section rewritten after the first run. The first
+    version timed each variant in a sequential block of 7 runs; the VM start-up
+    row alone differed by ~100 ms between variants that share a start-up path
+    (574 vs 672 ms), so block drift was larger than the effect being measured.
+    Now interleaved (every round times every variant), 15 rounds, median and
+    minimum reported. First output kept in `evidence/09_first_run_sequential_blocks.txt`.

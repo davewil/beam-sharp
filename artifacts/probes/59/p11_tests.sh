@@ -15,3 +15,12 @@ for v in base a b c; do
   grep -E "^\s+[a-z_]+_tests:[a-z_0-9]+.*(failed|\*failed\*)|\*failed\*" "$O/$v.log" | sed 's/^ *//' | sort -u > "$O/$v.failed.txt"
   echo "   failing: $(wc -l < "$O/$v.failed.txt")"; head -30 "$O/$v.failed.txt"
 done
+echo "## assertions (predictions made before the run: base and a green; b and c red on exactly the two exported-only tests)"
+expect "base green"  "$O/base.log" "All [0-9]+ tests passed"
+expect "a green (no test pins the private tag test)" "$O/a.log" "All [0-9]+ tests passed"
+for v in b c; do
+  expect "$v red: F24.6 test"  "$O/$v.failed.txt" "boundary_kind_tests: a_private_function_is_not_guarded_test"
+  expect "$v red: F37.5 test"  "$O/$v.failed.txt" "boundary_range_tests: a_private_function_carries_no_range_guard_test"
+  [ "$(wc -l < "$O/$v.failed.txt")" = 2 ] && echo "PASS  $v: exactly two failures" || { echo "FAIL  $v: not exactly two failures"; FAILS=$((FAILS+1)); }
+done
+echo "p11 FAILS=$FAILS"; exit $FAILS

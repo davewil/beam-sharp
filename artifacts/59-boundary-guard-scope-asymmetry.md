@@ -129,20 +129,21 @@ caller proves nothing; `Code`-chunk delta).**
 | private function whose every caller proves `int` (p01/p03) | **0 B** | `erlc` drops it |
 
 **Call time (p06; same B# source under 5 builds, interleaved, 9 reps after 1 warm-up, 20 000 calls x 1000 elements =
-2e7 element visits per rep, estimator = min, tail-recursive walk calling the private function per element).**
-Host: 4 vCPU Xeon 2.8 GHz **shared, loadavg 16-26 during every run** (other sessions' jobs), so absolute ns are poor and
-only same-run deltas are used. Noise floor = two builds with *identical code*: `Base` vs `Base2` and, for the Weights
-loop, `Base`/`Base2` vs `A` (its Weights code is byte-identical to base).
+2e7 element visits per rep, estimator = min, 3 rounds kept in `out/p06/bench.txt`; tail-recursive walk calling the
+private function once per element).** Host: 4 vCPU Xeon 2.8 GHz, **shared with other sessions' jobs** (loadavg 3-4 at the
+last three rounds, 16-26 during two earlier runs whose results agreed but were not kept). Noise floor = `Base` vs `Base2`
+(identical code); a second floor for the Weights loop is `A`, whose `Weight` code is byte-identical to base's but which sits
+**0.9 ns lower**, so a layout effect of that size exists between *different* modules.
 
-| loop | Base | Base2 (floor) | A (no private tag) | B (private int+range) | verdict |
-|---|---|---|---|---|---|
-| per-element private `Amount(Order)` | 13.64 | 13.25 | **8.26** | 12.29 | **tag test costs ~+5 ns/element** (runs: +5.4, +5.0, +5.4; floor 0.4-1.7). B faster than base by 1.35: not a cost, cause not isolated |
-| per-element private `Weight(Octet)` | 6.24 | 6.22 | 5.33 | 6.75 | B-base = +0.5 **<** floor 0.9 (A, which has identical code, is 0.9 below base): **not reported as a difference** |
+| loop (min ns/element, rounds 1/2/3) | Base | Base2 (floor) | A (no private tag) | B (private int+range) | C | verdict |
+|---|---|---|---|---|---|---|
+| private `Amount(Order)` per element | 13.59 / 13.42 / 13.35 | 13.48 / 13.54 / 13.52 (<= 0.12) | **8.20 / 8.24 / 8.10** | 12.28 / 12.39 / 12.55 | 12.29 / 12.31 / 12.31 | **tag test = +5.4 / +5.2 / +5.3 ns per element**, >40x the floor. B is *faster* than base by 0.8-1.3 ns: resolved against 0.12 but the cause is not isolated, so not claimed as a benefit |
+| private `Weight(Octet)` per element | 6.27 / 6.25 / 6.27 | 6.28 / 6.25 / 6.35 | 5.35 / 5.37 / 5.42 | 6.82 / 6.79 / 6.80 | 6.93 / 6.78 / 6.83 | B - base = +0.5, **below** the 0.9 layout floor: **not reported as a difference** |
 
-So: the tag test is resolvable (~5 ns per consumed element in a tight loop; a record walk is not the hot path of most
-programs, but this is the worst case). The ticket's *"call time below its ±0.09 ns/call resolution"* is **not
-reproducible with this method on this host** (floor 0.4-1.7 ns); that figure was for exported `is_integer` through a
-`call_ext` harness. int, float and range at a private function are **unresolved** here, not shown free.
+So: the tag test is resolvable (~5.3 ns per consumed element in a tight loop; a worst case, a record walk is not the hot
+path of most programs). The ticket's *"call time below its ±0.09 ns/call resolution"* is **not reproducible with this
+method on this host** (floor 0.1-0.9 ns; that figure was for exported `is_integer` through a `call_ext` harness). int, float
+and range at a private function are **unresolved** here, not shown free.
 
 **What each option does to the corpus:** a: 0 functions; b: 7 private functions gain a test, +9 B in 8004; c: same as b.
 
@@ -190,7 +191,7 @@ Doubled([1, 1.5])
 
 **Compiler delta.** `{ok, Tag} when Public ->` at `bs_emit.erl:277` and `none -> {Pat, []}` generalised to `_`
 (`patches/option_a.patch`, 2 lines). Removes the tag test from every private record parameter: **-12 B each, flat in
-field count; ~-5 ns per element visit in the tight loop (13.64 → 8.26)**. Existing tests: none red (E5). `LANGUAGE.md:3576`
+field count; ~-5.3 ns per element visit in the tight loop (13.6 → 8.2)**. Existing tests: none red (E5). `LANGUAGE.md:3576`
 already says "exported", so no spec change. Corpus effect: 0 functions.
 
 **Strongest counterargument.** It turns ticket 46 §4's decision (a collection is never walked) into an **unguarded hole for
@@ -217,8 +218,8 @@ function-local: each function's guard depends on its own head only).
 **Measured.** +5 B per `int` param, +3 B `float`, +12 B `Octet` (kind + range) **only where `erlc` cannot prove the caller**;
 0 B where it can (`InnerInt`: 164 B before and after). Tag test: unchanged from today (+12 B, ~5 ns/element) because it
 already is on. Corpus: +9 B in 8004 over 27 modules, 7 of 24 private functions touched. Time for int/range: not resolved
-(<= noise 0.9 ns/element). B's accumulator guard `is_integer(Acc)` survived `erlc` in `FoldTotals` (the callee's result type
-is unknown) and still showed no cost in the loop (12.29 vs 13.64).
+(+0.5 vs a 0.9 ns/element layout floor). B's accumulator guard `is_integer(Acc)` survived `erlc` in `FoldTotals` (the callee's result type
+is unknown) and still showed no cost in the loop (12.3 vs 13.6 ns/element).
 
 **Strongest counterargument.** It **double-tests** a value the exported function already tested (`Top` → `Amount`: the tag is
 checked twice, +12 B and ~5 ns on that hop) and `erlc` cannot remove the second one because it keeps no map-element types;
@@ -269,7 +270,7 @@ is acceptable and records it, since E2 shows what that costs.
 
 - **Elm** (needs network). 18's Elm-decoder claim is untested here.
 - **Elixir and Gleam compiler sources** are not installed; both surveys are generated-code behaviour, not source lines.
-- **Call time** was measured on a shared, loaded host (loadavg 16-26); absolute ns are unreliable, int/float/range cost at a
+- **Call time** was measured on a shared host; absolute ns are indicative only, int/float/range cost at a
   private function is **unresolved**, and 18a's ±0.09 ns `call_ext` method was not re-run. JIT native size and arm64 (18a's
   arch) not measured; this is x86_64.
 - **+14 B** (26a) not reproduced: measured +12 B with a different harness; 26a's harness not re-run.
@@ -290,7 +291,7 @@ is acceptable and records it, since E2 shows what that costs.
 2. *"18 measured that a non-exported function has the test elided entirely"* — **reproduced only for `is_integer` with proven
    callers; refuted as general** (kept with an unproven caller; the record tag test is never elided) (E3).
 3. *"+14 bytes, flat"* — flat reproduced, **12 B not 14**.
-4. *"call time below ±0.09 ns/call"* — **could not reproduce** the resolution; floor here 0.4-1.7 ns; tag test resolved at ~+5 ns.
+4. *"call time below ±0.09 ns/call"* — **could not reproduce** the resolution; floor here 0.1-0.9 ns; tag test resolved at ~+5.3 ns/element.
 5. *"the ticket's table: one exported-only int test"* — **incomplete**: float kind (F51) and range (F37) share the scope.
 6. *Ticket 46's quoted comment* — **no longer in the source**.
 7. *"a private function's every call site is a checked B# call site"* — **contradicted** by E2 (list element, `List.Map`).

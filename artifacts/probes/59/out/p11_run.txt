@@ -1,12 +1,2 @@
 == base:   All 211 tests passed. 
    failing: 0
-== a:   All 211 tests passed. 
-   failing: 0
-== b:   Failed: 2.  Skipped: 0.  Passed: 209. 
-   failing: 2
-boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
-boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
-== c:   Failed: 2.  Skipped: 0.  Passed: 209. 
-   failing: 2
-boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
-boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
