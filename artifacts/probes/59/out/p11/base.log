@@ -210,4 +210,63 @@ module 'api_tests'
   api_tests: the_term_channel_carries_the_refusal_instead_of_the_answer_test...[0.386 s] ok
   api_tests: the_term_channel_carries_a_path_refusal_the_same_way_test...[0.375 s] ok
   api_tests: the_repl_and_the_query_are_not_asked_for_together_test...[0.287 s] ok
-  api_tests: every_example_module_answers...
+  api_tests: every_example_module_answers...[11.254 s] ok
+  [done in 28.388 s]
+module 'float_tests'
+  float_tests: mean_of_ints_is_a_float_test...[0.017 s] ok
+  float_tests: int_division_still_truncates_beside_float_division_test...[0.013 s] ok
+  float_tests: verdict_of_the_empty_mean_is_empty_test...[0.018 s] ok
+  float_tests: float_literals_lex_in_every_spelling_test...[0.009 s] ok
+  float_tests: one_dot_dot_five_is_not_a_float_test...ok
+  float_tests: negation_is_the_beams_test...[0.012 s] ok
+  float_tests: the_float_zero_head_matches_positive_zero_alone_test...[0.018 s] ok
+  float_tests: the_float_zero_head_draws_no_warning_test...[0.698 s] ok
+  float_tests: a_negative_zero_head_is_its_own_case_test...[0.015 s] ok
+  float_tests: an_int_returned_where_a_float_is_declared_is_refused_test...[0.396 s] ok
+  float_tests: a_remainder_over_two_floats_is_refused_test...[0.009 s] ok
+  float_tests: a_mixed_pair_at_an_operator_is_refused_test...ok
+  float_tests: every_operator_refuses_the_mixed_pair_test...[0.002 s] ok
+  float_tests: the_mixed_pair_message_names_the_conversion_test...[0.718 s] ok
+  float_tests: two_floats_or_two_ints_at_an_operator_compile_test...[0.015 s] ok
+  float_tests: an_already_refused_operand_reports_once_test...ok
+  float_tests: a_float_compared_with_an_int_literal_in_a_guard_is_refused_test...ok
+  float_tests: a_float_guard_selects_but_credits_nothing_test...[0.012 s] ok
+  float_tests: float_from_int_is_inlined_test...[0.615 s] ok
+  float_tests: float_from_int_refuses_a_float_test...ok
+  float_tests: float_of_is_not_an_operation_test...ok
+  float_tests: a_module_named_float_is_refused_test...[0.368 s] ok
+  float_tests: term_holds_the_float_test...[0.014 s] ok
+  float_tests: int_or_float_is_discriminable_test...[0.016 s] ok
+  float_tests: a_float_literal_alone_is_not_exhaustive_test...ok
+  float_tests: float_prints_as_float_test...[0.364 s] ok
+  float_tests: a_float_inside_a_list_and_a_tuple_test...[0.016 s] ok
+  float_tests: a_public_float_parameter_is_guarded_test...[0.011 s] ok
+  float_tests: a_float_still_does_not_reach_an_int_parameter_test...[0.011 s] ok
+  float_tests: a_float_literal_head_needs_no_kind_test_test...[0.012 s] ok
+  float_tests: the_spec_publishes_float_test...[0.667 s] ok
+  float_tests: a_foreign_float_return_is_guarded_test...[0.016 s] ok
+  float_tests: the_obligations_carry_the_part_test...[0.026 s] ok
+  float_tests: a_provably_zero_float_divisor_is_refused_test...[0.008 s] ok
+  float_tests: a_mixed_pair_in_a_switch_arm_guard_is_refused_test...[0.014 s] ok
+  float_tests: a_float_literal_in_a_switch_arm_test...[0.013 s] ok
+  [done in 4.232 s]
+module 'guard_kind_tests'
+  guard_kind_tests: an_atom_does_not_enter_a_clause_narrowed_by_an_ordering_guard_test...[0.014 s] ok
+  guard_kind_tests: a_float_does_not_enter_a_clause_narrowed_by_an_ordering_guard_test...[0.013 s] ok
+  guard_kind_tests: an_atom_does_not_match_a_relational_pattern_test...[0.015 s] ok
+  guard_kind_tests: an_atom_does_not_match_a_relational_switch_arm_test...[0.010 s] ok
+  guard_kind_tests: an_atom_alternative_beside_an_ordering_survives_test...[0.010 s] ok
+  guard_kind_tests: the_narrowing_guard_carries_the_type_test_test...[0.017 s] ok
+  guard_kind_tests: an_int_only_parameter_gains_no_second_test_test...[0.029 s] ok
+  [done in 0.129 s]
+module 'validation_error_record_tests'
+  validation_error_record_tests: a_record_pattern_takes_apart_what_the_validator_returns_test...[0.033 s] ok
+  validation_error_record_tests: the_validator_returns_the_record_test...[0.032 s] ok
+  validation_error_record_tests: a_projection_reads_the_expected_type_test...[0.028 s] ok
+  validation_error_record_tests: a_hand_built_value_carries_the_bare_tag_test...[0.025 s] ok
+  validation_error_record_tests: the_old_tuple_is_refused_at_the_boundary_test...[0.029 s] ok
+  validation_error_record_tests: the_value_goes_on_the_wire_test...[0.033 s] ok
+  [done in 0.198 s]
+=======================================================
+  All 211 tests passed.
+exit=0

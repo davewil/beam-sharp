@@ -588,3 +588,5 @@ TOTAL                            pub_fns=30 priv_fns=64 priv_with_rec=8 priv_wit
 (exit 0)
 
 ################ p11 repo test suite under each option
+== base:   All 211 tests passed. 
+   failing: 0

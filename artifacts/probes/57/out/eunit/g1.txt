@@ -363,4 +363,14 @@ module 'comprehension_tests'
   comprehension_tests: a_guard_filters_test...[0.714 s] ok
   comprehension_tests: a_part_prefix_narrows_test...[0.603 s] ok
   comprehension_tests: two_generators_test...[0.685 s] ok
-  comprehension_tests: a_nested_comprehension_test...
+  comprehension_tests: a_nested_comprehension_test...[0.608 s] ok
+  comprehension_tests: a_head_calls_another_module_test...[0.583 s] ok
+  comprehension_tests: a_vacuous_generator_warns_test...[1.259 s] ok
+  comprehension_tests: a_guard_cannot_call_test...[0.444 s] ok
+  comprehension_tests: a_guard_refuses_mixed_operands_test...[0.406 s] ok
+  comprehension_tests: a_binder_does_not_leak_test...[0.391 s] ok
+  comprehension_tests: a_generator_cannot_rebind_test...[0.398 s] ok
+  comprehension_tests: a_source_must_be_a_list_test...[0.748 s] ok
+  comprehension_tests: a_comprehension_in_a_guard_is_refused_test...[0.786 s] ok
+  comprehension_tests: it_lowers_to_one_comprehension_test...[0.568 s] ok
+  comprehension_tests: the_term_channel_is_the_same_in_a_batch...
