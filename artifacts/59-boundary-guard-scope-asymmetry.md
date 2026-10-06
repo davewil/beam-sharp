@@ -295,3 +295,14 @@ is acceptable and records it, since E2 shows what that costs.
 5. *"the ticket's table: one exported-only int test"* — **incomplete**: float kind (F51) and range (F37) share the scope.
 6. *Ticket 46's quoted comment* — **no longer in the source**.
 7. *"a private function's every call site is a checked B# call site"* — **contradicted** by E2 (list element, `List.Map`).
+
+## Verification errata (independent verifier, `probes/59/VERIFICATION.md`)
+
+The verifier re-ran from a fresh copy (0 failed assertions) and re-tested the key claims on its own B# module, Erlang driver and hand-edited A/B/"no tag test" builds: forged `Invoice` in a list is silent `{ok,14}` under A and `function_clause` under B; a forged whole parameter raises in the *exported* function's tag test (with the tag test removed everywhere it becomes `{ok,9}`), so the ticket's claim is refuted; the tag test is 12 B and flat for 1/4/12 fields (the ticket's 14 B is not reproduced); A passes 1312/1312, B fails exactly `boundary_kind_tests:88` and `boundary_range_tests:122`; corpus 8004→8013 B reproduces. No circular probe. Corrections:
+
+1. **Wrong denominator:** "7 of 24 private functions" counts 8 compiler-generated functions (`bs@validate@*`, `bs@List@flip`); it is **7 of 16 user-written** ones.
+2. **The hole is wider than stated.** A tuple element and a nested record field also reach a private function with the wrong tag (silent under A, caught under B). Ticket 46 §4's cost argument excluded collection walking, not tuple elements or record fields, so this hole is not "by decision". It strengthens Option B.
+3. The B-vs-base `+0.54…+0.60 ns` on `Weights` is B's whole guard set (including `is_integer(Acc)` in `FoldWeights`), not `Weight(Octet)` alone; int/float/range remain unresolved. The tag test's ≈5.3 ns/element reproduces (noise floor 0.04–0.15 ns).
+4. "Single-record parameter" is loose: several of the 8 exemplar functions take two or more records (census 64 / 8 / 4 recomputed identically).
+5. `out/p05.txt` is stale (no Scope rows); the numbers are in `out/p05/scope.txt`. p09 (Elm) cannot run; p06 reproduces for the tag test only.
+6. Citations: `beam_ssa_type.erl` :428-433 / :434-438 are off by 1–3 lines (content right). Option C's patch was not audited line by line (one adversarial cycle case was safe).
