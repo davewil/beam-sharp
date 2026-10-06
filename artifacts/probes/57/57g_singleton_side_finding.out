@@ -1,5 +1,5 @@
-!!  Eq1                    refused   (expected accepted) compile: Eq1/a.bs:0: bad range type
-!!  Range1_1               refused   (expected accepted) compile: Range1_1/a.bs:0: bad range type
+ok  Eq1                    refused   (expected refused ) compile: Eq1/a.bs:0: bad range type
+ok  Range1_1               refused   (expected refused ) compile: Range1_1/a.bs:0: bad range type
 ok  Range1_2               accepted  (expected accepted) 
 -- erlc on -spec f(1..1):
 r.erl:3:9: bad range type
