@@ -18,10 +18,10 @@ ok  E3 control: with fakelib present it starts
 == E4/E5 erlc accepts a caller of an absent module; xref flags it
 erlc: exit=0 out=[]
 ok  E5 erlc says nothing
-xref (fakelib absent from the library path): {ok,[{{caller,go,0},{fakelib_mod,hello,0}}]}
+xref (fakelib absent; xref library path set to code_path): {ok,[{{caller,go,0},{fakelib_mod,hello,0}}]}
 ok  E4 xref names the undefined call
 ok  E4 ... as an undefined call
-xref (fakelib on ERL_LIBS, so on the default library path): {ok,[]}
+xref (fakelib on ERL_LIBS; xref library path set to code_path): {ok,[]}
 ok  E4 control: with the app on the path xref is clean
 
 ALL CLAIMS HELD

@@ -10,6 +10,8 @@
 #   D4  the compile-time check can be answered inside the bsc VM (ERL_LIBS is in effect there) — shown in p5
 #   D6  `erlang` (8 of the 18 `using` blocks in compiler/examples) is PRELOADED and belongs to no application: a rule "every
 #       `using` names its app" has no app to name for it; the other OTP modules map to kernel/stdlib
+#   D7  a STRONGER check than name-only is also decidable per machine: "module M's beam lives under app A's lib dir" -- true for the
+#       real pair, FALSE for a wrong pair (lists in ssl), and `erlang` (preloaded) needs a special case
 #   D5  module name -> app name is NOT derivable (census below), so the app has to be WRITTEN somewhere
 source "$(dirname "$0")/common.sh"; mk_fakelib
 q () { erl -noshell -eval "$1" -s init stop; }
@@ -45,4 +47,11 @@ echo "using :atom blocks in compiler/examples: $n_all, of which :erlang: $n_erl"
 echo "the corpus already names a NON-OTP application (exemplar 25d):"
 grep -rn "^using :epgsql" compiler/examples/exemplars | sed 's|^|   |'
 echo "   code:lib_dir(epgsql) on this machine = $(erl -noshell -eval 'io:format("~p",[code:lib_dir(epgsql)]),halt().')"
+echo "== D7 claim check: does module M's beam live under app A's lib dir?"
+EV7='In=fun(M,A)-> case code:which(M) of preloaded -> preloaded; P -> case code:lib_dir(A) of {error,_}=E -> E; D -> lists:prefix(D, P) end end end, io:format("lists in stdlib : ~p~nlists in ssl    : ~p~nfakelib_mod in fakelib : ~p~nfakelib_mod in stdlib : ~p~nerlang in erts  : ~p~nlists in nonesuch : ~p~n",[In(lists,stdlib),In(lists,ssl),In(fakelib_mod,fakelib),In(fakelib_mod,stdlib),In(erlang,erts),In(lists,nonesuch)]), halt().'
+d7=$(ERL_LIBS="$WORK/libs" erl -noshell -eval "$EV7"); echo "$d7"
+expect "D7 true pair holds" "lists in stdlib : true" "$d7"
+expect "D7 control: a wrong pair is caught" "lists in ssl    : false" "$d7"
+expect "D7 wrong app for a third-party module is caught" "fakelib_mod in stdlib : false" "$d7"
+expect "D7 preloaded needs a special case" "erlang in erts  : preloaded" "$d7"
 finish

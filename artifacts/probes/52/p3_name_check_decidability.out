@@ -40,5 +40,16 @@ using :atom blocks in compiler/examples: 18, of which :erlang: 8
 the corpus already names a NON-OTP application (exemplar 25d):
    compiler/examples/exemplars/25d-database-querying/index.bs:12:using :epgsql {
    code:lib_dir(epgsql) on this machine = {error,bad_name}
+== D7 claim check: does module M's beam live under app A's lib dir?
+lists in stdlib : true
+lists in ssl    : false
+fakelib_mod in fakelib : true
+fakelib_mod in stdlib : false
+erlang in erts  : preloaded
+lists in nonesuch : {error,bad_name}
+ok  D7 true pair holds
+ok  D7 control: a wrong pair is caught
+ok  D7 wrong app for a third-party module is caught
+ok  D7 preloaded needs a special case
 
 ALL CLAIMS HELD
