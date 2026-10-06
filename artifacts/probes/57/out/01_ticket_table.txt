@@ -1,0 +1,26 @@
+# bsc: /home/user/beam-sharp/compiler/_build/default/bin/bsc
+MATCH    table: value >= -5                           refused
+MATCH    table: value >= -5 and value <= 5            refused
+MATCH    table: value >= 1 or value <= -1             refused
+MATCH    table: value <= 3 or value >= 10             accepted
+MATCH    table: value != 0                            accepted
+MATCH    != 0 excludes a literal 0 at a call          refused
+MATCH    != 0 admits a literal 1 at a call            accepted
+# --- is the refused form what the diagnostic recommends? ---
+MATCH    message names 'comparisons on `value`'       yes
+MATCH    message's own example is printed             yes
+MATCH    message's own example compiles               accepted
+MATCH    message mentions negative/minus/literal at all no
+# --- is there ANY spelling of a signed bound today? (all expected refused) ---
+MATCH    workaround: value > -6                       refused
+MATCH    workaround: value >= 0 - 5                   refused
+MATCH    workaround: 0 - 5 <= value                   refused
+MATCH    workaround: value + 5 >= 0                   refused
+MATCH    workaround: -5 <= value                      refused
+MATCH    workaround: value >= - 5                     refused
+MATCH    workaround: value >= -(5)                    refused
+MATCH    workaround: value >= --5                     refused
+# --- the ticket's table is of the repo's bsc; the 38b probe shipped with the ticket: ---
+  negative bound, and the probes above show the surface cannot spell it.
+
+all 7 probes matched expectation

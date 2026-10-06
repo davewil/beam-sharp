@@ -1,0 +1,5 @@
+module P3
+public atom Sign(int n)
+Sign(<= -1) -> :neg
+Sign(0) -> :zero
+Sign(>= 1) -> :pos

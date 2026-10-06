@@ -1,0 +1,4 @@
+module Gs
+public atom Band(int n)
+Band(n) when n > 2 + 3 -> :high
+Band(n) when n <= 5 -> :low

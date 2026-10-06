@@ -1,0 +1,7 @@
+(this file records the eunit results from the separate sequential runs, copied from evidence/eunit/ after
+ `SKIP_EUNIT=1 bash run.sh`; a plain `bash run.sh` regenerates it by running all five suites, ~35 min)
+base  All 1312 tests passed.  (wall_seconds=482)
+g1    All 1312 tests passed.  (wall_seconds=371)   [second run; the first was overlapped with another probe]
+g1b   All 1312 tests passed.  (wall_seconds=503)
+c1    All 1312 tests passed.  (wall_seconds=421)
+c2    All 1312 tests passed.  (wall_seconds=436)

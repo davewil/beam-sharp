@@ -30,4 +30,5 @@ Setting httpc proxy: scheme=https_proxy host="127.0.0.1" port=44877 no_proxy=["l
 /tmp/claude-0/-home-user-beam-sharp/c0642514-f9d1-5f22-91e2-015f96c1f119/scratchpad/w57run/base/compiler/src/bs_parser.yrl:none: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
 
 [0;32m===> Compiling bsc
+[0m[0;32m===> Building escript for bsc...
 [0m

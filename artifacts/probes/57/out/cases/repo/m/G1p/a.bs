@@ -1,0 +1,5 @@
+module G1p
+public atom Band(int n)
+Band(>= -5 and <= 5) -> :mid
+Band(<= -6) -> :low
+Band(>= 6) -> :high

@@ -1,0 +1,4 @@
+module R4
+type T = int where value <= 3 or value >= 10
+public int Id(T b)
+Id(b) -> b

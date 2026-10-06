@@ -1,0 +1,6 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/c2/m/X/a.bs:4:1: error: F returns a value its signature does not declare
+  not covered by the declared return type:
+    -1
+  If `Pos` is what you meant, fix the clause, not the signature.
+  no signature is offered: what the clauses return has no spelling as a type yet.
+[exit 1]

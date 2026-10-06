@@ -8,6 +8,7 @@
 # Base compiler for the bare-int signed cases (no refinement needed); the
 # signed-bounded-domain cases need a fix, so they run under g1 AND c1.
 . "$(dirname "$0")/lib.sh"
+PB_TOTAL=0; PB_OK=0
 paste_back () { # variant name header-and-prefix-clauses  (clauses in $3 are the program body)
     local v=$1 name=$2 head=$3 body=$4 heads n=0 extra=""
     probe $v "$name" "$head
@@ -20,6 +21,7 @@ $body"
 $body
 $heads"
     expect "$v/$name: pasting the printed clauses compiles" accepted "$verdict"
+    PB_TOTAL=$((PB_TOTAL+1)); [ "$verdict" = accepted ] && PB_OK=$((PB_OK+1))
 }
 D='type Dd = int where value >= -10 and value <= 10
 public atom Sign(Dd d)'
@@ -56,3 +58,7 @@ public int F(Octet d)
 F(d) -> Take(d)'
 sed -n 2,4p "$OUT/cases/base/T3.out"
 echo "# ^ base prints '0..99 | 201..255'-style TYPES for a NON-negative domain too; the interval notation was never surface syntax in any sign."
+
+echo "# the ticket's claim, stated as the ticket states it (a printed residual the surface cannot accept):"
+[ "$PB_OK" = "$PB_TOTAL" ] && obs=accepted || obs=refused
+expect "ticket 57: printed residual clauses are NOT acceptable ($PB_OK of $PB_TOTAL pasted ok)" refused $obs

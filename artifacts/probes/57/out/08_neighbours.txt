@@ -1,0 +1,70 @@
+== Erlang
+229
+MATCH    erl_parse leaves -5 as {op,'-',5} in a pattern unfolded-in-parse
+MATCH    erl_lint accepts -5 as a pattern             ok
+== Elixir
+-5                            : {:-, [line: 1], [5]}
+def f(-5), do: 1              : {:def, [line: 1], [{:f, [line: 1], [{:-, [line: 1], [5]}]}, [do: 1]]}
+def g(x) when x >= -5, do: 1  : {:def, [line: 1],
+ [
+   {:when, [line: 1],
+    [
+      {:g, [line: 1], [{:x, [line: 1], nil}]},
+      {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+    ]},
+   [do: 1]
+ ]}
+-5.0                          : {:-, [line: 1], [5.0]}
+-x                            : {:-, [line: 1], [{:x, [line: 1], nil}]}
+-(5)                          : {:-, [line: 1], [5]}
+- -5                          : {:-, [line: 1], [{:-, [line: 1], [5]}]}
+2 - 5                         : {:-, [line: 1], [2, 5]}
+2 + 3                         : {:+, [line: 1], [2, 3]}
+f: [{:clause, {2, 7}, [{:integer, {2, 7}, -5}], [], [{:atom, {2, 7}, :neg5}]}]
+g: [
+   [[{:op, {3, 19}, :>=, {:var, {3, 17}, :_x@1}, {:integer, {3, 19}, -5}}]],
+h: [
+      {:op, {5, 19}, :-, {:var, {5, 17}, :_x@1}, {:integer, {5, 19}, -5}},
+      {:op, {5, 26}, :-, {:var, {5, 27}, :_x@1}}}
+== Gleam
+pattern -5                         ACCEPTED
+pattern - 5 (space)                error: Syntax error Found `-`, expected one of:  
+pattern -(5)                       error: Syntax error Found `-`, expected one of:  
+pattern --5                        error: Syntax error Found `-`, expected one of:  
+pattern 2 - 3                      error: Syntax error Found `-`, expected one of:  
+guard n >= -5                      ACCEPTED
+guard n >= - 5 (space)             error: Syntax error 
+guard n >= 2 + 3                   ACCEPTED
+guard n == -m                      error: Syntax error 
+const c = -5                       ACCEPTED
+const c = -(5)                     error: Syntax error 
+const c = - -5                     error: Syntax error 
+const c = 2 + 3                    error: Syntax error Found `+`, expected one of:  
+expression -x                      ACCEPTED
+expression - -5                    ACCEPTED
+f(X) ->
+    case X of
+        -5 ->
+            ~"neg5";
+
+        N when N >= -5 ->
+            ~"ge";
+
+        _ ->
+            ~"lt"
+    end.
+
+-file("src/g57.gleam", 9).
+-spec h(integer()) -> integer().
+h(X) ->
+    (X - -5) + - X.
+
+== Elm
+-- HTTP PROBLEM ----------------------------------------------------------------
+
+The following HTTP request failed:
+
+    <https://package.elm-lang.org/all-packages>
+
+Here is the error message I was able to extract:
+

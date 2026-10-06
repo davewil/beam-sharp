@@ -54,3 +54,8 @@ change replaced rows.
     (574 vs 672 ms), so block drift was larger than the effect being measured.
     Now interleaved (every round times every variant), 15 rounds, median and
     minimum reported. First output kept in `evidence/09_first_run_sequential_blocks.txt`.
+12. `07_residual.sh`: appended a final line stating the ticket's own claim
+    ("a printed residual the surface cannot accept") as the expectation, because
+    the per-case lines are phrased in the direction that holds and print MATCH,
+    which hid that the ticket's claim is refuted. Purely additive; no earlier
+    line or expectation changed.

@@ -1,0 +1,10 @@
+base  984397 bytes  | conflicts: 6 shift/reduce, 0 reduce/reduce
+g1    984573 bytes  | conflicts: 6 shift/reduce, 0 reduce/reduce
+g1b   984796 bytes  | conflicts: 6 shift/reduce, 0 reduce/reduce
+c1    986008 bytes  | conflicts: 6 shift/reduce, 0 reduce/reduce
+c2    986097 bytes  | conflicts: 6 shift/reduce, 0 reduce/reduce
+# patch sizes (added/removed non-header lines):
+c1-checker-comparison-fold.patch         +29 -5
+c2-checker-fold-plus-type_of.patch       +31 -5
+g1-parser-negate-int.patch               +1 -0
+g1b-parser-refinement-only.patch         +6 -1

@@ -1,0 +1,32 @@
+## value >= -5
+{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},5}}}
+## value >= --5
+{e_op,{2,26},
+      '>=',
+      {e_var,{2,20},value},
+      {e_neg,{2,29},{e_neg,{2,30},{e_int,{2,31},5}}}}
+## value >= -(5)
+{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,31},5}}}
+## value >= 2 + 3
+{e_op,{2,26},
+      '>=',
+      {e_var,{2,20},value},
+      {e_op,{2,31},'+',{e_int,{2,29},2},{e_int,{2,33},3}}}
+## value >= 0 - 5
+{e_op,{2,26},
+      '>=',
+      {e_var,{2,20},value},
+      {e_op,{2,31},'-',{e_int,{2,29},0},{e_int,{2,33},5}}}
+## value >= - -5
+{e_op,{2,26},
+      '>=',
+      {e_var,{2,20},value},
+      {e_neg,{2,29},{e_neg,{2,31},{e_int,{2,32},5}}}}
+## value >= -n
+{e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_var,{2,30},n}}}
+REFUTED  ticket: -5 parses to 0 - 5                   claim=desugared observed=not-desugared
+MATCH    observed node for -5 is e_neg                e_neg
+# parser.yrl lines cited by the brief:
+589:expr_low -> '-' expr_low : negate(line('$1'), '$2').
+944:negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
+945:negate(L, E)                 -> {e_neg, L, E}.

@@ -1,0 +1,26 @@
+case                                                 base      g1        g1b       c1        c2       
+N1 G(5) into Nz                                      accepted  accepted  accepted  accepted  accepted 
+N2 G(-5) into Nz                                     refused   accepted  refused   refused   accepted 
+N3 G(0 - 5) into Nz                                  refused   refused   refused   refused   refused  
+N7 G(- -5) into Nz                                   refused   accepted  refused   refused   refused  
+N5 x / -0 (ticket 38: provably-zero divisor)         accepted  refused   accepted  accepted  refused!=accepted
+N6 x / 0                                             refused   refused   refused   refused   refused  
+N8 x % -0                                            accepted  refused   accepted  accepted  refused!=accepted
+N9 return -1 where a Pos is declared                 refused   refused   refused   refused   refused  
+
+# DIFF: one program, every variant, printed values (raw):
+MATCH    printed values identical base vs g1
+MATCH    printed values identical base vs g1b
+MATCH    printed values identical base vs c1
+MATCH    printed values identical base vs c2
+A => 5 
+B => -5 
+C => 6 
+D => -15 
+E => -6 
+F => 20 
+G 3 => 2 
+H => 0 
+I -5 => :five 
+I -4 => :ge 
+I -9 => :lt 

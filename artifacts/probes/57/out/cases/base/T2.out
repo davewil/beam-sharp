@@ -1,0 +1,6 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/base/m/T2/a.bs:7:9: error: F hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    0
+  the clause to add here:
+    F(0) -> ...
+[exit 1]

@@ -1,0 +1,43 @@
+MATCH    guard with -5 compiles (has a catch-all)     accepted
+MATCH    runtime Band(-3)                             :a
+MATCH    runtime Band(-9)                             :b
+MATCH    runtime Band(-5)                             :a
+# emitted abstract form of the guard (raw):
+{function,0,'Band',1,
+    [{clause,
+         {3,1},
+         [{var,{3,6},'N'}],
+         [[{op,{3,1},
+               'andalso',
+               {call,
+                   {3,1},
+                   {remote,{3,1},{atom,{3,1},erlang},{atom,{3,1},is_integer}},
+                   [{var,{3,1},'N'}]},
+               {op,{3,16},
+                   '>=',
+                   {var,{3,14},'N'},
+                   {op,{3,19},'-',{integer,{3,20},5}}}}]],
+         [{atom,{3,25},a}]},
+     {clause,
+         {4,1},
+         [{var,{4,6},'N'}],
+         [[{call,
+               {4,1},
+               {remote,{4,1},{atom,{4,1},erlang},{atom,{4,1},is_integer}},
+               [{var,{4,1},'N'}]}]],
+         [{atom,{4,12},b}]}]}.
+MATCH    guard lowers -5 to {op,'-',{integer,5}}      unary-op-over-5
+# the same literal through a PATTERN (p_rel) lowers to a negative integer:
+{op,{3,6},'=<',{var,{3,6},'Bs@r1'},{integer,{3,6},-1}}
+MATCH    pattern <= -1 compiles                       accepted
+# does a guard with a negative literal NARROW? three clauses that are exhaustive:
+REFUTED  G1 (exhaustive by arithmetic) accepted       claim=accepted observed=refused
+    /home/user/beam-sharp/artifacts/probes/57/out/cases/repo/m/G1/a.bs:2:13: error: Band is not exhaustive
+      no clause matches:
+        Band(<= 5) -> ...
+    [exit 1]
+MATCH    G2 (same shape, no negative literal) accepted accepted
+# the same G1 with the negative bound spelled as patterns is accepted:
+MATCH    G1 as relational patterns accepted           accepted
+# does the refused G1 mislead? it says the residual is <= 5, but the clauses cover -5..5, <-5, >5:
+MATCH    adding a catch-all after G1 compiles         accepted

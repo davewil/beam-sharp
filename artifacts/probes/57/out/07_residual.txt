@@ -1,0 +1,36 @@
+g1/R1 printed missing clauses:
+        Sign(>= -10 and <= -1) -> :pasted
+        Sign(>= 1 and <= 10) -> :pasted
+MATCH    g1/R1: pasting the printed clauses compiles  accepted
+c1/R1 printed missing clauses:
+        Sign(>= -10 and <= -1) -> :pasted
+        Sign(>= 1 and <= 10) -> :pasted
+MATCH    c1/R1: pasting the printed clauses compiles  accepted
+g1/R2 printed missing clauses:
+        Sign(0) -> :pasted
+        Sign(10) -> :pasted
+MATCH    g1/R2: pasting the printed clauses compiles  accepted
+base/R3 printed missing clauses:
+        F(<= -11) -> :pasted
+        F(>= 11) -> :pasted
+MATCH    base/R3: pasting the printed clauses compiles accepted
+base/R4 printed missing clauses:
+        F(>= 0) -> :pasted
+MATCH    base/R4: pasting the printed clauses compiles accepted
+# the doctrine's OTHER direction: the printed residual of a guard-narrowed signed domain (guards cannot say -5 in base)
+base/R5 printed missing clauses:
+        Band(<= 5) -> :pasted
+MATCH    base/R5: pasting the printed clauses compiles accepted
+# is the printed TYPE (not clause) writable? in every variant the printed type uses interval notation:
+  argument 1 is not covered by Take's declared type:
+    -100..0
+  the clause to add here:
+  argument 1 is not covered by Take's declared type:
+    0
+  the clause to add here:
+  argument 1 is not covered by Take's declared type:
+    0..99 | 201..255
+  the clause to add here:
+# ^ base prints '0..99 | 201..255'-style TYPES for a NON-negative domain too; the interval notation was never surface syntax in any sign.
+# the ticket's claim, stated as the ticket states it (a printed residual the surface cannot accept):
+REFUTED  ticket 57: printed residual clauses are NOT acceptable (6 of 6 pasted ok) claim=refused observed=accepted

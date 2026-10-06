@@ -1,0 +1,7 @@
+program    base      g1        g1b       c1        c2       
+program A  refused   accepted  refused   refused   accepted 
+program B  refused   refused   refused   accepted  accepted 
+program C1 refused   accepted  accepted  accepted  accepted 
+program C  refused   accepted  refused   accepted  accepted 
+# separate line: the E7 behaviour change (compiles today, refused under A and c2):
+x / -0     accepted  refused   accepted  accepted  refused  

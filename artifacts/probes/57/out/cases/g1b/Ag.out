@@ -1,0 +1,4 @@
+/home/user/beam-sharp/artifacts/probes/57/out/cases/g1b/m/Ag/a.bs:3:13: error: Band is not exhaustive
+  no clause matches:
+    Band(>= -100 and <= 5) -> ...
+[exit 1]

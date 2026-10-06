@@ -1,0 +1,38 @@
+MATCH    base compiled to an is_ge test (1)
+MATCH    g1 compiled to an is_ge test (1)
+MATCH    g1b compiled to an is_ge test (1)
+MATCH    c1 compiled to an is_ge test (1)
+MATCH    c2 compiled to an is_ge test (1)
+g1   abstr vs base: DIFFERENT   disassembled code vs base: identical
+g1b  abstr vs base: identical   disassembled code vs base: identical
+c1   abstr vs base: identical   disassembled code vs base: identical
+c2   abstr vs base: identical   disassembled code vs base: identical
+# guard fragment, base:
+                   '>=',
+                   {var,{4,14},'N'},
+                   {op,{4,19},'-',{integer,{4,20},5}}}}]],
+         [{atom,{4,25},a}]},
+# guard fragment, g1:
+               {op,{4,16},'>=',{var,{4,14},'N'},{integer,{4,20},-5}}}]],
+         [{atom,{4,25},a}]},
+     {clause,
+         {5,1},
+# the abstr diff base -> g1 (raw):
+22,25c22
+<                {op,{4,16},
+<                    '>=',
+<                    {var,{4,14},'N'},
+<                    {op,{4,19},'-',{integer,{4,20},5}}}}]],
+---
+>                {op,{4,16},'>=',{var,{4,14},'N'},{integer,{4,20},-5}}}]],
+48,51c45
+<                    [{op,{8,13},
+<                         '-',
+<                         {var,{8,11},'X'},
+<                         {op,{8,15},'-',{integer,{8,16},5}}}]}]}.
+---
+>                    [{op,{8,13},'-',{var,{8,11},'X'},{integer,{8,16},-5}}]}]}.
+# disassembly of Band/1 (base), proving the compiled guard is a compare against the constant -5:
+19:            {test,is_ge,{f,5},[{tr,{x,0},{t_integer,any}},{integer,-5}]},
+31:            {gc_bif,'-',
+34:                    [{tr,{x,0},{t_integer,any}},{integer,-5}],

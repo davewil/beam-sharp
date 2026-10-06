@@ -5,6 +5,10 @@ Tree: `master` at `712b9e9`. Probes: `artifacts/probes/57/` (`run.sh` re-execute
 raw output in `out/`; every edit after first output is in `CHANGELOG.md`). Probe refs below are `NN` = `NN_*.sh`.
 "base" = a fresh copy of the repo compiler, "repo" = the escript already built in the repo; they agree on every row.
 
+Re-run: `bash artifacts/probes/57/run.sh` (about 10 minutes without eunit, `SKIP_EUNIT=1`; about 45 with it; do not run anything else during the eunit step, a loaded machine times out one subprocess test and eunit cancels the run).
+Lines the probes print as `REFUTED` are claims that did not hold: the ticket's `0 - 5` mechanism (E3), my own prediction that a guard narrows on `-5` (E4), and the ticket's residual claim (E8).
+`out/10_eunit.txt` was filled from the separate sequential runs in `evidence/eunit/`, not by that `run.sh` pass.
+
 ## Sub-decisions
 
 1. **Where the fold lives.** Not the two places the ticket names. The ticket offers "the grammar, mirroring `int_lit`" or
@@ -53,7 +57,7 @@ value >= 0 - 5 -> {e_op,..,'>=',..,{e_op,{2,31},'-',{e_int,{2,29},0},{e_int,{2,3
 `bs_parser.yrl:585-589` says the `0 - e` form was replaced by `e_neg` "since F51"; the ticket (2026-08-23) predates F51
 (done 2026-09-16). The earliest commit in this checkout that mentions `e_neg` is `2127bb8` (2026-09-29, "F67 review ... unary `-`"),
 so I could not date the change from git. The symptom is unchanged and the refusal table holds; only the explanation is stale.
-It matters because the ticket's "the checker cannot fold a subtraction node" is no longer the thing to fold: it is an `e_neg` over an `e_int`.
+(Minor: the ticket places the "a refinement is an `expr` so it and a guard cannot disagree" comment in `bs_check.erl`; it is at `bs_parser.yrl:219-221`, with the checker side at `bs_check.erl:1895-1896`.) It matters because the ticket's "the checker cannot fold a subtraction node" is no longer the thing to fold: it is an `e_neg` over an `e_int`.
 
 **E4. A guard with `-5` compiles and runs today, but credits nothing, so a correct program is refused.** Probe 03, repo bsc.
 - `Band(n) when n >= -5 -> :a` + a catch-all: accepted; `Band -3` -> `:a`, `Band -9` -> `:b`, `Band -5` -> `:a`.
@@ -142,7 +146,23 @@ Where the fold stops (probe 04, 19 refinement rows). Accepted: `-N`, `- N`, `-(N
 
 Value preservation (probe 05 DIFF): `- -5`, `-(2+3)`, `1 - -5`, `-5 * 3`, `- 2 * 3`, `10 - -5 - -5`, `-x - -5`, `-0` and a `-5` pattern with a `>= -4` guard print identical results in base, g1, g1b, c1, c2.
 
-@@MEASURE@@
+**Compile time** (probe 09: a module of 300 refinement types, each used by a function; 15 interleaved rounds, median/min ms, one VM per run):
+
+| Variant | empty module (VM start-up) | P1: 300 non-negative refinements | P2: 300 signed refinements |
+|---|---|---|---|
+| base | 653/548 | 1069/962 | refused (the ticket) |
+| g1 | 656/575 | 1077/903 | 1092/914 |
+| g1b | 644/522 | 1038/942 | 1087/942 |
+| c1 | 646/578 | 1052/955 | 1058/934 |
+| c2 | 639/546 | 1078/974 | 1065/953 |
+
+No variant is distinguishable from base: medians sit within about 3% of base on P1 and the spread inside one variant (about 100 ms) is larger than the spread between variants.
+The first run of this probe timed variants in sequential blocks and showed a 13% gap that was drift (the VM-only row differed by 100 ms); it is kept in `evidence/09_first_run_sequential_blocks.txt` and explained in `CHANGELOG.md` item 11.
+
+**Test suite** (`rebar3 eunit`, each variant in its own copy, one at a time, `evidence/eunit/*.txt`): base, g1, g1b, c1 and c2 all report **All 1312 tests passed**.
+That is also a coverage finding: no existing test turns red under any variant, so no test pins the current refusal, and none exercises a negative bound in a refinement (`intervals_tests.erl:46-60` pins opaque refinements by other shapes; `intervals_tests.erl:290-297` covers the negative *pattern*).
+Two runs were invalid and are kept as evidence, not results: five variants in parallel (a subprocess test timed out, eunit cancelled at 228 tests), and one g1 run overlapped with another probe (same timeout). Both reruns were on an idle machine (`CHANGELOG.md` items 9, 10).
+**Not measured:** the repo's `bin/check-*.sh` gates, and `verify.sh`'s twice-from-clean rule.
 
 ## Options
 
@@ -171,7 +191,7 @@ Compiles under A (g1) and c2; refused under base, g1b and c1 (probe 12). One mor
 `Div(x) -> x / -0` compiles today and is **refused** under A (E7).
 **Compiler delta.** One clause in an existing function: `negate(_L, {e_int, IL, N}) -> {e_int, IL, -N};` beside the float clause at `bs_parser.yrl:944`. No symbol-table entry, no new pass,
 no emitted function. Changes one emitted form (`{integer,L,-5}` for `{op,'-',{integer,L,5}}`, a shape `rel_expr` already emits for patterns); BEAM code identical (E5).
-**Measured.** 1 line; grammar conflicts 6 -> 6; refinement rows `-N` all accepted; E4, E6, E7, E9 all change; value-preservation identical; eunit @@EUNIT_G1@@.
+**Measured.** 1 line; grammar conflicts 6 -> 6; refinement rows `-N` all accepted; E4, E6, E7, E9 all change; value-preservation identical; eunit 1312/1312.
 **Strongest counterargument.** It stops at the literal: `value >= 2 + 3` and `value >= 0 - 5` stay refused with the same "comparisons on `value`" message that already misleads (E2), so the
 defect shape the ticket complains about (the message recommends what it refuses) survives for the next spelling a user tries. It also changes behaviour outside the ticket's question
 (`x / -0` becomes a compile error, E7), which is right by ticket 38's own rule but is a decision nobody asked for here.
@@ -191,7 +211,7 @@ Band(n) when n <= 5    -> :low
 ```
 Compiles under c1 and c2; refused under base, g1 and g1b (probe 12).
 **Compiler delta.** One function in `bs_check.erl` (`const_int/1`, 9 lines, over `e_int`, `e_neg`, `+ - *`), one helper (`fold_const/1`), and `comparison/1` split in two so the existing clauses run on folded operands. For `-5` as an *expression* (E6) the checker also needs `type_of({e_neg,_,{e_int,..}})` (c2, +2 lines).
-**Measured.** c1 +29/-5, c2 +31/-5; `.abstr` unchanged (E5); refinement rows: everything A accepts, plus `2 + 3`, `0 - 5`, `-5 * 2`; `G(-5)` into `Nz` accepted only under c2, and `G(- -5)` is still refused under c2 (only a direct literal is folded in `type_of`); eunit c1 @@EUNIT_C1@@, c2 @@EUNIT_C2@@.
+**Measured.** c1 +29/-5, c2 +31/-5; `.abstr` unchanged (E5); refinement rows: everything A accepts, plus `2 + 3`, `0 - 5`, `-5 * 2`; `G(-5)` into `Nz` accepted only under c2, and `G(- -5)` is still refused under c2 (only a direct literal is folded in `type_of`); eunit c1 1312/1312, c2 1312/1312.
 **Strongest counterargument.** It is the larger and the less finished change for a smaller gain: 30 lines of arithmetic folding in the checker to accept `2 + 3`, which nobody has asked to write in a refinement, and without a second fold in `type_of` the expression `-5` stays an `int` (E6), so `Step(-5)` is refused beside a refinement that accepts `-5`. It also gives the checker a fold that the parser, emitter and `bs_api` do not share: four consumers of `e_neg` (`bs_check.erl:2586, 2874`, `bs_emit.erl:743, 1058`) must keep agreeing about a node that `-5` still produces.
 
 ### Option C: the ticket's first option, taken literally (variant g1b, refinement only)
