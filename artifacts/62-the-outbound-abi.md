@@ -5,7 +5,7 @@ sub-decision is **function-name casing for Elixir callers**. The `Kind` contract
 2026-08-25 and is `LANGUAGE.md` §12. The module-prefix question is closed and is not touched here.
 
 Every number below comes from a probe in `artifacts/probes/62/`, run against the current bsc,
-OTP 28, Elixir 1.20.4 and Gleam 1.18.1. The probe index is at the end.
+OTP 28, Elixir 1.20.4 (it reports "compiled with OTP 27" while running on 28) and Gleam 1.18.1. The probe index is at the end.
 
 ## Three findings that change the question
 
@@ -112,13 +112,16 @@ import :Shop, only: [new: 1]; new(4)  # runs
 - `--api` and diagnostics must hide the aliases, as they already hide `bs@type_atoms`
   (ticket 87, `LANGUAGE.md:3136`).
 
-**Measured cost, 27 modules in `compiler/examples`** (probe 62-03; control: the baseline rebuilt
-from `.abstr` is byte-identical to bsc's own `.beam` for 27 of 27, so the sizes are of the shipped
-artifact):
+**Measured cost, 27 modules in `compiler/examples`** (probe 62-03). The sizes come from
+`compile:forms`, whose output differs from bsc's shipped `.beam` in all 27 modules, in the `CInf`
+chunk only (about 140 bytes smaller per module). The "byte-identical 27 of 27" control used
+`compile:file` with `from_abstr`, so it does not make these sizes the shipped artifact's. The shipped
+total is 54,908 bytes; the delta is the same on both sides. Through bsc's real `from_abstr` path the
+verifier measured 54,908 to 59,868 (+4,960, about +9.1%) and exports 176 to 268:
 
 | quantity | before | after | delta |
 |---|---|---|---|
-| `.beam` bytes (wrapper) | 51,240 | 56,224 | +4,984 (+9.7%), about 54 bytes per alias |
+| `.beam` bytes (wrapper, `compile:forms`; shipped baseline is 54,908) | 51,240 | 56,224 | +4,984 (about +9.1% of the 54,908 shipped total), about 54 bytes per alias |
 | export-table entries | 176 | 268 | +92, exactly the author-visible PascalCase functions |
 | `ExpT` chunk | 2,220 | 3,324 | +1,104 |
 | `Code` chunk | 8,004 | 9,462 | +1,458 |
@@ -126,13 +129,15 @@ artifact):
 | `Dbgi` chunk (debug_info) | 24,007 | 25,834 | +1,827, which is 37% of the growth |
 | Shop alone | 2,456 | 2,852 | +396 bytes, exports 11 to 19 |
 
-*Method:* `beam_lib:all_chunks` summed over every module, deterministic. **Module load time and
-compile time were not resolvable.** `code:load_binary` over the 27-module set, 80 rounds times 5
+*Method:* `beam_lib:all_chunks` summed over every module, deterministic. **Module load time was not
+resolvable, and compile time is conservatively called so.** `code:load_binary` over the 27-module set, 80 rounds times 5
 repetitions, median of rounds, best repetition: three full runs gave baseline 12.1 / 12.4 / 17.5 ms
 against wrapper 14.0 / 14.1 / 16.4 ms. The run-to-run noise (other sessions share this machine) is
 larger than the effect, so the honest statement is **under about 0.1 ms per module, not
-distinguishable from noise**. The same holds for `compile:forms` time. The size numbers are the
-reliable cost; the time numbers are not evidence either way.
+distinguishable from noise**. For `compile:forms` time, the minimum of the compile loop rose about 10% with aliases in both the
+original and the verifier's run (verifier: 103.6 to 114.5 ms; original: 134.6 to 156.0 ms), which is
+plausible for more forms. So "not resolvable" is conservative for compile time: do not read it as "no
+cost". The size numbers are the reliable cost; load time is not evidence either way.
 
 **Behaviour** (probe 62-04):
 - The alias compiles to `{call_only,1,{f,4}}`, a jump to the original's label.
@@ -142,8 +147,10 @@ reliable cost; the time numbers are not evidence either way.
 - Tail calls survive: 1,000,000 tail calls through an exported alias end at 2,624 bytes of process
   memory, as does the direct loop. Control: a non-tail recursion of the same depth reaches 16,583,424.
 - Internal B# calls still call `'New'` directly (`bs_emit.erl:117`, `name/2`), so nothing inside B#
-  pays for the alias.
+  pays for the alias. This is a reading of the source, not a probe result.
 - `Kind` checking is unchanged: the guard sits on the exported original, and the alias calls it.
+  This follows from the design, not from a probe; 62-04 only shows `function_clause` raised in
+  `'Which'` when reached through the alias.
 
 **Strongest counterargument.** It adds the first snake_case rule to a language whose tickets 32 and
 35 deliberately have none, and it **publishes a second name for every function, permanently**. Both
@@ -164,8 +171,11 @@ language**:
   `uident` is `[A-Z]` plus `ALNUM*` in `bs_lexer.xrl:150`.
 - Ticket 35 already built a table because `handle_call` "is not a spellable name".
 
-**Size** (probe 62-05, real lexer over every `.bs` in the repo): **161 files, 249 distinct
-function-like names, 1,221 call-like tokens** (`Name(`), plus the 10 compiler-known operations
+**Size** (probe 62-05, real lexer over the 161 of the 165 tracked `.bs` files under
+`compiler/examples`, `aoc`, `handoff/audition-switch`, `compiler/bin/fixtures` and
+`wayfinder/prototypes`; the 4 under `artifacts/probes` are not counted): **161 files, 249 distinct
+function-like names, 1,221 call-like tokens** (`Name(`, which includes qualified calls such as
+`List.Map(`; without them 1,195 tokens and 242 names), plus the 10 compiler-known operations
 (`List.Map`, `Float.FromInt`, `Term.Compare`, ...). Of the 27 compiled example modules, 92 of the
 95 exported functions are PascalCase. The rest of the prose in `LANGUAGE.md`, `TOUR.md` and the
 tickets quotes B# too, and I did not count it.
@@ -207,7 +217,7 @@ per-uppercase-letter (probe 62-02, from the emitted `.erl`: `HTTPGetError` becom
 (This is a lookup of measured outputs, not a menu.)
 
 **Without any check**, OTP refuses the aliased module: `redefine_function` for `get_x/1`,
-`http_get/1` and `module_info/1` (`erl_lint.erl:1974`; probe 62-06 section d). So a collision is
+`http_get/1` (only under the acronym-aware rule) and `module_info/1` (`erl_lint.erl:1974`; probe 62-06 section d). So a collision is
 loud, not silent. The choice is where it is reported.
 
 ### 2a. Per-letter rule, collision is a compile error at the declaration
@@ -265,9 +275,9 @@ versus one code label exported under two names, which cannot be written in abstr
 patched the `ExpT` and `AtU8` chunks of the real `Shop.beam` by hand (probe 62-04, section 4). The
 module loads, `which/1` is exported, and a crash through either name prints the label's own
 `func_info` name `'Which'`. So the shared label works on OTP 28 but gives **no observable gain**:
-the stack is the same, the wrapper adds no frame, and the shared label saves about 16 bytes of
-`Code` per alias. It also means post-processing the `.beam` after `compile:file`, which today is
-bsc's only OTP call (`bsc.erl:843`). **Wrapper.**
+the stack is the same, the wrapper adds no frame, and the shared label saves an estimated 16 bytes of
+`Code` per alias (inferred from the wrapper's own cost, 1,458/92; not measured on the patched beam). It also means post-processing the `.beam` after `compile:file`, which today is
+bsc's only OTP call (`bsc.erl:846`). **Wrapper.**
 
 The `-spec` question is the sub-point. Copying it to the alias costs +672 bytes over 92 aliases
 (`Dbgi`, +1.3 percentage points of beam size, probe 62-03 `mode=spec`) and keeps §12's "a `-spec`
@@ -282,7 +292,7 @@ users in Erlang are the audience for specs and 7 bytes per alias is small.
 |---|---|---|---|
 | `62_01_elixir_call_forms.sh` / `.out` | Unquoted dot forms on a PascalCase export are syntax errors on Elixir 1.20.4; other call routes work | `:Shop.New(1)`, `:"Elixir.Shop".New(1)`, `&:Shop.New/1`, `Shop.New(1)` are `SYNTAX_ERROR`. Quoted `:Shop."New"(1)`, its capture, pipe, `apply`, `:erlang.apply`, `Kernel.apply`, `make_fun`, quote/unquote macros, `defdelegate as:` all parse and run. `import :Shop` cannot reach `New` | `:lists.reverse([1])` parses; a malformed string reports `SYNTAX_ERROR`; `:Shop."Nope"(1)` raises `UndefinedFunctionError` |
 | `62_02_gleam_casing.sh` / `.out` | Gleam does not downcase function names; it downcases constructor tags per uppercase letter; `a/b` becomes `a@b`; a Gleam caller can run `@external(erlang,"Shop","New")` | Functions are emitted as written; `h_t_t_p_get_error`, `x_m_l_http`, `a_bc`/`ab_c`, `md5_sum`, `{new2,_}`; module `a@b`; the call to `Shop:New(3)` ran and returned the map | `pub fn New` is a Gleam syntax error; `Shop:Nope` crashes with `undef` |
-| `62_03_alias_cost.sh` / `.out` (+ `alias_xform.erl`, `alias_measure.erl`) | Alias cost over all 27 example modules | +4,984 bytes (+9.7%), +92 exports, chunk breakdown; spec copy +672 bytes more; load and compile time not resolvable (noise larger than effect) | Baseline rebuilt from `.abstr` is byte-identical to bsc's `.beam`, 27 of 27 |
+| `62_03_alias_cost.sh` / `.out` (+ `alias_xform.erl`, `alias_measure.erl`) | Alias cost over all 27 example modules | +4,984 bytes (about +9.1% of shipped), +92 exports, chunk breakdown; spec copy +672 bytes more; load and compile time not resolvable (noise larger than effect) | Baseline rebuilt from `.abstr` via `compile:file` is byte-identical to bsc's `.beam`, 27 of 27 (but the measured sizes use `compile:forms`, which differs in `CInf`) |
 | `62_04_alias_stack_and_label.sh` / `.out` (+ `alias_trace.erl`) | Wrapper is a `call_only` jump with no extra frame and keeps tail calls; one label can be exported under two names | `call_only`; identical stacks; 2,624 bytes after 1M tail calls; patched beam loads and `which/1` works | Non-tail wrapper shows the extra frame; non-tail recursion grows to 16,583,424 bytes |
 | `62_05_census.sh` / `.out` (+ `census.erl`) | Size of candidate 3 and the aliased population | 161 files, 249 distinct names, 1,221 call-like tokens; 92 of 95 exports PascalCase; 10 compiler-known operations; no name in the repo has `_`, adjacent capitals or digits | A known file counts as `['Fib'], 2 heads, 5 call-like`; the three regexes fire on known inputs |
 | `62_06_alias_derivation.sh` / `.out` (+ `alias_derive.erl`, `src/Names/names.bs`) | Derivation collisions and reserved names | `GetX`/`Get_x`, `HTTPGet`/`HttpGet` (acronym rule), `ModuleInfo` all make OTP refuse the module; exhaustive enumeration: per-letter 332 groups (all with `_`), acronym-aware 788; 0 collisions on the real 27 modules | The baseline `Names` module compiles; both rules are shown side by side so a rule that never collided would show 0 |
@@ -310,6 +320,35 @@ under `wayfinder/`, `compiler/` or the docs.
 - **Dialyzer.** I did not run it against aliased modules; the `-spec` recommendation rests on size
   and on §12's wording, not on a Dialyzer result.
 - **Census is heuristic.** `Name(` token counting over the real lexer includes some foreign-call
-  and qualified-call tokens, and does not count prose or code blocks in `*.md` files.
+  and qualified-call tokens (1,195 tokens and 242 names without the qualified ones), and does not count prose or code blocks in `*.md` files.
 - **Hex packages** (anything outside the installed OTP and Elixir trees) were not scanned for
   PascalCase function names.
+
+## Verification
+
+Verdict: **VALID-WITH-CAVEAT**. Full report: [`62-the-outbound-abi.verification.md`](62-the-outbound-abi.verification.md).
+The headline findings and the recommendation stand; the one numerical error was the size baseline.
+
+Corrections applied:
+
+1. Size baseline: sizes come from `compile:forms`, which differs from the shipped beam in `CInf` in
+   all 27 modules; shipped total 54,908, not 51,240; delta +4,984 stands (+4,960 via the real
+   `from_abstr` path, exports 176 to 268); percentage about +9.1%, not +9.7%; "sizes are of the
+   shipped artifact" removed.
+2. Census scope: 161 of 165 tracked `.bs` files (4 under `artifacts/probes` excluded); counts include
+   qualified calls (1,195 tokens / 242 names without them).
+3. "About 16 bytes of `Code` saved per alias" reworded as an estimate.
+4. "Kind checking is unchanged" and "internal calls use `name/2`" marked as design and source-reading
+   claims, not probe-backed.
+5. Compile time: the minimum rose about 10% in both runs, so "not resolvable" is conservative.
+6. `http_get/1` is refused by OTP only under the acronym-aware rule.
+7. `bsc.erl:843` corrected to `:846` for `compile:file`.
+8. Elixir reports "compiled with OTP 27" while running on 28.
+
+The verifier's extras:
+
+- The 62-04 tail-call memory loop uses a hand-written module, not a transformed B# beam (the verifier's
+  non-tail control also goes red).
+- The 16-bytes-per-alias shared-label saving is inferred, not measured.
+- No collision-free aliased `Names` variant was compiled.
+- Counter's callbacks being skipped was not flipped to see the failure.
