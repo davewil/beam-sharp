@@ -1,6 +1,0 @@
-value == 3                     refused   0: bad range type
-value >= 3 and value <= 3      refused   0: bad range type
-value >= 3 and value <= 4      accepted  
-value != 3                     accepted  
-MATCH    singleton refinement fails with erl_lint's message bad-range-type
-MATCH    g1: the same failure for a negative singleton bad-range-type

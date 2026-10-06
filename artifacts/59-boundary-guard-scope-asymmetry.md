@@ -230,7 +230,7 @@ it reverses the explicit text of F24 §2/F37.5 and two tests; and it makes every
 
 Same table as B (the guard stays wherever a collection or a higher-order walker supplies the value). Differs from B only
 where every caller is a B# call passing an already-tested top-level parameter: there, the private tag test is dropped
-(`Scope.InnerRec`: 164 → 152 B, `out/p03`-style disasm, p02 matrix column c unchanged).
+(`Scope.InnerRec`: module Code 164 → 152 B, p05 rows `out/p05/scope.txt`; p02 column c unchanged).
 
 **Compiler delta.** Option B plus a post-pass over the emitted forms, `elide_proven_tags/1` (`patches/option_c.patch`, **~230
 lines of diff, prototype**): for each private function, find every reference in the module; drop the tag-test conjunct at
@@ -239,7 +239,7 @@ position *i* iff every reference is a direct call whose *i*-th argument is a top
 variable shadowed in a `fun`/comprehension keeps it. Integer kind needs nothing: `erlc` does it (E3).
 
 **Measured.** Corpus effect over B: **0** (the examples contain no private record parameter). Probe effect: -12 B on
-`Scope.InnerRec`; kept on `Deep.Amount` (list element) and `Deep.Twice`/`Weight`. Existing tests: red on the same two as B.
+`Scope.InnerRec` (p05); kept on `Deep.Amount` (list element) and `Deep.Twice`/`Weight`. Existing tests: red on the same two as B.
 
 **Strongest counterargument.** It buys 12 B and ~5 ns on a shape the corpus does not contain, with a whole-module pass whose
 output depends on **other functions' bodies** — an edit to a caller silently changes a callee's emitted boundary, which is

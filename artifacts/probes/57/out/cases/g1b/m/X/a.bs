@@ -1,4 +1,0 @@
-module X
-type Pos = int where value >= 1
-public Pos F()
-F() -> -1

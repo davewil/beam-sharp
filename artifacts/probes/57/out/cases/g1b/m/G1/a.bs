@@ -1,5 +1,0 @@
-module G1
-public atom Band(int n)
-Band(n) when n >= -5 and n <= 5 -> :mid
-Band(n) when n < -5 -> :low
-Band(n) when n > 5 -> :high

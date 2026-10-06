@@ -1,8 +1,0 @@
-module OptB
-type Delta = int where value >= -100 and value <= 100
-type Hi    = int where value >= 2 + 3
-type Lo    = int where value >= 0 - 5 * 2
-
-public atom Band(int n)
-Band(n) when n > 2 + 3 -> :high
-Band(n) when n <= 5    -> :low

@@ -1,6 +1,0 @@
-module Dc
-type Delta = int where value >= -100 and value <= 100
-public atom Sign(Delta d)
-Sign(<= -1) -> :neg
-Sign(>= 1)  -> :pos
-Sign(_)     -> :zero

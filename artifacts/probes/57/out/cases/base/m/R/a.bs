@@ -1,6 +1,0 @@
-module R
-public int F(int d)
-F(d) -> G(d)
-type Pos = int where value >= 1
-int G(Pos p)
-G(p) -> p

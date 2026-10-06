@@ -1,4 +1,0 @@
-module S
-type T = int where value == 3
-public int Id(T b)
-Id(b) -> b

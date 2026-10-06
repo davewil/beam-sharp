@@ -1,7 +1,0 @@
-/home/user/beam-sharp/artifacts/probes/57/out/cases/base/m/T3/a.bs:7:9: error: F hands Take an argument it does not accept
-  argument 1 is not covered by Take's declared type:
-    0..99 | 201..255
-  the clause to add here:
-    F(>= 0 and <= 99) -> ...
-    F(>= 201 and <= 255) -> ...
-[exit 1]

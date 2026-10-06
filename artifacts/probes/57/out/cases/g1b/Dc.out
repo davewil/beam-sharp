@@ -1,8 +1,0 @@
-/home/user/beam-sharp/artifacts/probes/57/out/cases/g1b/m/Dc/a.bs:6:1: error: Sign discards cases the compiler can name
-  every value left here comes from a type you declared, so `_`
-  hides a case rather than admitting an unknown one:
-    Sign(0) -> ...
-  a catch-all is for a residual with an unbounded top in it — a
-  `term` argument, or the open atom universe — where a foreign
-  sender chooses the inhabitants and there is nothing to enumerate.
-[exit 1]

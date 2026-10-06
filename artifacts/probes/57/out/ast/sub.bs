@@ -1,2 +1,0 @@
-module M
-type T = int where value >= 2 + 3

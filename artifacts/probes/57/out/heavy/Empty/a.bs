@@ -1,3 +1,0 @@
-module Empty
-public int F(int x)
-F(x) -> x

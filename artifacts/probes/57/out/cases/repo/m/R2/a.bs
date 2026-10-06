@@ -1,4 +1,0 @@
-module R2
-type T = int where value >= -5 and value <= 5
-public int Id(T b)
-Id(b) -> b

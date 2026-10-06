@@ -1,6 +1,0 @@
-module R5b
-type Nz = int where value != 0
-int G(Nz b)
-G(b) -> b
-public int F()
-F() -> G(1)

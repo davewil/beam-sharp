@@ -1,7 +1,0 @@
-module R
-type Delta = int where value >= -100 and value <= 100
-type Pos = int where value >= 1
-int Take(Pos p)
-Take(p) -> p
-public int F(Delta d)
-F(d) -> Take(d)

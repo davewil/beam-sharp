@@ -1,5 +1,0 @@
-module R2
-type Dd = int where value >= -10 and value <= 10
-public atom Sign(Dd d)
-Sign(<= -1) -> :neg
-Sign(>= 1 and <= 9) -> :pos

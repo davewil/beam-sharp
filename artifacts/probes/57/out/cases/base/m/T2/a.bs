@@ -1,7 +1,0 @@
-module T2
-type Octet = int where value >= 0 and value <= 255
-type Pos = int where value >= 1
-int Take(Pos p)
-Take(p) -> p
-public int F(Octet d)
-F(d) -> Take(d)

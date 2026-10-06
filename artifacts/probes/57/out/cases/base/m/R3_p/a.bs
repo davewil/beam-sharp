@@ -1,5 +1,0 @@
-module R3_p
-public atom F(int d)
-F(>= -10 and <= 10) -> :in
-F(<= -11) -> :pasted
-F(>= 11) -> :pasted
