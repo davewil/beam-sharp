@@ -24,7 +24,9 @@ destination is the clean-room handoff: a stranger gets `LANGUAGE.md`, the featur
    the real question is a *keyword-shaped* extension of `using :atom { }` (`bs_parser.yrl:170`), not an attribute.
 2. **There is no `elixir` tag.** An Elixir module is written as its atom, `using :'Elixir.Req' { }`. That form compiles
    today (p2 S1), so `LANGUAGE.md:2946` ("quoted atoms are not lexed yet") is itself stale (`bs_lexer.xrl:131`
-   lexes them; 51a and ticket 106 use them).
+   lexes them; 51a and ticket 106 use them). The doc is wrong a second way: its own example on line 2944 is
+   `using :"Elixir.Enum"` with double quotes, which is a syntax error, because only `:'...'` lexes (the verifier
+   compiled it).
 3. **"One line" understates the check, slightly.** The check itself is ~10 lines of `bs_check` (p8: 21 changed lines in
    `bs_check.erl` including the tuple-width plumbing, 7 in `bs_diag.erl`, 1 in `bs_emit.erl`, 5 to 8 in the parser).
    That is small; it is not one line.
@@ -74,9 +76,12 @@ this way (survey below): the dependency list is in a file beside the code (`.app
 **Strongest counterargument.** The application cannot be recovered from the module name, so a stranger holding only
 the `.bs` file has to guess. Measured over every `.app` in OTP 28 and Elixir 1.20.4 (p3 D5, method: read each
 `modules` list, N = 1,279 OTP modules and 413 `Elixir.*` modules): the module name equals the app name for **2.0 %** of
-OTP modules, and the first segment of an `Elixir.*` module (snake_cased or lowercased) equals the app for **42.4 %** of
-them (237 of the 238 misses are the one app `elixir`, which owns `Access`, `Enum`, `Application`, `Agent`…; the
-heuristic fails exactly on the library everyone calls first). The corpus already has an instance: exemplar 25d
+OTP modules (the strict `module == app` test, the weakest heuristic; allowing an `app_` prefix as well gives **31.6 %**,
+404 of 1,279), and the first segment of an `Elixir.*` module (snake_cased or lowercased) equals the app for **42.4 %** of
+them. The 42.4 % is module-weighted: by app, 5 of the 6 Elixir apps are guessable and only `elixir` is not (237 of the
+238 misses are that one app, which owns `Access`, `Enum`, `Application`, `Agent`…; the heuristic fails exactly on the
+library everyone calls first). Module to app is derivable from the machine, which is the point; it is not derivable
+from the name alone. The corpus already has an instance: exemplar 25d
 declares `using :epgsql { … }` (`compiler/examples/exemplars/25d-database-querying/index.bs:12`), a non-OTP application
 named nowhere in the tree, and `code:lib_dir(epgsql)` is `{error,bad_name}` on this machine (p3 D6).
 
@@ -103,9 +108,10 @@ This module compiled and ran under a patched copy of the compiler with all four 
 `:post`). Compiler delta, measured on the patched copy (p8): `foreign` AST node gains a fifth element (`{foreign, L,
 Mod, Sigs, App}`, four match sites in `bs_check` updated), one `apps_on_code_path/1` pass, one diagnostic clause in
 `bs_diag`, one attribute form in `bs_emit`, one production in `bs_parser.yrl`. Total 34 to 37 changed lines depending on
-spelling. The yecc conflict count is **232 before and 232 after** for all three spellings (p8 P4). All 34 module
+spelling (this counts `diff` `<` plus `>` lines, so each edit counts twice; true edits are roughly half). The yecc conflict count is **232 before and 232 after** for all three spellings (p8 P4). All 34 module
 directories under `compiler/examples` compile to `beam_lib:cmp`-identical beams under stock and each patched
-compiler (P5; 7 of the 34 are refused by stock itself and are refused identically). The editor grammars would also
+compiler (P5; 7 of the 34 are refused by stock itself and are refused identically). No example uses the new `in :app`
+syntax, so this is a regression control only, not evidence that the feature compiles real code. The editor grammars would also
 need the production: `editor/` holds five targets (tree-sitter `grammar.js`, nvim, syntect, vscode, zed) and F44 shows
 `editor/bin/check-corpus.sh` is the gate that notices (counted, not changed or measured here).
 
@@ -125,7 +131,7 @@ needs one). Both options are cheap; the asymmetry is that A leaves the stranger 
 Compiler delta: the `-bs_needs([req,elixir,stdlib,erts])` module attribute (emitted after `behaviour` forms in
 `bs_emit:forms/1`, `bs_emit.erl:78`), no new diagnostic. Measured on the 51a Req binding rebuilt by `bsc` (p9 Z1, N = 3
 compiles per variant, all stable): baseline 1,728 bytes; one app adds **36 bytes**, three **60**, nine **152**, twelve
-**180** (roughly 12 to 14 per extra name; the attribute lands in both the `Attr` and `Dbgi` chunks). As an exported
+**180** (re-measured by the verifier: 36 to 40 for the first app, about 13 per extra name; the baseline depends on the source path length and the delta moves by 4 with chunk alignment; the attribute lands in both the `Attr` and `Dbgi` chunks). As an exported
 function `'bs@needs'/0` it is 72 / 96 / 200 / 232 bytes, so the attribute is the cheaper encoding. For scale, the
 existing per-module `bs@type_atoms/0` costs 108 bytes. Per-block repetition (three `{Mod,App}` attributes) is +136
 bytes. It is readable without loading the module: `beam_lib:chunks(Bin,[attributes])` gave `bs_needs = [req,jason]`,
@@ -151,7 +157,7 @@ src/Req/Req.bs:2:1: error: application `req` (needed by :'Elixir.Req') is not on
 
 (real output of the patched compiler, p10 R3; the same source under the stock compiler compiles and then dies
 `crashed: error:undef`, R3b). Delta: `bs_check:apps_on_code_path/1` calling `code:lib_dir(App)` and a `bs_diag` clause.
-`code:lib_dir/1` costs 3.9 µs a hit and 3.5 µs a miss (p9 Z7, 2,000 calls); whole-compile time is not distinguishable
+`code:lib_dir/1` costs single-digit microseconds, a hit about 3x a miss (verifier, five runs: 6.7 to 9.1 µs hit, 2.2 to 2.7 µs miss; my own run had 3.9 and 3.5; p9 Z7, 2,000 calls); whole-compile time is not distinguishable
 from noise (p9 Z6: min of N = 15 was 6.4 ms stock-rebuilt vs 7.3 ms patched, medians 9.4 vs 8.8 ms; the machine was
 under load average 14 to 34, so read this as "no large effect", not a measurement of a small one).
 
@@ -221,7 +227,7 @@ attribute facility. Ticket 22 priced that at "a lexer rule, a `decl` arm, an AST
 keywords, so this is the option that reopens a settled question.
 
 **Strongest counterargument to Option 1.** A library with many modules repeats its application on each block
-(`Req`, `Req.Test`, `Req.Request` are all app `req`). The ticket calls this "the kind of write-cost the standing
+(`Req`, `Req.Test`, `Req.Request` are all app `req`; this is outside the probes. The verifier did check that no module sits in two apps across the OTP and Elixir trees). The ticket calls this "the kind of write-cost the standing
 constraint prices as near-free but the reader pays for". In the Req binding written for 51a (p10) no application
 repeats: four blocks, four applications (`req`, `elixir`, `stdlib`, `erts`), because a module belongs to exactly one
 application (it is a member of exactly one `.app`'s `modules` list). So per-block is only redundant for a binding that
@@ -278,7 +284,7 @@ file:line is cited for them.
 | | Records | Where | Checked | Probe |
 |---|---|---|---|---|
 | Erlang/OTP 28 | `{applications,[…]}` (names) | `.app` (`systools_make.erl:734` `check_item({_,{applications,Apps}},I)`; `application.erl:85`) | `systools:make_script` refuses (`systools_make.erl:824`, `:2386` "Undefined applications"); `erlc` checks nothing; `xref` flags `undefined_function_calls` only if asked; `ensure_all_started` returns a value naming the missing `.app` | p5 E2, E5, E4, E3 |
-| Elixir 1.20.4 | `deps` in `mix.exs`, copied to the generated `.app` (`{applications,[kernel,stdlib,elixir,logger,liba]}`) | `mix.exs` | compile-time **warning**: "LibA.hi/0 is undefined (module LibA is not available…)"; and `ERL_LIBS` alone does **not** satisfy it, mix prunes to the manifest | p4 M1 to M3 |
+| Elixir 1.20.4 | `deps` in `mix.exs`, copied to the generated `.app` (`{applications,[kernel,stdlib,elixir,logger,liba]}`) | `mix.exs` | compile-time **warning**: "LibA.hi/0 is undefined (module LibA is not available…)" (the text is generic: a typo module gets the identical warning, so p4 M3, not M2, is the evidence about dependencies); and `ERL_LIBS` alone does **not** satisfy it, mix prunes to the manifest | p4 M1 to M3 |
 | Gleam 1.18.1 | `[dependencies]`, `extra_applications` copied to the `.app` (`{applications, [dep, inets]}`); `manifest.toml` locks | `gleam.toml` | nothing about `@external(erlang, "fakelib_mod", "hello")`, which names a module in no declared app and compiles | p6 G1 to G5 |
 | Elm 0.19.3 | `dependencies.direct/indirect` | `elm.json` | refuses an `elm.json` missing `elm/json` before fetching; the import-vs-declared check **not probed** (needs the registry, blocked) | p7 L1 to L3 |
 | B# today | nothing | nothing | nothing | p1 |
@@ -310,8 +316,8 @@ behaviour was not run; `bsc.app.src:5` is the only rebar-side evidence cited.
 | `p5_erlang_prior_art.sh` | `.app` `applications`; `systools` refuses at release time; `erlc` silent; `xref` flags; runtime returns a value | held | each has its present-case twin |
 | `p6_gleam_records_dependencies.sh` | gleam.toml deps → `.app`; `@external` names no app and compiles; manifest.toml | held | removing the dep empties `applications` |
 | `p7_elm_records_dependencies.sh` | only what runs offline: elm.json is the record, refused before any fetch | held (narrow) | network-dependent steps fail visibly, recorded |
-| `p8_prototype_cost.sh` + `patch_compiler.py` | three spellings parse, check, emit; stock refuses all three; 232 yecc conflicts unchanged; 34/34 example modules identical; 34 to 37 changed lines | held | stock compiler is the control; absent-app run is refused at compile time |
-| `p9_beam_size.sh` + `p9_beam_size.escript` | +36 bytes first app, ~+12 to 14 each; attribute cheaper than function; compile-time noise; `lib_dir` 3.9 µs | held | stock beam has no `bs_needs`; determinism (3 compiles equal) |
+| `p8_prototype_cost.sh` + `patch_compiler.py` | three spellings parse, check, emit; stock refuses all three; 232 yecc conflicts unchanged; 34/34 example modules identical (regression control only); 34 to 37 diff lines (`<` plus `>`) | held | stock compiler is the control; absent-app run is refused at compile time |
+| `p9_beam_size.sh` + `p9_beam_size.escript` | +36 to 40 bytes first app, ~13 each; attribute cheaper than function; compile-time noise; `lib_dir` single-digit µs | held | stock beam has no `bs_needs`; determinism (3 compiles equal) |
 | `p10_realistic_binding.sh` | four-block Req binding compiles with 4 distinct apps; absent `req` refused at compile time; `:erlang` needs `erts` | held | stock compiles and dies `error:undef`; `in :erlang` refused |
 
 ## Not verified
@@ -333,3 +339,32 @@ behaviour was not run; `bsc.app.src:5` is the only rebar-side evidence cited.
   is p8 P5 (34 example modules, beam-identical) plus the unchanged yecc conflict count.
 - The patched compilers' check runs on the author's `ERL_LIBS`; I did not test a Windows or a releases-layout
   (`lib/<app>-<vsn>/ebin` under a release root) machine.
+
+## Verification
+
+**Verdict: sound. No probe is circular.** An independent verifier re-ran all ten probes fresh; every one reproduces
+(p9's absolute bytes and microseconds differ from the captured run, the conclusions do not). Full record:
+[`52-dependency-provenance.verification.md`](52-dependency-provenance.verification.md). The recommendation is unchanged.
+
+Break tests the verifier ran:
+
+- **A wrong-but-present application is accepted by the name-only check** (`using :fakelib_mod in :stdlib` compiles and
+  returns 42). The brief's description of the check as name-only is accurate, and it is why the "module under app dir"
+  check is the stronger one.
+- **A nonexistent application is refused** (`in :nonesuch`, and `req` absent from `ERL_LIBS`); with the app on
+  `ERL_LIBS` the same source returns 42. The diagnostic comes from a real `code:lib_dir/1` result, not from the patch
+  echoing itself.
+- **The `-pa` case is real, end to end through the patched `bsc`**: stock `bsc` with `-pa flat/` prints 42, while the
+  patched compiler with `in :fakelib` and the same `-pa` refuses a program that runs.
+
+Corrections applied from the verification:
+
+1. `LANGUAGE.md:2946` is stale, and the doc's own example on line 2944 (`:"Elixir.Enum"`) is a syntax error, since only `:'...'` lexes.
+2. "+36 bytes" is now "36 to 40, about 13 per extra name; the baseline depends on the path".
+3. `code:lib_dir` timing is now "single-digit microseconds, a hit about 3x a miss" (6.7 to 9.1 µs against 2.2 to 2.7 µs; the brief had 3.9 and 3.5).
+4. "34 to 37 changed lines" counts `diff` `<` plus `>` lines, so each edit counts twice.
+5. Added the 31.6 % prefix figure; 42.4 % is module-weighted (5 of 6 Elixir apps are guessable, only `elixir` is not); 2.0 % is the strict `module == app` test.
+6. Mix: the warning is generic (a typo module gives identical text), so p4's M3, not M2, is the evidence about dependencies. p4 needs no hex.
+7. "`Req`, `Req.Test`, `Req.Request` are all app `req`" is outside the probes; the verifier did check that no module sits in two apps in the OTP and Elixir trees.
+8. No example uses the new `in :app` syntax, so 34/34 identical beams is a regression control only.
+9. Probes p3, p5 and p10 hard-code `/tmp/claude-0/mm/...` paths and will not reproduce on another machine without editing.

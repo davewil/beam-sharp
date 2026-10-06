@@ -3,8 +3,8 @@
 set -eu
 src=$1; out=$2; mkdir -p "$out" "$out/gen"
 erl -noshell -eval "
-  {ok,_}=leex:file(\"$src/bs_lexer.xrl\",[{scannerfile,\"$out/gen/bs_lexer.erl\"},{error_location,column}]),
-  {ok,_}=yecc:file(\"$src/bs_parser.yrl\",[{parserfile,\"$out/gen/bs_parser.erl\"},{verbose,false}]),
+  ok=element(1,leex:file(\"$src/bs_lexer.xrl\",[{scannerfile,\"$out/gen/bs_lexer.erl\"},{error_location,column}])),
+  ok=element(1,yecc:file(\"$src/bs_parser.yrl\",[{parserfile,\"$out/gen/bs_parser.erl\"},{verbose,false}])),
   halt()." >/dev/null 2>&1
 erlc -o "$out" -I "$src" "$out"/gen/*.erl "$src"/*.erl 2>&1 | grep -v "^$" | grep -iv warning | head -5 || true
 cp "$src/bsc.app.src" "$out/bsc.app" 2>/dev/null || true
