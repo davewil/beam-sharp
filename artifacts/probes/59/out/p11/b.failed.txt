@@ -1,0 +1,2 @@
+boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*

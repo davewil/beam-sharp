@@ -19,5 +19,6 @@ STEP=p08;    step "p08 Gleam pub/private"                 ./p08_gleam.sh
 STEP=p09;    step "p09 Elm (expected: cannot run)"        ./p09_elm.sh
 STEP=p10;    step "p10 corpus census"                     ./p10_corpus.sh
 STEP=p10b;   step "p10b exemplar source census"           python3 exemplar_census.py ../../../compiler/examples/exemplars
+STEP=p12; step "p12 narrowing site (F24 s6)" ./p12_narrow.sh
 if [ -z "$SKIP_TESTS" ]; then STEP=p11; step "p11 repo test suite under each option" ./p11_tests.sh; fi
 echo; echo "TOTAL failed assertions: $TOTAL"; exit $TOTAL

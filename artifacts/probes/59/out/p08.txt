@@ -1,7 +1,7 @@
 gleam 1.18.1
   Resolving versions
   Compiling scope
-   Compiled in 1.01s
+   Compiled in 0.74s
 -module(scope).
 -export([pub_amount/1, pub_double/1, total_of/1, use_double/1, doc_total/1]).
 -export_type([order/0, doc/0]).
