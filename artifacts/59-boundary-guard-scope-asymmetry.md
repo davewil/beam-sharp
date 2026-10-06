@@ -44,10 +44,22 @@ whether "exported" is the right discriminator at all, and what widening would co
    105). `is_integer` is +5 bytes where it survives and exactly 0 where the optimiser removes it.
    The ticket's "below ±0.09 ns/call" does not reproduce on this VM: the noise floor here is about
    ±1.3 ns/call, so only the tag test (about +2.4 ns on a 15.8 ns call) is resolvable and the
-   `is_integer` cost is not.
-6. **The corpus does not decide this.** `compiler/examples` has 15 private signatures and none
-   takes a record parameter (`59i.out`). Narrowing changes 0 compiled modules; widening changes 1
-   (`Shop/Pricing`, +9 bytes of Code) (`59h.out`).
+   `is_integer` cost is not. (Verifier C3: "noise floor" is the wrong label. `cur` and `cur2`
+   agree to about 0.05 ns; the 0.8 to 1.2 ns spread is code-layout sensitivity of about 1 ns, and
+   the tag test's +2.2 to 2.4 ns is only about twice that. The probe is unusable while the host is
+   loaded: the verifier's first run at load average 18 gave 24 ns and no signal.)
+6. **The corpus does not decide this, but only outside `compiler/examples/exemplars/`.**
+   `compiler/examples` minus `exemplars/` has 15 private signatures and none takes a record
+   parameter (`59i.out`). Narrowing changes 0 of those 27 compiled modules; widening changes 1
+   (`Shop/Pricing`, +9 bytes of Code) (`59h.out`). **Limit (verifier C1, material):** the excluded
+   `exemplars/` programs, the language's target programs, do not compile yet and are not in these
+   numbers. They have 64 private signatures, at least 7 with a record or state parameter:
+   `25e-dynamic-web-page/rows.bs:15 Row(OrderRow)`, `25d-database-querying/rows.bs:38
+   Prepend(OrderRow, ...)`, `25d-database-querying/summary.bs:14 Tally(..., Totals)` and `:19
+   Add(Totals, OrderRow)`, plus `Model`/`State` ones in 25b/25f/25g (`Envelope(Model, ...)`,
+   `Call(Model, ...)`, `Crashed/Answered(..., State)`), and 3 with a bare int/float. Narrowing
+   (Option A) will change those once they compile, so "0 modules change" and "none takes a record
+   parameter" describe the compilable slice only.
 
 ## Sub-decisions
 
@@ -119,11 +131,19 @@ That is exactly the `narrow` variant `lib.sh` builds. Also: replace the "that as
 deliberate" comment (`bs_emit.erl:330-333`) with the one sentence; change F24 §3 and ticket 46's note;
 add one F3 test (private record parameter, tag test absent, exported control present) beside
 `a_private_function_is_not_guarded_test` (`compiler/test/boundary_kind_tests.erl:88`). No
-existing test I found pins the private tag test (grepped `compiler/test`).
+existing test among the tests that run pins the private tag test (grepped `compiler/test`; the
+verifier's eunit flip, below, ran 892 of 1312 tests, the other 420 failing at baseline for
+unrelated reasons in its harness). Under `narrow` the same 420 fail and nothing else. The verifier
+also found that `widen` inverts exactly `boundary_kind_tests:a_private_function_is_not_guarded_test`
+and `boundary_range_tests:a_private_function_carries_no_range_guard_test` over those 892 (C2).
 
 Evidence: 12 bytes of Code and 2 instructions per private record function (`59c`), about 2.4 ns
-less per call (`59d`, `ViaList` min 15.8 to 13.4, noise at about 1.3). Corpus: 0 modules change
-(`59h`). Behaviour: the `ViaBox`, `ViaList` rows go from `function_clause` to a silent `5`.
+less per call (`59d`, `ViaList` min 15.8 to 13.4; layout sensitivity about 1 ns, see premise 5).
+Corpus: 0 of the 27 compilable modules change (`59h`), **but the excluded exemplars have at least 7
+private record/state-parameter functions that will change once they compile** (premise 6, C1).
+Behaviour: the `ViaBox`, `ViaList` rows go from `function_clause` to a silent `5`, only for a
+well-formed wrong record (C7): `ViaBox(Box{Item=42})` still crashes with `badmap` and `Item=#{}`
+with `badkey` under A.
 
 Strongest counterargument: it removes a check that fires today. `ViaBox(forged)` is an outcome-3
 "wrong answer, no crash" in exactly the sense ticket 06 calls the thing to avoid, and 18's whole
@@ -138,7 +158,9 @@ Rule: *a boundary guard is emitted on every function's parameters.* The int side
 the record side, and so do the float test and the range test, which share the same branch.
 
 Compiler delta: in `guard_one/8`, change `none when Public ->` to `none ->` and delete the final
-`none -> {Pat, []}` clause (the `widen` variant; I used `sed` for this and it compiled). Because
+`none -> {Pat, []}` clause. The `widen` variant the probes used changed only line 284 (`none when
+Public ->` to `none ->`) and left the final `none ->` clause in place, now unreachable; behaviour
+is identical, but under `warnings_as_errors` the real change must delete it (verifier C6). Because
 `int_guard/6` and `float_guard/3` live in that branch, the range tests of F37 are widened too.
 Tests to invert: `a_private_function_is_not_guarded_test` (`boundary_kind_tests.erl:88`),
 F24.6, `a_private_function_carries_no_range_guard_test` (`boundary_range_tests.erl:122`,
@@ -147,7 +169,7 @@ F37.5). Text to amend: 18 §4 (*"exported function's own clause heads"*), 46 §1
 Evidence: where the caller proves the type, `Code` is byte-identical to today (md5 equal over the
 `Many` program and 26 of 27 corpus modules); where it does not (`Forge:Plus1`, list-element fed)
 the test stays, +5 bytes (`59c`, `59f`). Corpus: 1 of 27 modules changes, `Shop/Pricing`, +9 bytes
-(`59h`). Run time: not resolvable above the noise (`59d`: `ViaInts` cur 12.5, widen 12.3 min).
+(`59h`). Run time: not resolvable above the layout sensitivity (`59d`: `ViaInts` cur 12.5, widen 12.3 min).
 Behaviour: closes `ViaInts([1.5])` and `Hof:Run([1.5])`.
 
 Strongest counterargument: it advertises protection it cannot give. `Inline` is still silent, so
@@ -175,7 +197,7 @@ test only ever caught forgeries that nothing guards in an `Inline` body, so it i
 accident of factoring. The real hole is shallow-only guarding of nested values, which is 18 §2's
 two-step crossing (`ValidateAs`) and a separate question; B and C both leave it open while
 advertising otherwise. B is the fair alternative if David weights "never silently" above one-sentence
-scope: it is cheap (0 bytes where provable, +5 where not, 1 of 27 corpus modules) and loud only in
+scope: it is cheap (0 bytes where provable, +5 where not, 1 of 27 compilable corpus modules; exemplars not counted) and loud only in
 the direction the ticket says is acceptable. Choose A or B; do not keep C.
 
 ## How neighbouring languages treat it
@@ -183,9 +205,9 @@ the direction the ticket says is acceptable. Choose A or B; do not keep C.
 | language | private versus exported argument checking | source |
 |---|---|---|
 | Gleam | No runtime check on either. `public_total` and `inner_total` both emit `erlang:element(3, O)`; a forged `{invoice,1,5}` returns `5` from the public function. | `59g_neighbours.out` (built with `gleam build`, Gleam 1.18.1) |
-| Erlang | `-spec` is not enforced at any scope (`pub_spec(1.5)` returns `2.5`); a guard is enforced at any scope and is the author's choice. OTP's own `lists:seq/2` guards `is_integer` on the exported head and `seq_loop/3` (local) compares unchecked: `lists.erl:477-481`. | `59g.out`, `stdlib-7.3/src/lists.erl:477` (`when is_integer(First), is_integer(Last)`), `:481` (`seq_loop(N, X, L) when N >= 4`) |
+| Erlang | `-spec` is not enforced at any scope (`pub_spec(1.5)` returns `2.5`); a guard is enforced at any scope and is the author's choice. OTP's own `lists:seq/2` guards `is_integer` on the exported head and `seq_loop/3` (local) compares unchecked: `lists.erl:478-481`. | `59g.out`, `stdlib-7.3/src/lists.erl:478` (`when is_integer(First), is_integer(Last)`), `:481` (`seq_loop(N, X, L) when N >= 4`) |
 | Elixir | `def` and `defp` are checked identically (not at all); a `%O{}` pattern in a `defp` head is the author's opt-in and raises `FunctionClauseError`. | `59g.out` |
-| OTP and Elixir stdlib as practised | Local-only functions are defended less than exported ones: stdlib+kernel 10.6% of local parameter positions against 16.7% of exported; Elixir 7.6% against 26.4%. The control reproduces ticket 18's recorded 7606 exported positions. | `59e_platform_census.out` |
+| OTP and Elixir stdlib as practised | Local-only functions are defended less than exported ones: stdlib+kernel 10.6% of local parameter positions against 16.7% of exported; Elixir 7.6% against 26.4%. The control reproduces ticket 18's recorded 7606 exported positions. "Defended" counts any non-variable pattern or any guard mention (including arithmetic such as `N >= 4`), not a type check, so it partly reflects accumulator helpers; read it as colour, not as authors checking types less (C4). | `59e_platform_census.out` |
 | Elm | Not probed: `package.elm-lang.org` is unreachable here, so `elm make` cannot run. The repo's own `wayfinder/research/18-elm-port-validation.md` covers ports only and says nothing about private functions; I did not re-verify it. | `59g.out` last lines |
 
 No neighbouring language has an analogue of an *automatic* guard that depends on visibility: the
@@ -198,11 +220,11 @@ only precedent for "private pays less" is that authors write fewer guards there 
 | `59a_asymmetry_rerun.sh` | private record fn has the tag test; private int fn has no `is_integer`; final BEAM keeps the tag test | confirmed, four PASS | exported `OuterTotal` and `OuterInt` carry both |
 | `59b_forgery.sh` | a forged nested record, list element and a private fn called by `lists:map` reach private functions past the exported guard | confirmed for A, B, C as tabled; Elixir caller gives the same | `ViaOrder` caught by all; `Inline` caught by none; tier-2 bad field caught by none |
 | `59c_size.sh` | tag test +12 to +13 bytes of Code; `is_integer` +5 or 0 | K=1: 181 / 169 / 181 bytes (cur / narrow / widen); K=10: 1110 / 978 / 1110; Forge: 328 / 316 / 333. Sizes identical over N=5 compiles | cur versus cur Code md5 equal |
-| `59d_calltime.sh` | tag test about 2.4 ns/call; `is_integer` cost unresolved | `ViaList` min 15.8 (cur), 15.6 (cur2), 13.4 (narrow), 15.4 (widen); `ViaInts` min 12.5, 12.4, 13.7 (narrow, same code as cur), 12.3 | `cur2` is the noise floor; `narrow` on `ViaInts` is identical code and differs by 1.2, so floor is about 1.3 |
+| `59d_calltime.sh` | tag test about 2.4 ns/call; `is_integer` cost unresolved | `ViaList` min 15.8 (cur), 15.6 (cur2), 13.4 (narrow), 15.4 (widen); `ViaInts` min 12.5, 12.4, 13.7 (narrow, same code as cur), 12.3 | `cur2` agrees with `cur` to about 0.05 ns; `narrow` on `ViaInts` is identical code and differs by 1.2, so the spread is about 1.2 ns, which the verifier relabels as code-layout sensitivity, not noise (`cur` vs `cur2` agree to about 0.05 ns); unusable under host load (C3) |
 | `59e_platform_census.sh` | platform code guards locals less than exports | confirmed (numbers above) | reproduces 18b's 7606 |
 | `59f_optimiser_elision.sh` | optimiser removes a private `is_integer` only when the caller proves it; never the tag test | `InnerInt` false, `Plus1` true, `OuterInt` true, `InnerTotal` tag true | exported control true |
 | `59g_neighbours.sh` | Gleam, Erlang, Elixir have no visibility-dependent check | confirmed; Elm not probed | author guards raise in Erlang and Elixir |
-| `59h_corpus.sh` | corpus effect of each option | 27 modules compiled: narrow changes 0, widen changes 1 | cur versus cur2 changes 0 |
+| `59h_corpus.sh` | corpus effect of each option | 27 modules compiled (not `exemplars/`, C1): narrow changes 0, widen changes 1 | cur versus cur2 changes 0 |
 | `59i_corpus_private_census.sh` | corpus has no private record functions | 15 private signatures, 0 with a record; 9 with int/float | public signatures: 10 with a record, 33 with int/float |
 
 Variant compilers are built from a copy of `compiler/src/bs_emit.erl` into a temp directory; nothing
@@ -217,12 +239,33 @@ under `compiler/` was edited.
   `Public orelse Captured` in `guard_one`), so its cost is unmeasured.
 - **`widen` also enables the float and range tests on private functions**: read from the code
   (`guard_one`, `int_guard`, `owed_arms`), not separately probed.
-- **Run-time cost of the `is_integer` test**: unresolvable at this noise level (VM shared, ±1.3 ns).
+- **Run-time cost of the `is_integer` test**: unresolvable at this layout sensitivity (VM shared, about 1 ns; see premise 5).
   Only the tag test's +2.4 ns is above it. JIT code size was not measured; byte counts are the
   BEAM `Code` chunk. `beam_lib:strip` output was reported in `59c.out` but is smaller than the Code
   chunk for reasons I did not investigate, so I rely on the Code chunk and instruction counts.
 - **The `compiler/examples/exemplars/` programs do not compile** (out of the walking-skeleton
-  slice) so they are not in the corpus numbers.
+  slice) so they are not in the corpus numbers. They matter: see premise 6 (C1), at least 7 of
+  their private signatures take a record or state parameter and Option A would change them.
 - **Mailbox, ETS and `code_change` channels into private functions**: not probed. 18 §3 treats
   them separately.
-- Nothing here has been checked by anyone but me.
+- ~~Nothing here has been checked by anyone but me.~~ Superseded: see Verification below.
+
+## Verification
+
+Independent re-run: [`59-boundary-guard-scope-asymmetry.verification.md`](59-boundary-guard-scope-asymmetry.verification.md).
+Overall verdict: the brief's measurements and behavioural claims are sound; its headline corpus
+argument is the part that needed correcting. No probe is circular or unreproducible; 59a, 59b, 59f,
+59g are VALID, and 59c, 59d, 59e, 59h, 59i are VALID-WITH-CAVEAT. Corrections C1 to C7 have been
+applied above (C1 premise 6 and Option A evidence; C2 Option A and the eunit finding; C3 premise 5,
+probe index, Not verified; C4 Neighbours table; C5 below; C6 Option B delta; C7 Option A and the
+`lists.erl` line). The recommendation (A) is unchanged; C1 is the one to weigh, since the 0-modules
+figure does not cover the exemplars.
+
+- C5: the `cur == shipped bs_emit.beam` line printed by every probe is vacuous (`cur`'s beam is a
+  `cp` of the shipped one, so `cmp` cannot fail) and is not relied on here. The verifier checked the
+  real equivalence separately: Code chunks of Forge, Hof and Scope are byte-equal between a
+  source-compiled and the shipped compiler.
+- Verifier extras: whole-`.beam` and stripped sizes in 59c are path-dependent (not cited; Code
+  bytes and instruction counts reproduce exactly). The Elixir caller in 59b ran under `cur` only.
+  The `widen` float and range tests on private functions are still not separately probed; the
+  verifier's reading of `guard_one`/`int_guard`/`owed_arms` agrees with the brief.

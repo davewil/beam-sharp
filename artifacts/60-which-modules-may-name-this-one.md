@@ -1,7 +1,7 @@
 # Decision brief: ticket 60, which modules may name this one? (ENG-242)
 
 Ticket: `wayfinder/issues/60-which-modules-may-name-this-one.md`, grilling, open since 2026-08-23.
-Compiler measured: `bsc` built from `compiler/src` at `712b9e3`. Nothing under `wayfinder/`,
+Compiler measured: `bsc` built from `compiler/src` at `712b9e9`. Nothing under `wayfinder/`,
 `compiler/` or the docs was edited; every prototype below was built from a scratch copy of
 `compiler/src` (`artifacts/probes/60/build_proto.sh`).
 
@@ -62,7 +62,7 @@ only* (the BEAM has no visibility modifiers; ticket 06).
 | Language | What it has | Refuses a caller? | Evidence |
 |---|---|---|---|
 | Go 1.24.7 | path rule: an `internal` element makes a package importable only from the tree rooted at its parent | **Yes**, at `go build` | `60l`: `lab/core/sub` builds, `lab/web` refused with `use of internal package ... not allowed`, control `web2` builds. Rule text at `/usr/local/go/src/cmd/go/internal/load/pkg.go:1473-1475`; error at `:1574` |
-| Gleam 1.18.1 | `internal_modules` in `gleam.toml`; `@internal` on a definition | **No** | `60c`: importing `liba/internal/helper`, importing a module listed in `internal_modules`, and calling an `@internal pub fn` from a dependent package all build, exit 0. Control: calling a non-`pub` function is refused (exit 1). The binary carries a publish-time check, "These modules leak internal types in their public API and cannot be published", which is about types leaking, not callers. Compiler *sources* are not installed (conda binary only), so behaviour is cited from output and `strings`. Also observed: `gleam docs build` still generates and links pages for the internal modules locally |
+| Gleam 1.18.1 (path dependency only; `gleam build`; no hex dependency; language server untested) | `internal_modules` in `gleam.toml`; `@internal` on a definition | **No** | `60c`: importing `liba/internal/helper`, importing a module listed in `internal_modules`, and calling an `@internal pub fn` from a dependent package all build, exit 0. Control: calling a non-`pub` function is refused (exit 1). The binary carries a publish-time check, "These modules leak internal types in their public API and cannot be published", which is about types leaking, not callers. Compiler *sources* are not installed (conda binary only), so behaviour is cited from output and `strings`. Also observed: `gleam docs build` still generates and links pages for the internal modules locally |
 | Elixir 1.20.4 | `@moduledoc false`, `@doc false`; `mix xref callers` | **No** | `60d`: a caller of a `@moduledoc false` module compiles with no warning; `Code.fetch_docs` says `:hidden`. Installed docs for `@moduledoc`: "`@moduledoc false` will make the module invisible to documentation extraction tools". `mix xref callers Lab.Core --fail-above 0` is a CI gate (exit 1 when a literal caller exists) and stays green (exit 0) when the only caller uses `apply(m, :sum, ..)`. Control: a `defp` named from another module is a *warning* (compile exit 0) and raises at run time |
 | Erlang/OTP 28 | `-export`; `xref`; EDoc `@private`/`@hidden` | **No** | `60e`: `xref` lists `caller_bad` and `caller_ok` as users of `callee` and omits the `apply` caller. EDoc: `edoc_tags.erl:93-95` declare `hidden`/`private` tags; `edoc_data.erl:165` `hidden_filter` is a doc filter. `-ignore_xref` appears in no OTP 28 source (`60e` X4, with a control grep that does find "Unresolved calls") |
 | Elm 0.19.3 | `exposing` (what, not who) | not probed | `elm install` fails: `package.elm-lang.org` returns proxy 403 (`ProxyConnectException`), so no project compiles. I assert nothing about Elm's behaviour |
@@ -99,10 +99,10 @@ skips `using` is already refused by `module_not_imported`, so `using` is the one
 
 Compiler delta, measured on the prototype:
 
-- lexer: one keyword. parser: one `decl` production returning `{visible_to, Line, Module}` (+5 lines).
+- lexer: one keyword. parser: one `decl` production returning `{visible_to, Line, Module}` (+4/-2 lines, verifier-measured).
 - `bsc.erl:227` `build/4`: one new field in the `World` entry, `visible_to => [V || {visible_to,_,V} <- Decls]` (+1 line).
 - `bs_check.erl` `add_import/7` and the namespace branch: a predicate over the callee's list in
-  strict mode (+24 lines, 12 of them the namespace branch duplicated; factorable).
+  strict mode (+24 lines, about 11 of them the namespace branch duplicated; factorable).
 - `bs_diag.erl`: one `built` and one `message` clause (+7 lines).
 - **Nothing emitted.** `60i`: the callee's `.abstr` is byte-identical with and without the
   declaration, the compared beam chunks are identical (`abstract_code`, `attributes`, `Code`, atoms,
@@ -126,7 +126,10 @@ using Lab.Grp.Core              // refused: Lab.Web `forbids` Lab.Grp.Core, whic
 // Lab/Web2/Web2.bs             using Lab.Grp.Core  ->  COMPILES. Written next week, forgot the line.
 ```
 
-Run: `60k` K1 refused, K2 (control) and K3 compile. Delta: lexer + parser as above, and **five lines in
+Run: `60k` K1 refused, K2 (control) and K3 compile. K3 (`Web2` compiles) is an illustration of the
+design (the naming module writes the rule, so a module that says nothing is admitted), not a
+measured finding of the prototype; no pristine arm exists for 60k because pristine cannot parse
+`forbids`. Delta: lexer + parser as above, and **five lines in
 `import_env`**, which already holds the importer's `Decls` and `Self`. No `World` field, no `bsc.erl`
 change, no new data crossing modules, and no ordering concern: it is the cheaper of the two by about
 20 lines.
@@ -163,9 +166,11 @@ neighbour that refuses callers.
 
 Strongest counterargument: **visibility becomes part of the module's name, and the name is the atom
 and the record tag** (ticket 40 §1, 26 §1, F3). `60n`: the same record is `'Lab.Core.Pricing.Order'`
-before and `'Lab.Core.Internal.Pricing.Order'` after the move, a wire-visible change, and an Erlang
-caller of `'Lab.Core.Pricing':'New'` breaks. Under the declaration form the tag does not change when
-`visible_to` is added (N2). It also cannot express a *lateral* grant (a sibling `Lab.Billing` that is
+before and `'Lab.Core.Internal.Pricing.Order'` after the move, a wire-visible change (N1 holds by
+construction: the tag derives from the module name, and no real move was run), and an Erlang
+caller of `'Lab.Core.Pricing':'New'` breaks (no probe backs this; the verifier's accidental N2 run
+with the wrong build gave `undef` for the missing module, which agrees). Under the declaration form the tag does not change when
+`visible_to` is added (N2; `PATCHED` must be the `--patch` build, since the `--patch-path` build makes N2 fail with `undef`; the probe's header does not say so). It also cannot express a *lateral* grant (a sibling `Lab.Billing` that is
 not under `Lab.Core`). The word is a false friend of C#'s `internal` (assembly scope); Go's meaning
 (subtree of the parent) is the semantics here, and ticket 22 says to refuse the spelling or borrow
 the semantics.
@@ -232,10 +237,14 @@ VM boot (`60g`).
 The deltas are inside run-to-run noise (row a' is as far from row a as any variant is), so the
 whole-build number is "not detectable". To bound it I isolated the predicate (`60h`): the exact
 per-edge body, 595 edges, 1000 repetitions in one VM, includes the loop overhead. A 1-entry list
-costs about 2.0 ms per project, 4 entries 5.1 ms, 16 entries 17.2 ms (control: a non-matching list
+costs about 1.3 to 3.3 ms per project (2.0 ms captured), 4 entries 3.4 to 7.6 ms (5.1 captured), 16
+entries 10.7 to 21.6 ms (17.2 captured); these reproduce only to about 2x, so quote the range (control: a non-matching list
 accepts 0 of 595, so the loop does evaluate the predicate). Against a ~1.6 s build that is about
 0.1% at the realistic list size. The check runs once per `using` edge, in strict mode only; `--api`
-and the lenient queries skip it in the prototype (see Not verified). Caller-side (C) is the same
+and the lenient queries skip it in the prototype. The verifier confirmed the skip (with an
+offending `using` and `visible_to Lab.Web`, `bsc --api` on `Lab.Billing` exits 0 and prints the
+module) but no captured probe in `artifacts/probes/60/` backs it. Likewise "an Erlang caller of the
+old module name breaks" (sub-decision 2) has no probe. Caller-side (C) is the same
 order of cost: a list scan per import against the importer's own list, no `World` field.
 
 ## Recommendation
@@ -264,13 +273,13 @@ Run from the repo root after `source .../scratchpad/env.sh`. Prototype probes ne
 | `60e_erlang_xref_caller_check.sh` | xref is a static caller check; unresolved calls are not in `module_use`; no `-ignore_xref` in OTP 28 | `[caller_bad,caller_ok]` only; `caller_dyn` in UC | direct caller present; grep control finds "Unresolved calls" |
 | `60f_prototype_visible_to.sh` | callee-side subtree check: accept, refuse, subtree, namespace, no-using, dynamic hole | V1 to V7 as listed | V1 pristine compiles the refused module |
 | `60g_checker_cost.sh` | whole-build cost of the check | inside noise (table above) | row (a') noise floor |
-| `60h_predicate_microbench.sh` | cost of the predicate alone | 2.0 / 5.1 / 17.2 ms per 595 edges | non-matching list accepts 0 |
+| `60h_predicate_microbench.sh` | cost of the predicate alone | 1.3 to 3.3 / 3.4 to 7.6 / 10.7 to 21.6 ms per 595 edges (2.0 / 5.1 / 17.2 captured; reproducible to about 2x) | non-matching list accepts 0 |
 | `60i_nothing_emitted.sh` | check emits nothing | `.abstr` identical; compared chunks none differ; 980 vs 980 bytes | body change makes 3 chunks differ |
 | `60j_api_is_already_the_client_surface.sh` | ticket's `unclassified` premise is stale | unmarked helper absent from `--api`, refused as callee | marking it `public` makes it appear |
-| `60k_prototype_caller_declares.sh` | caller-side variant protects only opt-in callers | K1 refused; K3 `Web2` compiles | K2 no declaration compiles |
+| `60k_prototype_caller_declares.sh` | caller-side variant protects only opt-in callers | K1 refused; K3 `Web2` compiles (illustration of the design, not a finding) | K2 no declaration compiles |
 | `60l_go_internal.sh` | Go `internal` refuses outside the parent's tree | `lab/web` exit 1 with message | `web2` (non-internal) exit 0 |
 | `60m_prototype_internal_segment.sh` | path rule with no syntax | Web refused; Core, Core.Sub accepted | pristine accepts all; WebOk compiles |
-| `60n_moving_into_internal_renames_the_module.sh` | path rule changes the record tag | tag differs after the move | declaration form keeps the tag |
+| `60n_moving_into_internal_renames_the_module.sh` | path rule changes the record tag | tag differs after the move (`PATCHED` must be the `--patch` build, not `--patch-path`) | declaration form keeps the tag |
 
 Support files: `build_proto.sh`, `proto_patch.py` (callee-side), `proto_patch_caller.py`,
 `proto_patch_path.py`. Each `.out` is the captured run.
@@ -289,5 +298,21 @@ Support files: `build_proto.sh`, `proto_patch.py` (callee-side), `proto_patch_ca
   exploratory copies, not mergeable patches (the namespace branch is duplicated, the messages are placeholders).
 - **Spelling** (`visible_to`, `forbids`, `Internal`) is a placeholder throughout.
 - **Whether any exemplar needs the J3 shape** (a public function for exactly one sibling): not searched.
+- **`--api` and lenient skipping the check, and "an Erlang caller of the old module name breaks"**: no captured probe (see sub-decisions 5 and 2).
 - **Timing** is from a shared container with high run-to-run noise (row a'); the `60h` figure is an
   upper bound including loop overhead. Not a benchmark of a quiet machine.
+
+## Verification
+
+Independent re-run: [`60-which-modules-may-name-this-one.verification.md`](60-which-modules-may-name-this-one.verification.md).
+Overall verdict: VALID-WITH-CAVEATS. Every probe reran and matched its captured `.out` (timing
+within noise), none is circular, and the recommendation (A) is unchanged. Corrections 1 to 7 of the
+verifier's list were applied above: 1 header commit `712b9e9`; 2 the 60h numbers quoted as ranges;
+3 `--api`/lenient skipping and the Erlang-caller claim stated as having no captured probe; 4 the 60n
+`--patch` build requirement; 5 60k K3 described as an illustration; 6 the Gleam row qualified
+(path dependency, `gleam build` 1.18.1, language server untested); 7 parser delta +4/-2 and
+namespace branch about 11 lines. Also from the verifier: 60g's ordering carries no signal (its rerun
+flipped it; keep "not detectable"); 60i's chunk comparison is stronger than the eight chunks listed
+(only `CInf` differs) but shows only that the prototype emits nothing by construction, not that a
+production implementation could not emit metadata; 60a's walker returns `[]` for dynamic forms by
+construction (the run-time results are real); 60n N1 holds by construction.
