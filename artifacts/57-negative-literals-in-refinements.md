@@ -254,3 +254,13 @@ Reason against C: it is the only option with a measured disagreement between a r
 - **A literal-only sub-grammar** (the ticket's option 1 in its strictest form) was not built; g1b stands in for it and is not equivalent on `-(5)`.
 - **Singleton-range defect (E10)** is reported, not diagnosed past `erl_lint.erl:3440-3444`.
 - **Existing tests do not pin the refusal**: `intervals_tests.erl:46-60` pins opaque refinements by other shapes only, and no refinement test uses a negative bound (the F2 note that every scenario is non-negative is confirmed by grep), so no existing test turns red under any variant.
+
+## Verification errata (independent verifier, `probes/57/VERIFICATION.md`)
+
+The verifier rebuilt all five variants from the `.patch` files and re-ran probes 00–09, 11, 12; raw output matches. Base and g1 each passed eunit 1312/1312 (run alone, sequentially); **g1b, c1 and c2 were not re-run** and rest on the author's logs. Key claims reproduce: `-5` parses to `{e_neg,_,{e_int,_,5}}` (the ticket's `e_op` form is stale), the five-row refusal table, the guard refusal E4, pasted residuals compile (E8), E6/E7 (`x / -0` refused under g1 is correct: `-0` is the literal 0), E10, identical BEAM code chunks. Six premise-break mutations behaved as expected. Corrections:
+
+1. **The compile-time table has no raw backing.** The current `out/09` shows base 594/532 and g1 1027 vs base 981 on P1 (**+4.7%**), so "within about 3%" is wrong. "Not distinguishable from noise" still holds (spread within a variant exceeds the spread between variants), but treat compile time as *not measured to a useful precision*.
+2. **Patch sizes exclude blank lines.** Counting all added lines: g1b +7/−1, c1 +33/−5, c2 +35/−5.
+3. **Option C's "measured refinement-vs-guard disagreement" holds by construction**: g1b folds under the refinement rule only, so it disagrees with guards because it was written to. It demonstrates what C would do, not an independent finding.
+4. The g1b `--5` expectation was flipped after seeing the output (disclosed in CHANGELOG).
+5. Cosmetic citation fixes: `intervals_tests.erl:290-299`, `bs_parser.yrl:218-221`, ticket 63 quote at lines 336-338. Commit SHAs were not checked.
