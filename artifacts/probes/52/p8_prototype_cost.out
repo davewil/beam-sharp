@@ -48,3 +48,38 @@ ok  P3 module refused at compile time
 ok  P3 ... not a run-time crash
 
 =================== P5 regression control: compiler/examples, stock vs patched
+module dirs: 34   identical under stock and all three patched compilers: 34   differing: 0   (of which stock itself exits non-zero: 7)
+ok  P5 no regression
+
+=================== P4/P6 compiler delta
+--- attr:
+   bs_parser.yrl    8 changed lines
+   bs_check.erl    21 changed lines
+   bs_emit.erl      1 changed lines
+   bs_diag.erl      7 changed lines
+   total 37 changed lines (diff '<' + '>' ; includes the shared check/emit/diag part)
+--- inline:
+   bs_parser.yrl    5 changed lines
+   bs_check.erl    21 changed lines
+   bs_emit.erl      1 changed lines
+   bs_diag.erl      7 changed lines
+   total 34 changed lines (diff '<' + '>' ; includes the shared check/emit/diag part)
+--- module:
+   bs_parser.yrl    7 changed lines
+   bs_check.erl    21 changed lines
+   bs_emit.erl      1 changed lines
+   bs_diag.erl      7 changed lines
+   total 36 changed lines (diff '<' + '>' ; includes the shared check/emit/diag part)
+--- the part that is NOT shared between spellings (parser only):
+   attr    8 changed lines in bs_parser.yrl
+   inline  5 changed lines in bs_parser.yrl
+   module  7 changed lines in bs_parser.yrl
+stock yecc conflicts: 232
+attr yecc conflicts: 232
+inline yecc conflicts: 232
+module yecc conflicts: 232
+ok  P4 attr same conflict count as stock
+ok  P4 inline same conflict count as stock
+ok  P4 module same conflict count as stock
+
+ALL CLAIMS HELD

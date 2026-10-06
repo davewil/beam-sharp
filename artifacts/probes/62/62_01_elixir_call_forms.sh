@@ -71,6 +71,11 @@ run.("macro M.call(:Shop, :New, [6])", fn -> Code.eval_string("require M; M.call
 IO.puts("-- an Elixir module that wraps it once (the idiom today)")
 Code.eval_string("defmodule ShopEx do\n def new(id), do: apply(:Shop, :New, [id])\nend")
 run.("ShopEx.new(3)", fn -> apply(ShopEx, :new, [3]) end)
+IO.puts("-- defdelegate with as: (Elixir's own idiom for a differently-named target)")
+Code.eval_string("defmodule ShopDel do\n  defdelegate new(id), to: :Shop, as: :New\n  defdelegate which(d), to: :Shop, as: :Which\nend")
+run.("ShopDel.new(8)", fn -> apply(ShopDel, :new, [8]) end)
+run.("ShopDel.which(%{Kind: :\"Shop.Order\", Id: 1, Total: 2})", fn -> apply(ShopDel, :which, [%{Kind: :"Shop.Order", Id: 1, Total: 2}]) end)
+show.("formatter keeps :Shop.\"New\"(1)?", Code.format_string!(~s|:Shop."New"(1)|) |> IO.iodata_to_binary())
 IO.puts("-- Elixir `import :Shop` (would let callers write New(1)?)")
 show.("import :Shop (parse)", syn.("import :Shop"))
 r = try do Code.eval_string("import :Shop; New(1)") |> elem(0) rescue e -> {:raised, e.__struct__} catch k,v -> {k,v} end

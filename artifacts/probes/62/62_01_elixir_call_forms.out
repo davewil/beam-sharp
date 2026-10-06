@@ -24,30 +24,34 @@ warning: single quotes around calls are deprecated. Use double quotes instead
 └─ nofile:1:7
   :Shop.'New'(1)                                            :parses
 -- run
-  apply(:Shop, :New, [1])                                   %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  Kernel.apply(:Shop, :New, [1])                            %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  :erlang.apply(:Shop, :New, [1])                           %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  Code.eval_string("apply(:Shop,:New,[1])")                 %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  :erlang.make_fun(:Shop,:New,1).(1)                        %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  Function.capture(:Shop,:New,1).(1)                        %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  [1,2] |> Enum.map(Function.capture(:Shop,:New,1))         [%{Kind: :"Shop.Order", Total: 0, Id: 1}, %{Kind: :"Shop.Order", Total: 0, Id: 2}]
+  apply(:Shop, :New, [1])                                   %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  Kernel.apply(:Shop, :New, [1])                            %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  :erlang.apply(:Shop, :New, [1])                           %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  Code.eval_string("apply(:Shop,:New,[1])")                 %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  :erlang.make_fun(:Shop,:New,1).(1)                        %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  Function.capture(:Shop,:New,1).(1)                        %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  [1,2] |> Enum.map(Function.capture(:Shop,:New,1))         [%{Kind: :"Shop.Order", Id: 1, Total: 0}, %{Kind: :"Shop.Order", Id: 2, Total: 0}]
 -- QUOTED function name (the form the ticket did not test)
   :Shop."New"(1)                                            :parses
   &:Shop."New"/1                                            :parses
   :"Shop.Reports"."Totals"(1)                               :parses
-  eval :Shop."New"(1)                                       %{Kind: :"Shop.Order", Total: 0, Id: 1}
-  eval (&:Shop."New"/1).(2)                                 %{Kind: :"Shop.Order", Total: 0, Id: 2}
-  eval pipe: 3 |> :Shop."New"()                             %{Kind: :"Shop.Order", Total: 0, Id: 3}
+  eval :Shop."New"(1)                                       %{Kind: :"Shop.Order", Id: 1, Total: 0}
+  eval (&:Shop."New"/1).(2)                                 %{Kind: :"Shop.Order", Id: 2, Total: 0}
+  eval pipe: 3 |> :Shop."New"()                             %{Kind: :"Shop.Order", Id: 3, Total: 0}
   CONTROL eval :Shop."Nope"(1) (must raise UndefinedFunctionError){:raised, UndefinedFunctionError}
 -- macros: quote/unquote with a capitalised function atom
   quote do: unquote(:Shop).unquote(:New)(1)                 ":Shop.\"New\"(1)"
     AST                                                     {{:., [], [:Shop, :New]}, [], [1]}
-    Code.eval_quoted(that)                                  %{Kind: :"Shop.Order", Total: 0, Id: 1}
+    Code.eval_quoted(that)                                  %{Kind: :"Shop.Order", Id: 1, Total: 0}
     Macro.to_string re-parses?                              :parses
-  macro M.shop_new(5)                                       %{Kind: :"Shop.Order", Total: 0, Id: 5}
-  macro M.call(:Shop, :New, [6])                            %{Kind: :"Shop.Order", Total: 0, Id: 6}
+  macro M.shop_new(5)                                       %{Kind: :"Shop.Order", Id: 5, Total: 0}
+  macro M.call(:Shop, :New, [6])                            %{Kind: :"Shop.Order", Id: 6, Total: 0}
 -- an Elixir module that wraps it once (the idiom today)
-  ShopEx.new(3)                                             %{Kind: :"Shop.Order", Total: 0, Id: 3}
+  ShopEx.new(3)                                             %{Kind: :"Shop.Order", Id: 3, Total: 0}
+-- defdelegate with as: (Elixir's own idiom for a differently-named target)
+  ShopDel.new(8)                                            %{Kind: :"Shop.Order", Id: 8, Total: 0}
+  ShopDel.which(%{Kind: :"Shop.Order", Id: 1, Total: 2})    :order
+  formatter keeps :Shop."New"(1)?                           ":Shop.\"New\"(1)"
 -- Elixir `import :Shop` (would let callers write New(1)?)
   import :Shop (parse)                                      :parses
   import :Shop; New(1)   (eval)                             {:raised, SyntaxError}

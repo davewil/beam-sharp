@@ -1,0 +1,63 @@
+modules: 27
+CONTROL baseline rebuild == bsc .beam byte-identical: 27 of 27
+
+== rule=simple mode=wrapper over 27 modules (all compiler/examples)
+beam bytes: 51240 -> 56224  (+4984, +9.7%)
+export-table entries (incl module_info x2, bs@type_atoms): 176 -> 268
+  chunk Code  8004 -> 9462  (10#1458p)
+  chunk ExpT  2220 -> 3324  (10#1104p)
+  chunk AtU8  4375 -> 4984  (10#609p)
+  chunk LocT  528 -> 528  (10#0p)
+  chunk FunT  320 -> 320  (10#0p)
+  chunk ImpT  1404 -> 1404  (10#0p)
+  chunk Dbgi  24007 -> 25834  (10#1827p)
+  chunk Attr  1083 -> 1084  (10#1p)
+  chunk CInf  1485 -> 1485  (10#0p)
+  chunk StrT  4 -> 4  (10#0p)
+  chunk LitT  1913 -> 1913  (10#0p)
+  chunk Line  1885 -> 1885  (10#0p)
+  chunk Type  805 -> 805  (10#0p)
+  Shop alone: beam 2456 -> 2852 bytes (+396), exports 11 -> 19
+
+== rule=simple mode=spec over 27 modules (all compiler/examples)
+beam bytes: 51240 -> 56896  (+5656, +11.0%)
+export-table entries (incl module_info x2, bs@type_atoms): 176 -> 268
+  chunk Code  8004 -> 9462  (10#1458p)
+  chunk ExpT  2220 -> 3324  (10#1104p)
+  chunk AtU8  4375 -> 4984  (10#609p)
+  chunk LocT  528 -> 528  (10#0p)
+  chunk FunT  320 -> 320  (10#0p)
+  chunk ImpT  1404 -> 1404  (10#0p)
+  chunk Dbgi  24007 -> 26500  (10#2493p)
+  chunk Attr  1083 -> 1084  (10#1p)
+  chunk CInf  1485 -> 1485  (10#0p)
+  chunk StrT  4 -> 4  (10#0p)
+  chunk LitT  1913 -> 1913  (10#0p)
+  chunk Line  1885 -> 1885  (10#0p)
+  chunk Type  805 -> 805  (10#0p)
+  Shop alone: beam 2456 -> 2928 bytes (+472), exports 11 -> 19
+
+== rule=smart mode=wrapper over 27 modules (all compiler/examples)
+beam bytes: 51240 -> 56224  (+4984, +9.7%)
+export-table entries (incl module_info x2, bs@type_atoms): 176 -> 268
+  chunk Code  8004 -> 9462  (10#1458p)
+  chunk ExpT  2220 -> 3324  (10#1104p)
+  chunk AtU8  4375 -> 4984  (10#609p)
+  chunk LocT  528 -> 528  (10#0p)
+  chunk FunT  320 -> 320  (10#0p)
+  chunk ImpT  1404 -> 1404  (10#0p)
+  chunk Dbgi  24007 -> 25834  (10#1827p)
+  chunk Attr  1083 -> 1084  (10#1p)
+  chunk CInf  1485 -> 1485  (10#0p)
+  chunk StrT  4 -> 4  (10#0p)
+  chunk LitT  1913 -> 1913  (10#0p)
+  chunk Line  1885 -> 1885  (10#0p)
+  chunk Type  805 -> 805  (10#0p)
+  Shop alone: beam 2456 -> 2852 bytes (+396), exports 11 -> 19
+
+== module load time: code:load_binary over all 27 modules, 80 rounds per repetition x 5 repetitions; median of rounds, best repetition kept (microseconds)
+  baseline             median 17528 us per full set
+  alias_wrapper        median 16404 us per full set
+  alias_wrapper_spec   median 18195 us per full set
+
+== OTP compile:forms time over all 27 modules, N=15: baseline min/median 134601/243844 us ; with aliases 155985/313302 us

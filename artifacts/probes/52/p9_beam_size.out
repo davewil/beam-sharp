@@ -1,0 +1,40 @@
+total 20
+drwxr-xr-x 2 root root 4096 Oct  6 23:30 .
+drwx------ 4 root root 4096 Oct  6 23:30 ..
+-rw-r--r-- 1 root root 6209 Oct  6 23:30 Req.abstr
+-rw-r--r-- 1 root root 1788 Oct  6 23:30 Req.beam
+stock .beam: 1788 bytes (as bsc writes it)
+baseline (stock forms, recompiled)         : 1728 bytes
+   module 'Req'; chunks: AtU8=189 Code=183 StrT=0 ImpT=76 ExpT=88 LitT=89 LocT=16 Attr=39 CInf=55 Dbgi=793 Line=67 Type=10
+yardstick: removing existing bs@type_atoms/0 saves 108 bytes (this is the F55 per-module metadata function)
+ 1 app(s): attribute -bs_needs([..])  +  36   function 'bs@needs'/0 +  72   attribute WITH a version string each +  52
+ 3 app(s): attribute -bs_needs([..])  +  60   function 'bs@needs'/0 +  96   attribute WITH a version string each + 100
+ 9 app(s): attribute -bs_needs([..])  + 152   function 'bs@needs'/0 + 200   attribute WITH a version string each + 260
+12 app(s): attribute -bs_needs([..])  + 180   function 'bs@needs'/0 + 232   attribute WITH a version string each + 320
+per-block provenance, 3 blocks x {Mod,App}   : +136 bytes
+determinism control (3 compiles, 1 app attribute): [1764,1764,1764] -> stable
+beam_lib:chunks(Bin,[attributes]) -> bs_needs = [req,jason]
+ok  Z1 baseline measured
+ok  Z5 attribute readable
+ok  Z1 stable
+-- Z5 control: an attribute that is not there
+bs_needs in stock beam: undefined
+ok  Z5 control: stock beam has no bs_needs
+== Z6 compile time, one VM, warm-up 1 + N=15, stock-rebuilt vs patched (both built by patch_compiler.py, same erlc flags)
+   yecc: shift/reduce conflicts reported: 232
+   erlc errors: none
+   yecc: shift/reduce conflicts reported: 232
+   erlc errors: none
+   load:  23:30:34 up 27 min,  0 user,  load average: 14.04, 23.35, 16.38
+stock   : result=ok min=6432 us  median=9438 us  (N=15)
+patched : result=ok min=7250 us  median=8848 us  (N=15)
+ok  Z6 stock timing ran
+ok  Z6 patched timing ran
+ok  Z6 patched build succeeded (so the lib_dir lookup happened)
+   (the box is shared and loaded: read min, not median; difference below ~1 ms is noise)
+== Z7 the check itself: code:lib_dir/1, 2000 calls, hit and miss (ERL_LIBS with 1 app)
+hit  (fakelib): 3.9 us/call
+miss (nope)   : 3.5 us/call
+ok  Z7 measured
+
+ALL CLAIMS HELD

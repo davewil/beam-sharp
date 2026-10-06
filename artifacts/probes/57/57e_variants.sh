@@ -81,7 +81,7 @@ Sign(>= 1) -> :pos"
 for v in v0 v1 v2 v2b v2c v3; do BSC="$W/$v/bsc.sh" cases > "$W/$v.cases"; done
 echo "== case matrix (accepted/refused), measured =="
 { printf 'case v0 v1 v2 v2b v2c v3\n'
-  paste -d' ' "$W/v0.cases" <(cut -d' ' -f2 "$W/v1.cases") <(cut -d' ' -f2 "$W/v2.cases") <(cut -d' ' -f2 "$W/v2b.cases") <(cut -d' ' -f2 "$W/v2c.cases") <(cut -d' ' -f2 "$W/v3.cases"); } | column -t
+  paste -d' ' "$W/v0.cases" <(cut -d' ' -f2 "$W/v1.cases") <(cut -d' ' -f2 "$W/v2.cases") <(cut -d' ' -f2 "$W/v2b.cases") <(cut -d' ' -f2 "$W/v2c.cases") <(cut -d' ' -f2 "$W/v3.cases"); } | awk '{printf "%-18s",$1; for(i=2;i<=NF;i++) printf " %-9s",$i; print ""}'
 echo
 echo "== abstract code for a module using -5 (guard, literal body, arithmetic), diff vs v0 =="
 mkdir -p "$W/ab/M"; cat > "$W/ab/M/a.bs" <<'EOT'

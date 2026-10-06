@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Probe 52 helper: builds a PATCHED COPY of compiler/src in a scratch dir, never the repo.
-usage: patch_compiler.py <variant> <outdir>      variant in: attr | inline | module
+usage: patch_compiler.py <variant> <outdir>      variant in: attr | inline | module | stock
 Each variant adds an application name to the FFI declaration and does three things with it:
 parse it, refuse at compile time if the app is not on the code path, emit it as a beam attribute.
 The patch is applied by exact-string replacement; it aborts if a replaced string is not found,
@@ -14,6 +14,7 @@ os.makedirs(out + "/src"); os.makedirs(out + "/ebin")
 for f in os.listdir(src):
     if f.endswith((".erl", ".xrl", ".yrl", ".hrl")): shutil.copy(os.path.join(src, f), out + "/src")
 def sub(fn, old, new, count=1):
+    if variant == "stock": return      # `stock` = the same build procedure with NO patch (a fair timing baseline)
     p = out + "/src/" + fn; s = open(p).read()
     if old not in s: sys.exit("PATCH FAILED (not found) in %s: %r" % (fn, old[:60]))
     open(p, "w").write(s.replace(old, new) if count == 0 else s.replace(old, new, count))
