@@ -23,14 +23,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 BSC="$HERE/_build/default/bin/bsc"
 README="$HERE/README.md"
+# The repository README, whose opening program and transcript are the headline.
 HEADLINE="$REPO/README.md"
 
 [ -x "$BSC" ] || {
   echo "no built bsc at ${BSC#"$REPO"/} — run rebar3 escriptize"
   exit 2
 }
-[ -f "$README" ] || { echo "no README at $README"; exit 2; }
-[ -f "$HEADLINE" ] || { echo "no README at $HEADLINE"; exit 2; }
+[ -f "$README" ] || { echo "no compiler README at $README"; exit 2; }
+[ -f "$HEADLINE" ] || { echo "no repository README at $HEADLINE"; exit 2; }
 
 transcript() {
   awk '
@@ -92,11 +93,17 @@ judge() {
   [ "$missing" -eq 0 ]
 }
 
-# The Nth bare fence of a document, without its fence lines.
+# The Nth BARE fence of a document, without its fence lines. A tagged fence
+# (```sh) is walked past and not counted, so one added above the headline does
+# not put the count out of phase with the blocks.
 fence() {
   awk -v want="$2" '
-    /^```$/ { if (inside) { inside = 0; if (n == want) exit } else { inside = 1; n++ }; next }
-    inside && n == want { print }
+    /^```/ {
+      if (inside) { inside = 0; if (bare && n == want) exit; next }
+      inside = 1; bare = ($0 == "```"); if (bare) n++
+      next
+    }
+    inside && bare && n == want { print }
   ' "$1"
 }
 
@@ -208,41 +215,63 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the committed README transcript"
   fi
 
+  # expect_headline_red WHY FILE LABEL: FILE must differ from the committed
+  # README, and must be refused for the reason WHY names. A control that goes
+  # red for some other reason proves nothing about the check it was built for.
   expect_headline_red() {
-    if judge_headline "$1" >/dev/null 2>&1; then
-      echo "SELF-TEST FAILED: $2 was accepted"
+    local why="$1" doc="$2" label="$3" out status
+    if cmp -s "$HEADLINE" "$doc"; then
+      echo "SELF-TEST FAILED: the control for $label changed nothing in the committed README"
+      failed=1
+      return
+    fi
+    set +e
+    out="$(judge_headline "$doc" 2>&1)"
+    status=$?
+    set -e
+    if [ "$status" -eq 0 ]; then
+      echo "SELF-TEST FAILED: $label was accepted"
+      failed=1
+    elif ! printf '%s\n' "$out" | grep '^DRIFTED: ' | grep -qF "$why"; then
+      echo "SELF-TEST FAILED: $label was refused, but not for \"$why\":"
+      printf '%s\n' "$out" | sed 's/^/    /'
       failed=1
     else
-      echo "  ok red on $2"
+      echo "  ok red on $label"
     fi
   }
+  differs='shows one transcript for its headline program and bsc prints another'
 
-  # The drift this gate was written for: the position with its column dropped.
+  # The drift this gate was written for, as it stood in the README until
+  # 2026-10-08: no module directory and no column.
+  sed 's/^[A-Za-z0-9_/]*\(demo\.bs:[0-9]*\):[0-9]*: error:/\1: error:/' "$HEADLINE" > "$ctl/old-position.md"
+  expect_headline_red "does not open with Module/file.bs:LINE" \
+    "$ctl/old-position.md" "the headline position as it had drifted, \`demo.bs:5:\`"
+
+  # The column alone, which leaves a path to compile at and so reaches the
+  # comparison.
   sed 's/^\([A-Za-z0-9_/]*\.bs:[0-9]*\):[0-9]*: error:/\1: error:/' "$HEADLINE" > "$ctl/no-column.md"
-  cmp -s "$HEADLINE" "$ctl/no-column.md" && {
-    echo "SELF-TEST FAILED: the committed headline has no LINE:COL position to perturb"
-    failed=1
-  }
-  expect_headline_red "$ctl/no-column.md" "a headline transcript without its column"
+  expect_headline_red "$differs" "$ctl/no-column.md" "a headline transcript without its column"
 
   # One character of the residual, so the comparison is of the whole transcript.
   sed 's/^    Classify(<= 199) -> \.\.\.$/    Classify(<= 198) -> .../' "$HEADLINE" > "$ctl/residual.md"
-  cmp -s "$HEADLINE" "$ctl/residual.md" && {
-    echo "SELF-TEST FAILED: the committed headline has no residual line to perturb"
-    failed=1
-  }
-  expect_headline_red "$ctl/residual.md" "a headline transcript with a perturbed residual"
+  expect_headline_red "$differs" "$ctl/residual.md" "a headline transcript with a perturbed residual"
 
   # The program moved and the transcript left standing.
   sed 's/^Classify(>= 500)  /Classify(>= 600)  /' "$HEADLINE" > "$ctl/program.md"
-  cmp -s "$HEADLINE" "$ctl/program.md" && {
-    echo "SELF-TEST FAILED: the committed headline has no clause to perturb"
-    failed=1
-  }
-  expect_headline_red "$ctl/program.md" "a headline program its transcript no longer describes"
+  expect_headline_red "$differs" "$ctl/program.md" "a headline program its transcript no longer describes"
 
   sed '/^```$/d' "$HEADLINE" > "$ctl/no-fences.md"
-  expect_headline_red "$ctl/no-fences.md" "a README with no headline fences"
+  expect_headline_red "is not a program" "$ctl/no-fences.md" "a README with no headline fences"
+
+  # A tagged fence above the headline must not be counted as the program.
+  { printf '```sh\necho not the program\n```\n\n'; cat "$HEADLINE"; } > "$ctl/tagged-above.md"
+  if ! judge_headline "$ctl/tagged-above.md" >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: a tagged fence above the headline put the bare fences out of phase"
+    failed=1
+  else
+    echo "  ok green with a tagged fence above the headline"
+  fi
 
   if ! judge_headline "$HEADLINE" >/dev/null 2>&1; then
     echo "SELF-TEST FAILED: the committed README headline was rejected"
@@ -252,7 +281,7 @@ if [ "${1:-}" = "--self-test" ]; then
   fi
 
   [ "$failed" -eq 0 ] || exit 1
-  echo "self-test: rejected a drifted README transcript and accepted the committed one"
+  echo "self-test: rejected a drifted REPL transcript and a drifted headline, and accepted the committed READMEs"
   exit 0
 fi
 
