@@ -1,0 +1,78 @@
+== case matrix (accepted/refused), measured ==
+case               v0        v1        v2        v2b       v2c       v3       
+Neg_ge_5           refused   accepted  accepted  accepted  accepted  accepted 
+Neg_and_range      refused   accepted  accepted  accepted  accepted  accepted 
+Neg_or_split       refused   accepted  accepted  accepted  accepted  accepted 
+Neg_eq_single*     refused   refused   refused   refused   refused   refused  
+Neg_ne             refused   accepted  accepted  accepted  accepted  accepted 
+Lit_on_left        refused   accepted  accepted  accepted  accepted  accepted 
+Parenthesised      refused   accepted  accepted  accepted  accepted  accepted 
+Sum_2plus3         refused   refused   refused   refused   accepted  refused  
+ParenNeg           refused   accepted  accepted  accepted  accepted  refused  
+DoubleNeg          refused   accepted  accepted  accepted  accepted  refused  
+Zero_minus_5       refused   refused   refused   refused   accepted  refused  
+Product_2x3        refused   refused   refused   refused   accepted  refused  
+Var_comparand      refused   refused   refused   refused   refused   refused  
+Atom_eq_ctl        accepted  accepted  accepted  accepted  accepted  accepted 
+Call_refinement    refused   refused   refused   refused   refused   refused  
+Pos_ctl            accepted  accepted  accepted  accepted  accepted  accepted 
+Guard_neg_cover    refused   accepted  accepted  accepted  accepted  refused  
+NegLit_argument    refused   accepted  refused   accepted  accepted  refused  
+Neg_domain_ok      refused   accepted  accepted  accepted  accepted  accepted 
+Neg_residual       refused   refused   refused   refused   refused   refused  
+
+== first diagnostic for a negative literal on the left of a bare '=' (57b NegBare), per variant ==
+  v0   NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pa
+  v1   NegBare/a.bs:4:13: error: this bind in F can fail
+  v2   NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pa
+  v2b  NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pa
+  v2c  NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pa
+  v3   NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pa
+
+== abstract code for a module using -5 (guard, literal body, arithmetic), diff vs v0 ==
+-- v1 vs v0 (.abstr, positions stripped):
+23,26c23
+<                {op,P,
+<                    '>=',
+<                    {var,P,'N'},
+<                    {op,P,'-',{integer,P,5}}}}]],
+---
+>                {op,P,'>=',{var,P,'N'},{integer,P,-5}}}]],
+39,40c36
+< {function,0,'Neg',0,
+<           [{clause,P,[],[],[{op,P,'-',{integer,P,5}}]}]}.
+---
+> {function,0,'Neg',0,[{clause,P,[],[],[{integer,P,-5}]}]}.
+57c53
+<                         {op,P,'-',{integer,P,5}}}]}]}.
+---
+>                         {integer,P,-5}}]}]}.
+-- v2 vs v0 (.abstr, positions stripped):
+   identical
+-- v2b vs v0 (.abstr, positions stripped):
+   identical
+-- v2c vs v0 (.abstr, positions stripped):
+   identical
+-- v3 vs v0 (.abstr, positions stripped):
+   identical
+
+== precedent: v0 ALREADY emits a negative {integer,_,-N} node for a negative PATTERN literal and relational pattern bound ==
+  14:    [{clause,{3,1},[{integer,{3,6},-7}],[],[{atom,{3,13},seven}]},
+  24:               {op,{4,6},'=<',{var,{4,6},'Bs@r1'},{integer,{4,6},-1}}}]],
+
+== BEAM Code chunk and .beam size, vs v0 ==
+  v0 Code-chunk-md5=390D442F628EBBD4C709527F34C199BB beam_bytes=1344
+  v1 Code-chunk-md5=390D442F628EBBD4C709527F34C199BB beam_bytes=1332
+  v2 Code-chunk-md5=390D442F628EBBD4C709527F34C199BB beam_bytes=1344
+  v2b Code-chunk-md5=390D442F628EBBD4C709527F34C199BB beam_bytes=1344
+  v2c Code-chunk-md5=390D442F628EBBD4C709527F34C199BB beam_bytes=1344
+  v3 Code-chunk-md5=390D442F628EBBD4C709527F34C199BB beam_bytes=1344
+
+== compile time, N=7 per variant (ms, whole bsc invocation incl. VM boot) ==
+  v0 min=362 median=370 max=411
+  v1 min=383 median=402 max=427
+  v2 min=358 median=386 max=405
+  v2b min=368 median=381 max=432
+  v2c min=372 median=398 max=506
+  v3 min=379 median=417 max=440
+(timing is boot-dominated; the point is 'no measurable difference', not a speed claim)
