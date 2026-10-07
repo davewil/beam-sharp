@@ -1,0 +1,32 @@
+'Inner'(O) when map_get('Kind', O) =:= 'Guard.Order' ->
+    map_get('Total', O).
+
+'IInner'(N) ->
+    N + 1.
+
+'Outer'(O) when map_get('Kind', O) =:= 'Guard.Order' ->
+    'Inner'(O).
+
+'Nested'(C) when map_get('Kind', C) =:= 'Guard.Cart' ->
+    'Inner'(map_get('Primary', C)).
+
+'NestedInt'(C) when map_get('Kind', C) =:= 'Guard.Cart' ->
+    'IInner'(map_get('Count', C)).
+
+'OuterInt'(N) when is_integer(N) ->
+    'IInner'(N).
+
+'InnerPub'(O) when map_get('Kind', O) =:= 'Guard.Order' ->
+    map_get('Total', O).
+
+'Totals'(Os) ->
+    lists:map(fun 'Inner'/1, Os).
+
+'DocN'(O = #{'Kind' := 'Guard.Order'}) ->
+    map_get('Total', O);
+'DocN'(C = #{'Kind' := 'Guard.Cart'}) ->
+    map_get('Count', C).
+
+'ViaUnion'(C) when map_get('Kind', C) =:= 'Guard.Cart' ->
+    'DocN'(map_get('Primary', C)).
+

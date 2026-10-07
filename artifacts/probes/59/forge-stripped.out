@@ -1,0 +1,15 @@
+mode=stripped
+  Outer(valid Order)                                                                 -> {value,7}
+  Outer(forged Invoice)       [whole-record path]                                    -> {raised,error,function_clause,{'Outer',[#{'Kind' => 'Guard.Invoice','Id' => 1,'Total' => 99}]}}
+  Outer(no Kind)              [whole-record path]                                    -> {raised,error,function_clause,{'Outer',[#{'Id' => 1,'Total' => 99}]}}
+  Nested(Cart{Primary=valid})                                                        -> {value,7}
+  Nested(Cart{Primary=forged Invoice}) [one projection deep]                         -> {value,99}
+  Nested(Cart{Primary=no Kind})        [one projection deep]                         -> {value,99}
+  Nested(Cart{Primary=42})             [not even a map]                              -> {raised,error,{badmap,42},{map_get,['Total',42]}}
+  NestedInt(Cart{Count=3})                                                           -> {value,4}
+  NestedInt(Cart{Count=1.5})  [int below the top: NO private int test either way]    -> {value,2.5}
+  NestedInt(Cart{Count=foo})  [int below the top]                                    -> {raised,error,badarith,{'+',[foo,1]}}
+  OuterInt(1.5)               [whole-int path: exported test fires]                  -> {raised,error,function_clause,{'OuterInt',[1.5]}}
+  Totals([valid])                                                                    -> {value,[7]}
+  Totals([valid, forged Invoice])  [list element, via fun Inner/1]                   -> {value,[7,99]}
+  ViaUnion(Cart{Primary=forged Invoice}) [private takes Order|Cart]                  -> {raised,error,function_clause,{'DocN',[#{'Kind' => 'Guard.Invoice','Id' => 1,'Total' => 99}]}}

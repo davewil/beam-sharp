@@ -1,0 +1,4 @@
+name = "app_pkg"
+version = "1.0.0"
+[dependencies]
+lib_pkg = { path = "../lib_pkg" }

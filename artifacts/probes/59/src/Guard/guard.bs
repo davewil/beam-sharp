@@ -1,0 +1,45 @@
+module Guard
+
+record Order { Id: int, Total: int }
+record Cart  { Primary: Order, Count: int }
+
+// private, record param: does it get the tag test?
+int Inner(Order o)
+Inner(o) -> o.Total
+
+// private, int param
+int IInner(int n)
+IInner(n) -> n + 1
+
+// exported pass-through of a whole record
+public int Outer(Order o)
+Outer(o) -> Inner(o)
+
+// exported pass-through of a NESTED record field: only Cart's tag is tested
+public int Nested(Cart c)
+Nested(c) -> Inner(c.Primary)
+
+// exported pass-through of a nested int field
+public int NestedInt(Cart c)
+NestedInt(c) -> IInner(c.Count)
+
+// exported int pass-through
+public int OuterInt(int n)
+OuterInt(n) -> IInner(n)
+
+// exported, same body as private, for exported-vs-private comparison
+public int InnerPub(Order o)
+InnerPub(o) -> o.Total
+
+// exported over a list of records: the list is not element-tested
+public list<int> Totals(list<Order> os)
+Totals(os) -> List.Map(os, Inner/1)
+
+// private whose record param is a UNION
+type Doc = Order | Cart
+int DocN(Doc d)
+DocN(Order o) -> o.Total
+DocN(Cart c)  -> c.Count
+
+public int ViaUnion(Cart c)
+ViaUnion(c) -> DocN(c.Primary)

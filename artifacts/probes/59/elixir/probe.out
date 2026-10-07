@@ -1,0 +1,5 @@
+outer_bare(forged other struct)  [no check anywhere] -> {:value, 99}
+outer_pat(forged other struct)   [hand-written pattern in defp] -> {:raised, FunctionClauseError, :priv_pat}
+nested_pat(%{primary: forged})   [defp pattern catches nested] -> {:raised, FunctionClauseError, :priv_pat}
+nested_inc(%{count: 1.5})        [defp guard catches nested float] -> {:raised, FunctionClauseError, :inc}
+nested_inc_bare(%{count: 1.5})   [no guard: float flows] -> {:value, 2.5}

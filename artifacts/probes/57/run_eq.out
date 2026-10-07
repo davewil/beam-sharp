@@ -1,0 +1,10 @@
+[value == 3]
+compile: M/m.bs:0: bad range type
+
+rc=1
+[value >= 3 and value <= 3]
+compile: M/m.bs:0: bad range type
+
+rc=1
+[value != 3]
+rc=0

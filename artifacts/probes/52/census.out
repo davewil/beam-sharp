@@ -1,0 +1,49 @@
+== *.bs (excluding _build and artifacts/)
+     13 erlang
+      4 maps
+      2 gen_server
+      1 string
+      1 lists
+      1 json
+      1 file
+      1 ets
+      1 epgsql
+      1 binary
+      1 'Elixir.String'
+      1 'Elixir.Req'
+      1 'Elixir.Enum'
+      1 'Elixir.Application'
+== *.md (excluding _build and artifacts/)
+     22 erlang
+      8 file
+      5 ets
+      4 lists
+      4 analytics_db
+      3 maps
+      3 'Elixir.Req'
+      2 json
+      2 gen_server
+      1 trees
+      1 epgsql
+      1 cowboy_req
+      1 bs_front
+      1 binary
+== resolves on stock path? (OTP 28 + Elixir 1.18.5 lib dirs, no deps)
+'Elixir.Application'         true
+'Elixir.Enum'                true
+'Elixir.Req'                 false
+'Elixir.String'              true
+analytics_db                 false
+binary                       true
+bs_front                     false
+cowboy_req                   false
+epgsql                       false
+erlang                       true
+ets                          true
+file                         true
+gen_server                   true
+json                         true
+lists                        true
+maps                         true
+string                       true
+trees                        false

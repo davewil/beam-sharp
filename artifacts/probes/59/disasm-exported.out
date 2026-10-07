@@ -1,0 +1,12 @@
+
+=== AS EMITTED: whole-module beam 1256 bytes, Code chunk 395 bytes
+function 'InnerPub'/1
+  {line,7}
+  {label,15}
+  {func_info,{atom,'Guard'},{atom,'InnerPub'},1}
+  {label,16}
+  {bif,map_get,{f,15},[{atom,'Kind'},{x,0}],{x,1}}
+  {test,is_eq_exact,{f,15},[{x,1},{atom,'Guard.Order'}]}
+  {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+  return
+

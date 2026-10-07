@@ -1,0 +1,12 @@
+  Checking whether the PLT erts.plt is up-to-date... yes
+  Proceeding with analysis...
+dprobe.erl:10:1: Function bad_local/0 has no local return
+dprobe.erl:10:20: The call dprobe:inc
+         ('a') will never return since it differs in the 1st argument from the success typing arguments: 
+         (integer())
+dprobe.erl:12:1: Function bad_pub/0 has no local return
+dprobe.erl:12:29: The call dprobe:pub_inc
+         ('a') will never return since it differs in the 1st argument from the success typing arguments: 
+         (integer())
+ done in 0m0.10s
+done (warnings were emitted)

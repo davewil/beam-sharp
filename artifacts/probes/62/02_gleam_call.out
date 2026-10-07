@@ -1,0 +1,8 @@
+gleam 1.19.0
+gleam build:   Resolving versions
+gleam build:   Compiling caller
+gleam build:    Compiled in 0.42s
+--- run the compiled Gleam module against B# beams:
+caller:main() -> order
+--- gleam-emitted export table of caller:
+[{shop_new,1},{shop_which,1},{main,0},{module_info,0},{module_info,1}]

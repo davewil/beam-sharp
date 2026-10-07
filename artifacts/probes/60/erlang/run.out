@@ -1,0 +1,7 @@
+compile shop_orders_cache: ok
+compile shop_orders: ok
+compile other_thing: ok
+modules using of shop_orders_cache: [other_thing,shop_orders]
+outside shop_orders*: [{{other_thing,x,0},x}]
+docs: hidden
+other_thing:go(4) -> 8

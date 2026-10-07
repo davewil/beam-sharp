@@ -1,0 +1,20 @@
+
+=== AS EMITTED: whole-module beam 1256 bytes, Code chunk 395 bytes
+function 'Inner'/1
+  {line,1}
+  {label,3}
+  {func_info,{atom,'Guard'},{atom,'Inner'},1}
+  {label,4}
+  {bif,map_get,{f,3},[{atom,'Kind'},{x,0}],{x,1}}
+  {test,is_eq_exact,{f,3},[{x,1},{atom,'Guard.Order'}]}
+  {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+  return
+
+=== TAG TEST STRIPPED: whole-module beam 1244 bytes, Code chunk 383 bytes
+function 'Inner'/1
+  {line,1}
+  {label,3}
+  {func_info,{atom,'Guard'},{atom,'Inner'},1}
+  {label,4}
+  {bif,map_get,{f,0},[{atom,'Total'},{x,0}],{x,0}}
+  return

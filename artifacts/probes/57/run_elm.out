@@ -1,0 +1,3 @@
+pattern_neg_lit        REFUSED: -- MISSING DEPENDENCY ------------------------------------------------- elm.json
+pattern_arith          REFUSED: -- MISSING DEPENDENCY ------------------------------------------------- elm.json
+if_guard_neg           REFUSED: -- MISSING DEPENDENCY ------------------------------------------------- elm.json

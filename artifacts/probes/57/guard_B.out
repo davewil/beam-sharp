@@ -1,0 +1,20 @@
+== Pos:
+   F(n) when n >= 5 -> :hi
+   F(n) when n < 5  -> :lo
+   rc=0
+== Neg:
+   F(n) when n >= -5 -> :hi
+   F(n) when n < -5  -> :lo
+   rc=0
+== NegRun:
+   F(n) when n >= -5 -> :hi
+   F(n) when n < -5  -> :lo
+   F(_) -> :x
+   > /tmp/tmp.UjOi8VWWcN/NegRun/negrun.bs:7:1: warning: clause 3 of F is unreachable
+   >   every value it matches is matched by an earlier clause.
+   rc=0
+== PatNeg:
+   F(<= -1) -> :neg
+   F(0) -> :zero
+   F(>= 1) -> :pos
+   rc=0

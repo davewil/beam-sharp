@@ -1,0 +1,13 @@
+erlc:
+  compile result: ok
+  (any warning about 'Elixir.NoSuchLibrary'? see tuple: [myapp,[]])
+xref:
+  undefined_function_calls: {ok,[{{myapp,go,0},
+                                  {'Elixir.NoSuchLibrary',frob,1}}]}
+application:ensure_all_started(myapp):
+  {error,{ghost_app,{"no such file or directory","ghost_app.app"}}}
+modules analysed: {ok,[myapp]}
+myapp calls: {ok,['Elixir.NoSuchLibrary']}
+undefined_function_calls (dir only): {ok,
+                                      [{{myapp,go,0},
+                                        {'Elixir.NoSuchLibrary',frob,1}}]}

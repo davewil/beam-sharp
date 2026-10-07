@@ -1,0 +1,6 @@
+module Other.Thing
+
+using Shop.Orders.Internal.Cache
+
+public int Go(int x)
+Go(x) -> Get(x)

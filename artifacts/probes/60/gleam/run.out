@@ -1,0 +1,12 @@
+== app_pkg imports lib_pkg/internal/helper AND calls the @internal fn
+  Resolving versions
+      Added lib_pkg v1.0.0
+  Compiling lib_pkg
+  Compiling app_pkg
+   Compiled in 0.52s
+[exit 0]
+== lib_pkg docs: is the internal module rendered?
+build/dev/docs/lib_pkg/index.html
+build/dev/docs/lib_pkg/lib_pkg.html
+build/dev/docs/lib_pkg/index.html:0
+build/dev/docs/lib_pkg/lib_pkg.html:0

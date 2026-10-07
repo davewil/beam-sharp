@@ -1,0 +1,17 @@
+Compiling 1 file (.ex)
+    warning: NoSuchLib.Thing.frob/1 is undefined (module NoSuchLib.Thing is not available or is yet to be defined)
+    │
+  2 │   def a, do: NoSuchLib.Thing.frob(1)
+    │                              ~
+    │
+    └─ lib/p.ex:2:30: P.a/0
+
+    warning: :no_such_erl_mod.frob/1 is undefined (module :no_such_erl_mod is not available or is yet to be defined)
+    │
+  4 │   def c, do: :no_such_erl_mod.frob(1)
+    │                               ~
+    │
+    └─ lib/p.ex:4:31: P.c/0
+
+Generated p app
+-- mix.exs compile.app derivation of :applications from deps: compile.app.ex:449 (read, not run)

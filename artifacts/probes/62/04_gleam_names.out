@@ -1,0 +1,40 @@
+gleam 1.19.0
+--- phase 1: names with underscores (expected: refused)
+error: Invalid type variant name
+   ┌─ /tmp/tmp.AOkeRxP7SL/p/src/p.gleam:15:3
+--
+   │   ^^^^^ This is not a valid type variant name
+
+--
+error: Invalid type variant name
+   ┌─ /tmp/tmp.AOkeRxP7SL/p/src/p.gleam:17:51
+--
+   │                                                   ^^^^^^^ This is not a valid type variant name
+
+--- phase 2: the rest
+  Compiling p
+   Compiled in 0.52s
+--- the atoms Gleam's compiled beam actually builds (p:mk/0, p:mku/0):
+[{order,1},
+ {h_t_t_p_get,1},
+ {to_j_s_o_n,1},
+ {new2,1},
+ {foo_bar,1},
+ {foobar,1},
+ {a_b_c,1},
+ {abc,1},
+ {a1_b,1},
+ {x_m_l_http_request2,1},
+ {i_o_error,1},
+ {get,1},
+ {get2,1}]
+[ok2,h_t_t_p_get_u,to_j_s_o_n_u,new2_u,a_b_c_u,abc_u]
+--- gleam fn names are already snake_case in source; try a PascalCase fn name:
+error: Syntax error
+  ┌─ /tmp/tmp.AOkeRxP7SL/p/src/p.gleam:1:8
+  │
+1 │ pub fn Foo() { 1 }
+  │        ^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.

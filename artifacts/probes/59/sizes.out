@@ -1,0 +1,4 @@
+variant     beam+dbginfo           beam   Code chunk Inner / IInner disasm instrs
+emitted             2448           1256          395 8 / 6
+stripped            2416           1244          383 6 / 6
+widened             2472           1264          400 8 / 7

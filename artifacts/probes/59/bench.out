@@ -1,0 +1,3 @@
+emitted   Outer->Inner(record): median 30.80 ns  [min 27.63 max 36.30]    OuterInt->IInner(int): median 21.33 ns  [min 19.92 max 23.24]
+stripped  Outer->Inner(record): median 32.24 ns  [min 28.27 max 37.94]    OuterInt->IInner(int): median 23.61 ns  [min 21.42 max 26.06]
+widened   Outer->Inner(record): median 31.58 ns  [min 24.70 max 32.81]    OuterInt->IInner(int): median 22.59 ns  [min 18.08 max 26.41]

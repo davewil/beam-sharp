@@ -1,0 +1,7 @@
+module Shop.Orders
+
+public int Total(int x)
+Total(x) -> RecomputeTotal(x)
+
+private int RecomputeTotal(int x)
+RecomputeTotal(x) -> x + 1

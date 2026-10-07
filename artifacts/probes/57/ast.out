@@ -1,0 +1,56 @@
+type T = int where value >= -5
+=> [{type_refined,{1,1},
+                  'T',
+                  {t_builtin,int},
+                  {e_op,{1,26},
+                        '>=',
+                        {e_var,{1,20},value},
+                        {e_neg,{1,29},{e_int,{1,30},5}}}}]
+
+type T = int where value >= 0 - 5
+=> [{type_refined,{1,1},
+                  'T',
+                  {t_builtin,int},
+                  {e_op,{1,26},
+                        '>=',
+                        {e_var,{1,20},value},
+                        {e_op,{1,31},'-',{e_int,{1,29},0},{e_int,{1,33},5}}}}]
+
+type T = int where value >= -(-5)
+=> [{type_refined,{1,1},
+                  'T',
+                  {t_builtin,int},
+                  {e_op,{1,26},
+                        '>=',
+                        {e_var,{1,20},value},
+                        {e_neg,{1,29},{e_neg,{1,31},{e_int,{1,32},5}}}}}]
+
+type T = int where value >= 2 + 3
+=> [{type_refined,{1,1},
+                  'T',
+                  {t_builtin,int},
+                  {e_op,{1,26},
+                        '>=',
+                        {e_var,{1,20},value},
+                        {e_op,{1,31},'+',{e_int,{1,29},2},{e_int,{1,33},3}}}}]
+
+type T = int where value >= -0.5
+=> [{type_refined,{1,1},
+                  'T',
+                  {t_builtin,int},
+                  {e_op,{1,26},
+                        '>=',
+                        {e_var,{1,20},value},
+                        {e_float,{1,30},-0.5}}}]
+
+module M
+public atom F(int x)
+F(<= -1) -> :neg
+=> [{module,{1,1},'M'},
+    {signature,{2,13},
+               'F',
+               {t_builtin,atom},
+               [{param,{t_builtin,int},x}],
+               public,[]},
+    {clause,{3,1},'F',[{p_rel,{3,3},'<=',-1}],none,{e_atom,{3,13},neg}}]
+

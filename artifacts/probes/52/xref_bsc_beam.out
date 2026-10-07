@@ -1,0 +1,8 @@
+== xref over B_nomod
+undefined_function_calls from ['Nope']: [{{'Nope','Go',1},
+                                          {'Elixir.NoSuchLibrary',frob,1}}]
+== xref over A_missing
+undefined_function_calls from ['Up']: [{{'Up','Shout',1},
+                                        {'Elixir.String',upcase,1}}]
+== xref over A_missing /nix/store/pp8kbll8n2778kdm3b3bihjj3nnrrvh3-elixir-1.18.5/lib/elixir/bin/../lib
+undefined_function_calls from ['Up']: []

@@ -1,0 +1,30 @@
+--- patch size (changed diff lines):
+variant A (src/bs_parser.yrl): 1
+variant B (src/bs_check.erl): 15
+--- cur: (0) emitted guard of clause 1:
+[{op,{5,1},
+     'andalso',
+     {call,{5,1},
+           {remote,{5,1},{atom,{5,1},erlang},{atom,{5,1},is_integer}},
+           [{var,{5,1},'N'}]},
+     {op,{5,13},'>=',{var,{5,11},'N'},{op,{5,16},'-',{integer,{5,17},5}}}}]
+cur compile wall ms x15: min=352 median=378 max=413
+beam bytes: 960
+--- A: (0) emitted guard of clause 1:
+[{op,{5,1},
+     'andalso',
+     {call,{5,1},
+           {remote,{5,1},{atom,{5,1},erlang},{atom,{5,1},is_integer}},
+           [{var,{5,1},'N'}]},
+     {op,{5,13},'>=',{var,{5,11},'N'},{integer,{5,17},-5}}}]
+A compile wall ms x15: min=345 median=377 max=419
+beam bytes: 952
+--- B: (0) emitted guard of clause 1:
+[{op,{5,1},
+     'andalso',
+     {call,{5,1},
+           {remote,{5,1},{atom,{5,1},erlang},{atom,{5,1},is_integer}},
+           [{var,{5,1},'N'}]},
+     {op,{5,13},'>=',{var,{5,11},'N'},{op,{5,16},'-',{integer,{5,17},5}}}}]
+B compile wall ms x15: min=355 median=375 max=398
+beam bytes: 960

@@ -1,0 +1,38 @@
+modules compiled: 26   not compiled standalone: 1
+module                    fns  base_B  wrap_B  copy_B  exp0  exp1    ext0    ext1
+Aliasing                    4    1644    1852    1960     7    11     106     153
+Counter                     3    1816    1816    1816     6     6     104     104
+Escalate                    2    1428    1536    1612     5     7      85     110
+Fib                         1    1540    1600    1624     4     5      69      78
+Foreign                     6    2892    3228    3628     9    15     132     205
+Frame                       4    3004    3216    3532     7    11     109     158
+Intake                      2    3668    3776    3816     5     7      85     110
+Interop                     3    1488    1656    1708     6     9      90     120
+Label                       7    1976    2336    2392    10    17     143     227
+Ledger                      3    1640    1804    1924     6     9      95     130
+Levels                      2    1536    1660    1828     5     7      83     107
+Math                        4    2096    2332    2556     7    11     110     162
+Names                       2    1504    1628    1724     5     7      89     118
+Parcel                      3    1744    1896    2020     6     9      93     126
+Pipeline                    6    2440    2756    2880     9    15     136     212
+Queue                       3    2132    2312    2468     6     9      96     132
+Readings                    1    1336    1400    1460     4     5      74      88
+Shop.Billing                3    1488    1640    1684     6     9      90     120
+Shop.Collections.Ints       2    1392    1504    1532     5     7      81     102
+Shop.Discounts              3    2112    2296    2796     6     9      94     128
+Shop.Pricing                6    2812    3132    3704     9    15     129     198
+Shop.Reports                3    1368    1528    1572     6     9      97     134
+Shop.Rows                   2    2144    2256    2368     5     7      80     100
+Shop                        8    2588    2992    3276    11    19     145     230
+Signalbox                   5    3232    3508    3848     8    13     126     193
+Stats                       4    1684    1896    2024     7    11     104     148
+Wire                        3    2156    2324    2536     6     9      96     132
+TOTAL 27 modules, 95 exported fns
+  beam bytes: base 54860 | wrapper 59880 (+9.2%) | full copy 64288 (+17.2%)
+  export entries 176 -> 268 ; external_size(module_info(exports)) 2741 -> 3825 bytes (+39.5%)
+  atom-table entries (beam_lib atoms chunk): 483 -> 573
+
+load cost on Shop (8 fns), 300 x (purge+load_binary), microseconds min/median/max:
+  base  436 / 1591 / 6191
+  wrap  525 / 1482 / 59939
+  copy  513 / 1644 / 7304

@@ -1,0 +1,5 @@
+name = "lib_pkg"
+version = "1.0.0"
+description = "probe"
+licences = ["Apache-2.0"]
+internal_modules = ["lib_pkg/internal", "lib_pkg/internal/*"]

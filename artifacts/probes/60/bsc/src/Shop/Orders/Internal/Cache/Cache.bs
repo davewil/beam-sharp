@@ -1,0 +1,4 @@
+module Shop.Orders.Internal.Cache
+
+public int Get(int x)
+Get(x) -> x * 2

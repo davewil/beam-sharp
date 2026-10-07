@@ -1,0 +1,6 @@
+arg 0    : 1
+arg -100 : -99
+arg 100  : 101
+arg -101 : crashed: error:function_clause
+arg 101  : crashed: error:function_clause
+--- emitted guard:

@@ -1,0 +1,25 @@
+[
+  Amount: 1,
+  Band: 1,
+  Bump: 1,
+  New: 1,
+  Pay: 1,
+  Squared: 1,
+  Total: 1,
+  Which: 1,
+  amount: 1,
+  band: 1,
+  bs@type_atoms: 0,
+  bump: 1,
+  module_info: 0,
+  module_info: 1,
+  new: 1,
+  pay: 1,
+  squared: 1,
+  total: 1,
+  which: 1
+]
+:Shop.new(1): %{Kind: :"Shop.Order", Total: 0, Id: 1}
+:Shop.which(:Shop.new(1)): :order
+--- and PascalCase still reachable (Erlang):
+true

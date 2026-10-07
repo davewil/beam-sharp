@@ -1,0 +1,6 @@
+[orders + orders/sub exit 0]
+package example.com/probe/shop/billing
+	shop/billing/bill.go:2:8: use of internal package example.com/probe/shop/orders/internal/cache not allowed
+package example.com/probe/other
+	other/o.go:2:8: use of internal package example.com/probe/shop/orders/internal/cache not allowed
+[billing + other exit 1]

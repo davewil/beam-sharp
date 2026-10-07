@@ -1,0 +1,8 @@
+pattern_neg_lit                    ok
+guard_gte_neg_lit                  ok
+guard_arith_const                  ok
+guard_neg_neg                      REFUSED: error: Syntax error
+guard_sub_const                    ok
+pattern_arith                      REFUSED: error: Syntax error
+const_neg                          ok
+const_arith                        REFUSED: error: Unsupported operator in constant expression

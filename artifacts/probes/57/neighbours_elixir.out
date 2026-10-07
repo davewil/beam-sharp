@@ -1,0 +1,10 @@
+warning: the VM is running with native name encoding of latin1 which may cause Elixir to malfunction as it expects utf8. Please ensure your locale is set to UTF-8 (which can be verified by running "locale" in your shell) or set the ELIXIR_ERL_OPTIONS="+fnu" environment variable
+-5       -> {:-, [line: 1], [5]}
+- 5      -> {:-, [line: 1], [5]}
+-(-5)    -> {:-, [line: 1], [{:-, [line: 1], [5]}]}
+0 - 5    -> {:-, [line: 1], [0, 5]}
+2 + 3    -> {:+, [line: 1], [2, 3]}
+x >= -5  -> {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+pattern/guard use:
+{:a, :lit, :ok}
+quote of integer -5: -5

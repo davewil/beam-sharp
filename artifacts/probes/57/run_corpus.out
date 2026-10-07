@@ -1,0 +1,15 @@
+--- negative literal after comparison, in .bs examples/ (not tests):
+--- same in test/*.erl embedded sources:
+test/corpus_tests.erl:172:                 re:run("Classify(<= -1) -> :negative", Re,
+test/types_tests.erl:150:          "MinusOne() -> -1\n",
+test/intervals_tests.erl:293:          "Classify(<= -1)         -> :negative\n"
+test/intervals_tests.erl:396:                     ?assert(string:find(Got, "Classify(<= -1) -> ...") =/= nomatch),
+test/float_tests.erl:67:          "MinusOne() -> -1.0\n",
+--- binary arithmetic of two int literals after a comparison (2+3, 0-5):
+test/types_tests.erl:166:          "Chain() -> 1 - 2 - 3\n"
+--- double negation / -(:
+test/non_numeric_operand_tests.erl:322:    ok_rc(compile([{"Nx.bs", "module Nx\npublic int F()\nF() -> -(raise :x)\n"
+test/non_numeric_operand_tests.erl:323:                             "public float G()\nG() -> -(raise :x)\n"}])).
+--- negative literal in relational PATTERNS (<= -1) in examples:
+--- counts: refinements total / with arithmetic comparand
+33

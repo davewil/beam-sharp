@@ -1,0 +1,35 @@
+
+[1] beam size with a provenance attribute (Up.abstr, compile:forms [debug_info,binary])
+  none                       beam=  844 B  delta=  0 B  Attr chunk reads back: []
+  app name only (1 app)      beam=  888 B  delta= 44 B  Attr chunk reads back: [{bs_requires,
+                                                                                 [req]}]
+  app+vsn (1 app)            beam=  900 B  delta= 56 B  Attr chunk reads back: [{bs_requires,
+                                                                                 [{req,
+                                                                                   "0.7.3"}]}]
+  3 apps, names only         beam=  908 B  delta= 64 B  Attr chunk reads back: [{bs_requires,
+                                                                                 [req,
+                                                                                  jason,
+                                                                                  finch]}]
+  per-block: 3 attrs         beam=  952 B  delta=108 B  Attr chunk reads back: [{bs_requires,
+                                                                                 [req,
+                                                                                  jason,
+                                                                                  finch]}]
+
+[2] cost of a compile-time presence check (median of 5 batches x 2000 calls, microseconds/call)
+  code:which(module) present   (min,med,max): {30.6475,34.6785,37.6935}
+  code:which(module) absent    (min,med,max): {28.668,32.5395,35.373}
+  code:lib_dir(app) present    (min,med,max): {2.9795,3.306,5.21}
+  code:lib_dir(app) absent     (min,med,max): {1.239,1.465,1.6785}
+  for scale: compile:forms of the same module, one call: 1522 us
+
+[3] what the code path itself says (no source declaration)
+  code:which('Elixir.Req')   = "/home/user/beam-sharp/artifacts/probes/52/fixture/otp_style/req-0.7.3/ebin/Elixir.Req.beam"
+  code:lib_dir(req)          = "/home/user/beam-sharp/artifacts/probes/52/fixture/otp_style/req-0.7.3"
+  application:get_application('Elixir.Req') before app loaded = undefined
+  vsn from req.app           = "0.7.3" ; applications = [kernel,stdlib,elixir]
+
+[4] module-belongs-to-declared-app check (code:which prefix of code:lib_dir)
+  'Elixir.Req' in req   = true
+  'Elixir.Req' in jason = false (jason not on path -> lib_dir error)
+  lists in stdlib = true ; lists in kernel = false
+  cost of the combined check: 61.3 us/call

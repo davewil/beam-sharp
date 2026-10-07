@@ -1,0 +1,4 @@
+module Other.NoUsing
+
+public int Go(int x)
+Go(x) -> Shop.Orders.Internal.Cache.Get(x)

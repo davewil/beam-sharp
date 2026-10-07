@@ -1,0 +1,8 @@
+module Nope
+
+using :'Elixir.NoSuchLibrary' {
+    binary frob(binary s)
+}
+
+public binary Go(binary s)
+Go(s) -> :'Elixir.NoSuchLibrary'.frob(s)

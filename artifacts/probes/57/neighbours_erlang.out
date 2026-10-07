@@ -1,0 +1,27 @@
+-5.            erl_parse -> {op,1,'-',{integer,1,5}}
+- 5.           erl_parse -> {op,1,'-',{integer,1,5}}
+-(-5).         erl_parse -> {op,1,'-',{op,1,'-',{integer,1,5}}}
+0-5.           erl_parse -> {op,1,'-',{integer,1,0},{integer,1,5}}
+2+3.           erl_parse -> {op,1,'+',{integer,1,2},{integer,1,3}}
+-5.0.          erl_parse -> {op,1,'-',{float,1,5.0}}
+erl_eval -5 -> -5
+guard AST: {function,1,f,1,
+                     [{clause,1,
+                              [{var,1,'X'}],
+                              [[{op,1,'>=',
+                                    {var,1,'X'},
+                                    {op,1,'-',{integer,1,5}}}]],
+                              [{atom,1,a}]},
+                      {clause,1,
+                              [{var,1,'X'}],
+                              [[{op,1,'>=',
+                                    {var,1,'X'},
+                                    {op,1,'+',{integer,1,2},{integer,1,3}}}]],
+                              [{atom,1,b}]}]}
+pattern AST: {function,1,f,1,
+                       [{clause,1,[{op,1,'-',{integer,1,5}}],[],[{atom,1,a}]},
+                        {clause,1,
+                                [{op,1,'+',{integer,1,2},{integer,1,3}}],
+                                [],
+                                [{atom,1,b}]}]}
+lint with {integer,1,-5}: ok

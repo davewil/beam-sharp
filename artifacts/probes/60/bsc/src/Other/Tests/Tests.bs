@@ -1,0 +1,6 @@
+module Other.Tests
+
+using Shop.Orders
+
+public int Probe(int x)
+Probe(x) -> Shop.Orders.RecomputeTotal(x)

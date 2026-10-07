@@ -1,0 +1,21 @@
+== Pos:
+   F(n) when n >= 5 -> :hi
+   F(n) when n < 5  -> :lo
+   rc=0
+== Neg:
+   F(n) when n >= -5 -> :hi
+   F(n) when n < -5  -> :lo
+   > /tmp/tmp.H5NUDju8Ez/Neg/neg.bs:3:13: error: F is not exhaustive
+   >   no clause matches:
+   >     F(n) -> ...
+   rc=1
+== NegRun:
+   F(n) when n >= -5 -> :hi
+   F(n) when n < -5  -> :lo
+   F(_) -> :x
+   rc=0
+== PatNeg:
+   F(<= -1) -> :neg
+   F(0) -> :zero
+   F(>= 1) -> :pos
+   rc=0

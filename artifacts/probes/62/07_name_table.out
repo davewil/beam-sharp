@@ -1,0 +1,36 @@
+G reimplementation == gleam binary output on all 13 names: OK
+
+B# name           E Macro.underscore    G gleam-style         L first-letter
+New               new                   new                   new
+Which             which                 which                 which
+HTTPGet           http_get              h_t_t_p_get           hTTPGet
+ToJSON            to_json               to_j_s_o_n            toJSON
+New2              new2                  new2                  new2
+FooBar            foo_bar               foo_bar               fooBar
+Foobar            foobar                foobar                foobar
+ABC               abc                   a_b_c                 aBC
+Abc               abc                   abc                   abc
+A1B               a1_b                  a1_b                  a1B
+XMLHttpRequest2   xml_http_request2     x_m_l_http_request2   xMLHttpRequest2
+IOError           io_error              i_o_error             iOError
+Get2              get2                  get2                  get2
+Get_2             get_2                 get_2                 get_2
+Foo_Bar           foo__bar              foo__bar              foo_Bar
+Foo_bar           foo_bar               foo_bar               foo_bar
+Foo__Bar          foo___bar             foo___bar             foo__Bar
+GetX              get_x                 get_x                 getX
+Get_X             get_x                 get__x                get_X
+Parse2Json        parse2_json           parse2_json           parse2Json
+ParseJSON2        parse_json2           parse_j_s_o_n2        parseJSON2
+X                 x                     x                     x
+URL               url                   u_r_l                 uRL
+Init              init                  init                  init
+HandleCall        handle_call           handle_call           handleCall
+
+Collisions inside one module (two B# names -> one alias atom):
+  E: [{"abc", ["ABC", "Abc"]}, {"foo_bar", ["FooBar", "Foo_bar"]}, {"get_x", ["GetX", "Get_X"]}]
+  G: [{"foo_bar", ["FooBar", "Foo_bar"]}]
+  L: []
+
+Alias equals an atom the module already exports under the callback table (bs_otp.erl:40ff):
+  Init -> E:init G:init; HandleCall -> E:handle_call G:handle_call (emitted already as init/handle_call)

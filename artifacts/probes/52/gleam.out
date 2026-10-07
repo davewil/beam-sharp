@@ -1,0 +1,25 @@
+== @external to a module that exists nowhere, no deps
+  Resolving versions
+  Compiling p
+   Compiled in 0.48s
+    {applications, []},
+== import of a gleam module, dependency declared in gleam.toml (path dep)
+  Resolving versions
+      Added dep v1.0.0
+  Compiling dep
+  Compiling p
+   Compiled in 0.52s
+    {applications, [dep]},
+== same import, dependency NOT declared
+  Resolving versions
+  Compiling p
+error: Unknown module
+  ┌─ /home/user/beam-sharp/artifacts/probes/52/gleam_proj/src/p.gleam:1:1
+  │
+1 │ import dep
+  │ ^^^^^^^^^^
+
+No module has been found with the name `dep`.
+
+error: Unknown module
+  ┌─ /home/user/beam-sharp/artifacts/probes/52/gleam_proj/src/p.gleam:4:3

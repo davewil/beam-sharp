@@ -1,0 +1,12 @@
+private_inc(N) ->
+    N + 1.
+
+outer(N) ->
+    private_inc(N).
+
+private_total(O) ->
+    element(2, O).
+
+outer_order(O) ->
+    private_total(O).
+

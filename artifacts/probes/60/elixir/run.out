@@ -1,0 +1,8 @@
+Compiling 3 files (.ex)
+Generated probe app
+[compile exit 0]
+== mix xref callers Shop.Orders.Cache
+lib/other/thing.ex (runtime)
+lib/shop/orders.ex (runtime)
+moduledoc: :hidden
+Other.Thing.go(4): 8

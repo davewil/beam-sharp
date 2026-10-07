@@ -1,0 +1,43 @@
+predicate                            current   A-parser  B-checker
+value >= 0 and value <= 255          ok        ok        ok       
+value >= -5                          REFUSED   ok        ok       
+value >= -5 and value <= 5           REFUSED   ok        ok       
+value >= 1 or value <= -1            REFUSED   ok        ok       
+value <= 3 or value >= 10            ok        ok        ok       
+value != 0                           ok        ok        ok       
+value != -1                          REFUSED   ok        ok       
+value == -3                          REFUSED   REFUSED   REFUSED  
+value > -1                           REFUSED   ok        ok       
+-5 <= value                          REFUSED   ok        ok       
+value >= 0 - 5                       REFUSED   REFUSED   ok       
+value >= 2 + 3                       REFUSED   REFUSED   ok       
+value >= -(-5)                       REFUSED   ok        ok       
+value >= -(5)                        REFUSED   ok        ok       
+value >= (-5)                        REFUSED   ok        ok       
+value >= - 5                         REFUSED   ok        ok       
+value >= -0                          REFUSED   ok        ok       
+value >= 5 - 10                      REFUSED   REFUSED   ok       
+value >= 2 * 3                       REFUSED   REFUSED   ok       
+value >= 1 + 2 * 3                   REFUSED   REFUSED   ok       
+value >= -5 + 0                      REFUSED   REFUSED   ok       
+value < 0 or value > 10              ok        ok        ok       
+value >= -100 and value <= 100       REFUSED   ok        ok       
+
+guard probe, cur:
+
+  Pos:    rc=0 
+  Neg:    rc=1 
+  NegRun:    rc=0 
+  PatNeg:    rc=0
+guard probe, A:
+
+  Pos:    rc=0 
+  Neg:    rc=0 
+  NegRun:    rc=0 
+  PatNeg:    rc=0
+guard probe, B:
+
+  Pos:    rc=0 
+  Neg:    rc=0 
+  NegRun:    rc=0 
+  PatNeg:    rc=0

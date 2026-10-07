@@ -1,0 +1,14 @@
+Other.Thing                        -> Shop.Orders.Internal.Cache     expect refused  got refused  ok
+Shop.Billing                       -> Shop.Orders.Internal.Cache     expect refused  got refused  ok
+Shop.Orders                        -> Shop.Orders.Internal.Cache     expect allowed  got allowed  ok
+Shop.Orders.Total                  -> Shop.Orders.Internal.Cache     expect allowed  got allowed  ok
+Shop.OrdersX                       -> Shop.Orders.Internal.Cache     expect refused  got refused  ok
+Shop.Orders.Internal.Cache         -> Shop.Orders.Internal.Cache     expect allowed  got allowed  ok
+Shop.Billing                       -> Shop.Orders                    expect allowed  got allowed  ok
+Shop.Billing                       -> Shop.Internal                  expect allowed  got allowed  ok
+Shop                               -> Shop.Internal                  expect allowed  got allowed  ok
+Other                              -> Internal.X                     expect allowed  got allowed  ok
+flat lists:prefix("Shop.Orders", "Shop.OrdersX") = true
+declared: allowed refused
+corpus: 88 modules, 7656 ordered pairs, refused under Internal rule: 0
+765600 checks in 2316 ms (3.03 us/check)

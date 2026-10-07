@@ -1,0 +1,8 @@
+module Ghost
+
+using :no_such_erlang_mod {
+    int frob(int n)
+}
+
+public int Go(int n)
+Go(n) -> :no_such_erlang_mod.frob(n)

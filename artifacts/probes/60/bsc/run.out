@@ -1,0 +1,19 @@
+== bsc --src-root src src/Shop/Orders
+[exit 0]
+== bsc --src-root src src/Shop/Orders/Internal/Cache
+[exit 0]
+== bsc --src-root src src/Other/Thing
+[exit 0]
+== bsc --src-root src src/Other/Tests
+src/Other/Tests/Tests.bs:6:24: error: Probe calls Shop.Orders.RecomputeTotal/1, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+[exit 1]
+== bsc --src-root src src/Other/NoUsing
+src/Other/NoUsing/NoUsing.bs:4:36: error: Shop.Orders.Internal.Cache is called but never imported
+  add `using Shop.Orders.Internal.Cache` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+[exit 1]
+== run Other.Thing.Go 4 (an outsider names Shop.Orders.Internal.Cache today)
+8
+[exit 0]
