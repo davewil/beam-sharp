@@ -122,7 +122,8 @@ each of the two halves catches a fault the other cannot see.
 **Once per unit of work, at the final SHA — not once per commit** (David, 2026-09-02). A pair is
 ~13 minutes, and restarting it every time `HEAD` moves burns them for nothing. Batch first,
 verify last. **A docs-or-ticket change gets only the gates that read it** — `check-links.sh`,
-`check-tour.sh` / `check-language.sh` if those files moved, and `check-status-claims.sh` if a
+`check-tour.sh` / `check-language.sh` if those files moved, `check-readme.sh` if `README.md` or
+`compiler/README.md` moved, and `check-status-claims.sh` if a
 ticket's `Status:` line changed, since it reads those to judge "N open" claims in the shipping
 documents. A docs-only
 commit landing on an already-verified SHA does not restart the standing pair.
