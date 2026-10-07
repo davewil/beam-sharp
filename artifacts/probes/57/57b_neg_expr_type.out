@@ -1,0 +1,12 @@
+ok  PosLitArg              accepted  (expected accepted) 
+ok  NegLitArg              refused   (expected refused ) NegLitArg/a.bs:6:9: error: Go hands Id an argument it does not accept
+-- NegLitArg's full diagnostic (note: it names the upper half, not the sign):
+NegLitArg/a.bs:6:9: error: Go hands Id an argument it does not accept
+  argument 1 is not covered by Id's declared type:
+    int >= 4
+ok  NegBare                refused   (expected refused ) NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pa
+ok  PosBare                refused   (expected refused ) PosBare/a.bs:4:12: error: this bind in F can fail
+-- first line of each (the two refusals must differ):
+   NegBare: NegBare/a.bs:4:9: error: the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pattern> = ...`
+   PosBare: PosBare/a.bs:4:12: error: this bind in F can fail
+fails=0

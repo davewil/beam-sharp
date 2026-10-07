@@ -21,6 +21,7 @@ for v in v0 v1 v2 v2b v2c v3; do
   "$here/build_variant.sh" "$W/$v/src" "$W/$v/ebin"
   printf '#!/usr/bin/env bash\nexec erl -noshell -pa %s -eval '"'"'bsc:main(init:get_plain_arguments())'"'"' -extra "$@"\n' "$W/$v/ebin" > "$W/$v/bsc.sh"; chmod +x "$W/$v/bsc.sh"
 done
+# `Neg_eq_single*` is refused in EVERY variant for an unrelated reason: a singleton refinement crashes -spec emission (probe 57g).
 cases() {  # prints "NAME got" lines using $BSC
   . "$here/lib.sh" >/dev/null 2>&1
   WORK=$(mktemp -d)
@@ -33,7 +34,7 @@ $R"
 $R"
   c Neg_or_split    "type T = int where value >= 1 or value <= -1
 $R"
-  c Neg_eq          "type T = int where value == -1
+  c Neg_eq_single*  "type T = int where value == -1
 $R"
   c Neg_ne          "type T = int where value != -1
 $R"
@@ -83,6 +84,10 @@ echo "== case matrix (accepted/refused), measured =="
 { printf 'case v0 v1 v2 v2b v2c v3\n'
   paste -d' ' "$W/v0.cases" <(cut -d' ' -f2 "$W/v1.cases") <(cut -d' ' -f2 "$W/v2.cases") <(cut -d' ' -f2 "$W/v2b.cases") <(cut -d' ' -f2 "$W/v2c.cases") <(cut -d' ' -f2 "$W/v3.cases"); } | awk '{printf "%-18s",$1; for(i=2;i<=NF;i++) printf " %-9s",$i; print ""}'
 echo
+echo "== first diagnostic for a negative literal on the left of a bare '=' (57b NegBare), per variant =="
+mkdir -p "$W/nb/NegBare"; printf 'module NegBare\npublic int F((int, int) p)\nF(p) ->\n    (_, -1) = p\n    0\n' > "$W/nb/NegBare/a.bs"
+for v in v0 v1 v2 v2b v2c v3; do printf '  %-4s ' $v; "$W/$v/bsc.sh" --src-root "$W/nb" -o "$W/nbo" "$W/nb/NegBare" 2>&1 | head -1 | sed "s#$W/nb/##" | cut -c1-110; done
+echo
 echo "== abstract code for a module using -5 (guard, literal body, arithmetic), diff vs v0 =="
 mkdir -p "$W/ab/M"; cat > "$W/ab/M/a.bs" <<'EOT'
 module M
@@ -102,6 +107,10 @@ for v in v1 v2 v2b v2c v3; do
   echo "-- $v vs v0 (.abstr, positions stripped):"
   diff <(sed 's/{[0-9]*,[0-9]*}/P/g;s#"/[^"]*"#F#' "$W/ab_v0/M.abstr") <(sed 's/{[0-9]*,[0-9]*}/P/g;s#"/[^"]*"#F#' "$W/ab_$v/M.abstr") && echo "   identical"
 done
+echo
+echo "== precedent: v0 ALREADY emits a negative {integer,_,-N} node for a negative PATTERN literal and relational pattern bound =="
+mkdir -p "$W/pt/P"; printf 'module P\npublic atom Sign(int n)\nSign(-7) -> :seven\nSign(<= -1) -> :neg\nSign(_) -> :other\n' > "$W/pt/P/a.bs"
+"$W/v0/bsc.sh" --src-root "$W/pt" -o "$W/pto" "$W/pt/P" 2>&1 | head -2; grep -n -- "-7}\|,-1}" "$W/pto/P.abstr" | sed 's/^/  /'
 echo
 echo "== BEAM Code chunk and .beam size, vs v0 =="
 for v in v0 v1 v2 v2b v2c v3; do
