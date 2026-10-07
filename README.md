@@ -19,7 +19,7 @@ Classify(>= 500)           -> :server_error
 That is not exhaustive, and the compiler does not shrug at it:
 
 ```
-demo.bs:5: error: Classify is not exhaustive
+Demo/demo.bs:5:15: error: Classify is not exhaustive
   no clause matches:
     Classify(<= 199) -> ...
     Classify(>= 300 and <= 399) -> ...

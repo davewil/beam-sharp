@@ -9,6 +9,13 @@
 # Self-test copies are passed directly to judge.  Ordinary invocation always
 # reads the committed document, so an ambient environment cannot choose a
 # friendlier transcript.
+#
+# THE REPOSITORY README'S HEADLINE IS THE SAME KIND OF PROMISE, AND THE FIRST
+# ONE A READER MEETS: a program, then what the compiler says about it.  Its
+# first fence is compiled through `bsc` at the path its second fence names, and
+# the two must agree byte for byte.  The transcript drifted once already — the
+# column arrived on 2026-09-05 and the README went on printing `demo.bs:5:` —
+# and nothing read it (ENG-264).
 
 set -euo pipefail
 
@@ -16,12 +23,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 BSC="$HERE/_build/default/bin/bsc"
 README="$HERE/README.md"
+HEADLINE="$REPO/README.md"
 
 [ -x "$BSC" ] || {
   echo "no built bsc at ${BSC#"$REPO"/} — run rebar3 escriptize"
   exit 2
 }
 [ -f "$README" ] || { echo "no README at $README"; exit 2; }
+[ -f "$HEADLINE" ] || { echo "no README at $HEADLINE"; exit 2; }
 
 transcript() {
   awk '
@@ -82,6 +91,50 @@ judge() {
 
   [ "$missing" -eq 0 ]
 }
+
+# The Nth bare fence of a document, without its fence lines.
+fence() {
+  awk -v want="$2" '
+    /^```$/ { if (inside) { inside = 0; if (n == want) exit } else { inside = 1; n++ }; next }
+    inside && n == want { print }
+  ' "$1"
+}
+
+# A subshell, so its cleanup is its own: `judge`'s RETURN trap outlives the
+# call that set it and would fire again here over a `work` that is not ours.
+judge_headline() (
+  doc="$1"
+  work="$(mktemp -d)"
+  trap 'rm -rf "$work"' EXIT
+
+  fence "$doc" 1 > "$work/program"
+  fence "$doc" 2 > "$work/expected"
+  if ! grep -q '^module ' "$work/program"; then
+    echo "DRIFTED: the first fence of ${doc#"$REPO"/} is not a program"
+    return 1
+  fi
+
+  # The transcript says where the file is, so that is where it is put: the
+  # position prefix is part of what the reader is shown.
+  path="$(sed -n '1s/^\([A-Za-z0-9_][A-Za-z0-9_/]*\.bs\):[0-9].*$/\1/p' "$work/expected")"
+  module="$(dirname "$path")"
+  if [ -z "$path" ] || [ "$module" = "." ]; then
+    echo "DRIFTED: the second fence of ${doc#"$REPO"/} does not open with Module/file.bs:LINE"
+    return 1
+  fi
+
+  mkdir -p "$work/src/$module"
+  cp "$work/program" "$work/src/$path"
+  # A refused program exits 1, which is what the headline shows; the output is
+  # the measurement, and a crash or a usage message differs from it.
+  (cd "$work/src" && "$BSC" --src-root . "$module" > "$work/actual" 2>&1) || true
+
+  if ! cmp -s "$work/expected" "$work/actual"; then
+    echo "DRIFTED: ${doc#"$REPO"/} shows one transcript for its headline program and bsc prints another"
+    diff "$work/expected" "$work/actual" | sed 's/^/    /' || true
+    return 1
+  fi
+)
 
 if [ "${1:-}" = "--self-test" ]; then
   ctl="$(mktemp -d)"
@@ -154,6 +207,50 @@ if [ "${1:-}" = "--self-test" ]; then
   else
     echo "  ok green on the committed README transcript"
   fi
+
+  expect_headline_red() {
+    if judge_headline "$1" >/dev/null 2>&1; then
+      echo "SELF-TEST FAILED: $2 was accepted"
+      failed=1
+    else
+      echo "  ok red on $2"
+    fi
+  }
+
+  # The drift this gate was written for: the position with its column dropped.
+  sed 's/^\([A-Za-z0-9_/]*\.bs:[0-9]*\):[0-9]*: error:/\1: error:/' "$HEADLINE" > "$ctl/no-column.md"
+  cmp -s "$HEADLINE" "$ctl/no-column.md" && {
+    echo "SELF-TEST FAILED: the committed headline has no LINE:COL position to perturb"
+    failed=1
+  }
+  expect_headline_red "$ctl/no-column.md" "a headline transcript without its column"
+
+  # One character of the residual, so the comparison is of the whole transcript.
+  sed 's/^    Classify(<= 199) -> \.\.\.$/    Classify(<= 198) -> .../' "$HEADLINE" > "$ctl/residual.md"
+  cmp -s "$HEADLINE" "$ctl/residual.md" && {
+    echo "SELF-TEST FAILED: the committed headline has no residual line to perturb"
+    failed=1
+  }
+  expect_headline_red "$ctl/residual.md" "a headline transcript with a perturbed residual"
+
+  # The program moved and the transcript left standing.
+  sed 's/^Classify(>= 500)  /Classify(>= 600)  /' "$HEADLINE" > "$ctl/program.md"
+  cmp -s "$HEADLINE" "$ctl/program.md" && {
+    echo "SELF-TEST FAILED: the committed headline has no clause to perturb"
+    failed=1
+  }
+  expect_headline_red "$ctl/program.md" "a headline program its transcript no longer describes"
+
+  sed '/^```$/d' "$HEADLINE" > "$ctl/no-fences.md"
+  expect_headline_red "$ctl/no-fences.md" "a README with no headline fences"
+
+  if ! judge_headline "$HEADLINE" >/dev/null 2>&1; then
+    echo "SELF-TEST FAILED: the committed README headline was rejected"
+    failed=1
+  else
+    echo "  ok green on the committed README headline"
+  fi
+
   [ "$failed" -eq 0 ] || exit 1
   echo "self-test: rejected a drifted README transcript and accepted the committed one"
   exit 0
@@ -165,3 +262,8 @@ if ! judge "$README" "$HERE/examples/Shop"; then
   exit 1
 fi
 echo "  ok         README bindings transcript replays in bsc --repl without errors"
+
+if ! judge_headline "$HEADLINE"; then
+  exit 1
+fi
+echo "  ok         README headline program prints its transcript, byte for byte"

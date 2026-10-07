@@ -191,10 +191,10 @@ jobs:
         working-directory: compiler
         run: rebar3 escriptize
 
-      - name: The README REPL transcript gate proves it can fail
+      - name: The README transcript gate proves it can fail
         run: ./compiler/bin/check-readme.sh --self-test
 
-      - name: README bindings replay in the public REPL
+      - name: The READMEs replay, the bindings in the REPL and the headline through bsc
         run: ./compiler/bin/check-readme.sh
 
       # THE PACKAGE THAT SHIPS MUST STAND ALONE, WHICH IS NOT WHAT
