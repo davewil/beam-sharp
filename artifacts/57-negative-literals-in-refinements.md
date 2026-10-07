@@ -10,13 +10,13 @@ Ticket: `wayfinder/issues/57-negative-literals-in-refinements.md`, Linear [ENG-2
 
 Probe `57a` re-runs the ticket's table. **The table still holds** (all five rows, plus the pattern control; `57a_repro_table.out`, 18 ok, fails=0). **The stated mechanism is stale**, and the defect is wider than the ticket says:
 
-1. Since F51 (2026-09-16) the parser no longer emits `0 - 5`. `bs_parser.yrl:589` is `expr_low -> '-' expr_low : negate(...)` and produces `{e_neg, L, E}`. `negate/2` (`bs_parser.yrl:944`) **already folds a negated float literal** (`negate(_L, {e_float, FL, F}) -> {e_float, FL, -F}`) and not an int literal. The ticket's `{e_op,'-',{e_int,0},...}` no longer exists; the symptom is unchanged.
+1. Since F51 (`done 2026-09-16` per its F-file's status line; git history starts 2026-09-29, so `git log` cannot confirm the date) the parser no longer emits `0 - 5`. `bs_parser.yrl:589` is `expr_low -> '-' expr_low : negate(...)` and produces `{e_neg, L, E}`. `negate/2` (`bs_parser.yrl:944`) **already folds a negated float literal** (`negate(_L, {e_float, FL, F}) -> {e_float, FL, -F}`) and not an int literal. The ticket's `{e_op,'-',{e_int,0},...}` no longer exists; the symptom is unchanged.
 2. **The same defect is in guards.** `alternatives/1`/`comparison/1` (`bs_check.erl:4931-4955`) is shared, so `S(n) when n >= -5 -> ...; S(n) when n < -5 -> ...` is refused as "S is not exhaustive / no clause matches: S(n) -> ..." (the guard credits nothing). Positive control `>= 5 / < 5` is accepted; relational patterns `S(>= -5)`/`S(< -5)` are accepted (57a).
-3. **The expression `-3` is typed `int`, not the singleton `-3..-3`** (`bs_check.erl:2874`, `type_of({e_neg,...})` returns `int()`). So `Id(-3)` against `T = int where value <= 3` is refused with `int >= 4`, a diagnostic that names the wrong half; `Id(2)` is accepted (57b).
+3. **The expression `-3` is typed `int`, not the singleton `-3..-3`** (`bs_check.erl:2874` is the `type_of({e_neg,...})` clause head; the `int()` result is at `bs_check.erl:2882`). So `Id(-3)` against `T = int where value <= 3` is refused with `int >= 4`, a diagnostic that names the wrong half; `Id(2)` is accepted (57b).
 4. A negative literal on the left of a bare `=` (`(_, -1) = p`) is refused as "must be a literal pattern", while `(_, 1) = p` reaches a different diagnostic ("this bind can fail"), so the left side was accepted (57b).
 5. `2 + 3`, `0 - 5`, `2 * 3`, `value >= n`, `value >= -(5)`, `- -5`, `-5 <= value`: all refused today (57a, 57e v0 column). So "where does the fold stop" currently stops before `-5`.
 
-Side finding, not this ticket (57g): a refinement that denotes **one** integer (`value == 1`, `value >= 1 and value <= 1`) passes the checker and then the compile crashes with `compile: ...:0: bad range type`, because the emitted `-spec` says `1..1` and erl_lint rejects equal bounds (shown with a hand-written `-spec f(1..1)`; `1..2` is fine). This confounds any `== K` test; it is why `Neg_eq_single*` is refused in every variant below. It deserves its own ticket.
+Side finding, not this ticket (57g): a refinement that denotes **one** integer (`value == 1`, `value >= 1 and value <= 1`) passes the checker and then compilation fails late with `compile: ...:0: bad range type` (position `:0`; a reported compile failure, not an Erlang crash), because the emitted `-spec` says `1..1` and erl_lint rejects equal bounds (shown with a hand-written `-spec f(1..1)`; `1..2` is fine). This confounds any `== K` test; it is why `Neg_eq_single*` is refused in every variant below. It deserves its own ticket. It reproduces on unpatched v0 and every variant.
 
 ## Sub-decisions
 
@@ -49,7 +49,7 @@ Go() -> Id(-3)                                           // accepted
 
 Compiler delta: one clause in `negate/2` (1 line; patch `v1.patch`). No new symbol-table entry, pass or emitted function. The grammar is not narrowed: refinement stays `refinement -> expr_low`.
 
-Evidence (`57e_variants.out`): fixes `Neg_ge_5`, `Neg_and_range`, `Neg_or_split`, `Neg_ne`, `Lit_on_left`, `Parenthesised`, `ParenNeg`, `DoubleNeg`, `Guard_neg_cover`, `NegLit_argument`, `Neg_domain_ok`, and moves the bare-`=` diagnostic from "must be a literal pattern" to "this bind can fail" (the literal is now read). Does **not** accept `2 + 3`, `0 - 5`, `2 * 3`, `value >= n`. Emitted abstract code differs in exactly three nodes, `{op,'-',{integer,5}}` becomes `{integer,-5}`; the BEAM `Code` chunk md5 is identical to v0 (390D44...); `.beam` is 12 bytes smaller (1344 vs 1332). v0 already emits `{integer,_,-7}` for a negative pattern literal and `{integer,_,-1}` for `<= -1`, so a negative integer node is existing practice. Existing tests: `57f_eunit_variants.out`, v1 has the same 5 failures as the unpatched control and none new (the 5 are harness artefacts, below).
+Evidence (`57e_variants.out`): fixes `Neg_ge_5`, `Neg_and_range`, `Neg_or_split`, `Neg_ne`, `Lit_on_left`, `Parenthesised`, `ParenNeg`, `DoubleNeg`, `Guard_neg_cover`, `NegLit_argument`, `Neg_domain_ok`, and moves the bare-`=` diagnostic from "must be a literal pattern" to "this bind can fail" (the literal is now read). Does **not** accept `2 + 3`, `0 - 5`, `2 * 3`, `value >= n`. Emitted abstract code differs in exactly three nodes, `{op,'-',{integer,5}}` becomes `{integer,-5}`; the BEAM `Code` chunk md5 is identical to v0 (390D44...). (`.beam` file size is not claimed: it depends on the build path.) v0 already emits `{integer,_,-7}` for a negative pattern literal and `{integer,_,-1}` for `<= -1`, so a negative integer node is existing practice. Existing tests: `57f_eunit_variants.out`, v1 has the same 5 failures as the unpatched control and none new (the 5 are harness artefacts, below). The suite's AOC test and `bin/check` gate tests did not run in the eunit harness; coverage for that gap is the 62-directory corpus compile (examples, prototypes, aoc), identical to v0 under every variant.
 
 Strongest counterargument: the parser now does arithmetic. `-5` is folded but `0 - 5` and `2 + 3` are not, so the line between "readable" and "opaque" is a lexical accident a reader must memorise; and `-2 * 3` parses as `-(2*3)` (the unary rule has `-`'s precedence 400, below `*`), so it stays an unfolded `e_neg` even though `-2 + 3` folds. Also it makes `-5`, `-(5)` and `- -5` indistinguishable after parsing (a feature for refinements, a loss if a later diagnostic wants to say "you wrote a negation").
 
@@ -64,7 +64,7 @@ const_int(_)             -> error.
 
 Compiler delta: `const_int/1` plus two rewritten `comparison/1` clauses in `bs_check.erl` (12 lines, `v2.patch`). v2b adds one `type_of` clause so `-3` is the singleton range (13 lines). v2c adds `+ - *` folding of constants (18 lines, `v2c.patch`).
 
-Evidence: v2 fixes refinement and guard sites (same cases as A) but **not** `NegLit_argument` (`Id(-3)` still refused) and **not** the bare-`=` literal. v2b fixes `Id(-3)`. v2c additionally accepts `2 + 3`, `0 - 5`, `2 * 3`; `value >= n` and `Neg_residual` stay refused. Abstract code and Code chunk identical to v0 (the fold is check-time only). Tests: same 5 control failures, nothing new.
+Evidence: v2 fixes refinement and guard sites (same cases as A) but **not** `NegLit_argument` (`Id(-3)` still refused; both `Take(-3)` and `NN(-2)` are refused because `-3` is typed `int`) and **not** the bare-`=` literal. v2b fixes `Id(-3)`. v2c additionally accepts `2 + 3`, `0 - 5`, `2 * 3`; `value >= n` and `Neg_residual` stay refused. Abstract code and Code chunk identical to v0 (the fold is check-time only). Tests: same 5 control failures, nothing new.
 
 Strongest counterargument: three places must each learn what a negative literal is (comparison, `type_of`, pattern conversion for bare `=`), and the next consumer of `e_int` (a future size or range position) has to remember to call `const_int`. The parser fix cannot be forgotten at a new consumer. In exchange B is the only route to arithmetic comparands, which is what Erlang does (below).
 
@@ -77,7 +77,7 @@ refinement -> lident '==' atom_lit.    refinement -> refinement 'and'|'or' refin
 
 Compiler delta: 7 productions plus a `ref_op` nonterminal in `bs_parser.yrl` (20 changed lines, `v3.patch`); yecc reports the same 6 shift/reduce conflicts as the unpatched grammar.
 
-Evidence: fixes only the refinement cases (`Neg_ge_5`, `Neg_and_range`, `Neg_or_split`, `Neg_ne`, `Lit_on_left`, `Parenthesised`, `Neg_domain_ok`). Leaves `Guard_neg_cover`, `NegLit_argument` and the bare-`=` case broken, and it **newly refuses `-(5)` and `- -5`** (they parse today as an expression). It breaks an existing test: `intervals_tests:an_unreadable_refinement_predicate_is_an_error_test` (`type Email = int where WellFormed(value)`) fails because the case is now a syntax error, not `{opaque_refinement,_}`; that is the O(n)-tier diagnostic text the language reference promises. `57f_eunit_variants.out` v3: 6 failures against the control's 5.
+Evidence: its "refused" cases (`Call_refinement`, `Var_comparand`, `Neg_residual`) are syntax errors, not `opaque_refinement`. It fixes only the refinement cases (`Neg_ge_5`, `Neg_and_range`, `Neg_or_split`, `Neg_ne`, `Lit_on_left`, `Parenthesised`, `Neg_domain_ok`). Leaves `Guard_neg_cover`, `NegLit_argument` and the bare-`=` case broken, and it **newly refuses `-(5)` and `- -5`** (they parse today as an expression). It breaks an existing test: `intervals_tests:an_unreadable_refinement_predicate_is_an_error_test` (`type Email = int where WellFormed(value)`) fails because the case is now a syntax error, not `{opaque_refinement,_}`; that is the O(n)-tier diagnostic text the language reference promises. `57f_eunit_variants.out` v3: 6 failures against the control's 5.
 
 Strongest counterargument (it is the ticket's own): the file says the refinement is an `expr` so that it and a guard cannot disagree; C gives refinements their own grammar and leaves the guard, which shares `alternatives/1`, still unable to say `-5`.
 
@@ -104,9 +104,9 @@ Under A the answer is built in: `-5`, `-(5)`, `- -5` fold; `2 + 3`, `0 - 5` are 
 
 - Case matrix: 20 cases x 6 builds, each build a separate `bsc` invocation on a fresh single-module directory (`57e_variants.out`).
 - Abstract code: `.abstr` diff with positions stripped, `-5` in a guard, a literal body and `n + -5`; only A differs, in 3 nodes.
-- `Code` chunk md5 via `beam_lib:chunks`: identical in all 6 builds. `.beam` bytes: 1344 for v0, v2*, v3; 1332 for A.
+- `Code` chunk md5 via `beam_lib:chunks`: identical in all 6 builds. `.beam` byte size is path-dependent (verifier's builds differ from these), so no size claim is made.
 - Compile time, N=7 each, whole `bsc` invocation including VM boot, median ms: v0 370, v1 402, v2 386, v2b 381, v2c 398, v3 417 (min 358-383). The spread is within boot noise (run-to-run maxima vary by ~40 ms); no speed claim is made.
-- Existing tests: `57f_eunit_variants.out`, whole `compiler/test` suite per build, sequentially. rebar3 is not installed so `run_eunit.sh` reproduces its layout by hand. The unpatched control fails 5 tests for harness reasons (no `TEST` define for `declared_text`, AOC programs and gates live outside `compiler/`); every variant is compared to that control. Result: A, v2, v2b, v2c add no failures; v3 adds exactly one.
+- Existing tests: `57f_eunit_variants.out`, whole `compiler/test` suite per build, sequentially. rebar3 is not installed so `run_eunit.sh` reproduces its layout by hand. The unpatched control fails 5 tests for harness reasons (no `TEST` define for `declared_text`, AOC programs and gates live outside `compiler/`); every variant is compared to that control. Result: A, v2, v2b, v2c add no failures; v3 adds exactly one. Coverage caveat: AOC and `bin/check` gate tests did not run in this harness; the 62-directory corpus compile stands in for them.
 - Patch size (changed lines): A 1, B 12 / 13 / 18, C 20.
 
 ## Probe index
@@ -130,5 +130,28 @@ Run from the repo root with the scratchpad `env.sh` sourced (`BSC` is set there)
 - Elixir parser and Gleam compiler sources are not installed; Elixir/Gleam claims are behavioural only, no file:line.
 - The repo's own gates (`bin/check-*.sh`, `./bin/verify.sh`) were not run on any variant; only the eunit suite was, and only with the 5 control failures above. The unpatched `TEST`-macro failures mean tests that need test-only exports were not exercised.
 - The variants are minimal prototypes, not reviewed implementations: A was not checked against every consumer of `{e_int,_,N}` (for example size positions in binary segments), and B's `const_int` ignores integer-overflow-free semantics because Erlang integers are unbounded.
-- `-2 * 3` precedence claim is from reading `bs_parser.yrl` precedence declarations (`-` at 400, `*` at 500), not from a probe.
+- `-2 * 3` precedence claim: now probed by the verifier (see Verification); originally from reading `bs_parser.yrl` precedence declarations.
 - Timing is boot-dominated and the machine was shared with no other load during the final run; treat it as "no difference visible", nothing finer.
+
+## Verification
+
+Verdict: **VALID with caveats.** Independent verification: [57-negative-literals-in-refinements.verification.md](57-negative-literals-in-refinements.verification.md) (2026-10-07). It rebuilt `bsc` and each patch from scratch, and every probe reproduced byte-identically. No circularity was found: the patches touch only what the brief says, and acceptance was not loosened. The recommendation (Option A) is unchanged.
+
+Corrections applied to this brief:
+
+1. Dropped the "`.beam` 12 bytes smaller" claim (size depends on build path); kept the Code-chunk md5 identity and the 3-node abstract-code difference.
+2. F51's date 2026-09-16 comes from the F-file's status line; git history starts 2026-09-29, so `git log` cannot confirm it.
+3. 57g is a late compile failure (`bad range type`, position `:0`), not a crash.
+4. The AOC test and `bin/check` gates did not run in the eunit harness; the 62-directory corpus compile is cited as the coverage.
+5. v3's refused cases are syntax errors, not `opaque_refinement`; v2 refuses both `Take(-3)` and `NN(-2)` because `-3` is typed `int`.
+6. The `int()` result for `-3` is at `bs_check.erl:2882`; 2874 is only the clause head.
+
+Verifier's additional findings:
+
+- The Option A program was run, not just compiled: `S(-5)=a`, `S(-6)=b`, `Take(-3)=-3`. It fails on v0 and passes on v1, v2b and v2c (v2 refuses it, as claimed).
+- Rejection controls still refuse on all patched builds: 101 and -101 into `-100..100`, `-1` against `!= -1`, and the gap at -6.
+- Mutants go red (the `-N`/`-K` sign dropped in v1 and v2b), so the controls can fail.
+- 62 module directories (examples, prototypes, aoc) compile identically to the v0 baseline under v1, v2, v2b, v2c and v3.
+- Compile times (idle machine): medians 333-356 ms, no visible difference.
+- Full 65-module eunit runs completed for v0, v1, v2b and v3. The v2 and v2c runs were cut at 60 modules by a container restart, with identical failures; the relevant modules re-ran and pass.
+- `-2 * 3` parses as `-(2*3)`, and `-2 + 3` folds under v1; both are now probed rather than read from the grammar.
