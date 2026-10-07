@@ -27,12 +27,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # are needed and neither is redundant.
 #
 # `pwd` above is LOGICAL: it keeps whatever symlinks the caller walked through,
-# which is what the human-facing messages should echo back. One message is the
-# exception, and deliberately: the self-test's binding failure prints $HERE_P,
-# because it has to show the path it compared. But
+# which is what the human-facing messages should echo back. But
 # `build-run-manifest.py` calls `.resolve()` on HARNESS, so every path it writes
 # is symlink-free. Comparing a manifest path against $HERE therefore compares two
 # spellings of one directory and calls them different.
+#
+# One message prints $HERE_P rather than $HERE, and deliberately: the self-test's
+# "does not bind to this harness" failure, which has to show the path it compared.
 #
 # Found 2026-08-27: on macOS `/var` is a symlink to `/private/var` and `mktemp -d`
 # hands back the logical form, so `git clone` into a temp dir — the exact shape of
@@ -91,10 +92,10 @@ if [ "${1:-}" = "--self-test" ]; then
   # It was the environment variable AUDITION_SELFTEST_NESTED until 2026-10-08,
   # and a shell that merely inherited `=1` skipped both halves of that control
   # and was still told they had passed.
-  case "${2:-}" in
-    "")       NESTED=0 ;;
-    --nested) NESTED=1 ;;
-    *) echo "usage: stage.sh <workdir> | stage.sh --self-test"; exit 2 ;;
+  case "$#:${2:-}" in
+    1:)         NESTED=0 ;;
+    2:--nested) NESTED=1 ;;
+    *) echo "usage: stage.sh <workdir> | stage.sh --self-test" >&2; exit 2 ;;
   esac
   CTL="$(mktemp -d)"
   trap 'rm -rf "$CTL"' EXIT
@@ -203,7 +204,7 @@ if [ "${1:-}" = "--self-test" ]; then
   # objects.
   if [ "$NESTED" -eq 0 ]; then
     ln -s "$HERE_P" "$CTL/link"
-    if ! "$CTL/link/stage.sh" --self-test --nested >/dev/null 2>&1; then
+    if ! nested_out="$("$CTL/link/stage.sh" --self-test --nested 2>&1)"; then
       echo "SELF-TEST FAILED: the self-test does not pass when this same harness is"
       echo "                  reached through a symlink. The binding comparison is"
       echo "                  holding one spelling of this directory against another"
@@ -212,6 +213,25 @@ if [ "${1:-}" = "--self-test" ]; then
       echo "                  loses every stage after this one."
       fail=1
     fi
+
+    # The re-entry has to say it was the short run. If it claimed the full one,
+    # either it recursed or its summary has stopped telling the two apart.
+    case "${nested_out:-}" in
+      *"self-test (nested): "*) ;;
+      *) echo "SELF-TEST FAILED: the re-entered self-test did not report itself as nested,"
+         echo "                  so a short run and a full one print the same green."
+         fail=1 ;;
+    esac
+
+    # Anything after --self-test other than a lone --nested is refused, so a
+    # mistyped flag cannot be taken for the full run.
+    for extra in "--bogus" "--nested extra"; do
+      # shellcheck disable=SC2086  # the words of $extra are separate arguments
+      if "$HERE/stage.sh" --self-test $extra >/dev/null 2>&1; then
+        echo "SELF-TEST FAILED: \`stage.sh --self-test $extra\` was accepted."
+        fail=1
+      fi
+    done
 
     # Copied from the physical path so the copy is a genuine second directory
     # rather than another name for this one, and stripped of any manifest it
@@ -237,10 +257,11 @@ if [ "${1:-}" = "--self-test" ]; then
 
   [ "$fail" -eq 0 ] || exit 1
   # A nested run says what it did not do, so its green claims no more than it checked.
+  did="found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness"
   if [ "$NESTED" -eq 1 ]; then
-    echo "self-test (nested): found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness — the symlink and second-copy controls belong to the run that called this one, and were not repeated"
+    echo "self-test (nested): $did — the symlink and second-copy controls belong to the run that called this one, and were not repeated"
   else
-    echo "self-test: found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness — through a symlinked path, and not to a second copy of it"
+    echo "self-test: $did — through a symlinked path, and not to a second copy of it"
   fi
   exit 0
 fi
