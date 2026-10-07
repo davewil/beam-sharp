@@ -27,7 +27,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # are needed and neither is redundant.
 #
 # `pwd` above is LOGICAL: it keeps whatever symlinks the caller walked through,
-# which is what the human-facing messages should echo back. But
+# which is what the human-facing messages should echo back. One message is the
+# exception, and deliberately: the self-test's binding failure prints $HERE_P,
+# because it has to show the path it compared. But
 # `build-run-manifest.py` calls `.resolve()` on HARNESS, so every path it writes
 # is symlink-free. Comparing a manifest path against $HERE therefore compares two
 # spellings of one directory and calls them different.
@@ -84,6 +86,16 @@ bound_check() {
 }
 
 if [ "${1:-}" = "--self-test" ]; then
+  # `--nested` is how the symlink control below re-enters this self-test. It is
+  # an ARGUMENT so that only a caller who typed it can ask for the shorter run.
+  # It was the environment variable AUDITION_SELFTEST_NESTED until 2026-10-08,
+  # and a shell that merely inherited `=1` skipped both halves of that control
+  # and was still told they had passed.
+  case "${2:-}" in
+    "")       NESTED=0 ;;
+    --nested) NESTED=1 ;;
+    *) echo "usage: stage.sh <workdir> | stage.sh --self-test"; exit 2 ;;
+  esac
   CTL="$(mktemp -d)"
   trap 'rm -rf "$CTL"' EXIT
   mkdir -p "$CTL/clean/worker/cases" "$CTL/leaky/worker/expected" "$CTL/held/worker/heldout"
@@ -189,9 +201,9 @@ if [ "${1:-}" = "--self-test" ]; then
   # The first half re-enters this --self-test, so both halves are skipped when
   # nested; without the guard the control recurses until the process table
   # objects.
-  if [ "${AUDITION_SELFTEST_NESTED:-}" != "1" ]; then
+  if [ "$NESTED" -eq 0 ]; then
     ln -s "$HERE_P" "$CTL/link"
-    if ! AUDITION_SELFTEST_NESTED=1 "$CTL/link/stage.sh" --self-test >/dev/null 2>&1; then
+    if ! "$CTL/link/stage.sh" --self-test --nested >/dev/null 2>&1; then
       echo "SELF-TEST FAILED: the self-test does not pass when this same harness is"
       echo "                  reached through a symlink. The binding comparison is"
       echo "                  holding one spelling of this directory against another"
@@ -223,8 +235,14 @@ if [ "${1:-}" = "--self-test" ]; then
     fi
   fi
 
-  [ "$fail" -eq 0 ] && { echo "self-test: found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness — through a symlinked path, and not to a second copy of it"; exit 0; }
-  exit 1
+  [ "$fail" -eq 0 ] || exit 1
+  # A nested run says what it did not do, so its green claims no more than it checked.
+  if [ "$NESTED" -eq 1 ]; then
+    echo "self-test (nested): found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness — the symlink and second-copy controls belong to the run that called this one, and were not repeated"
+  else
+    echo "self-test: found the planted answers and the planted held-out set, cleared the clean tree, and bound the run manifest to this harness — through a symlinked path, and not to a second copy of it"
+  fi
+  exit 0
 fi
 
 WORKDIR="${1:?usage: stage.sh <workdir> | stage.sh --self-test}"
