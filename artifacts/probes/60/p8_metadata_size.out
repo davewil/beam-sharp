@@ -1,0 +1,10 @@
+baseline World entry, module Shop (8 exports, 0 private): {heap bytes, term_to_binary bytes} = {18688,
+                                                                                                8996}
+Option A (derived from the module name): 0 extra terms
+Option B  internal => #{{N,A}=>true},  1 internal fns: {72,22}
+Option B  internal => #{{N,A}=>true},  5 internal fns: {232,86}
+Option B  internal => #{{N,A}=>true}, 20 internal fns: {832,337}
+Option C  friends => [Mod,..],          1 friends:      {16,22}
+Option C  friends => [Mod,..],          3 friends:      {48,52}
+Option C  friends => [Mod,..],         10 friends:      {160,158}
+emitted .beam: no option adds an attribute or chunk (B only adds names to the export list the beam already has)

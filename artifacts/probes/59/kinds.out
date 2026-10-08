@@ -20,3 +20,14 @@
   Bands([-5])  [out-of-range elem, Octet]        {error,function_clause}
   Bands([100]) [control]                         {ok,[high]}
   Bands([foo]) [atom elem]                       {error,function_clause}
+== emitter E ==
+  DoubleP(1.5)   [exported int, control]         {error,function_clause}
+  DoubleP(2)     [control]                       {ok,4}
+  Doubled([1.5]) [list elem -> private fun]      {error,function_clause}
+  Doubled([2])   [control]                       {ok,[4]}
+  FromField(#{Level=1.5}) [map field]            {error,function_clause}
+  Picker(x)(1.5) [escaped private fun]           {error,function_clause}
+  Bands([300]) [out-of-range elem, Octet]        {error,function_clause}
+  Bands([-5])  [out-of-range elem, Octet]        {error,function_clause}
+  Bands([100]) [control]                         {ok,[high]}
+  Bands([foo]) [atom elem]                       {error,function_clause}

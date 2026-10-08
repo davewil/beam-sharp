@@ -22,3 +22,27 @@
   Picker(x)(genuine) [control]                 {ok,100}
   Totals([#{Kind=Order,Id=1}]) [missing Total] {error,{badkey,'Total'}}
   Totals([<<bin>>]) [not a map]                {error,{badmap,<<"x">>}}
+== emitter B ==
+  Handle(forged)  [exported rec param]         {error,function_clause}
+  Handle(genuine) [control]                    {ok,100}
+  Unwrap(#{Item=forged}) [nested field]        {error,function_clause}
+  Unwrap(#{Item=genuine}) [control]            {ok,100}
+  Totals([forged]) [list elem]                 {error,function_clause}
+  Totals([genuine]) [control]                  {ok,"d"}
+  Sum(#{Orders=[forged]}) [lambda->Inner]      {error,function_clause}
+  Picker(x)(forged) [escaped private fun]      {error,function_clause}
+  Picker(x)(genuine) [control]                 {ok,100}
+  Totals([#{Kind=Order,Id=1}]) [missing Total] {error,{badkey,'Total'}}
+  Totals([<<bin>>]) [not a map]                {error,function_clause}
+== emitter E ==
+  Handle(forged)  [exported rec param]         {error,function_clause}
+  Handle(genuine) [control]                    {ok,100}
+  Unwrap(#{Item=forged}) [nested field]        {error,function_clause}
+  Unwrap(#{Item=genuine}) [control]            {ok,100}
+  Totals([forged]) [list elem]                 {error,function_clause}
+  Totals([genuine]) [control]                  {ok,"d"}
+  Sum(#{Orders=[forged]}) [lambda->Inner]      {error,function_clause}
+  Picker(x)(forged) [escaped private fun]      {error,function_clause}
+  Picker(x)(genuine) [control]                 {ok,100}
+  Totals([#{Kind=Order,Id=1}]) [missing Total] {error,{badkey,'Total'}}
+  Totals([<<bin>>]) [not a map]                {error,function_clause}

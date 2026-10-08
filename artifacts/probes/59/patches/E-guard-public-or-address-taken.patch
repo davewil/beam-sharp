@@ -1,0 +1,22 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_59_e/bs_emit.erl	2026-10-08 23:28:18.476363133 +0000
+@@ -160,7 +160,10 @@
+     %% read here, the one place the `#fn` record is in scope, and handed to
+     %% the clause as a boolean.
+     %% Rationale: compiler/features/F24-boundary-kind.md.
+-    Public = is_public(F),
++    %% PROBE 59 option E: a function is "reachable by an unchecked caller" when it is public OR
++    %% its address is taken anywhere in the module (`Name/N` as a value, F46).
++    Captured = [{N, A} || {N, A} <- maps:values(maps:get(fnames, Ctx, #{}))],
++    Public = is_public(F) orelse lists:member({element(2, F), arity(F)}, Captured),
+     {function, ?A, Name, Arity, [clause(C, Params, Ctx, Public) || C <- Clauses]}.
+ 
+ %% A parameter the body and guard never mention lowers to a `_`-prefixed
+@@ -274,6 +277,7 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        {ok, _} when not Public -> {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

@@ -5,7 +5,7 @@
 call(Label, F) ->
     R = try {ok, F()} catch C:E -> {C, case E of {function_clause,_}->function_clause; _->E end} end,
     io:format("  ~-46s ~p~n", [Label, R]).
-main() -> [run(V) || V <- ["base", "B"]], halt(0).
+main() -> [run(V) || V <- ["base", "B", "E"]], halt(0).
 run(V) ->
     code:purge('Kinds'), code:delete('Kinds'),
     {module, 'Kinds'} = code:load_abs("out/Kinds/" ++ V ++ "/Kinds"),

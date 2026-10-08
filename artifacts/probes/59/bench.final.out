@@ -1,0 +1,30 @@
+
+W1 tag: private rec fn, 2 tag tests/iter (20M iters)
+  BenchBase  ns/iter  min  47.625  median  54.129  max  60.522  (spread max-min 12.897)
+  BenchBas2  ns/iter  min  48.370  median  54.533  max  70.046  (spread max-min 21.675)
+  BenchTagA  ns/iter  min  15.893  median  17.975  max  23.764  (spread max-min  7.871)
+  BenchKndB  ns/iter  min  49.977  median  54.477  max  75.503  (spread max-min 25.526)
+
+W2 kind: private int loop, caller proven (50M iters)
+  BenchBase  ns/iter  min   4.241  median   5.041  max   5.411  (spread max-min  1.170)
+  BenchBas2  ns/iter  min   4.307  median   4.685  max   5.487  (spread max-min  1.180)
+  BenchTagA  ns/iter  min   4.597  median   4.945  max   6.791  (spread max-min  2.194)
+  BenchKndB  ns/iter  min   4.055  median   4.596  max   5.331  (spread max-min  1.276)
+
+W3 kind: private fn mapped over list, unknown callers (20M elems)
+  BenchBase  ns/iter  min  13.009  median  13.819  max  19.398  (spread max-min  6.389)
+  BenchBas2  ns/iter  min  13.841  median  15.144  max  18.889  (spread max-min  5.047)
+  BenchTagA  ns/iter  min  13.124  median  15.017  max  19.434  (spread max-min  6.311)
+  BenchKndB  ns/iter  min  13.483  median  14.868  max  16.423  (spread max-min  2.940)
+
+W4 kind: private loop, UNKNOWN-typed seed (20M iters)
+  BenchBase  ns/iter  min   4.176  median   4.708  max   5.778  (spread max-min  1.602)
+  BenchBas2  ns/iter  min   4.296  median   4.471  max   6.177  (spread max-min  1.881)
+  BenchTagA  ns/iter  min   4.506  median   4.839  max   5.806  (spread max-min  1.299)
+  BenchKndB  ns/iter  min   3.928  median   4.199  max   5.828  (spread max-min  1.900)
+
+W5 tag: exactly ONE tag test per iteration (private GetA) (20M iters)
+  BenchBase  ns/iter  min  23.849  median  25.701  max  28.612  (spread max-min  4.763)
+  BenchBas2  ns/iter  min  23.834  median  24.879  max  30.810  (spread max-min  6.976)
+  BenchTagA  ns/iter  min  15.503  median  16.778  max  19.751  (spread max-min  4.249)
+  BenchKndB  ns/iter  min  24.947  median  26.190  max  30.460  (spread max-min  5.514)

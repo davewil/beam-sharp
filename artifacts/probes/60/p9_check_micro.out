@@ -1,0 +1,4 @@
+A internal_ok (refused path) median 3724 ns/call (min 3545, max 4134)
+A internal_ok (no Internal segment) median 1256 ns/call (min 1121, max 1426)
+C friend_ok (refused path) median 2169 ns/call (min 1949, max 2475)
+C friend_ok (no friends) median 64 ns/call (min 36, max 105)

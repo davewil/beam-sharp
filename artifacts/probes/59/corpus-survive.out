@@ -1,0 +1,2 @@
+TOTAL optimised-beam is_integer/is_float tests: base=47 B=47 added=0 (abstract-code added: 19, see corpus.out)
+CONTROL (Chain module, has a captured private fun Cap/1): optimised-beam is_integer tests base=2 B=3  (B must exceed base here, or the corpus probe above cannot see a surviving test)

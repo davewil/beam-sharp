@@ -10,7 +10,7 @@ call(Label, F) ->
 norm({function_clause, _} = X) -> X;
 norm(E) -> {E}.
 main() ->
-    [run(V) || V <- ["base", "A"]],
+    [run(V) || V <- ["base", "A", "B", "E"]],
     halt(0).
 run(V) ->
     code:purge('Ledger'), code:delete('Ledger'),

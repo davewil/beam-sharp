@@ -5,9 +5,7 @@ warning: :ssl.start/0 defined in application :ssl is used by the current applica
   2. If :ssl is a dependency, make sure it is listed under "def deps" in your mix.exs
 exit=0
 Compiling 1 file (.ex)
-warning: :ssl.start/0 defined in application :ssl is used by the current application but the current application does not depend on :ssl. To fix this, you must do one of:
-  1. If :ssl is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
-  2. If :ssl is a dependency, make sure it is listed under "def deps" in your mix.exs
+Generated demo app
 === (b) :ssl declared (control) exit=0
 === (b2) SURPRISE above: declaring :ssl AFTER a first compile in the same dir still warned (state carried over). Fresh project, :ssl declared from the start:
 Compiling 1 file (.ex)

@@ -1,0 +1,6 @@
+IO.puts("hidden module called from another module: #{Acme.Billing.due(5)}")
+{:docs_v1, _, _, _, moddoc, _, fdocs} = Code.fetch_docs(Acme.Orders.Internal.Pricing)
+IO.inspect(moddoc, label: "moduledoc")
+IO.inspect(Enum.map(fdocs, fn {{k, n, a}, _, _, d, _} -> {k, n, a, d} end), label: "per-function docs")
+IO.inspect(apply(Acme.Orders.Internal.Pricing, :compute, [5]), label: "dynamic apply")
+IO.inspect(Enum.reject(Acme.Orders.Internal.Pricing.module_info(:exports), &match?({:module_info, _}, &1)), label: "exports (secret/1 absent)")

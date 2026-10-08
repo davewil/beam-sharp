@@ -12,8 +12,8 @@
  foreign_sigs -> foreign_sig              : ['$1'].
  foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
 --- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
-+++ /tmp/bsb_52_x/bs_check.erl	2026-10-08 23:14:23.818152798 +0000
-@@ -99,6 +99,7 @@
++++ /tmp/bsb_52_x/bs_check.erl	2026-10-08 23:24:06.854588063 +0000
+@@ -99,13 +99,21 @@
      Module = module_name(Decls),
      PerFile = [{P, collect(D)} || {P, D} <- Sources],
      Foreigns = foreign_wrappers(Decls, Env),
@@ -21,7 +21,22 @@
      Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
                 polys = polys(Decls, Env, Imports),
                 imports = Imports,
-@@ -161,6 +162,7 @@
+                impls = maps:merge(world_impls(World),
+                                   local_impls(lists:append([D || {_, D} <- Sources0]),
+                                               Module, Env))},
+-    Tagged0 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
++    Tagged00 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
++    DepWarn = case os:getenv("BSB_DEP_CHECK") of
++                  "warn" -> [{P, {warning, L, '', {foreign_module_absent, Mod, App}}}
++                             || {P, D} <- Sources0, {foreign, L, Mod, _, App} <- D,
++                                code:which(Mod) =:= non_existing];
++                  _ -> []
++              end,
++    Tagged0 = DepWarn ++ Tagged00,
+     %% Internal notes travel through the diagnostic channel; remove them before
+     %% printing diagnostics.
+     {Notes, Tagged} = lists:partition(
+@@ -161,6 +169,7 @@
                           %% The emitter uses the `e_foreign_call` triple to
                           %% find calls requiring `try`.
                           foreigns => Foreigns,
@@ -29,7 +44,7 @@
                           fnames => Fnames,
                           fdivs => Fdivs,
                           vprojs => Vprojs,
-@@ -619,7 +621,7 @@
+@@ -619,7 +628,7 @@
               || {signature, SL, N, R, Ps, _, TV} <- Decls],
      Foreign = [{{f, Mod, N, length(Ps)},
                  at_loc(L, fun() -> sig(Ps, R, Env) end)}
@@ -38,7 +53,7 @@
                    {foreign_sig, L, N, R, Ps} <- Sigs],
      maps:merge(maps:get(qual, Imports, #{}),
                 maps:from_list(Local ++ Foreign)).
-@@ -637,7 +639,7 @@
+@@ -637,7 +646,7 @@
  
  foreign_rets_decidable(Decls, Env) ->
      _ = [foreign_ret_decidable(L, Mod, N, R, Env)
@@ -47,7 +62,7 @@
              {foreign_sig, L, N, R, _Ps} <- Sigs],
      ok.
  
-@@ -1061,7 +1063,7 @@
+@@ -1061,7 +1070,7 @@
  foreign_wrappers(Decls, Env) ->
      maps:from_list(
        [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}
@@ -56,7 +71,7 @@
            {foreign_sig, _L, N, R, Ps} <- Sigs,
            Ty <- [resolve(R, Env)]]).
  
-@@ -1099,7 +1101,7 @@
+@@ -1099,7 +1108,7 @@
      collapse_ty(Ret, Env, L, root(N)),
      lists:foreach(fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
                    end, Params);
@@ -65,7 +80,7 @@
      lists:foreach(
        fun({foreign_sig, L, N, Ret, Ps}) ->
                collapse_ty(Ret, Env, L, root(N)),
-@@ -5042,3 +5044,26 @@
+@@ -5042,3 +5051,27 @@
  
  setnth(1, [_ | T], V) -> [V | T];
  setnth(N, [H | T], V) -> [H | setnth(N - 1, T, V)].
@@ -76,6 +91,7 @@
 +foreign_deps_check(Decls) ->
 +    case os:getenv("BSB_DEP_CHECK") of
 +        "off" -> ok;
++        "warn" -> ok;
 +        _ ->
 +            [foreign_dep_check(L, Mod, App) || {foreign, L, Mod, _, App} <- Decls],
 +            ok
@@ -93,8 +109,17 @@
 +        _ -> ok
 +    end.
 --- /home/user/beam-sharp/compiler/src/bs_diag.erl	2026-10-06 23:03:23.684655679 +0000
-+++ /tmp/bsb_52_x/bs_diag.erl	2026-10-08 23:14:23.819275234 +0000
-@@ -561,6 +561,12 @@
++++ /tmp/bsb_52_x/bs_diag.erl	2026-10-08 23:24:18.091174263 +0000
+@@ -237,6 +237,8 @@
+ built(Path, {Sev, Line, Fn, {valve_on_infallible, Ty}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => valve_on_infallible,
+                                subject => bs_types:to_pattern(Ty)};
++built(Path, {Sev, Line, Fn, {foreign_module_absent, Mod, App}}) ->
++    (at(Sev, Path, Line, Fn))#{tag => foreign_module_absent, module => bs_types:atom_str(Mod), app => App};
+ built(Path, {Sev, Line, Fn, {unreachable_arm, N}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => unreachable_arm, arm_number => N};
+ %% Arm and clause tags stay distinct so each tag determines its payload keys.
+@@ -561,6 +563,12 @@
      #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
        line => Line, module => bs_types:atom_str(Mod), function => Fun,
        type => Type, why => Why, name => Name, fields => Fields, at => At};
@@ -107,14 +132,14 @@
  built(Path, {unknown_generic, N}) ->
      #{tag => unknown_generic, severity => error, file => Path, type => N};
  built(Path, {generic_arity, N, Want, Got}) ->
-@@ -1861,6 +1867,15 @@
+@@ -1861,6 +1869,15 @@
      {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
       placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
                          beyond_edit(Why, At, Type, Name, Fields)]};
 +message(#{tag := foreign_module_absent, module := Mod, app := none} = D) ->
-+    {placed(D) ++ "error: module ~s is not on the code path~n", placed_args(D) ++ [Mod]};
++    {placed(D) ++ sev(D) ++ ": module ~s is not on the code path~n", placed_args(D) ++ [Mod]};
 +message(#{tag := foreign_module_absent, module := Mod, app := App} = D) ->
-+    {placed(D) ++ "error: module ~s is not on the code path~n"
++    {placed(D) ++ sev(D) ++ ": module ~s is not on the code path~n"
 +     "  this file says it belongs to application `~s`; is `~s` in ERL_LIBS or --lib?~n",
 +     placed_args(D) ++ [Mod, App, App]};
 +message(#{tag := foreign_module_not_in_app, module := Mod, app := App, beam := Beam} = D) ->
@@ -123,6 +148,13 @@
  message(#{tag := unknown_generic, file := P, type := N}) ->
      {"~s: error: no type named ~s takes a type argument~n"
       "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"
+@@ -2350,3 +2367,6 @@
+     " A pattern~n"
+     "  over an unbounded key set cannot be proved exhaustive, which is~n"
+     "  the guarantee every other head in this language keeps.~n".
++
++sev(#{severity := warning}) -> "warning";
++sev(_) -> "error".
 --- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-08 23:03:39.900302570 +0000
 +++ /tmp/bsb_52_x/bs_emit.erl	2026-10-08 23:14:23.819966204 +0000
 @@ -74,13 +74,14 @@

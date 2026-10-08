@@ -21,6 +21,11 @@ for D in Withapp Noapp Wrongapp; do
   try "  proto, ERL_LIBS unset               " $PROTO ""    $D
   try "  proto, unset, BSB_DEP_CHECK=off     " $PROTO ""    $D BSB_DEP_CHECK=off
 done
+echo "### severity: the same missing dependency as a WARNING (BSB_DEP_CHECK=warn): rc and beam emitted?"
+for m in warn error; do
+  out=$(ERL_LIBS= BSB_DEP_CHECK=$m erl -noshell -pa $PROTO -eval 'bsc:main(init:get_plain_arguments()), halt(0).' -extra -o sev_$m Withapp/a.bs 2>&1 | head -1)
+  echo "  mode=$m -> ${out}  beams_emitted=$(ls sev_$m/*.beam 2>/dev/null | wc -l)"
+done
 echo "### CONTROL: stock compiler, Noapp, ERL_LIBS unset (today's behaviour = P1: accepted)"
 try "  stock, ERL_LIBS unset               " $STOCK "" Noapp
 echo "### CONTROL: stdlib module, app named correctly, no ERL_LIBS (expect accepted)"
