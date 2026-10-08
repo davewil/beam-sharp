@@ -585,6 +585,7 @@ of them is a union like any other, which is why `Verdict` above needs no special
 | `binary` | the top, and it stays the top — sizes are not in the type language | **shipped** |
 | `pid`, `reference`, `port` | a process, a reference, a port: opaque, each decided by one guard (`is_pid`, `is_reference`, `is_port`); `pid` carries no message type | **shipped** — F60 |
 | `string` | `binary` refined by valid UTF-8; a literal is one by construction | **shipped** |
+| `"ping"` | a singleton string type: the one string it spells, and a union of them closes (§10) | **shipped** — F68 |
 | records | see §6 | **decided** |
 <!-- float: decided by ticket 69, wayfinder/issues/69-does-the-language-have-float.md; the no-flow rule by ticket 80; the conversion's spelling, Float.FromInt, by ticket 81; built by F51, ENG-378 -->
 

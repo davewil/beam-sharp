@@ -99,6 +99,20 @@ a_brace_builds_a_literal_tagged_member_test() ->
                       "public { \"type\": \"ping\" } Make()\n"
                       "Make() -> { \"type\" = \"pong\" }\n")).
 
+%% F68.5b — the refusal says which literal the clause built, at `bsc`.
+the_refusal_names_the_literal_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("wr2.bs",
+             "module Wr2\n"
+             "public { \"type\": \"ping\" } Make()\n"
+             "Make() -> { \"type\" = \"pong\" }\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "{ \"type\": \"pong\" }"))
+             end)
+     end}.
+
 %% F68.6 — `ValidateAs` compares the value with the literal, and says which
 %% literal it wanted.
 validate_as_compares_the_literal_test() ->
@@ -159,3 +173,43 @@ a_foreign_return_of_literals_is_guarded_test() ->
                        "First(xs) -> :erlang.hd(xs)\n", 'Fl'),
     ?assertEqual(<<"low">>, M:'First'([<<"low">>])),
     ?assertError({case_clause, <<"mid">>}, M:'First'([<<"mid">>])).
+
+%% F68.11 — a guard's `==` against a literal is read as the literal pattern is.
+a_guard_comparing_a_literal_closes_test() ->
+    M = build_and_load(levels_src("Rank(l) when l == \"low\"  -> 1\n"
+                                  "Rank(l) when l == \"high\" -> 2\n"), 'Lv'),
+    ?assertEqual({1, 2}, {M:'Rank'(<<"low">>), M:'Rank'(<<"high">>)}).
+
+%% F68.12 — a literal with a quote or a control character prints as source
+%% writes it, so the head handed back can be pasted.
+a_residual_literal_is_escaped_as_source_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("esc.bs",
+             "module Esc\n"
+             "type L = \"a\\\"q\\n\" | \"b\"\n"
+             "public int A(L l)\n"
+             "A(\"b\") -> 1\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch,
+                                 string:find(Output, "A(\"a\\\"q\\n\") -> ..."))
+             end)
+     end}.
+
+%% F68.13 — the signature offered for a mismatched return says `string` where
+%% a clause returned a literal.
+the_offered_signature_says_string_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("off.bs",
+             "module Off\n"
+             "public int Pick(bool b)\n"
+             "Pick(true)  -> 1\n"
+             "Pick(false) -> \"none\"\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch,
+                                 string:find(Output, "public int | string Pick(bool b)"))
+             end)
+     end}.

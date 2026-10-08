@@ -1311,15 +1311,13 @@ b_str([])            -> [];
 b_str([utf8])        -> ["string"];
 b_str([other, utf8]) -> ["binary"];
 b_str([other])       -> ["binary \\ string"];
-b_str([{finite, L}]) -> [str_str(S) || S <- L];
+b_str([{finite, L}]) -> [key_str(S) || S <- L];
 b_str([{cofinite, L}]) ->
-    ["string \\ (" ++ string:join([str_str(S) || S <- L], " | ") ++ ")"];
+    ["string \\ (" ++ string:join([key_str(S) || S <- L], " | ") ++ ")"];
 %% Non-UTF-8 binaries beside a set of literals: no pattern produces it, and it
 %% prints as its two halves.
 b_str([other | Strs]) -> ["binary \\ string" | b_str(Strs)].
 
-%% A literal prints as its key does, quoted and escaped as source writes it.
-str_str(S) -> key_str(S).
 
 ms_str(top) -> ["map"];
 ms_str(Members) -> [m_str(M) || M <- Members].
@@ -1759,7 +1757,7 @@ m_hd({_Kind, Fields}, Names) ->
 %% member. Any other value prints `_`, as it did.
 tag_pat(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := [],
           lists := [], maps := [], bins := [{finite, [S]}], opaques := [], funs := []}) ->
-    str_str(S);
+    key_str(S);
 tag_pat(_) ->
     "_".
 
@@ -1770,7 +1768,7 @@ b_pat([other, utf8]) -> [{binder, binder("b")}];
 b_pat([other])       -> [];
 %% A literal is its own head. Every string but some literals is written as a
 %% binder below the clauses that took those literals.
-b_pat([{finite, L}])   -> [{shape, str_str(S)} || S <- L];
+b_pat([{finite, L}])   -> [{shape, key_str(S)} || S <- L];
 b_pat([{cofinite, _}]) -> [{binder, binder("s")}];
 b_pat([other | Strs])  -> b_pat(Strs).
 
@@ -1840,7 +1838,8 @@ m_pat({_Kind, Fields}) ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
         _ ->
             Ks = lists:sort(maps:keys(Fields)),
-            "{ " ++ string:join([key_str(K) ++ ": _" || K <- Ks], ", ") ++ " }"
+            "{ " ++ string:join([key_str(K) ++ ": " ++ tag_pat(maps:get(K, Fields))
+                                 || K <- Ks], ", ") ++ " }"
     end.
 
 a_str({finite, []})   -> [];
@@ -1885,7 +1884,12 @@ t_str(P) ->
 %% as its literal, quoted, with `"` and `\` escaped as the lexer reads them.
 key_str(K) when is_atom(K) -> atom_to_list(K);
 key_str(K) when is_binary(K) ->
+    %% The lexer's closed set of escapes, written back as source writes them.
     [$" | lists:flatmap(fun($") -> "\\\"";
                            ($\\) -> "\\\\";
+                           ($\n) -> "\\n";
+                           ($\t) -> "\\t";
+                           ($\r) -> "\\r";
+                           (0)   -> "\\0";
                            (C) -> [C] end,
                         unicode:characters_to_list(K))] ++ [$"].

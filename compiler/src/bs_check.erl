@@ -4963,6 +4963,11 @@ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
     {V, {include, bs_types:atom_lit(A)}};
 comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
     {V, {exclude, bs_types:atom_lit(A)}};
+%% F68: a string literal is compared as an atom literal is.
+comparison({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
+    {V, {include, bs_types:str_lit(iolist_to_binary(S))}};
+comparison({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
+    {V, {exclude, bs_types:str_lit(iolist_to_binary(S))}};
 comparison(_) ->
     unknown.
 
