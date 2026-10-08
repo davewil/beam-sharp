@@ -31,3 +31,12 @@ Dbl(n) -> n * 2
 // kind test, UNKNOWN-typed argument to a private recursion: seeded from a list element
 public int RunSeed(list<int> xs, int n)
 RunSeed(xs, n) -> xs |> List.Fold(0, (acc, x) => acc + SpinInt(n, x))
+
+// tag test, exactly ONE per iteration: the loop carries a list, only GetA takes the record
+public int RunOne(list<Rec> rs, int n)
+RunOne(rs, n) -> SpinOne(rs, n, 0)
+
+private int SpinOne(list<Rec> rs, int n, int acc)
+SpinOne(rs, n, acc) when n <= 0 -> acc
+SpinOne([h, ..t], n, acc) -> SpinOne([h, ..t], n - 1, acc + GetA(h))
+SpinOne([], _, acc) -> acc

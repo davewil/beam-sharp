@@ -1,0 +1,116 @@
+--- compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_60_c/bs_check.erl	2026-10-08 23:16:01.534096545 +0000
+@@ -10,7 +10,7 @@
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+--export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
++-export([exports_of/1, exports_of/2, exports_of/3, private_of/1, friends_of/1, types_of/3, hinted/2]).
+ %% The emitter publishes polymorphic signatures under the erased environment.
+ -export([polys_of/2, erased_env/2, type_source/1]).
+ %% F64: which records implement a protocol, for a dependent's World entry, and
+@@ -473,6 +473,8 @@
+     lists:sort([M || {M, Entry} <- maps:to_list(World),
+                      maps:is_key(N, maps:get(types, Entry, #{}))]).
+ 
++friends_of(Decls) -> [F || {friend, _, F} <- Decls].
++
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+                                        V =/= public],
+@@ -496,14 +498,31 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case friend_ok(Self, M, World) of
++                ok           -> add_module_import(M, World, Acc);
++                {no, Friends} -> erlang:error({not_a_friend, M, Friends, L})
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, [C || C <- Children, friend_ok(Self, C, World) =:= ok], Acc)
++            end
++    end.
++
++%% OPTION C (prototype): `friend X` lines in a module name who may `using` it
++%% (X itself and the modules beneath X). No friend line = visible to all.
++friend_ok(Self, M, World) ->
++    case maps:get(friends, maps:get(M, World, #{}), []) of
++        [] -> ok;
++        Fs ->
++            S = string:split(atom_to_list(Self), ".", all),
++            case lists:any(fun(F) -> lists:prefix(string:split(atom_to_list(F), ".", all), S) end, Fs) of
++                true  -> ok;
++                false -> {no, Fs}
+             end
+     end.
+ 
+--- compiler/src/bs_diag.erl	2026-10-06 23:03:23.684655679 +0000
++++ /tmp/bsb_60_c/bs_diag.erl	2026-10-08 23:16:01.537404869 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_a_friend, Mod, Friends, Line}) ->
++    #{tag => not_a_friend, severity => error, file => Path, line => Line,
++      module => Mod, friends => Friends};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2029,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_a_friend, file := P, line := L, column := C, module := Mod, friends := Fs}) ->
++    {"~s:~p:~p: error: `using ~s` is not allowed here~n"
++     "  ~s names its friends: ~s (and the modules beneath them).~n",
++     [P, L, C, Mod, Mod, lists:join(", ", [atom_to_list(F) || F <- Fs])]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"
+--- compiler/src/bsc.erl	2026-10-06 23:03:23.692655679 +0000
++++ /tmp/bsb_60_c/bsc.erl	2026-10-08 23:16:01.534891029 +0000
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     friends => bs_check:friends_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+--- compiler/src/bs_parser.yrl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_60_c/bs_parser.yrl	2026-10-08 23:16:01.524131353 +0000
+@@ -26,7 +26,7 @@
+ 
+ Terminals
+   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
++  'and' 'or' 'where' 'public' 'private' 'friend' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+@@ -103,6 +103,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> 'friend' modpath : {friend, line('$1'), modatom('$2')}.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+--- /tmp/bsbuild/bs_lexer.xrl	2026-10-08 23:14:26.538299681 +0000
++++ /tmp/bsb_60_c/bs_lexer.xrl	2026-10-08 23:16:01.522446392 +0000
+@@ -56,6 +56,7 @@
+ %% function and there is no separate export list (F12, ticket 40 §3).
+ public                  : {token, {'public',  {TokenLine,1}}}.
+ private                 : {token, {'private', {TokenLine,1}}}.
++friend                  : {token, {'friend', {TokenLine,1}}}.
+ %% `record` declares a record type (ticket 26 §1).
+ record                  : {token, {'record', {TokenLine,1}}}.
+ %% `o with { Total = 500 }` updates a record without changing its field set;

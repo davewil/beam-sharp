@@ -47,27 +47,30 @@ OrElse         or_else          or_else          orElse
 Init           init             init             init          
 HandleCall     handle_call      handle_call      handleCall    
 Handle_Call    handle__call     handle_call      handle_Call   
+XY             x_y              xy               xY            
+X_y            x_y              x_y              x_y           
 
-collisions under R1 (distinct B# names -> same alias): []
+collisions under R1 (distinct B# names -> same alias): [{x_y,['XY','X_y']}]
 
-collisions under R2 (distinct B# names -> same alias): [{handle_call,
-                                                         ['HandleCall',
-                                                          'Handle_Call']},
-                                                        {foo,['FOO','Foo']},
-                                                        {to_json,
+collisions under R2 (distinct B# names -> same alias): [{to_json,
                                                          ['ToJSON','ToJson']},
                                                         {get_xml,
                                                          ['GetXML','GetXml',
                                                           'Get_Xml']},
+                                                        {ab,['AB','Ab']},
                                                         {parse_url,
                                                          ['ParseURL',
                                                           'ParseUrl']},
-                                                        {ab,['AB','Ab']}]
+                                                        {handle_call,
+                                                         ['HandleCall',
+                                                          'Handle_Call']},
+                                                        {foo,['FOO','Foo']}]
 
 collisions under R3 (distinct B# names -> same alias): []
 
 control: names where R1 =/= R2: ['HTTPServer','GetXML','ParseURL','IOList',
-                                 'ToJSON','AB','Get_Xml','FOO','Handle_Call']
+                                 'ToJSON','AB','Get_Xml','FOO','Handle_Call',
+                                 'XY']
 
 == reserved words / BIFs as alias names: does Erlang accept them as local DEFINITIONS (export, no local call)? ==
 erlc exit: 0

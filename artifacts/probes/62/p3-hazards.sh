@@ -22,7 +22,7 @@ r2s([C|T], Acc, Prev) ->
     Low = if Up -> C + 32; true -> C end,
     r2s(T, [Low | (if Sep -> [$_|Acc]; true -> Acc end)], C).
 r3(A) -> [C|T] = atom_to_list(A), list_to_atom([string:to_lower(C)|T]) .  % first-letter downcase only
-names() -> ['New','HTTPServer','GetXML','GetXml','Totals2','Totals_2','ParseURL','ParseUrl','IOList','ToJSON','ToJson','A','AB','Ab','OAuth','X509Cert','Get_Xml','Foo','FOO','NameOf','Length','Apply','Spawn','Node','Self','Send','Exit','If','End','And','Not','Rem','Div','Do','Fn','Nil','True','When','In','Case','Try','Receive','After','Band','OrElse', 'Init','HandleCall','Handle_Call'].
+names() -> ['New','HTTPServer','GetXML','GetXml','Totals2','Totals_2','ParseURL','ParseUrl','IOList','ToJSON','ToJson','A','AB','Ab','OAuth','X509Cert','Get_Xml','Foo','FOO','NameOf','Length','Apply','Spawn','Node','Self','Send','Exit','If','End','And','Not','Rem','Div','Do','Fn','Nil','True','When','In','Case','Try','Receive','After','Band','OrElse', 'Init','HandleCall','Handle_Call','XY','X_y'].
 main() ->
     io:format("~-14s ~-16s ~-16s ~-14s~n", ["B# name","R1 insert_","R2 acronym-aware","R3 first-lower"]),
     [io:format("~-14s ~-16s ~-16s ~-14s~n", [N, r1(N), r2(N), r3(N)]) || N <- names()],

@@ -1,0 +1,50 @@
+=== alias spec: dialyzer on Shop.beam + caller.beam ===
+caller.erl:3:1: Function bad_pascal/0 has no local return
+caller.erl:3:30: The call 'Shop':'New'
+         ('not_an_int') will never return since the success typing is 
+         (integer()) -> 
+          #{'Id' := integer(), 'Kind' := 'Shop.Order', 'Total' := 0} and the contract is 
+          (integer()) ->
+             #{'Id' := integer(),
+               'Kind' := 'Shop.Order',
+               'Total' := integer()}
+caller.erl:4:1: Function bad_alias/0 has no local return
+caller.erl:4:28: The call 'Shop':new
+         ('not_an_int') will never return since the success typing is 
+         (integer()) -> 
+          #{'Id' := integer(), 'Kind' := 'Shop.Order', 'Total' := 0} and the contract is 
+          (integer()) ->
+             #{'Id' := integer(),
+               'Kind' := 'Shop.Order',
+               'Total' := integer()}
+ done in 0m0.25s
+done (warnings were emitted)
+=== alias nospec: dialyzer on Shop.beam + caller.beam ===
+caller.erl:3:1: Function bad_pascal/0 has no local return
+caller.erl:3:30: The call 'Shop':'New'
+         ('not_an_int') will never return since the success typing is 
+         (integer()) -> 
+          #{'Id' := integer(), 'Kind' := 'Shop.Order', 'Total' := 0} and the contract is 
+          (integer()) ->
+             #{'Id' := integer(),
+               'Kind' := 'Shop.Order',
+               'Total' := integer()}
+caller.erl:4:1: Function bad_alias/0 has no local return
+caller.erl:4:28: The call 'Shop':new
+         ('not_an_int') will never return since it differs in the 1st argument from the success typing arguments: 
+         (integer())
+ done in 0m0.22s
+done (warnings were emitted)
+=== CONTROL: unpatched build (no alias): the same alias call must be reported as an unknown function ===
+caller.erl:3:1: Function bad_pascal/0 has no local return
+caller.erl:3:30: The call 'Shop':'New'
+         ('not_an_int') will never return since the success typing is 
+         (integer()) -> 
+          #{'Id' := integer(), 'Kind' := 'Shop.Order', 'Total' := 0} and the contract is 
+          (integer()) ->
+             #{'Id' := integer(),
+               'Kind' := 'Shop.Order',
+               'Total' := integer()}
+caller.erl:4:17: Call to missing or unexported function 'Shop':new/1
+caller.erl:5:17: Call to missing or unexported function 'Shop':new/1
+ done in 0m0.20s

@@ -7,7 +7,9 @@ probe() {
   local d; d=$(mktemp -d); mkdir -p "$d/$name"
   printf 'module %s\n%s\n' "$name" "$src" > "$d/$name/a.bs"
   out=$(cd "$d" && bsc "$name/a.bs" 2>&1) || true
-  if [ -z "$out" ]; then got=accepted; else got=refused; fi
+  # VACUITY GUARD (verifier finding 2026-10-08): "refused" requires a real bsc diagnostic ("error:"); any other
+  # output (missing build, VM crash) is "broken", which never equals an expectation.
+  if [ -z "$out" ]; then got=accepted; elif printf '%s' "$out" | grep -q ': error: '; then got=refused; else got=broken; fi
   printf '%-4s %-26s %-8s (expected %s)\n' "$([ "$got" = "$expect" ] && echo ok || echo '!!')" "$name" "$got" "$expect"
   [ "$got" = refused ] && echo "$out" | sed 's/^/       | /' | head -4
   rm -rf "$d"

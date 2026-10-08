@@ -1,0 +1,7 @@
+o1  abstr=665c91adea72  beam(whole)=fbc5febe4007  beam(code chunks)=1FACAB742FA3
+o2  abstr=665c91adea72  beam(whole)=ce8096ddd578  beam(code chunks)=1FACAB742FA3
+o3  abstr=665c91adea72  beam(whole)=e0698f10c9fd  beam(code chunks)=1FACAB742FA3
+CONTROL (changed source, expect different) o4 abstr=a8b1cf571ba7 beam(code chunks)=0B632B1DBC39
+--- prototype VERDICT, ERL_LIBS unset vs set, same source
+ERL_LIBS='' -> A/a.bs:2:1: error: module :'Elixir.Enum' is not on the code path
+ERL_LIBS='/usr/lib/elixir/lib' -> accepted

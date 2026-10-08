@@ -29,6 +29,13 @@ public int Id(T x)
 Id(x) -> x
 public int Ok()
 Ok() -> Id(-5)'
+  probe NegArgToNonNeg refused  'type P = int where value >= 0
+public int Id(P x)
+Id(x) -> x
+public int Bad()
+Bad() -> Id(-5)'
+  # NOTE: RefNegExcludes is refused for the RIGHT reason (argument not covered) only on A and D; on base it is
+  # refused because the refinement is unreadable, on B/C because -9 types as `int`. Read the message, not the verdict.
   # guard exhaustiveness: no catch-all, partition at -5
   probe GuardNegExh    accepted 'public atom S(int n)
 S(n) when n >= -5 -> :a

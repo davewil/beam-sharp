@@ -1,0 +1,110 @@
+
+===========================================================================================
+PROTOTYPE 26a -- record erasure cost, OTP 25
+===========================================================================================
+erts               : 13.2.2.5
+compiler           : 8.2.6.3
+compile options    : [{outdir,"/tmp/26a_variants"},
+                      deterministic,return_errors]
+reps per timing    : 2000000
+
+===========================================================================================
+1. Code size on disk -- the number ticket 18 owed
+===========================================================================================
+module         file     Code     AtU8     ImpT   instrs
+rc_nf3_a        556       73       60       40        3
+rc_nf3_b        556       73       60       40        3
+rc_tu3_u        556       73       60       40        3
+rc_tu3_g        556       86       58       28        7
+rc_mp3_u        564       73       66       40        3
+rc_mp3_g        660      102       85       52        8
+rc_mv3_g        676      117       85       52       11
+rc_tg3_g        608       87       81       40        6
+rc_tu8_u        556       73       60       40        3
+rc_tu8_g        556       86       58       28        7
+rc_mp8_u        564       73       66       40        3
+rc_mp8_g        676      107      100       52        8
+rc_tg8_g        608       87       81       40        6
+
+pair                                                       .beam file         Code chunk   instrs
+NOISE FLOOR: two identical unguarded modules               +0 (+0.0%)         +0 (+0.0%)       +0
+3f tuple  discriminator (is_tuple+size+element)            +0 (+0.0%)       +13 (+17.8%)       +4
+3f map    discriminator (shape only, exact set)          +96 (+17.0%)       +29 (+39.7%)       +5
+3f map    discriminator (shape + 2 value tests)         +112 (+19.9%)       +44 (+60.3%)       +8
+3f tagged map discriminator (one map_get)                 +44 (+7.8%)       +14 (+19.2%)       +3
+8f tuple  discriminator (is_tuple+size+element)            +0 (+0.0%)       +13 (+17.8%)       +4
+8f map    discriminator (shape only, exact set)         +112 (+19.9%)       +34 (+46.6%)       +5
+8f tagged map discriminator (one map_get)                 +44 (+7.8%)       +14 (+19.2%)       +3
+
+===========================================================================================
+2. How each discriminator SCALES with field count
+===========================================================================================
+discriminator                      3 fields   8 fields    per field
+tuple (tag + arity)                     +13        +13         +0.0
+map, exact field set                    +29        +34         +1.0
+tagged map (one map_get)                +14        +14         +0.0
+
+Bytes of the Code chunk. 'per field' is the slope between the two widths.
+Ticket 18 emits this guard on EVERY exported function taking a record, and
+unconditionally wherever the value feeds a codegen obligation, so a slope
+that is not flat is a cost the whole language pays.
+
+===========================================================================================
+3. Match and projection time (3-field record)
+===========================================================================================
+The ticket asserts maps are 'slower to match'. Measured, not assumed.
+Three runs; read a difference only if it exceeds the spread WITHIN a row.
+
+variant                                   run 1        run 2        run 3      ns/call
+tuple  element/3, unguarded               19561        18565        19171         9.28
+tuple  element/3, guarded                 18566        18422        18104         9.05
+map    map_get,   unguarded               33508        32907        33520        16.45
+map    map_get,   guarded                 45266        46704        55489        22.63
+map    map_get,   guarded+values          63659        61872        85432        30.94
+tagged map,       guarded                 66883        51352        50692        25.35
+
+Microseconds for the whole loop; ns/call from the fastest of the three.
+
+===========================================================================================
+4. Term-model facts the erasure choice turns on
+===========================================================================================
+--- 4.1 does a map PATTERN match a map with extra keys? ---
+  #{id := _, total := _, status := _} vs a 4-key map : matched
+  => a map pattern is OPEN. Ticket 27 sec7 declined row polymorphism, so a
+     record type is an EXACT field set -- which the pattern alone cannot say.
+  same map, with map_size(X) =:= 3 added               : no_match
+
+--- 4.2 does a TUPLE pattern match a wider tuple? ---
+  {order, _, _} vs {order, 1, 2, 99}                   : no_match
+  => a tuple pattern is CLOSED. Arity is exact for free.
+
+--- 4.3 map_get/2 in a guard, on an ABSENT key ---
+  guard `map_get('__type__', X) =:= order`, key absent : guard_failed_silently
+  same guard, key present and equal                    : matched
+  => it fails the guard rather than raising, so ONE map_get is a complete
+     discriminator for a tagged map: no is_map, no map_size, no is_map_key.
+
+--- 4.4 is field ORDER observable in each erasure? ---
+  #{b => 1, a => 2} =:= #{a => 2, b => 1}             : true
+  {order,1,2}       =:= {order,2,1}                   : false
+  => ticket 09 says a record type IS its field SET. A set has no order, so a
+     tuple erasure must invent a canonical one and put it in the wire format.
+
+--- 4.5 what an Elixir struct looks like coming in (ticket 06) ---
+  an Elixir %Order{} term                             : #{'__struct__' =>
+                                                              'Elixir.Order',
+                                                          id => 1,total => 2}
+  map_size                                            : 3
+  => it is a map with one extra key. Under a map erasure it arrives as a
+     record with an extra field; under a tuple erasure it needs conversion.
+
+===========================================================================================
+5. json:encode/1 -- ticket 16 sec4's generated encoder
+===========================================================================================
+Ticket 16 established json:encode/1 REFUSES tuples at any depth, and made the
+encoder a codegen obligation. A record is the main thing anyone serialises.
+
+  map    #{id=>1,total=>2,status=>open}    -> {caught,error,undef}
+  tuple  {order,1,2}                       -> {caught,error,undef}
+  tagged map (__type__ key)                -> {caught,error,undef}
+  nested: map holding a tuple              -> {caught,error,undef}

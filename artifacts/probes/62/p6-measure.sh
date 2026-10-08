@@ -5,7 +5,7 @@
 BSC_EBIN=/tmp/bsb_62_x/ebin
 W=$SCR/p6; rm -rf $W; mkdir -p $W
 gen() { # N
-  local n=$1 d=$W/Syn$n; mkdir -p $d
+  local n=$1; local d=$W/Syn$n; mkdir -p $d
   { echo "module Syn$n"; for i in $(seq 1 $n); do
       printf '\npublic int Fn%d(int x)\n\nFn%d(0) -> %d\nFn%d(n) when n > 100 -> n - %d\nFn%d(n) -> n + %d\n' $i $i $i $i $i $i $i; done; } > $d/a.bs
 }
@@ -16,7 +16,7 @@ cat > $W/bench.erl <<'ERL'
 -export([compile_ms/3, load_us/2, call_ns/3]).
 %% compile: Reps in-process compiles of module dir, returns list of ms
 compile_ms(Dir, Out, Reps) ->
-    [begin {T, _} = timer:tc(fun() -> bsc:main(["--src-root", filename:dirname(Dir), "-o", Out, Dir]) end), T / 1000 end || _ <- lists:seq(1, Reps)].
+    [begin {T, _} = timer:tc(fun() -> 0 = bsc:status(["--src-root", filename:dirname(Dir), "-o", Out, Dir], standalone) end), T / 1000 end || _ <- lists:seq(1, Reps)].
 %% load: Reps loads of the .beam binary; returns list of us
 load_us(Beam, Reps) ->
     {ok, Bin} = file:read_file(Beam), M = list_to_atom(filename:basename(Beam, ".beam")),
@@ -29,13 +29,13 @@ loop(_, _, 0) -> ok;
 loop(M, F, N) -> M:F(1), loop(M, F, N - 1).
 ERL
 (cd $W && erlc bench.erl)
-stat() { # stdin: numbers one per line -> median min max
+summ() { # stdin: numbers one per line -> median min max
   sort -g | awk '{a[NR]=$1} END{m=(NR%2)?a[(NR+1)/2]:(a[NR/2]+a[NR/2+1])/2; printf "median=%.2f min=%.2f max=%.2f n=%d", m, a[1], a[NR], NR}'; }
 echo "mode            N    beam_bytes  exports  compile_ms(in-proc, 12 reps; 1st dropped)       "
 for mode in none wrap dup; do for n in 5 200; do
   out=$W/out_${mode}_$n; mkdir -p $out
   extra=""; [ $mode != none ] && export BS_ALIAS=$mode BS_ALIAS_SPEC=1 || unset BS_ALIAS BS_ALIAS_SPEC
-  cs=$(erl -noshell -pa $BSC_EBIN -pa $W -eval "L = bench:compile_ms(\"$W/Syn$n\", \"$out\", 12), io:format(\"~s~n\", [string:join([io_lib:format(\"~.1f\",[X]) || X <- tl(L)], \"\\n\")]), halt(0)." 2>&1 | grep -E '^[0-9.]+$' | stat)
+  cs=$(erl -noshell -pa $BSC_EBIN -pa $W -eval "L = bench:compile_ms(\"$W/Syn$n\", \"$out\", 12), io:format(\"~s~n\", [string:join([io_lib:format(\"~.1f\",[X]) || X <- tl(L)], \"\\n\")]), halt(0)." 2>&1 | grep -E '^[0-9.]+$' | summ)
   sz=$(stat -c %s $out/Syn$n.beam)
   ne=$(erl -noshell -pa $out -eval "io:format(\"~p\",[length(('Syn$n'):module_info(exports))]),halt()." )
   printf '%-8s %5s %10s %8s   %s\n' $mode $n $sz $ne "$cs"
@@ -47,7 +47,7 @@ for mode in none wrap dup; do for n in 5 200; do
     v=$(erl -noshell -pa $W -eval "L = lists:sort(bench:load_us(\"$W/out_${mode}_$n/Syn$n.beam\", 40)), io:format(\"~p~n\",[lists:nth(20, L)]), halt()." )
     vals="$vals$v\n"
   done
-  printf '%-6s N=%-4s ' $mode $n; printf "$vals" | stat; echo
+  printf '%-6s N=%-4s ' $mode $n; printf "$vals" | summ; echo
 done; done
 echo; echo "== call overhead: 5M calls of F(1) (alias wrapper vs direct), ns/call, 10 fresh VMs each; Fn1 = direct PascalCase, fn1 = alias (wrap) / copy (dup) =="
 for mode in wrap dup; do for f in Fn1 fn1; do
@@ -56,7 +56,7 @@ for mode in wrap dup; do for f in Fn1 fn1; do
     v=$(erl -noshell -pa $W/out_${mode}_5 -pa $W -eval "io:format(\"~.2f~n\",[bench:call_ns('Syn5', '$f', 5000000)]), halt()." )
     vals="$vals$v\n"
   done
-  printf '%-5s %-4s ' $mode $f; printf "$vals" | stat; echo
+  printf '%-5s %-4s ' $mode $f; printf "$vals" | summ; echo
 done; done
-echo "(control: 'none' build, Fn1 only, and a deliberately slower call: Fn1 via apply/3)"
-vals=""; for r in $(seq 1 10); do vals="$vals$(erl -noshell -pa $W/out_none_5 -pa $W -eval "io:format(\"~.2f~n\",[bench:call_ns('Syn5', 'Fn1', 5000000)]), halt().")\n"; done; printf '%-5s %-4s ' none Fn1; printf "$vals" | stat; echo
+echo "(baseline: unpatched "none" build, Fn1 only; no slow-path control was run)"
+vals=""; for r in $(seq 1 10); do vals="$vals$(erl -noshell -pa $W/out_none_5 -pa $W -eval "io:format(\"~.2f~n\",[bench:call_ns('Syn5', 'Fn1', 5000000)]), halt().")\n"; done; printf '%-5s %-4s ' none Fn1; printf "$vals" | summ; echo

@@ -5,5 +5,5 @@ The repo pins OTP 28.5 (`.tool-versions`). `rebar3` crashes here, so the compile
 
 Consequences every brief inherits:
 - `./bin/verify.sh` and the gates were **not** run. No variant here is gate-clean or committed to `compiler/`.
-- Running `compiler/test/*_tests.erl` under eunit on OTP 25 gives 467 failures on the **unmodified** compiler (e.g. `maps:iterator/2` is OTP 26+). Comparisons are therefore set differences against that baseline, never absolute pass counts.
+- Running `compiler/test/*_tests.erl` under eunit on OTP 25 gives 466–467 failures on the **unmodified** compiler (e.g. `maps:iterator/2` is OTP 26+). Comparisons are therefore set differences against that baseline, never absolute pass counts.
 - Statements about Gleam and Elm are marked unverified wherever they appear.

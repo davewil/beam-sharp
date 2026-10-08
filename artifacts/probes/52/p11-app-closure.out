@@ -1,0 +1,6 @@
+stdlib   declares 1 name; closure = 2 apps: [kernel,stdlib]
+ssl      declares 1 name; closure = 6 apps: [asn1,crypto,kernel,public_key,ssl,stdlib]
+inets    declares 1 name; closure = 3 apps: [inets,kernel,stdlib]
+elixir   declares 1 name; closure = 4 apps: [compiler,elixir,kernel,stdlib]
+logger   declares 1 name; closure = 5 apps: [compiler,elixir,kernel,logger,stdlib]
+mix      declares 1 name; closure = 5 apps: [compiler,elixir,kernel,mix,stdlib]

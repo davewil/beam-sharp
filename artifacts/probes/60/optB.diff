@@ -1,0 +1,199 @@
+--- compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_60_b/bs_check.erl	2026-10-08 23:15:22.345596515 +0000
+@@ -10,7 +10,7 @@
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+--export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
++-export([exports_of/1, exports_of/2, exports_of/3, private_of/1, internal_of/1, types_of/3, hinted/2]).
+ %% The emitter publishes polymorphic signatures under the erased environment.
+ -export([polys_of/2, erased_env/2, type_source/1]).
+ %% F64: which records implement a protocol, for a dependent's World entry, and
+@@ -296,7 +296,7 @@
+ %% public visibility only for callbacks of this module's declared behaviours.
+ private_callback(Decls) ->
+     Behaviours = [B || {behaviour, _, B} <- Decls],
+-    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public],
++    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public, V =/= internal],
+     case [{N, A, L, Otp} || {N, A, L} <- Private,
+                             Otp <- [bs_otp:callback_name(N, A, Behaviours)],
+                             Otp =/= none] of
+@@ -361,7 +361,7 @@
+     behaviours_satisfied(Decls),
+     maps:from_list([{{N, length(Ps)},
+                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
+-                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
++                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public orelse V =:= internal]).
+ 
+ %% Build public polymorphic templates under the same environment as
+ %% `exports_of/2`, so dependents resolve names consistently.
+@@ -475,9 +475,29 @@
+ 
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+-                                       V =/= public],
++                                       V =/= public, V =/= internal],
+                    true).
+ 
++%% OPTION B (prototype): functions marked `internal` are exported but named only from the module's subtree.
++internal_of(Decls) ->
++    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
++                                       V =:= internal],
++                   true).
++
++%% Callers outside M's subtree see M's internal functions as refused names.
++view(World, Self) ->
++    SelfSegs = string:split(atom_to_list(Self), ".", all),
++    maps:map(fun(M, Entry) ->
++        Internal = maps:get(internal, Entry, #{}),
++        case maps:size(Internal) =:= 0 orelse
++             lists:prefix(string:split(atom_to_list(M), ".", all), SelfSegs) of
++            true -> Entry;
++            false ->
++                Entry#{exports := maps:without(maps:keys(Internal), maps:get(exports, Entry)),
++                       private => maps:merge(maps:get(private, Entry, #{}),
++                                             maps:map(fun(_,_) -> internal end, Internal))}
++        end end, World).
++
+ %% Import tables use modules checked in this invocation:
+ %%   funs: {Name, Arity} -> [Module], module-tier imports
+ %%   mods: Short -> [Module], namespace-tier imports
+@@ -485,7 +505,8 @@
+ %%   types: Name -> [Module], consumed by `imported_types/2`
+ %% The resolved path determines the import tier, not its spelling. Compilation
+ %% refuses unknown imports; `--api` skips them.
+-import_env(Decls, Self, World, Mode) ->
++import_env(Decls, Self, World0, Mode) ->
++    World = view(World0, Self),
+     Imports = [{L, M} || {import, L, M} <- Decls],
+     Known = maps:keys(World),
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+@@ -553,7 +574,7 @@
+ %% the same keys.
+ private_table(World) ->
+     maps:fold(fun(M, Entry, Acc) ->
+-                      maps:fold(fun({N, A}, _, In) -> In#{{q, M, N, A} => true} end,
++                      maps:fold(fun({N, A}, V, In) -> In#{{q, M, N, A} => V} end,
+                                 Acc, maps:get(private, Entry, #{}))
+               end, #{}, World).
+ 
+@@ -3662,6 +3683,9 @@
+                 {yes, M} ->
+                     {reported(),
+                      [{error, L, C#ctx.fname, {private_function, M, Name, Arity}}]};
++                {internal, M} ->
++                    {reported(),
++                     [{error, L, C#ctx.fname, {internal_function, M, Name, Arity}}]};
+                 no ->
+                     unresolved(L, Key, Name, lists:seq(1, Arity), [], C)
+             end;
+@@ -4206,6 +4230,10 @@
+                     {reported(),
+                      [{error, L, C#ctx.fname,
+                        {private_function, M, Shown, length(Args)}} | D]};
++                {internal, M} ->
++                    {reported(),
++                     [{error, L, C#ctx.fname,
++                       {internal_function, M, Shown, length(Args)}} | D]};
+                 no -> unresolved(L, Key, Shown, Args, D, C)
+             end;
+         {Ps, Ret} when length(Ps) =/= length(Args) ->
+@@ -4274,16 +4302,18 @@
+ %% reported as an arity error. Private names cannot enter the import table;
+ %% search imported modules for unresolved unqualified calls.
+ private_callee({q, M, N, A}, _Arity, C) ->
+-    case maps:is_key({q, M, N, A}, maps:get(privates, C#ctx.imports, #{})) of
+-        true  -> {yes, M};
+-        false -> no
++    case maps:find({q, M, N, A}, maps:get(privates, C#ctx.imports, #{})) of
++        {ok, true}     -> {yes, M};
++        {ok, internal} -> {internal, M};
++        error          -> no
+     end;
+ private_callee({N, A}, _Arity, C) ->
+     Privates = maps:get(privates, C#ctx.imports, #{}),
+-    case [M || M <- maps:get(imported, C#ctx.imports, []),
++    case [{maps:get({q, M, N, A}, Privates), M} || M <- maps:get(imported, C#ctx.imports, []),
+                maps:is_key({q, M, N, A}, Privates)] of
+-        [M | _] -> {yes, M};
+-        []      -> no
++        [{true, M} | _]     -> {yes, M};
++        [{internal, M} | _] -> {internal, M};
++        []                  -> no
+     end;
+ private_callee(_Key, _Arity, _C) -> no.
+ 
+--- compiler/src/bs_diag.erl	2026-10-06 23:03:23.684655679 +0000
++++ /tmp/bsb_60_b/bs_diag.erl	2026-10-08 23:14:44.759144013 +0000
+@@ -358,6 +358,9 @@
+ built(Path, {Sev, Line, Fn, {private_function, Mod, Callee, Arity}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => private_function,
+                                module => Mod, callee => Callee, arity => Arity};
++built(Path, {Sev, Line, Fn, {internal_function, Mod, Callee, Arity}}) ->
++    (at(Sev, Path, Line, Fn))#{tag => internal_function,
++                               module => Mod, callee => Callee, arity => Arity};
+ built(Path, {Sev, Line, Fn, {unknown_callee, Callee, Arity}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => unknown_callee,
+                                callee => Callee, arity => Arity};
+@@ -1328,6 +1331,11 @@
+      "  a private function is not exported, so no other module can~n"
+      "  reach it. Mark it `public` in ~s, or move the call inside it.~n",
+      [P, L, C, Fn, Callee, Arity, Mod, Mod]};
++message(#{tag := internal_function, file := P, line := L, column := C, function := Fn,
++          module := Mod, callee := Callee, arity := Arity}) ->
++    {"~s:~p:~p: error: ~s calls ~s/~p, which ~s declares `internal`~n"
++     "  an internal function is visible only to ~s and the modules beneath it.~n",
++     [P, L, C, Fn, Callee, Arity, Mod, Mod]};
+ message(#{tag := unknown_callee, file := P, line := L, column := C, function := Fn,
+           callee := Callee, arity := Arity}) ->
+     {"~s:~p:~p: error: ~s calls ~s/~p, which nothing declares~n"
+--- compiler/src/bs_emit.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_60_b/bs_emit.erl	2026-10-08 23:14:44.756665896 +0000
+@@ -138,7 +138,7 @@
+ arity(F) -> length(element(5, F)).              % length(#fn.params)
+ %% Private is the default, so the test is `=:= public` and not `=/= private`;
+ %% the other spelling would export every unmarked function.
+-is_public(F) -> element(7, F) =:= public.       % #fn.vis
++is_public(F) -> lists:member(element(7, F), [public, internal]).       % #fn.vis
+ 
+ %%% ---------------------------------------------------------------------------
+ %%% Functions and clauses
+--- compiler/src/bsc.erl	2026-10-06 23:03:23.692655679 +0000
++++ /tmp/bsb_60_b/bsc.erl	2026-10-08 23:14:44.757156836 +0000
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     internal => bs_check:internal_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+--- compiler/src/bs_parser.yrl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_60_b/bs_parser.yrl	2026-10-08 23:14:44.747580742 +0000
+@@ -26,7 +26,7 @@
+ 
+ Terminals
+   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
++  'and' 'or' 'where' 'public' 'private' 'internal' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+@@ -324,6 +324,7 @@
+ 
+ visibility -> 'public'  : public.
+ visibility -> 'private' : private.
++visibility -> 'internal' : internal.
+ 
+ params -> '$empty'    : [].
+ params -> param_list  : '$1'.
+--- /tmp/bsbuild/bs_lexer.xrl	2026-10-08 23:14:26.538299681 +0000
++++ /tmp/bsb_60_b/bs_lexer.xrl	2026-10-08 23:14:44.744674314 +0000
+@@ -56,6 +56,7 @@
+ %% function and there is no separate export list (F12, ticket 40 §3).
+ public                  : {token, {'public',  {TokenLine,1}}}.
+ private                 : {token, {'private', {TokenLine,1}}}.
++internal                : {token, {'internal', {TokenLine,1}}}.
+ %% `record` declares a record type (ticket 26 §1).
+ record                  : {token, {'record', {TokenLine,1}}}.
+ %% `o with { Total = 500 }` updates a record without changing its field set;

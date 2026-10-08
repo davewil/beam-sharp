@@ -81,3 +81,31 @@ Apply(f, n) -> f(n)
 public int Due(int n)
 Due(n) -> Apply(Handout(), n)'
 }
+# tree_c ROOT : the Option-C fixture (Acme.Pricing lists its friends)
+tree_c() { local R=$1
+mk $R Acme/Pricing 'module Acme.Pricing
+friend Acme.Orders
+
+public int Compute(int n)
+Compute(n) -> n * 2'
+mk $R Acme/Orders 'module Acme.Orders
+using Acme.Pricing
+
+public int Total(int n)
+Total(n) -> Compute(n) + 1'
+mk $R Acme/Orders/Sub 'module Acme.Orders.Sub
+using Acme.Pricing
+
+public int Sub(int n)
+Sub(n) -> Compute(n) + 2'
+mk $R Acme/Billing 'module Acme.Billing
+using Acme.Pricing
+
+public int Due(int n)
+Due(n) -> Compute(n)'
+mk $R Acme/Reports 'module Acme.Reports
+using Acme.Pricing
+
+public int Rep(int n)
+Rep(n) -> Compute(n)'
+}

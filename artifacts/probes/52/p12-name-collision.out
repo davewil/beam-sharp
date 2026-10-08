@@ -1,0 +1,2 @@
+OTP 25: 37 apps, 21 have a module with the app's own name: [crypto,debugger,dialyzer,edoc,et,eunit,ftp,inets,kernel,mnesia,observer,public_key,reltool,runtime_tools,sasl,snmp,ssh,ssl,tftp,wx,xmerl]
+Elixir 1.14: 6 apps, 1 have a module with the app's own name: [elixir]

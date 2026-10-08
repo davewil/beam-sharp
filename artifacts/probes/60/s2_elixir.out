@@ -1,0 +1,4 @@
+hidden module called from another module: 10
+** (MatchError) no match of right hand side value: {:error, :module_not_found}
+    s2_elixir.exs:14: (file)
+    (elixir 1.14.0) lib/code.ex:1245: Code.require_file/2

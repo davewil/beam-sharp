@@ -1,0 +1,21 @@
+stock plain -> [{foreign,{2,1},
+          'Elixir.Req',
+          [{foreign_sig,{3,1},
+                        new,
+                        {t_builtin,term},
+                        [{param,{t_generic,list,[{t_builtin,term}]},o}]}]}]
+stock app   -> parse error line {2,1}: syntax error before: 
+proto plain -> [{foreign,{2,1},
+          'Elixir.Req',
+          [{foreign_sig,{3,1},
+                        new,
+                        {t_builtin,term},
+                        [{param,{t_generic,list,[{t_builtin,term}]},o}]}],
+          none}]
+proto app   -> [{foreign,{2,1},
+          'Elixir.Req',
+          [{foreign_sig,{3,1},
+                        new,
+                        {t_builtin,term},
+                        [{param,{t_generic,list,[{t_builtin,term}]},o}]}],
+          req}]

@@ -9,7 +9,7 @@ Where does the fold of `-5` belong — **parser** or **checker** — so that `ty
 
 ## Stale premises (the ticket describes a compiler that no longer exists)
 
-1. The ticket says `-5` reaches the checker as `{e_op,'-',{e_int,0},{e_int,5}}`. **Since F51 (2026-09-16) unary minus is its own node `e_neg`** (`bs_parser.yrl:587-596`, `negate/2` at `bs_parser.yrl:946-947`). The refusal reproduces unchanged, but the mechanism differs.
+1. The ticket says `-5` reaches the checker as `{e_op,'-',{e_int,0},{e_int,5}}`. **Since F51 (2026-09-16) unary minus is its own node `e_neg`** (comment at `bs_parser.yrl:587-591`, rule at 592, `negate/2` at `bs_parser.yrl:946-947`). The refusal reproduces unchanged, but the mechanism differs.
 2. **The parser already folds one negation.** `negate(_L, {e_float, FL, F}) -> {e_float, FL, -F}` (`bs_parser.yrl:946`) folds a negated *float* literal "so `Sign(-1.5)` is a head" (F51 §finding 2). So "fold in the grammar" is not a new principle for this compiler; it is the existing rule applied to ints, which F51 left out.
 3. **The ticket's option 1 (narrow the grammar only at the refinement site) is not what the code offers.** `refinement -> expr_low` (`bs_parser.yrl:221`) shares the expression grammar with guards. Any parser fold therefore happens for every expression, not only refinements. This is the real shape of "the grammar" option and it is a one-clause change.
 
@@ -45,8 +45,8 @@ Compiler delta: one clause in `bs_parser.yrl`, beside the float one:
 `negate(_L, {e_int, IL, N}) -> {e_int, IL, -N}.` (`patches/A-parser.patch`, 10 diff lines including context).
 
 Evidence (`matrix.sh`, `shape.sh`):
-- Declaration, call site and guard all work: `RefNegGe`, `RefNegRange`, `RefNegAdmits`, `GuardNegExh` accepted; `RefNegExcludes` (`Id(-9)` into `>= -5`) refused with `-9 is not covered`, so it does **not** silently widen; `NegArgToNonNeg` (`Id(-5)` into `>= 0`) refused.
-- Unit suite, 1326 tests on OTP 25: 467 fail on the unmodified compiler (environment: `maps:iterator/2` is OTP 26+, lexer shim), **the identical 467 fail with A**; set difference empty (`comm` of sorted failure names).
+- Declaration, call site and guard all work: `RefNegGe`, `RefNegRange`, `RefNegAdmits`, `GuardNegExh` accepted; `RefNegExcludes` (`Id(-9)` into `>= -5`) is refused with `-9 is not covered` **on A and D only** (on base it is refused because the refinement is unreadable, on B/C because `-9` types as `int`), so it shows A and D do not silently widen. `NegArgToNonNeg` (`Id(-5)` into `>= 0`) is refused on every build including base, so it is a control, not evidence for A.
+- Unit suite, 1326 tests on OTP 25: 466–467 fail on the unmodified compiler (the author's run had one extra, `modules_tests:a_fully_qualified_call_needs_no_unqualified_scope_test`; the verifier's did not) (environment: `maps:iterator/2` is OTP 26+, lexer shim), **the same failures occur with A**; set difference empty (`comm` of sorted failure names).
 - Emitted form: `K() -> -5` changes from `{op,_,'-',{integer,_,5}}` to `{integer,_,-5}` (`shape.out`). Both are valid Erlang abstract format; the second needs no run-time or compile-time negation.
 - Compile time: 400–560 ms per run, dominated by VM boot; A and base ranges overlap (`shape.out`). No measurable cost.
 
@@ -54,11 +54,11 @@ Strongest counterargument: **CLAUDE.md-level principle, from the ticket's own te
 
 ### Option B — fold in the checker, two sites (`comparison/1` and `type_of/3`)
 
-Compiler delta: `comparison/1` (`bs_check.erl:~4955`) reads `{e_neg,_,{e_int,_,K}}` as `-K` on either side of the comparison, **and** `type_of({e_neg,_,{e_int,_,N}})` returns the point range `-N` (`patches/B-check.patch` is the checker fold alone; `patches/D-check.patch` is B plus the typing clause and is a complete diff against `compiler/src`; "D" in the probe output).
+Compiler delta: `comparison/1` (`bs_check.erl:4960`) reads `{e_neg,_,{e_int,_,K}}` as `-K` on either side of the comparison, **and** `type_of({e_neg,_,{e_int,_,N}})` returns the point range `-N` (`patches/B-check.patch` is the checker fold alone; `patches/D-check.patch` is B plus the typing clause and is a complete diff against `compiler/src`; "D" in the probe output).
 
 Evidence:
 - Checker fold alone (variant B) fixes declarations and guards but **fails** `RefNegAdmits` (`Id(-5)` refused). With the typing clause (variant D) the whole matrix matches A.
-- Unit suite with D: identical 467 failures, no new ones.
+- Unit suite with D: same failure set as baseline, none new.
 - Emitted form unchanged (`{op,'-',{integer,5}}`), which is Option B's selling point for tooling that wants the node.
 
 Strongest counterargument: it is two folds in two places that must agree forever (the guard reader and the expression typer), where the parser fold is one. The ticket asked "where does the fold belong" — this measures that a checker fold needs *two* homes, and the second one was invisible until the call-site probe.
@@ -75,7 +75,7 @@ Strongest counterargument: the ticket itself asks "where does it stop: `-5` cert
 
 | Language | Result | Source |
 |---|---|---|
-| Erlang/OTP 25 | Parser keeps `-5` as an op node in expressions, guards **and patterns**: `f(-5) -> a` parses to `{op,1,'-',{integer,1,5}}`; folding happens later (`erl_parse:normalise/1` at `erl_parse.yrl` normalise clauses `-> -I`, `erl_lint` calls `erl_eval:partial_eval` at `erl_lint.erl:1886,1997,2051`) | `probes/57/neighbours_erlang.out`; `/usr/lib/erlang/lib/stdlib-4.3.1.3/src/erl_parse.yrl:240,270`, `…/erl_lint.erl:1886` |
+| Erlang/OTP 25 | Parser keeps `-5` as an op node in expressions, guards **and patterns**: `f(-5) -> a` parses to `{op,1,'-',{integer,1,5}}`; folding happens later (`erl_parse:normalise/1` at `erl_parse.yrl` normalise clauses `-> -I`, `erl_lint` calls `erl_eval:partial_eval` on an expression at `erl_lint.erl:1886`; lines 1997 and 2051 are bit-size checks and are not evidence here) | `probes/57/neighbours_erlang.out`; `/usr/lib/erlang/lib/stdlib-4.3.1.3/src/erl_parse.yrl:240,270`, `…/erl_lint.erl:1886` |
 | Elixir 1.14 | `x >= -5` quotes to `{:>=, _, [x, {:-, _, [5]}]}`: operator node kept; a `defguard` with `>= -5` works at run time (`{:in, :out}` for -5 / -6) | `probes/57/neighbours_elixir.exs`, `.out` |
 | Elm 0.19 | **Not executed** — the compiler binary runs but `elm make` needs package downloads, blocked by egress policy | — |
 | Gleam | **Not installed**, cannot be (github/hex blocked) — no claim made | — |
@@ -90,7 +90,7 @@ If the reviewer prefers the neighbours' convention (keep the op node), Option B 
 
 ## Not measured / could not run
 
-- **Toolchain is OTP 25, repo pins OTP 28.** Built by hand with a lexer shim (`TokenLoc → {TokenLine,1}`); diagnostic columns are wrong, parser/checker/emitter behaviour is unchanged. The 467 baseline unit-suite failures are an artefact of this. `rebar3` could not run, so `./bin/verify.sh` and the gates were **not** run; none of A/B/C is gate-clean.
+- **Toolchain is OTP 25, repo pins OTP 28.** Built by hand with a lexer shim (`TokenLoc → {TokenLine,1}`); diagnostic columns are wrong, parser/checker/emitter behaviour is unchanged. The ~467 baseline unit-suite failures are an artefact of this. `rebar3` could not run, so `./bin/verify.sh` and the gates were **not** run; none of A/B/C is gate-clean.
 - Elm and Gleam behaviour (see above).
 - No `-x` interval precision (sub-decision 3) and no non-literal consts.
 - Call-time cost is nil for all options (nothing emitted differs except A's literal form), so none was measured.

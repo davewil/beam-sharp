@@ -1,0 +1,14 @@
+=== CONTROL, unpatched bsc, tree WITHOUT the friend line: every caller accepted (the refusals below are the option's doing)
+Acme/Orders            accepted
+Acme/Orders/Sub        accepted
+Acme/Billing           accepted
+Acme/Reports           accepted
+=== UNPATCHED bsc WITH the friend line: callee does not parse, dependency unreachable (message is about the missing module, not the keyword)
+Acme/Orders            REFUSED
+      | Acme/Orders/a.bs:2:1: error: `using Acme.Pricing` names no module and no namespace
+      |   a module is a source file this invocation can reach; a namespace
+      |   is a path that other modules sit under. Neither matched.
+=== PATCHED bsc, Option C
+Acme/Orders            accepted
+Acme/Orders/Sub        accepted
+Acme/Billing           REFUSED
