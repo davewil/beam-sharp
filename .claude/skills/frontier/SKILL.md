@@ -1,6 +1,6 @@
 ---
 name: frontier
-description: Pick the next piece of beam-sharp work from Linear and the repo, ranked by claim, priority, what it unblocks, and the repo's own rules; claim it in both trackers and route it. It also carries the traps that picking walks into: the ticket-number rule, where feature status comes from, and defect-versus-ticket.
+description: Pick the next piece of beam-sharp work from Linear and the repo, ranked by claim, priority, what it unblocks, and the repo's own rules, with apparatus last in its band; claim it in both trackers and route it; present what waits in review as decisions. It also carries the traps that picking walks into: the ticket-number rule, where feature status comes from, and defect-versus-ticket.
 disable-model-invocation: true
 ---
 
@@ -33,7 +33,8 @@ Apply in order; the first rule that separates two candidates decides.
 
 1. **Claimed beats fresh.** An issue that both trackers call in-flight (Linear `In Progress`
    and repo `Status: claimed`, for map tickets) outranks anything unstarted. One tracker alone
-   is a stale label, not work. `In Review` is waiting on David, not on a session: skip it.
+   is a stale label, not work. `In Review` is waiting on David, not on a session: skip it in the ranking and
+   present it in the report (§5).
    A Linear-only issue has one tracker, so its `In Progress` counts on its own, and it counts
    even when no session is holding it and even over a `quick-fix` — David confirmed this on the
    skill's first run (2026-09-01, ENG-263 over ENG-289). Started work finishes before new work
@@ -55,17 +56,28 @@ Apply in order; the first rule that separates two candidates decides.
    label clause separated it from all sixteen `ready-for-agent` issues before this rule was
    consulted. A gate that guards a register (`ENG-291` for `debt`) outranks the entries it
    guards.
-5. **Priority, then the agent label.** High before Medium before Low before No-priority.
-   Within a band, `ready-for-agent` before unlabelled. `ready-for-human` is David's, not
-   yours: name it in the report and move on. Every numbered map ticket is No-priority, so
-   age never gets to decide against a prioritised issue. **Know what this clause now selects
-   for**: every open `ready-for-agent` issue also carries `apparatus` (16 of 16 on
-   2026-09-07), and every open `quick-fix` does too (6 of 6). The label did not start that
-   way — `ENG-319`, `ENG-321`, `ENG-297`, `ENG-307` and `ENG-260` were `ready-for-agent`
-   features and are all Done. The takeable language work drained and the apparatus did not,
-   so the clause promotes apparatus over unlabelled work in every band by attrition.
-   Whether `apparatus` should therefore rank last in its band is David's call, open and
-   unmade.
+5. **Priority, then apparatus last, then the agent label.** High before Medium before Low
+   before No-priority. Within a band, **every issue that is not apparatus outranks every issue
+   that is** (David, 2026-10-08), whatever rules 6 to 9 would say about either: a `quick-fix`,
+   a `ready-for-agent` label or greater age never lifts apparatus over language, audition or
+   tooling work in the same band. An issue is apparatus by its `apparatus` label **or by its
+   shape** — its deliverable is a check, a doc, a hook or a tracker change, which CLAUDE.md
+   holds never counts as progress. `ENG-264` carried no label and was a gate plus a one-line
+   doc fix; read the done-when, not the labels. Among the rest, `ready-for-agent` before
+   unlabelled. `ready-for-human` is David's, not yours: name it in the report and move on.
+   Every numbered map ticket is No-priority, so age never gets to decide against a prioritised
+   issue.
+
+   Apparatus is picked only when its band holds nothing else takeable, and then the report says
+   so in its first line. An apparatus defect met while doing other work is fixed along the way,
+   inside that work's commits, without a claim of its own.
+
+   Why this is a rule: on 2026-10-08 three consecutive runs picked `ENG-264`, `ENG-268` and
+   `ENG-271` on age, each flagged as apparatus and none a blocker to language work, while
+   `ENG-407`, `ENG-410`, `ENG-552` and `ENG-569` waited in the same band. The labels had
+   drifted the same way earlier: every open `ready-for-agent` and every open `quick-fix` also
+   carried `apparatus` on 2026-09-07, because the takeable language work drained and the
+   apparatus did not.
 6. **Quick fixes before the frontier.** Within a band, `quick-fix` first: each closes a
    documented falsehood or a gate that cannot see one, and stops the record drifting while the
    frontier moves.
@@ -123,6 +135,15 @@ the rule, what it unblocks, and **the exact command David types next** — `/imp
 or `/wayfinder ENG-NNN`. Done when the claim is visible in both trackers and that line is the
 last thing in the report.
 
+**Every `In Review` issue is presented as decisions, in the report, before the pick.** Read
+each one's description and give: what was done, in one line; each point that needs David's
+call — a departure from the done-when, scope exceeded, a finding, something left undone — with
+a recommended answer; or "nothing to decide, recommend closing". Group the ones with nothing
+to decide into one table. David answers in a few words and the session closes them. A report
+that says only "N issues are in review, closing is your call" hands him text a session wrote
+and leaves him to decode it (David, 2026-10-08, with eight waiting). Done when every `In
+Review` issue appears with either a recommendation to close or its numbered decisions.
+
 **This skill ends at the report. It does not build, and it does not resolve.** Both routes
 are user-invoked skills (`disable-model-invocation: true` on each), so a session cannot follow
 the hop itself, and it must not substitute its own build for the one the route names: on
@@ -159,7 +180,7 @@ day at `fd6db43`:
   — so the band that is drained first yielded **nothing**, and no rule said so;
 - rule 7's two named inventories were both empty, so *build before decide* reached nothing
   either;
-- and rule 5's label clause, which now selects `apparatus` by attrition, sorted the one item
+- and rule 5's label clause, which then selected `apparatus` by attrition, sorted the one item
   that would have unblocked a High build behind sixteen documentation chores.
 
 Rules 3, 4 and 7 repair *that* frontier, and a second picker would not have: it would have
@@ -170,12 +191,12 @@ two picks: rule 4 lifts `ENG-331` into High, it is built, `ENG-332` becomes High
 and is built. The High band is then empty again — and the Medium band still sorts sixteen
 `apparatus` items ahead of the five `debt` builds whose ticket has decided the spelling,
 because rule 5's label clause fires before rule 7 is ever reached. The third pick is a
-documentation chore. What is left is not a bug in these rules; it is the open call below.
+documentation chore. That was the open call, and David made it on 2026-10-08: rule 5 now
+ranks apparatus last in its band.
 
 **What a `/backlog` skill would legitimately be**, if one is ever wanted: not "regular work"
 but *the work that is deliberately not progress*. 23 of the 63 open issues carry `apparatus`,
 and CLAUDE.md holds that a check, a doc, a hook or a tracker change never counts as progress.
 Those items can never win an honest ranking, so either they are never done or they get their
 own explicitly-invoked queue that David drains when he decides it is apparatus time. Not
-built: one occurrence. Until that call is made, a session that reaches the Medium band should
-say in its report that the pick is apparatus, and let David redirect it.
+built: rule 5 keeps them behind the work that counts, and they are fixed along the way.
