@@ -213,3 +213,35 @@ the_offered_signature_says_string_test_() ->
                                  string:find(Output, "public int | string Pick(bool b)"))
              end)
      end}.
+
+%% F68.14 — ticket 117 Q1: a field set closes on its literal tag as a record
+%% does on `Kind`, so `_` over leftover tagged members is refused naming them,
+%% whether they are open or hold an unbounded field.
+a_catch_all_over_tagged_members_is_refused_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("ev14.bs",
+             "module Ev14\n"
+             "type Start = { \"type\": \"content_block_start\", \"index\": int, .. }\n"
+             "type Stop  = { \"type\": \"message_stop\", .. }\n"
+             "type Ping  = { \"type\": \"ping\", \"seq\": int }\n"
+             "public atom Kind(Start | Stop | Ping e)\n"
+             "Kind({ \"type\": \"content_block_start\" }) -> :start\n"
+             "Kind(_) -> :other\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "discards cases the compiler can name")),
+                 ?assertNotEqual(nomatch, string:find(Output, "\"type\": \"message_stop\" }) -> ...")),
+                 ?assertNotEqual(nomatch, string:find(Output, "\"type\": \"ping\" }) -> ..."))
+             end)
+     end}.
+
+%% F68.15 — an untagged open field set stays open, and `_` stays legal over it.
+a_catch_all_over_an_untagged_open_member_is_legal_test() ->
+    M = build_and_load("module Ev15\n"
+                       "type A = { \"a\": int, .. }\n"
+                       "type B = { \"b\": string, .. }\n"
+                       "public int Go(A | B x)\n"
+                       "Go({ \"a\": _ }) -> 1\n"
+                       "Go(_) -> 0\n", 'Ev15'),
+    ?assertEqual(0, M:'Go'(#{<<"b">> => <<"x">>})).

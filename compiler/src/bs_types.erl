@@ -479,16 +479,28 @@ sp_open({P, closed})     -> lists:any(fun is_open/1, P);
 sp_open({P, {open, T}})  -> not e_none(T) orelse lists:any(fun is_open/1, P).
 
 m_open(top) -> true;
-%% Open members admit arbitrary extra fields.
-m_open(Ms)  -> lists:any(fun({open, _}) -> true;
-                            %% Domain rules are treated as open residuals.
-                            ({dom, _, _}) -> true;
-                            %% A record closes on its tag whatever its fields
-                            %% hold: the tag names the case (ticket 101).
-                            ({closed, Fs} = M) ->
-                                discriminator(M) =:= none andalso
-                                    lists:any(fun is_open/1, maps:values(Fs))
+m_open(Ms)  -> lists:any(fun({dom, _, _}) ->
+                                 %% Domain rules are treated as open residuals.
+                                 true;
+                            ({Kind, Fs} = M) ->
+                                 %% A record closes on its tag whatever its
+                                 %% fields hold: the tag names the case (ticket
+                                 %% 101). A field set closes the same way on a
+                                 %% key that holds only string literals, open
+                                 %% or not (ticket 117 Q1).
+                                 discriminator(M) =:= none
+                                     andalso not literal_tagged(Fs)
+                                     %% Open members admit arbitrary extra fields.
+                                     andalso (Kind =:= open orelse
+                                              lists:any(fun is_open/1, maps:values(Fs)))
                          end, Ms).
+
+%% One of its keys holds a finite set of string literals and nothing else.
+literal_tagged(Fs) ->
+    N = none(),
+    lists:any(fun(#{bins := [{finite, _}]} = T) -> T#{bins => []} =:= N;
+                 (_)                            -> false
+              end, maps:values(Fs)).
 
 %%% --- Union: exact, never widening ---
 

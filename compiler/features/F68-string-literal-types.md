@@ -1,10 +1,10 @@
 # F68 — a string literal is a type: `{ "type": "ping", .. }`
 
-**Status**      **in progress** — built 2026-10-08, 14 tests in
+**Status**      **in progress** — built 2026-10-08 and 2026-10-09, 16 tests in
                 `string_literal_type_tests`; closing is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
-                Q5. Decides nothing; raises
-                [ticket 117](../../wayfinder/issues/117-a-literal-tagged-field-set-and-the-catch-all.md)
+                Q5 and [ticket 117](../../wayfinder/issues/117-a-literal-tagged-field-set-and-the-catch-all.md),
+                which this build raised. Decides nothing
 **Closes**      [ENG-407](https://linear.app/davewil/issue/ENG-407)
 **Unblocks**    exemplar 25f's answers, which are tagged by `"type"`; see *Left*
 **Depends on**  F58 (string keys), F59 (open field sets), F13 (string literals
@@ -58,10 +58,15 @@ Beat() -> { "type" = "ping" }
 - A guard's `x == "low"` and `x != "low"` narrow `x` as the literal pattern
   does, as they do for an atom.
 
-A literal now behaves as an atom or a float literal already did, including
-where that refuses a program that compiled before: a name bound to
+- A field set closes on a key that holds only string literals, open or not
+  and whatever its other fields hold, as a record closes on `Kind`. So `_`
+  over leftover tagged members is refused, naming them (ticket 117 Q1). An
+  untagged open field set stays open.
+
+A literal behaves as an atom or a float literal already did, including where
+that refuses a program that compiled before: a name bound to
 `n switch { 0 => "a", _ => "b" }` is `"a" | "b"`, so a `_` over what is left
-of it is refused as it is for `:a | :b`. Ticket 117 Q2 asks whether that stands.
+of it is refused as it is for `:a | :b` (ticket 117 Q2).
 
 ## What changed
 
@@ -74,6 +79,8 @@ of it is refused as it is for `:a | :b`. Ticket 117 Q2 asks whether that stands.
   `is_open/1` treats only a finite set as closed; `separable/2` tells two
   members apart by a literal; the printers spell a literal quoted and
   `string \ ("a" | "b")` for the rest.
+- `bs_types:m_open/1`: a member with a key that holds only string literals is
+  closed, whether or not it carries `..`.
 - `bs_types:m_hd/2` and `m_pat/1`: a key that holds exactly one literal prints
   it, in a residual head and in a "not covered" refusal, `{ "type": "ping" }`.
   Both printed `{ "type": _ }`, which names no member. `key_str/1` writes the
@@ -106,16 +113,12 @@ of it is refused as it is for `:a | :b`. Ticket 117 Q2 asks whether that stands.
 | F68.10 | a foreign function declared to return `Level` | `"low"` passes; `"mid"` crashes `case_clause` |
 | F68.11 | `Rank(l) when l == "low"` and `when l == "high"` over `Level` | exhaustive; runs |
 | F68.12 | a missing literal holding `"` and a newline, at `bsc` | the head prints `"a\"q\n"`, escaped as source |
+| F68.14 | `Kind` naming one member, then `Kind(_)`, over an open tagged member and a closed one with an `int` field, at `bsc` | `catch_all_over_closed`, naming both leftover heads by their tag |
+| F68.15 | `Go(_)` over `{ "a": int, .. } \| { "b": string, .. }` | compiles: an untagged open member stays open |
 | F68.13 | a clause returns `"none"` where `int` is declared, at `bsc` | the offered signature is `public int \| string Pick(bool b)` |
 
 ## Out of scope
 
-- Whether a `_` over leftover literal-tagged members is refused, as it is over
-  leftover records: [ticket 117](../../wayfinder/issues/117-a-literal-tagged-field-set-and-the-catch-all.md)
-  Q1. Measured today: it compiles where a leftover member is open (`..`) or
-  holds a field with an unbounded type, and is refused where every field of
-  every leftover member is a literal, and over a bare union of literals. That
-  is the algebra's existing rule for a tuple, not a choice made here.
 - Projection by a string key: deferred by ticket 78 Q6.
 - A literal-tagged member with more than one literal left at its key prints
   the key's value as `_` in a residual, as any other value does.

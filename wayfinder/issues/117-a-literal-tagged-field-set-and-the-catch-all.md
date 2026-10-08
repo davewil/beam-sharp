@@ -1,8 +1,8 @@
 # 117 — Does a field set tagged by a string literal close on that tag?
 
 Type: grilling
-Status: claimed — [ENG-595](https://linear.app/davewil/issue/ENG-595). Raised 2026-10-08 by the F68
-build ([ENG-407](https://linear.app/davewil/issue/ENG-407)), which makes a string literal a type
+Status: resolved 2026-10-09 — [ENG-595](https://linear.app/davewil/issue/ENG-595). Raised 2026-10-08 by the F68
+build ([ENG-407](https://linear.app/davewil/issue/ENG-407)), which makes a string literal a type; one round, two questions
 Blocked by: —
 
 ## Why this is raised
@@ -114,3 +114,29 @@ sites that compare a value with an expected type (a return, an argument, a brace
 string literal where the expected type holds that literal. The checker has no expected type at
 `var x = …`, so `var p = { "type" = "ping" }` would be a `{ "type": string }` and could not be
 passed as a `Ping` without writing the brace at the call.
+
+**Answered 2026-10-09 (David): Q1 yes, Q2 yes.**
+
+- **Q1.** Refused. A field set closes on a key that holds only string literals, open or not and
+  whatever its other fields hold, so `_` over leftover tagged members is refused naming them, as
+  it is over leftover records. An untagged open field set stays open.
+- **Q2.** Refused. A string literal expression has its own string as its type, as an atom and a
+  float literal do, so a name bound to literals is their union and `_` over what is left of it is
+  refused.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [Does a field set tagged by a string literal close on that tag?](issues/117-a-literal-tagged-field-set-and-the-catch-all.md)
+  — **yes: a field-set member closes on a key that holds only string literals, open (`..`) or not
+  and whatever its other fields hold, so `_` over leftover tagged members is refused naming them,
+  as ticket [101](issues/101-what-closes-a-residual.md) refuses it over leftover records; and a
+  string literal expression has its own string as its type, as an atom and a float literal do.**
+  Raised 2026-10-08 by the F68 build and resolved 2026-10-09 in one round on two questions. The
+  second refuses a program that compiled before F68, `var x = n switch { 0 => "a", _ => "b" }`
+  then `x switch { "a" => 1, _ => 2 }`, in the words the `:a | :b` form already got. An untagged
+  open field set stays open, and `string` stays open ([30](issues/30-binaries-as-a-parsing-grammar.md)).
+  Built — F68 ([ENG-407](https://linear.app/davewil/issue/ENG-407)).
+```

@@ -2864,9 +2864,10 @@ wire types can carry each other's keys, so the presence of a key no longer says 
 arrived; the value at a key does. A member tagged `{ "type": "ping", .. }` is one a clause head can
 name, and a union of such members is covered without `_`. `ValidateAs` compares the value with the
 literal, `ToJson` writes it unchanged, and a literal expression has its own string as its type, so
-the brace builds a tagged member. Plain `string` stays open: literals over it still need a
-catch-all. **shipped** — F68.
-<!-- decided by ticket 78 Q5; built by F68 -->
+the brace builds a tagged member. A field set closes on its literal tag as a record does on its
+name, so a `_` over tagged members left unnamed is refused, naming them. Plain `string` stays open:
+literals over it still need a catch-all. **shipped** — F68.
+<!-- decided by ticket 78 Q5 and ticket 117; built by F68 -->
 
 ```csharp
 module Stream
@@ -2912,6 +2913,20 @@ type Ping  = { "type": "ping", .. }
 
 public atom Kind(Stop | Ping e)
 Kind({ "type": "message_stop" }) -> :stop
+```
+
+And a `_` in its place is refused, because what it would take is a member you declared:
+
+<!-- diagnoses: catch_all_over_closed -->
+```csharp
+module Stream3
+
+type Stop  = { "type": "message_stop", .. }
+type Ping  = { "type": "ping", .. }
+
+public atom Kind(Stop | Ping e)
+Kind({ "type": "message_stop" }) -> :stop
+Kind(_)                          -> :other
 ```
 
 **An absent key at an `option<T>` field is `:nothing`.** It is the one conversion `ValidateAs`
