@@ -1345,6 +1345,8 @@ bin_tests(_V, [], _L) -> [];
 bin_tests(V, Bs, L) ->
     case lists:sort(Bs) of
         [other, utf8] -> [bif(is_binary, [V], L)];
+        %% F68: a literal is decided by equality.
+        [{finite, Strs}] -> [{op, L, '=:=', V, key_lit(S, L)} || S <- Strs];
         _             -> erlang:error({foreign_return_guard, string})
     end.
 
@@ -2093,7 +2095,16 @@ bin_clauses([utf8], Err) ->
       [utf8_case(ok_expr(), Err)]}];
 bin_clauses([other], Err) ->
     [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_binary, [?VV])]],
-      [utf8_case(Err, ok_expr())]}].
+      [utf8_case(Err, ok_expr())]}];
+%% F68: a literal is its own clause, matched exactly. A source literal is valid
+%% UTF-8, so equality is the whole test.
+bin_clauses([{finite, Strs}], _Err) ->
+    [{clause, ?A, [key_lit(S, ?A)], [], [ok_expr()]} || S <- Strs];
+%% No written type is "every string but these", or a literal beside the
+%% non-UTF-8 binaries: both are residuals of subtraction. Refuse one that
+%% reaches emission rather than guess at a clause order.
+bin_clauses(Bs, _Err) ->
+    erlang:error({validate_over_string_residual, Bs}).
 
 %% Only a list from `unicode:characters_to_list/2` succeeds; both `error` and
 %% `incomplete` tuples mean invalid UTF-8.

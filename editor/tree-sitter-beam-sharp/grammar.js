@@ -204,6 +204,8 @@ module.exports = grammar({
     // regex cannot.
     type_prim: $ => choice(
       $.atom,
+      // F68 — a string literal is a type, the one string it spells.
+      $.string,
       $.generic_type,
       $.builtin_type,
       $.qualified_type,

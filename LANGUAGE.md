@@ -1008,7 +1008,9 @@ would mean splitting the residual per segment.
 <!-- ticket 30 -->
 
 Admitted. A `string`'s residual is **always open**, so a catch-all is required and legal, and a set
-of string literals is never exhaustive on its own. **shipped** — F13.
+of string literals is never exhaustive over `string`. **shipped** — F13. A literal takes exactly its
+own string, so over a type that is itself a set of literals the clauses can close it; that is
+[a string literal as a type](#a-string-literal-is-a-type), F68.
 
 ```csharp
 public atom Greet(string s)
@@ -2854,6 +2856,63 @@ public int Tokens(ReplyWire r)
 Tokens({ "usage": { "input_tokens": i, "output_tokens": o } }) -> i + o
 ```
 
+### A string literal is a type
+
+**A string literal is a type: the one string it spells**, as an atom literal is the one atom. Open
+wire types can carry each other's keys, so the presence of a key no longer says which member
+arrived; the value at a key does. A member tagged `{ "type": "ping", .. }` is one a clause head can
+name, and a union of such members is covered without `_`. `ValidateAs` compares the value with the
+literal, `ToJson` writes it unchanged, and a literal expression has its own string as its type, so
+the brace builds a tagged member. Plain `string` stays open: literals over it still need a
+catch-all. **shipped** — F68.
+<!-- decided by ticket 78 Q5; built by F68 -->
+
+```csharp
+module Stream
+
+type Start = { "type": "content_block_start", "index": int, .. }
+type Stop  = { "type": "message_stop", .. }
+type Ping  = { "type": "ping", .. }
+
+type Event = Start | Stop | Ping
+
+public atom Kind(Event e)
+Kind({ "type": "content_block_start" }) -> :start
+Kind({ "type": "message_stop" })        -> :stop
+Kind({ "type": "ping" })                -> :ping
+
+public result<Event, ValidationError> Read(term doc)
+Read(doc) -> ValidateAs<Event>(doc)
+
+public Ping Beat()
+Beat() -> { "type" = "ping" }
+```
+
+A literal is a type on its own as well, and a union of them closes the same way:
+
+```csharp
+module Levels2
+
+type Level = "low" | "high"
+
+public int Rank(Level l)
+Rank("low")  -> 1
+Rank("high") -> 2
+```
+
+Leave a member out and the residual names it by its tag:
+
+<!-- diagnoses: inexhaustive -->
+```csharp
+module Stream2
+
+type Stop  = { "type": "message_stop", .. }
+type Ping  = { "type": "ping", .. }
+
+public atom Kind(Stop | Ping e)
+Kind({ "type": "message_stop" }) -> :stop
+```
+
 **An absent key at an `option<T>` field is `:nothing`.** It is the one conversion `ValidateAs`
 makes: a record has no absent fields, so the boundary fills them. It applies to records and field
 sets alike, at every depth: a record field, a tuple component, a list element, a map value. JSON
@@ -3571,6 +3630,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | `pid`, `reference`, `port`; `Down` and `Exit` as named views of the tuples OTP sends | **shipped** — F60 |
 | a string key in a field-set type, pattern and brace, `{ "input_tokens": int }` | **shipped** — F58 |
 | an open field set, `{ "model": string, .. }` | **shipped** — F59 |
+| a string literal as a type, `{ "type": "ping", .. }` and `"low" \| "high"` | **shipped** — F68 |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
 | destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |

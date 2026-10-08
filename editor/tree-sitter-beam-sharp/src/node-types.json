@@ -4222,6 +4222,10 @@
           "named": true
         },
         {
+          "type": "string",
+          "named": true
+        },
+        {
           "type": "type_expression",
           "named": true
         },

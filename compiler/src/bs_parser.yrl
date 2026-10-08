@@ -237,6 +237,8 @@ type_union_members -> type_prim                          : ['$1'].
 type_union_members -> type_prim '|' type_union_members   : ['$1' | '$3'].
 
 type_prim -> atom_lit          : {t_atom, value('$1')}.
+%% F68: a string literal is a type, the one string it spells.
+type_prim -> string_lit        : {t_str, key('$1')}.
 type_prim -> lident            : {t_builtin, value('$1')}.
 type_prim -> uident            : {t_ref, value('$1')}.
 type_prim -> '(' type_list ')' : {t_tuple, '$2'}.

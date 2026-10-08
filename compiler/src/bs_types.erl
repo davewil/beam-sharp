@@ -18,7 +18,7 @@
 -export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 %% Signature inference uses the union of types at a tuple position.
 -export([tuple_comp/3]).
--export([binary_top/0, string/0]).
+-export([binary_top/0, string/0, str_lit/1, widen_strs/1]).
 %% F60: a process, a reference and a port, opaque to the type language.
 -export([opaque/1]).
 %% F60: the compiler-known named views of the tuples OTP sends.
@@ -83,7 +83,15 @@
 %% `string` is `[utf8]`; `binary` is `[other, utf8]`. The `[other]` residual
 %% has no surface spelling but must remain distinct for exact subtraction.
 %% Sizes belong to binary patterns, not type expressions.
--type bin_part() :: [utf8 | other].
+%%
+%% The strings are a finite or cofinite set of literals, as the atoms are:
+%% `{finite, L}` is exactly those strings and `{cofinite, L}` is every string
+%% but those. `utf8` is the cofinite set that excludes nothing, kept as an atom
+%% because every reader of `string` matches it. Either set, when written, is
+%% non-empty; the list stays sorted (`other` before `utf8` before a tuple).
+%% Rationale: compiler/features/F68-string-literal-types.md.
+-type str_set() :: {finite | cofinite, [binary()]}.
+-type bin_part() :: [other | utf8 | str_set()].
 
 %% F60: values with no structure a pattern can take apart, each decided by one
 %% guard (`is_pid/1`, `is_port/1`, `is_reference/1`). Like `bins`, an ordset
@@ -221,6 +229,35 @@ funs_of(T) -> (none())#{funs => arrows(T)}.
 binary_top() -> (none())#{bins => [other, utf8]}.
 
 string() -> (none())#{bins => [utf8]}.
+
+%% One string, as a type. Source literals are lexer-validated UTF-8.
+str_lit(S) when is_binary(S) -> (none())#{bins => [{finite, [S]}]}.
+
+%% Every set of string literals, at any depth, read as `string`. A signature
+%% offered for what a body returns says `string` for `"bad"`, as an author
+%% would: the literal is what this clause returned, not what the function is
+%% declared to.
+widen_strs(#{recvar := _} = V) -> V;
+widen_strs(#{mu := N, body := B}) -> #{mu => N, body => widen_strs(B)};
+widen_strs(T) ->
+    W = fun widen_strs/1,
+    T#{bins   => [case B of {finite, _} -> utf8; _ -> B end || B <- maps:get(bins, T)],
+       tuples => case maps:get(tuples, T) of
+                     top -> top;
+                     Ps  -> [[W(C) || C <- P] || P <- Ps]
+                 end,
+       lists  => [sp_map(W, S) || S <- maps:get(lists, T)],
+       maps   => case maps:get(maps, T) of
+                     top -> top;
+                     Ms  -> [case M of
+                                 {dom, K, V} -> {dom, W(K), W(V)};
+                                 {Kind, Fs}  -> {Kind, maps:map(fun(_, C) -> W(C) end, Fs)}
+                             end || M <- Ms]
+                 end,
+       funs   => case maps:get(funs, T) of
+                     top -> top;
+                     Fs  -> [{[W(D) || D <- Ds], W(C)} || {Ds, C} <- Fs]
+                 end}.
 
 opaque(K) when K =:= pid; K =:= port; K =:= reference -> (none())#{opaques => [K]}.
 
@@ -417,8 +454,8 @@ is_open(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
         orelse l_open(Ls) orelse m_open(Ms)
         %% Cofinite float sets cannot be enumerated.
         orelse a_open(Fl)
-        %% Binary lengths are unbounded.
-        orelse Bs =/= []
+        %% Binary lengths are unbounded; only a finite set of literals closes.
+        orelse b_open(Bs)
         %% No pattern names a particular process, reference or port.
         orelse Os =/= []
         %% No pattern enumerates the functions of a type.
@@ -482,7 +519,7 @@ u_parts(A, B) ->
       lists  => l_union(maps:get(lists, A), maps:get(lists, B)),
       maps   => m_union(maps:get(maps, A), maps:get(maps, B)),
       %% `string` is nested within `binary`, so their union is `binary`.
-      bins   => ordsets:union(maps:get(bins, A), maps:get(bins, B)),
+      bins   => b_union(maps:get(bins, A), maps:get(bins, B)),
       opaques => ordsets:union(maps:get(opaques, A), maps:get(opaques, B)),
       funs   => f_union(maps:get(funs, A), maps:get(funs, B))}.
 
@@ -537,7 +574,7 @@ i_parts(A, B, As) ->
       tuples => t_intersect(maps:get(tuples, A), maps:get(tuples, B), As),
       lists  => l_intersect(maps:get(lists, A), maps:get(lists, B), As),
       maps   => m_intersect(maps:get(maps, A), maps:get(maps, B), As),
-      bins   => ordsets:intersection(maps:get(bins, A), maps:get(bins, B)),
+      bins   => b_intersect(maps:get(bins, A), maps:get(bins, B)),
       opaques => ordsets:intersection(maps:get(opaques, A), maps:get(opaques, B)),
       funs   => f_intersect(maps:get(funs, A), maps:get(funs, B), As)}.
 
@@ -564,7 +601,7 @@ s_parts(A, B, As) ->
       tuples => t_subtract(maps:get(tuples, A), maps:get(tuples, B), As),
       lists  => l_subtract(maps:get(lists, A), maps:get(lists, B), As),
       maps   => m_subtract(maps:get(maps, A), maps:get(maps, B), As),
-      bins   => ordsets:subtract(maps:get(bins, A), maps:get(bins, B)),
+      bins   => b_subtract(maps:get(bins, A), maps:get(bins, B)),
       opaques => ordsets:subtract(maps:get(opaques, A), maps:get(opaques, B)),
       funs   => f_subtract(maps:get(funs, A), maps:get(funs, B), As)}.
 
@@ -639,6 +676,41 @@ fl_meet(X, Y)  -> [F || F <- fl_set(X), fl_member(F, Y)].
 fl_minus(X, Y) -> [F || F <- fl_set(X), not fl_member(F, Y)].
 
 %%% --- Atom part ---
+
+%%% --- Binary part ---
+%%%
+%%% Two independent halves: whether the non-UTF-8 binaries are in, and which
+%%% strings are. The strings reuse the atom part's set operations.
+
+b_split(Bs) ->
+    {lists:member(other, Bs),
+     case [B || B <- Bs, B =/= other] of
+         []     -> {finite, []};
+         [utf8] -> {cofinite, []};
+         [Set]  -> Set
+     end}.
+
+b_join(Other, Strs) ->
+    [other || Other] ++ case Strs of
+                            {finite, []}   -> [];
+                            {cofinite, []} -> [utf8];
+                            _              -> [Strs]
+                        end.
+
+b_union(A, B) ->
+    {Oa, Sa} = b_split(A), {Ob, Sb} = b_split(B),
+    b_join(Oa orelse Ob, a_union(Sa, Sb)).
+
+b_intersect(A, B) ->
+    {Oa, Sa} = b_split(A), {Ob, Sb} = b_split(B),
+    b_join(Oa andalso Ob, a_intersect(Sa, Sb)).
+
+b_subtract(A, B) ->
+    {Oa, Sa} = b_split(A), {Ob, Sb} = b_split(B),
+    b_join(Oa andalso not Ob, a_subtract(Sa, Sb)).
+
+%% A finite set of literals can be enumerated; anything else cannot.
+b_open(Bs) -> lists:any(fun({finite, _}) -> false; (_) -> true end, Bs).
 
 a_union({finite, X},   {finite, Y})   -> {finite, lists:usort(X ++ Y)};
 a_union({cofinite, X}, {cofinite, Y}) -> {cofinite, ordsets:intersection(os(X), os(Y))};
@@ -1238,7 +1310,16 @@ arrow_str({Ds, C}) ->
 b_str([])            -> [];
 b_str([utf8])        -> ["string"];
 b_str([other, utf8]) -> ["binary"];
-b_str([other])       -> ["binary \\ string"].
+b_str([other])       -> ["binary \\ string"];
+b_str([{finite, L}]) -> [str_str(S) || S <- L];
+b_str([{cofinite, L}]) ->
+    ["string \\ (" ++ string:join([str_str(S) || S <- L], " | ") ++ ")"];
+%% Non-UTF-8 binaries beside a set of literals: no pattern produces it, and it
+%% prints as its two halves.
+b_str([other | Strs]) -> ["binary \\ string" | b_str(Strs)].
+
+%% A literal prints as its key does, quoted and escaped as source writes it.
+str_str(S) -> key_str(S).
 
 ms_str(top) -> ["map"];
 ms_str(Members) -> [m_str(M) || M <- Members].
@@ -1490,6 +1571,10 @@ same_bucket(list, #{lists := [S]}, #{lists := [R]}) ->
     spines_separable(S, R);
 same_bucket(map, #{maps := [M]}, #{maps := [N]}) ->
     maps_separable(M, N);
+%% F68: a literal head takes one side when the two share no string and that
+%% side is nothing but literals.
+same_bucket(bin, #{bins := A}, #{bins := B}) ->
+    b_intersect(A, B) =:= [] andalso not (b_open(A) andalso b_open(B));
 %% Guards cannot distinguish UTF-8 validity or same-arity arrow types. A top
 %% part includes every neighbour in its bucket.
 same_bucket(_, _, _) ->
@@ -1664,15 +1749,30 @@ m_hd({_Kind, Fields}, Names) ->
             end;
         _ ->
             Ks = lists:sort(maps:keys(Fields)),
-            {shape, "{ " ++ string:join([key_str(K) ++ ": _" || K <- Ks],
+            {shape, "{ " ++ string:join([key_str(K) ++ ": " ++ tag_pat(maps:get(K, Fields))
+                                         || K <- Ks],
                                         ", ") ++ " }"}
     end.
+
+%% F68: a key that holds exactly one string literal is the member's tag, and
+%% the head has to say it: `{ "type": _ }` printed once per member names no
+%% member. Any other value prints `_`, as it did.
+tag_pat(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := [],
+          lists := [], maps := [], bins := [{finite, [S]}], opaques := [], funs := []}) ->
+    str_str(S);
+tag_pat(_) ->
+    "_".
 
 %% string and binary need binders; binary minus string has no pattern.
 b_pat([])            -> [];
 b_pat([utf8])        -> [{binder, binder("s")}];
 b_pat([other, utf8]) -> [{binder, binder("b")}];
-b_pat([other])       -> [].
+b_pat([other])       -> [];
+%% A literal is its own head. Every string but some literals is written as a
+%% binder below the clauses that took those literals.
+b_pat([{finite, L}])   -> [{shape, str_str(S)} || S <- L];
+b_pat([{cofinite, _}]) -> [{binder, binder("s")}];
+b_pat([other | Strs])  -> b_pat(Strs).
 
 initial([C | _]) when C >= $A, C =< $Z -> [C + 32];
 initial([C | _])                       -> [C];

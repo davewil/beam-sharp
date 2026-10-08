@@ -1,0 +1,54 @@
+// stream.bs -- a string literal is a type, so a wire's own tag tells its
+// members apart (F68, ticket 78 Q5).
+//
+//     bsc --src-root examples examples/Stream Kind '{"type" = "ping"}'
+//         -> :ping
+//     bsc --src-root examples examples/Stream Read '{"type" = "message_stop", "id" = 7}'
+//         -> {"id" = 7, "type" = "message_stop"}
+//     bsc --src-root examples examples/Stream Rank '"high"'
+//         -> 2
+//
+// THE PROPERTY WORTH LOOKING AT is that `Kind` has no catch-all. A streaming
+// API's `message_stop` and `ping` events carry nothing but `"type"`, and every
+// member is open, so no key's presence says which one arrived. The value at
+// `"type"` does, and it is a type here: `"ping"` is the one string it spells,
+// as `:ping` is the one atom.
+//
+// Delete a `Kind` clause and the compiler hands it back, tag and all.
+module Stream
+
+type Start = { "type": "content_block_start", "index": int, .. }
+type Delta = { "type": "content_block_delta", "index": int, .. }
+type Stop  = { "type": "message_stop", .. }
+type Ping  = { "type": "ping", .. }
+
+type Event = Start | Delta | Stop | Ping
+
+public atom Kind(Event e)
+
+Kind({ "type": "content_block_start" }) -> :start
+Kind({ "type": "content_block_delta" }) -> :delta
+Kind({ "type": "message_stop" })        -> :stop
+Kind({ "type": "ping" })                -> :ping
+
+// `ValidateAs` compares the value at `"type"` with each literal, so an event
+// this module does not declare is refused at the boundary and never reaches
+// `Kind`.
+public result<Event, ValidationError> Read(term doc)
+
+Read(doc) -> ValidateAs<Event>(doc)
+
+// A literal on its own is a type too. `string` stays open: over it these two
+// clauses would still need a `_`.
+type Level = "low" | "high"
+
+public int Rank(Level l)
+
+Rank("low")  -> 1
+Rank("high") -> 2
+
+// A literal expression has its own string as its type, which is how a brace
+// builds a tagged member.
+public Ping Beat()
+
+Beat() -> { "type" = "ping" }

@@ -750,7 +750,10 @@ tuple_offender(top, _Pass) ->
 tuple_offender(Products, Pass) ->
     first([fun() -> offender(M, Pass, inside) end || M <- lists:append(Products)]).
 
-%% `string` is the only proper non-empty refinement of the binary part.
+%% `string` is a refinement of the binary part no guard decides. F68: a set of
+%% literals is one a guard does decide, by equality, so it is not an offender.
+bin_offender([{finite, _}], string, _At) ->
+    none;
 bin_offender(Bs, string, At) when Bs =/= [], Bs =/= [other, utf8] ->
     {string, none, none, At};
 bin_offender(_Bs, _Pass, _At) ->
@@ -1801,6 +1804,7 @@ resolve(T, Env) -> resolve(T, Env, []).
 
 resolve(T, _Env, _Seen) when is_map(T) -> T;
 resolve({t_atom, A}, _Env, _Seen)    -> bs_types:atom_lit(A);
+resolve({t_str, S}, _Env, _Seen)     -> bs_types:str_lit(S);
 %% Lowercase declared entries may be surface types during `type_env/1` or
 %% resolved maps afterwards. They need the same cycle guard as aliases. The
 %% environment distinguishes missing type arguments from unknown types.
@@ -2102,7 +2106,10 @@ field_written({field, Name, T}) ->
         S    -> lists:flatten([bs_types:key_str(Name), ": ", S])
     end.
 
-correction_of(F, Declared, Union, Env) ->
+correction_of(F, Declared, Union0, Env) ->
+    %% F68: the offered signature says `string` where a clause returned a
+    %% literal.
+    Union = bs_types:widen_strs(Union0),
     case signature_line(F, Declared, Union) of
         {withhold, _} = Withheld -> Withheld;
         {Line, Replaced} ->
@@ -2392,6 +2399,7 @@ param_source({param, T, Name}) ->
 %% text exposes minted tags. Unknown forms withhold the whole line. Atom
 %% quoting follows the type printer's source-spelling rules.
 type_source({t_atom, A})        -> bs_types:atom_str(A);
+type_source({t_str, S})         -> bs_types:key_str(S);
 type_source({t_builtin, B})     -> atom_to_list(B);
 type_source({t_ref, N})         -> atom_to_list(N);
 type_source({t_tuple, Cs})      -> bracket("(", Cs, ", ", ")");
@@ -2884,7 +2892,7 @@ type_of({e_neg, L, E}, S, C) ->
     end;
 type_of({e_atom, _, A}, _S, _C) -> {bs_types:atom_lit(A), []};
 %% The lexer guarantees UTF-8 for string literals; downstream passes trust it.
-type_of({e_str, _, _}, _S, _C) -> {bs_types:string(), []};
+type_of({e_str, _, Bytes}, _S, _C) -> {bs_types:str_lit(iolist_to_binary(Bytes)), []};
 %% F66: a template is a `string`, since joining valid UTF-8 gives valid UTF-8,
 %% and each hole's part is read from its type (ticket 112 A3).
 type_of({e_interp, _, Parts}, S, C) ->
@@ -4746,9 +4754,12 @@ pattern_type({p_bind, _, V, P}, Path, Env) ->
 %% remains required and legal over the open binary residual.
 pattern_type({p_bin, _, Segs}, Path, _Env) ->
     {bs_types:binary_top(), seg_bindings(Segs, Path), false};
-%% String literals are lexer-validated UTF-8 but have no binary singleton type.
-%% Literal-only matches need a catch-all over the open residual.
-pattern_type({p_str, _, _Bytes}, _Path, _Env) -> {bs_types:string(), #{}, false};
+%% F68: a string literal takes exactly its own string, as an atom or a float
+%% literal does. Over `string` the residual is every other string, which is
+%% open, so a catch-all is still required there; over a union of literals the
+%% clauses can close it.
+pattern_type({p_str, _, Bytes}, _Path, _Env) ->
+    {bs_types:str_lit(iolist_to_binary(Bytes)), #{}, true};
 pattern_type({p_nil, _}, _Path, _Env) -> {bs_types:nil(), #{}, true};
 %% List patterns preserve each prefix position and the open or closed tail.
 %% Exactness follows the children; widening the prefix to any non-empty list
