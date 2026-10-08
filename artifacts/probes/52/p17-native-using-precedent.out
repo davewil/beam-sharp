@@ -1,0 +1,10 @@
+--- native using, module ABSENT (expect refused at compile time)
+src/UsesMissing/a.bs:2:1: error: `using Nope.Gone` names no module and no namespace
+  a module is a source file this invocation can reach; a namespace
+  is a path that other modules sit under. Neither matched.
+rc=1
+--- native using, module PRESENT under --src-root (control: expect accepted, and Dep.beam emitted)
+Dep.abstr
+Dep.beam
+UsesPresent.abstr
+UsesPresent.beam

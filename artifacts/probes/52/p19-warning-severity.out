@@ -1,0 +1,8 @@
+grep 'severity => warn' bs_diag.erl : 0 hits (misleading)
+grep 'Sev =:= warning' bs_diag.erl  : 1 hit  (the real producer)
+--- U
+U/a.bs:3:1: error: syntax error before: switch
+rc=1 beam_emitted=0
+--- C
+C/a.bs:3:1: error: syntax error before: switch
+rc=1 beam_emitted=0
