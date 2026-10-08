@@ -44,5 +44,6 @@ main() ->
     Run("A internal_ok (no Internal segment)", fun() -> internal_ok(Self, 'Acme.Orders') end),
     Run("C friend_ok (refused path)", fun() -> friend_ok(Self, M, World) end),
     Run("C friend_ok (no friends)", fun() -> friend_ok(Self, 'Acme.Orders', World) end),
-    Run("B view/2 over a 200-module World", fun() -> view(W200, Self) end),
+    Ts = lists:sort([t(fun() -> view(W200, Self) end, 1000) || _ <- lists:seq(1,11)]),
+    io:format("B view/2 over a 200-module World median ~w ns/call (min ~w, max ~w)~n", [round(lists:nth(6, Ts)), round(hd(Ts)), round(lists:last(Ts))]),
     io:format("(B's view/2 runs once per compiled module in the prototype; 200 modules => ~p calls per full build)~n", [200]).
