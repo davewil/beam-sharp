@@ -101,9 +101,14 @@ revealed failures and the provenance:
 
 **Round 4 (2026-09-10) reproduced it and measured the variance.** `astra` and
 `grok-4.6` returned the identical 12/13 and 11/12 on attempt 1 and 25/25 after.
-Both copilot lanes *improved* on an unchanged instrument — sonnet 10/12 → 11/12
-held-out, haiku 7/12 → 9/12 — so run-to-run variance is real and worth two
-held-out cases, and no single round is a model's record. **`h11` was missed again**,
+On attempt 1, the clean-room score, the copilot lanes barely moved on an unchanged
+instrument: sonnet held at 10/12 held-out and lost one visible case (13/13 →
+12/13), and haiku went 7/12 → 8/12 held-out. So run-to-run variance is real, it was
+one case per lane in this pair of rounds, and no single round is a model's record.
+*(Corrected 2026-10-08, ENG-302: this read "sonnet 10/12 → 11/12 held-out, haiku
+7/12 → 9/12 … worth two held-out cases". Those are round 4's scores after the
+retry set against round 3's; each round's `SUMMARY.md` has both columns.)*
+**`h11` was missed again**,
 and `h04` failed for sonnet in both rounds by two different wrong answers, which is
 a case the packet does not decide rather than a model that guessed.
 [`evidence/2026-09-10-round4-midtier-unmeasured/`](evidence/2026-09-10-round4-midtier-unmeasured/NOTES.md).

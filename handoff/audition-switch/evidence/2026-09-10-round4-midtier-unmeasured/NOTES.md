@@ -57,8 +57,10 @@ output in the retry prompt: sonnet 12/13 and 10/12, haiku 13/13 and 8/12. The
 generated [`SUMMARY.md`](SUMMARY.md) reads the logs and is what found it. So the
 "improved" paragraph below compares FINAL scores. On attempt 1, the clean-room
 measurement, sonnet's held-out score is 10/12 in round 3 and in round 4, and
-haiku's is 7/12 and then 8/12. Whether that changes the variance conclusion is
-David's to say; the paragraph is left as written.
+haiku's is 7/12 and then 8/12. David's call, 2026-10-08: it changes the variance
+conclusion. The paragraph below is left as written, as this round's record; the
+audition README now states the attempt-1 figures, which put the variance at one
+case per lane and not two.
 
 **`astra` and `grok-4.6` reproduced round 3 exactly** — 12/13 and 11/12 on attempt
 1, 25/25 after. Two identical results a day apart on the same instrument is worth

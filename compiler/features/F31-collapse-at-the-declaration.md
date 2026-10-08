@@ -157,6 +157,13 @@ declaration. `type_env/1` (`type_env/3` today) already passes `{parametric, _, _
 through unresolved. So no unbound `T` ever reaches the check, and there is no
 risk of refusing the prelude.
 
+*Amended 2026-10-08: the first premise no longer holds. `type_decl` has a
+production for `type Name<T> = ...`, and `type MyOpt<T> = T | :nothing` with
+`public MyOpt<int> F(int n)` compiles and runs (measured at `7c63a91`). The
+lowercase `myopt` above is refused only for its case. Whether a user-declared
+parametric alias can now carry an unbound `T` into this check has not been
+measured.*
+
 ## Expected verdicts — written before the code
 
 Red in either direction. `option<term>` and `result<term, E>` are included
