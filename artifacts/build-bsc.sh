@@ -9,7 +9,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 rm -rf "$dest"; mkdir -p "$dest/ebin"
 cp "$root"/compiler/src/*.erl "$root"/compiler/src/*.xrl "$root"/compiler/src/*.yrl "$dest/"
 # Patches are `diff -u` against compiler/src, absolute --- paths, possibly several files: strip the directory part of each.
-for p in "$@"; do (cd "$dest" && patch -s -p6 --no-backup-if-mismatch < "$(realpath "$p")"); done
+for p in "$@"; do abs=$(realpath "$p"); (cd "$dest" && patch -s -p6 --no-backup-if-mismatch < "$abs"); done
 cd "$dest"
 sed -i 's/TokenLoc/{TokenLine,1}/g' bs_lexer.xrl
 echo 'adjust_col(_Chars, Len, C) -> C + Len.' >> bs_lexer.xrl
