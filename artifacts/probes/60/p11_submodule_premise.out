@@ -1,0 +1,6 @@
+beams emitted by compiling Acme/Orders (which uses the nested Internal.Pricing):
+Acme.Orders.Internal.Pricing.beam
+Acme.Orders.beam
+--- exports of each beam's module:
+Acme.Orders: [{bs@type_atoms,0},{'Total',1}]
+Acme.Orders.Internal.Pricing: [{bs@type_atoms,0},{'Compute',1}]

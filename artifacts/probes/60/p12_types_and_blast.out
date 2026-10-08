@@ -1,0 +1,8 @@
+--- B: Billing names the record Order from a module whose only function is internal
+(empty above = accepted)
+--- A: Billing names the record Secret from an Internal module
+Acme/Billing/a.bs:2:1: error: `using Acme.Orders.Internal.Types` names an internal module
+  a module under an `Internal` segment is visible only to Acme.Orders and
+  the modules beneath it.
+--- control, unpatched:
+(empty above = accepted)

@@ -1,0 +1,6 @@
+modules: 138; dotted (namespaced): 9; modules named by >=1 other module: 4
+cross-module `using` edges between known modules: 5
+importers ALL inside callee's own subtree: 1 of 4 imported modules
+     Shop <- ['Shop.Billing']
+importers ALL inside callee's parent namespace: 0 of 4 imported modules
+modules with a path segment 'Internal': []

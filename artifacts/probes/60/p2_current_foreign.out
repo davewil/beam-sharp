@@ -1,4 +1,6 @@
---- A_foreign (no B# using; foreign-form declaration of B:Pub/1). B compiled alongside:
-bsc: cannot run more than one file
---- control: same, but the module B does not exist/compiled in this invocation
+--- (a) foreign declaration naming B's PascalCase function (no B# 'using B'):
 A_foreign/a.bs:3:1: error: syntax error before: 'Pub'
+--- (b) :erlang.apply(:'B', :'Pub', [5]) from B# source, B# 'using B' absent. Compile+run:
+6
+--- (b') same against the PRIVATE function (control: the BEAM's export list is the only enforcement left):
+crashed: error:undef
