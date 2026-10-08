@@ -1,0 +1,9 @@
+go version go1.24.7 linux/amd64
+--- go build ./orders
+exit 0
+--- go build ./orders/sub
+exit 0
+--- go build ./billing
+package example.com/acme/billing
+	billing/b.go:2:8: use of internal package example.com/acme/orders/internal/pricing not allowed
+exit 1
