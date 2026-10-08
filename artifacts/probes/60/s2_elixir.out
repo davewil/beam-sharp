@@ -1,0 +1,11 @@
+elixirc hidden.ex exit: 0
+hidden module called from another module: 10
+moduledoc: :hidden
+per-function docs: [{:function, :compute, 1, :hidden}, {:function, :via, 1, :none}]
+dynamic apply: 10
+exports (secret/1 absent): [__info__: 1, via: 1, compute: 1]
+--- control: calling the defp from another module
+warning: Acme.Orders.Internal.Pricing.secret/1 is undefined or private
+  ctl.ex:2: Ctl.go/0
+
+elixirc ctl.ex exit: 0
