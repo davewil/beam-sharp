@@ -11,10 +11,10 @@ A module controls *what* it exposes (`public`/`private`, F12). Nothing lets it s
 The ticket says "Not owed a decision soon". The evidence agrees, on three independent grounds.
 
 1. **The consumer the ticket cites is already served.** Ticket 24 §2 says "every function in an aggregate is exported today" and parks `RecomputeTotal/1` as `unclassified`. That went stale on 2026-08-17 when F12 made private the default. A test module that names an unmarked helper is refused today (`p1_current.out`, case `A_unm`: "Go calls Unmarked/1, which B declares `private`"). The agent-tests-the-easy-function drift is closed by `private`.
-2. **The corpus shows no demand.** `p10_corpus_demand.out`: 138 modules, 9 dotted, 5 cross-module `using` edges in total. The only edge where every importer sits inside the callee's own subtree is `Shop` <- `Shop.Billing`. Zero modules have an `Internal` path segment. The residual need, a helper shared across two modules of one subtree that must not be global API, has no instance in the repo.
+2. **The corpus shows no demand.** `p10_corpus_demand.out`: 132 tracked modules (the 138 first reported counted gitignored `compiler/_build` eunit scratch files; the edge counts below are unchanged), 9 dotted, 5 cross-module `using` edges in total. The only edge where every importer sits inside the callee's own subtree is `Shop` <- `Shop.Billing`. Zero modules have an `Internal` path segment. The residual need, a helper shared across two modules of one subtree that must not be global API, has no instance in the repo.
 3. **No option is a boundary.** Every caller-side check is a lint over the static call graph, and it was bypassed three ways in executed probes (see Bypass). That fits ticket 22's own framing ("compile-time visibility over beam-sharp source only"), but it means the feature is a drift guardrail, not enforcement, and it should be priced as one.
 
-**What would change this.** A second multi-module aggregate in an exemplar, or an observed case, where a helper needed by two modules of one subtree is made `public` only to be shared and then gets named from outside it. That is the "second occurrence" test CLAUDE.md applies to new checks. If you want to decide now anyway, answer the gating question below. Option A is the cheapest and the only one with an executed precedent.
+**What would change this.** A second multi-module aggregate in an exemplar, or an observed case, where a helper needed by two modules of one subtree is made `public` only to be shared and then gets named from outside it. (The CLAUDE.md "second occurrence" rule governs new checks on the tracking layer, so citing it here was a misapplication; read this as a plain demand test.) If you want to decide now anyway, answer the gating question below. Option A is the cheapest and the only one with an executed precedent.
 
 ## Stale or corrected premises
 
@@ -37,7 +37,7 @@ Two surprises unrelated to the options but found on the way:
 1. **GATING: does the restriction need a declaration at all, or can the path alone carry it?** F15 already makes the directory the module, and 41 §5 already drew `Internal/`. If the path can carry it, there is no syntax, no marker-versus-construct question, and the unit is the path prefix. If it must be declared, the other three decisions open.
 2. **Unit** (subtree, named group, explicit list). It follows from (1): path-only forces the subtree.
 3. **Marker versus construct.** A function marker cannot name a unit. It has to derive one, so (2) comes first.
-4. **Direction** (callee names who, or caller declares what it depends on). The caller already declares its dependencies with `using`. A restriction declared by the caller restrains only the party that writes it, so it cannot protect a callee. It is a layering rule held in project configuration, and CLAUDE.md puts that outside the language ("a gate guards the language or the handoff"). I did not prototype it; this is argument, not measurement. The three options below are all callee-side.
+4. **Direction** (callee names who, or caller declares what it depends on). The caller already declares its dependencies with `using`. A restriction declared by the caller restrains only the party that writes it, so it cannot protect a callee. It is a layering rule held in project configuration, I did not prototype it; this is argument, not measurement, and the verifier judged it **under-argued**: whether a caller-side declaration can protect a callee is the substance of sub-decision 4. (The CLAUDE.md 'gate' line I first cited here concerns checks on the tracking layer and does not apply; ignore it.) The three options below are all callee-side.
 5. **Checker cost.** Measured below, and not a differentiator.
 
 **The gating question as code.** `Acme.Billing` writes `using Acme.Orders.Internal.Pricing`. Should that compile?
@@ -202,7 +202,7 @@ Each cell is 24 runs (12 per VM, 2 VMs). **The result is "not resolvable".** The
 | C `friend_ok` | 2.2 µs refused, 75 ns when the callee names no friends |
 | B `view/2` over a 200-module World | 105 µs, once per compiled module in the prototype |
 
-For 200 modules that is under 2 ms for A and C. B's is about 21 ms, roughly 2% of a ~1.1 s build. B's figure is the naive prototype, quadratic in module count, and a per-import filter would be linear.
+For 200 modules that is under 2 ms for A and C. B's micro-benchmark gave about 21 ms, but **the verifier showed that figure is too low**: `view/2` runs 5 times per module (call_count 1000 for 200 modules, via 4 `import_env` call sites) and p9 benchmarks a non-verbatim copy of `view/2` on tiny entries, so B's real cost is roughly 8–10% of a build, not 2%. Whole-compile timing cannot resolve it either way (identical baselines differ by 4–9%). B's prototype is naive and quadratic in module count; a per-import filter would be linear, but that is untested.
 
 **Metadata term size** (`p8_metadata_size.out`). Baseline `World` entry for `Shop` (8 exports): 18,688 heap bytes, 8,996 as `term_to_binary`.
 
@@ -214,7 +214,7 @@ For 200 modules that is under 2 ms for A and C. B's is about 21 ms, roughly 2% o
 
 The entry lives only in compiler memory (`bsc.erl:204-209`, "No artefact"). No option adds an attribute or chunk to the `.beam`; B only adds names to an export list the beam already has.
 
-**Reserved words.** `internal` and `friend` appear as tokens in 0 of 424 `.bs` files outside comments. `Internal` as a module-path segment: 0 files.
+**Reserved words.** `internal` and `friend` appear as tokens in 0 of the 214 tracked `.bs` files (424 on disk including 210 gitignored eunit scratch files) outside comments. `Internal` as a module-path segment: 0 files.
 
 ## Not measured, or could not run
 
