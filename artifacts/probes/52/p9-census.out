@@ -1,0 +1,38 @@
+== (1)(2) modules named by foreign using, and whether code:which finds them (default path, no ERL_LIBS)
+distinct modules: 23, occurrences: 90
+ABSENT on default path: [{users_db,3},
+                         {trees,3},
+                         {session_store,3},
+                         {store,1},
+                         {m,1},
+                         {json,1},
+                         {epgsql,1},
+                         {analytics_db,1},
+                         {accounts_db,1},
+                         {'Elixir.String',1},
+                         {'Elixir.Req',1},
+                         {'Elixir.Enum',1},
+                         {'Elixir.Application',1}]
+present: [erlang,lists,maps,file,string,gen_server,ets,erl_tar,binary,
+          application]
+
+== (3) per-file verdict, stock vs prototype (default ERL_LIBS unset). Directory = module (F15).
+   ./aoc/2019/Day01                                           stock=accepted   proto=accepted
+   ./aoc/2025/Day01                                           stock=accepted   proto=accepted
+   ./aoc/bench/Day01                                          stock=accepted   proto=accepted
+   ./compiler/examples/Foreign                                stock=accepted   proto=accepted
+   ./compiler/examples/Interop                                stock=accepted   proto=accepted
+   ./compiler/examples/Label                                  stock=accepted   proto=accepted
+   ./compiler/examples/Names                                  stock=accepted   proto=accepted
+   ./compiler/examples/exemplars/25d-database-querying        stock=refused:   proto=refused: error: this directory holds `.bs` files and no `module` line
+   ./compiler/examples/exemplars/25e-dynamic-web-page         stock=refused:   proto=refused: 25e-dynamic-web-page/index.bs:10:1: error: `module Shop.Page` does not match its 
+   ./compiler/examples/exemplars/25f-llm-evaluation-client    stock=refused:   proto=refused: 25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not 
+   ./compiler/examples/exemplars/25g-jev-server               stock=refused:   proto=refused: 25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not 
+   ./compiler/examples/exemplars/25g-jev-server               stock=refused:   proto=refused: 25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not 
+   ./compiler/examples/exemplars/25g-jev-server               stock=refused:   proto=refused: 25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not 
+   ./wayfinder/prototypes/50a-elixir-ffi/Elx                  stock=accepted   proto=accepted
+!! ./wayfinder/prototypes/51a-code-path/Elx                   stock=accepted   proto=refused: Elx/elx.bs:13:1: error: module :'Elixir.String' is not on the code path
+!! ./wayfinder/prototypes/51a-code-path/Req                   stock=accepted   proto=refused: Req/req.bs:37:1: error: module :'Elixir.Req' is not on the code path
+   ./wayfinder/prototypes/63d_erlc_leak_sweep/G03ForeignBif   stock=accepted   proto=accepted
+   ./wayfinder/prototypes/63d_erlc_leak_sweep/G04ForeignNonBif stock=refused:   proto=refused: G04ForeignNonBif/g04foreignnonbif.bs:7:1: error: Check calls :string.length in a 
+files with a foreign using: 18 ; stock accepts but prototype refuses (flipped): 2

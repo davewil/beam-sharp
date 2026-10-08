@@ -1,0 +1,6 @@
+module Rpub1
+
+record Rec { F1: int }
+
+public int Get(Rec r)
+Get(r) -> r.F1

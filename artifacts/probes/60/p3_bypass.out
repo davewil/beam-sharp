@@ -1,0 +1,25 @@
+--- 1. CONTROL: A names B.Priv directly (must be refused)
+A_direct/a.bs:4:1: error: Go calls B.Priv/1, which B declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in B, or move the call inside it.
+--- 2. CONTROL: A names Priv/1 in value position (unqualified, via using B) (must be refused)
+A_value/a.bs:4:1: error: Go calls Priv/1, which B declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in B, or move the call inside it.
+--- 3. BYPASS: B.Handout() returns Priv as a fun; A calls it (accepted+runs => private body reached from outside)
+7
+--- 4. runtime facts: exports of the emitted B.beam, and Erlang-side callers
+B exports: [{bs@type_atoms,0},{'Handout',0},{'Pub',1}]
+erlang:apply(B,Pub,[1])         -> 2
+dynamic M:F(A) of Pub           -> 2
+apply Priv (unexported)         -> {'EXIT',
+                                    {undef,
+                                     [{'B','Priv',[1],[]},
+                                      {rt,main,0,[{file,"rt.erl"},{line,8}]},
+                                      {erl_eval,do_apply,7,
+                                       [{file,"erl_eval.erl"},{line,744}]},
+                                      {erl_eval,exprs,6,
+                                       [{file,"erl_eval.erl"},{line,136}]},
+                                      {init,start_it,1,[]},
+                                      {init,start_em,1,[]},
+                                      {init,do_boot,3,[]}]}}

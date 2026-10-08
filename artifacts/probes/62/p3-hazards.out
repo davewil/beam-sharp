@@ -1,0 +1,128 @@
+B# name        R1 insert_       R2 acronym-aware R3 first-lower
+New            new              new              new           
+HTTPServer     h_t_t_p_server   http_server      hTTPServer    
+GetXML         get_x_m_l        get_xml          getXML        
+GetXml         get_xml          get_xml          getXml        
+Totals2        totals2          totals2          totals2       
+Totals_2       totals_2         totals_2         totals_2      
+ParseURL       parse_u_r_l      parse_url        parseURL      
+ParseUrl       parse_url        parse_url        parseUrl      
+IOList         i_o_list         io_list          iOList        
+ToJSON         to_j_s_o_n       to_json          toJSON        
+ToJson         to_json          to_json          toJson        
+A              a                a                a             
+AB             a_b              ab               aB            
+Ab             ab               ab               ab            
+OAuth          o_auth           o_auth           oAuth         
+X509Cert       x509_cert        x509_cert        x509Cert      
+Get_Xml        get__xml         get_xml          get_Xml       
+Foo            foo              foo              foo           
+FOO            f_o_o            foo              fOO           
+NameOf         name_of          name_of          nameOf        
+Length         length           length           length        
+Apply          apply            apply            apply         
+Spawn          spawn            spawn            spawn         
+Node           node             node             node          
+Self           self             self             self          
+Send           send             send             send          
+Exit           exit             exit             exit          
+If             if               if               if            
+End            end              end              end           
+And            and              and              and           
+Not            not              not              not           
+Rem            rem              rem              rem           
+Div            div              div              div           
+Do             do               do               do            
+Fn             fn               fn               fn            
+Nil            nil              nil              nil           
+True           true             true             true          
+When           when             when             when          
+In             in               in               in            
+Case           case             case             case          
+Try            try              try              try           
+Receive        receive          receive          receive       
+After          after            after            after         
+Band           band             band             band          
+OrElse         or_else          or_else          orElse        
+Init           init             init             init          
+HandleCall     handle_call      handle_call      handleCall    
+Handle_Call    handle__call     handle_call      handle_Call   
+
+collisions under R1 (distinct B# names -> same alias): []
+
+collisions under R2 (distinct B# names -> same alias): [{handle_call,
+                                                         ['HandleCall',
+                                                          'Handle_Call']},
+                                                        {foo,['FOO','Foo']},
+                                                        {to_json,
+                                                         ['ToJSON','ToJson']},
+                                                        {get_xml,
+                                                         ['GetXML','GetXml',
+                                                          'Get_Xml']},
+                                                        {parse_url,
+                                                         ['ParseURL',
+                                                          'ParseUrl']},
+                                                        {ab,['AB','Ab']}]
+
+collisions under R3 (distinct B# names -> same alias): []
+
+control: names where R1 =/= R2: ['HTTPServer','GetXML','ParseURL','IOList',
+                                 'ToJSON','AB','Get_Xml','FOO','Handle_Call']
+
+== reserved words / BIFs as alias names: does Erlang accept them as local DEFINITIONS (export, no local call)? ==
+erlc exit: 0
+-- CONTROL: same file but one alias CALLS a BIF-named local function unqualified (must be refused) --
+bifs2.erl:4:9: ambiguous call of overridden pre R14 auto-imported BIF length/1
+ - use erlang:length/1 or "-compile({no_auto_import,[length/1]})." to resolve name clash
+%    4| f(X) -> length(X).
+%     |         ^
+
+
+== Elixir: can each alias spelling be written with dot syntax? (parse; control new/1 parses) ==
+:Shop.new(1)          :parses
+:Shop.length(1)       :parses
+:Shop.now(1)          :parses
+:Shop.apply(1)        :parses
+:Shop.spawn(1)        :parses
+:Shop.node(1)         :parses
+:Shop.self(1)         :parses
+:Shop.send(1)         :parses
+:Shop.exit(1)         :parses
+:Shop.size(1)         :parses
+:Shop.if(1)           :parses
+:Shop.end(1)          :parses
+:Shop.and(1)          :parses
+:Shop.not(1)          :parses
+:Shop.rem(1)          :parses
+:Shop.div(1)          :parses
+:Shop.fn(1)           :parses
+:Shop.nil(1)          :parses
+:Shop.true(1)         :parses
+:Shop.false(1)        :parses
+:Shop.when(1)         :parses
+:Shop.in(1)           :parses
+:Shop.case(1)         :parses
+:Shop.try(1)          :parses
+:Shop.receive(1)      :parses
+:Shop.after(1)        :parses
+:Shop.band(1)         :parses
+:Shop.do(1)           :parses
+:Shop.else(1)         :parses
+:Shop.catch(1)        :parses
+:Shop.rescue(1)       :parses
+:Shop.or(1)           :parses
+:Shop.xor(1)          :parses
+:Shop.of(1)           :parses
+:Shop.begin(1)        :parses
+:Shop.cond(1)         :parses
+:Shop.unless(1)       :parses
+:Shop.import(1)       :parses
+== Elixir: a CALL to a BIF-named export: :Shop.length([1]) vs Kernel.length ambiguity? (needs module on disk: bifs) ==
+(control: Erlang-side result of the same call) {pascal_length,[1]}
+:bifs.length([1,2,3]) (alias, Elixir dot syntax): {:pascal_length, [1, 2, 3]}
+Kernel.length (control): 3
+== Erlang: unquoted call of a reserved-word alias (must be syntax error); control new ==
+f() -> shop:and(1).          error
+f() -> shop:'and'(1).        ok
+f() -> shop:new(1).          ok
+f() -> shop:'New'(1).        ok

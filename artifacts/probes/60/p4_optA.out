@@ -1,0 +1,26 @@
+=== UNPATCHED bsc (baseline)
+Acme/Orders            accepted
+Acme/Orders/Sub        accepted
+Acme/Billing_ok        accepted
+Acme/Billing_bad       accepted
+=== PATCHED bsc, Option A
+Acme/Orders            accepted
+Acme/Orders/Sub        accepted
+Acme/Billing_ok        accepted
+Acme/Billing_bad       REFUSED
+      | Acme/Billing_bad/a.bs:2:1: error: `using Acme.Orders.Internal.Pricing` names an internal module
+      |   a module under an `Internal` segment is visible only to Acme.Orders and
+      |   the modules beneath it.
+=== namespace imports (Billing_bad removed first: 'using Acme' compiles every module under Acme, so a refused sibling would mask the result)
+-- unpatched
+Ext/Billing_ns         accepted
+Ext/Billing_ns_bad     accepted
+-- patched
+Ext/Billing_ns         accepted
+Ext/Billing_ns_bad     REFUSED
+      | Ext/Billing_ns_bad/a.bs:5:1: error: Orders.Internal.Pricing is called but never imported
+      |   add `using Orders.Internal.Pricing` \x{2014} a file's `using` lines are its dependency list,
+      |   and a call that skips them makes that list wrong.
+=== run the allowed ones under the patched bsc (expect 3*... values)
+11
+11

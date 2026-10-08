@@ -1,0 +1,9 @@
+module Rpriv3
+
+record Rec { F1: int, F2: int, F3: int }
+
+private int Get(Rec r)
+Get(r) -> r.F1
+
+public list<int> All(list<Rec> xs)
+All(xs) -> List.Map(xs, Get/1)

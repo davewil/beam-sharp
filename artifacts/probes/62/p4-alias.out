@@ -1,0 +1,125 @@
+=== none ===
+exports: [
+  Amount: 1,
+  Band: 1,
+  Bump: 1,
+  New: 1,
+  Pay: 1,
+  Squared: 1,
+  Total: 1,
+  Which: 1,
+  bs@type_atoms: 0,
+  module_info: 0,
+  module_info: 1
+]
+:Shop.new(1): {:raised, UndefinedFunctionError}
+:Shop."New"(1): {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+import :Shop, only: [new: 1]: {:raised, CompileError}
+:Shop.band(order)  (Band/1 -> band/1): {:raised, UndefinedFunctionError}
+:Shop.nonexistent_alias(1) (CONTROL: must raise): {:raised, UndefinedFunctionError}
+function_exported?(:Shop, :new, 1): false
+Code.ensure_loaded?: true
+crash via Which: {FunctionClauseError,
+ ["examples/Shop/shop.bs:18: :Shop.\"Which\"(%{Id: 1, Kind: :\"X.Y\", Total: 2})",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:15: anonymous fn/1 in :elixir_compiler_0.__FILE__/1",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:16: (file)"]}
+crash via which (alias): {UndefinedFunctionError,
+ [":Shop.which(%{Id: 1, Kind: :\"X.Y\", Total: 2})",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:15: anonymous fn/1 in :elixir_compiler_0.__FILE__/1",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:17: (file)"]}
+Code.fetch_docs: {:error, :chunk_not_found}
+
+=== wrap ===
+exports: [
+  Amount: 1,
+  Band: 1,
+  Bump: 1,
+  New: 1,
+  Pay: 1,
+  Squared: 1,
+  Total: 1,
+  Which: 1,
+  amount: 1,
+  band: 1,
+  bs@type_atoms: 0,
+  bump: 1,
+  module_info: 0,
+  module_info: 1,
+  new: 1,
+  pay: 1,
+  squared: 1,
+  total: 1,
+  which: 1
+]
+:Shop.new(1): {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+:Shop."New"(1): {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+import :Shop, only: [new: 1]: {:ok, %{Id: 2, Kind: :"Shop.Order", Total: 0}}
+:Shop.band(order)  (Band/1 -> band/1): {:ok, :unpaid}
+:Shop.nonexistent_alias(1) (CONTROL: must raise): {:raised, UndefinedFunctionError}
+function_exported?(:Shop, :new, 1): true
+Code.ensure_loaded?: true
+crash via Which: {FunctionClauseError,
+ ["examples/Shop/shop.bs:18: :Shop.\"Which\"(%{Id: 1, Kind: :\"X.Y\", Total: 2})",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:15: anonymous fn/1 in :elixir_compiler_0.__FILE__/1",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:16: (file)"]}
+crash via which (alias): {FunctionClauseError,
+ ["examples/Shop/shop.bs:18: :Shop.\"Which\"(%{Id: 1, Kind: :\"X.Y\", Total: 2})",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:15: anonymous fn/1 in :elixir_compiler_0.__FILE__/1",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:17: (file)"]}
+Code.fetch_docs: {:error, :chunk_not_found}
+
+=== dup ===
+exports: [
+  Amount: 1,
+  Band: 1,
+  Bump: 1,
+  New: 1,
+  Pay: 1,
+  Squared: 1,
+  Total: 1,
+  Which: 1,
+  amount: 1,
+  band: 1,
+  bs@type_atoms: 0,
+  bump: 1,
+  module_info: 0,
+  module_info: 1,
+  new: 1,
+  pay: 1,
+  squared: 1,
+  total: 1,
+  which: 1
+]
+:Shop.new(1): {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+:Shop."New"(1): {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+import :Shop, only: [new: 1]: {:ok, %{Id: 2, Kind: :"Shop.Order", Total: 0}}
+:Shop.band(order)  (Band/1 -> band/1): {:ok, :unpaid}
+:Shop.nonexistent_alias(1) (CONTROL: must raise): {:raised, UndefinedFunctionError}
+function_exported?(:Shop, :new, 1): true
+Code.ensure_loaded?: true
+crash via Which: {FunctionClauseError,
+ ["examples/Shop/shop.bs:18: :Shop.\"Which\"(%{Id: 1, Kind: :\"X.Y\", Total: 2})",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:15: anonymous fn/1 in :elixir_compiler_0.__FILE__/1",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:16: (file)"]}
+crash via which (alias): {FunctionClauseError,
+ ["examples/Shop/shop.bs:18: :Shop.which(%{Id: 1, Kind: :\"X.Y\", Total: 2})",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:15: anonymous fn/1 in :elixir_compiler_0.__FILE__/1",
+  "/tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p4.exs:17: (file)"]}
+Code.fetch_docs: {:error, :chunk_not_found}
+
+=== beam sizes (bytes) Shop.beam: none/wrap/dup/wrap-nospec ===
+none 2524
+wrap 3032
+dup 3220
+wrapnospec 2948
+=== abstract form of the aliases in the wrap build (.abstr is the compiler's on-disk Abstract Format) ===
+'Which'(_O = #{'Kind' := 'Shop.Order'}) ->
+    order;
+'Which'(_I = #{'Kind' := 'Shop.Invoice'}) ->
+    invoice.
+which(Bs@a1) ->
+    'Which'(Bs@a1).
+'New'(Id) when is_integer(Id) ->
+    #{'Kind' => 'Shop.Order', 'Id' => Id, 'Total' => 0}.
+new(Bs@a1) ->
+    'New'(Bs@a1).

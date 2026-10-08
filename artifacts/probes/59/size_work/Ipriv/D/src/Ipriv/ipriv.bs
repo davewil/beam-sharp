@@ -1,0 +1,7 @@
+module Ipriv
+
+private int Get(int n)
+Get(n) -> n * 2
+
+public list<int> All(list<int> xs)
+All(xs) -> List.Map(xs, Get/1)

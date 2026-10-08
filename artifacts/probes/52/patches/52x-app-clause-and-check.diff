@@ -1,0 +1,143 @@
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_52_x/bs_parser.yrl	2026-10-08 23:14:23.816438683 +0000
+@@ -168,7 +168,9 @@
+ %% site is `:ets.lookup(t, k)`. The declaration attaches types to the name
+ %% Erlang already has; nothing is renamed and no case mapping exists.
+ foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+-    {foreign, line('$1'), value('$2'), '$4'}.
++    {foreign, line('$1'), value('$2'), '$4', none}.
++foreign_decl -> 'using' atom_lit 'in' atom_lit '{' foreign_sigs '}' :
++    {foreign, line('$1'), value('$2'), '$6', value('$4')}.
+ 
+ foreign_sigs -> foreign_sig              : ['$1'].
+ foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_52_x/bs_check.erl	2026-10-08 23:14:23.818152798 +0000
+@@ -99,6 +99,7 @@
+     Module = module_name(Decls),
+     PerFile = [{P, collect(D)} || {P, D} <- Sources],
+     Foreigns = foreign_wrappers(Decls, Env),
++    ok = foreign_deps_check(Decls),
+     Ctx = #ctx{types = Env, callees = callees(Decls, Env, Imports),
+                polys = polys(Decls, Env, Imports),
+                imports = Imports,
+@@ -161,6 +162,7 @@
+                          %% The emitter uses the `e_foreign_call` triple to
+                          %% find calls requiring `try`.
+                          foreigns => Foreigns,
++                         needs => lists:usort([A || {foreign, _, _, _, A} <- Decls, A =/= none]),
+                          fnames => Fnames,
+                          fdivs => Fdivs,
+                          vprojs => Vprojs,
+@@ -619,7 +621,7 @@
+              || {signature, SL, N, R, Ps, _, TV} <- Decls],
+     Foreign = [{{f, Mod, N, length(Ps)},
+                 at_loc(L, fun() -> sig(Ps, R, Env) end)}
+-               || {foreign, _, Mod, Sigs} <- Decls,
++               || {foreign, _, Mod, Sigs, _} <- Decls,
+                   {foreign_sig, L, N, R, Ps} <- Sigs],
+     maps:merge(maps:get(qual, Imports, #{}),
+                maps:from_list(Local ++ Foreign)).
+@@ -637,7 +639,7 @@
+ 
+ foreign_rets_decidable(Decls, Env) ->
+     _ = [foreign_ret_decidable(L, Mod, N, R, Env)
+-         || {foreign, _, Mod, Sigs} <- Decls,
++         || {foreign, _, Mod, Sigs, _} <- Decls,
+             {foreign_sig, L, N, R, _Ps} <- Sigs],
+     ok.
+ 
+@@ -1061,7 +1063,7 @@
+ foreign_wrappers(Decls, Env) ->
+     maps:from_list(
+       [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}
+-       || {foreign, _, Mod, Sigs} <- Decls,
++       || {foreign, _, Mod, Sigs, _} <- Decls,
+           {foreign_sig, _L, N, R, Ps} <- Sigs,
+           Ty <- [resolve(R, Env)]]).
+ 
+@@ -1099,7 +1101,7 @@
+     collapse_ty(Ret, Env, L, root(N)),
+     lists:foreach(fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
+                   end, Params);
+-collapse_decl({foreign, _, _Mod, Sigs}, Env) ->
++collapse_decl({foreign, _, _Mod, Sigs, _}, Env) ->
+     lists:foreach(
+       fun({foreign_sig, L, N, Ret, Ps}) ->
+               collapse_ty(Ret, Env, L, root(N)),
+@@ -5042,3 +5044,26 @@
+ 
+ setnth(1, [_ | T], V) -> [V | T];
+ setnth(N, [H | T], V) -> [H | setnth(N - 1, T, V)].
++
++
++%%% PROTOTYPE 52x: the declared application is checked against the code path.
++%%% BSB_DEP_CHECK=off disables it (to measure the verdict's environment dependence).
++foreign_deps_check(Decls) ->
++    case os:getenv("BSB_DEP_CHECK") of
++        "off" -> ok;
++        _ ->
++            [foreign_dep_check(L, Mod, App) || {foreign, L, Mod, _, App} <- Decls],
++            ok
++    end.
++
++foreign_dep_check(L, Mod, App) ->
++    case code:which(Mod) of
++        non_existing -> erlang:error({foreign_module_absent, L, Mod, App});
++        Beam when App =/= none ->
++            Dir = case code:lib_dir(App) of {error, _} -> none; D -> D end,
++            case Dir =/= none andalso lists:prefix(Dir, Beam) of
++                true  -> ok;
++                false -> erlang:error({foreign_module_not_in_app, L, Mod, App, Beam})
++            end;
++        _ -> ok
++    end.
+--- /home/user/beam-sharp/compiler/src/bs_diag.erl	2026-10-06 23:03:23.684655679 +0000
++++ /tmp/bsb_52_x/bs_diag.erl	2026-10-08 23:14:23.819275234 +0000
+@@ -561,6 +561,12 @@
+     #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
+       line => Line, module => bs_types:atom_str(Mod), function => Fun,
+       type => Type, why => Why, name => Name, fields => Fields, at => At};
++built(Path, {foreign_module_absent, Line, Mod, App}) ->
++    #{tag => foreign_module_absent, severity => error, file => Path, line => Line,
++      module => bs_types:atom_str(Mod), app => App};
++built(Path, {foreign_module_not_in_app, Line, Mod, App, Beam}) ->
++    #{tag => foreign_module_not_in_app, severity => error, file => Path, line => Line,
++      module => bs_types:atom_str(Mod), app => App, beam => Beam};
+ built(Path, {unknown_generic, N}) ->
+     #{tag => unknown_generic, severity => error, file => Path, type => N};
+ built(Path, {generic_arity, N, Want, Got}) ->
+@@ -1861,6 +1867,15 @@
+     {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
+      placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
+                         beyond_edit(Why, At, Type, Name, Fields)]};
++message(#{tag := foreign_module_absent, module := Mod, app := none} = D) ->
++    {placed(D) ++ "error: module ~s is not on the code path~n", placed_args(D) ++ [Mod]};
++message(#{tag := foreign_module_absent, module := Mod, app := App} = D) ->
++    {placed(D) ++ "error: module ~s is not on the code path~n"
++     "  this file says it belongs to application `~s`; is `~s` in ERL_LIBS or --lib?~n",
++     placed_args(D) ++ [Mod, App, App]};
++message(#{tag := foreign_module_not_in_app, module := Mod, app := App, beam := Beam} = D) ->
++    {placed(D) ++ "error: module ~s is not in application `~s`~n  found at ~s~n",
++     placed_args(D) ++ [Mod, App, Beam]};
+ message(#{tag := unknown_generic, file := P, type := N}) ->
+     {"~s: error: no type named ~s takes a type argument~n"
+      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_52_x/bs_emit.erl	2026-10-08 23:14:23.819966204 +0000
+@@ -74,13 +74,14 @@
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+-                             ++ [{type_atoms_name(), 0}]}]
++                             ++ [{type_atoms_name(), 0}] ++ [{'bs@needs', 0} || maps:get(needs, Module, []) =/= []]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+     ++ rec_type_attrs(Fns, Env)
+     ++ [type_atoms_form(Fns, Env, maps:get(declared_types, Module, []),
+                         maps:get(type_vars, Module, []))]
++    ++ [{function, ?A, 'bs@needs', 0, [{clause, ?A, [], [], [atom_list(maps:get(needs, Module, []))]}]} || maps:get(needs, Module, []) =/= []]
+     ++ lists:append([file_group(Path, Fs, Env, Behaviours, Ctx)
+                      || {Path, Fs} <- Files])
+     %% Generated code goes last and carries no `file` attribute: it belongs to

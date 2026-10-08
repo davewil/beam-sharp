@@ -1,0 +1,33 @@
+== base
+Neg: a.bs  out: 
+3:{attribute,0,export,[{'K',0},{'J',1},{bs@type_atoms,0}]}.
+4-{function,0,bs@type_atoms,0,[{clause,0,[],[],[{nil,0}]}]}.
+5-{attribute,0,file,{"Neg/a.bs",1}}.
+6-{attribute,0,spec,
+7:           {{'K',0},
+8-            [{type,0,'fun',[{type,0,product,[]},{type,0,integer,[]}]}]}}.
+9:{function,0,'K',0,[{clause,{3,1},[],[],[{op,{3,1},'-',{integer,{3,1},5}}]}]}.
+10-{attribute,0,spec,
+compile ms x10: 403 413 427 428 434 454 458 468 473 560 
+== A
+Neg: a.bs  out: 
+3:{attribute,0,export,[{'K',0},{'J',1},{bs@type_atoms,0}]}.
+4-{function,0,bs@type_atoms,0,[{clause,0,[],[],[{nil,0}]}]}.
+5-{attribute,0,file,{"Neg/a.bs",1}}.
+6-{attribute,0,spec,
+7:           {{'K',0},
+8-            [{type,0,'fun',[{type,0,product,[]},{type,0,integer,[]}]}]}}.
+9:{function,0,'K',0,[{clause,{3,1},[],[],[{integer,{3,1},-5}]}]}.
+10-{attribute,0,spec,
+compile ms x10: 403 410 422 423 434 446 455 474 478 484 
+== D
+Neg: a.bs  out: 
+3:{attribute,0,export,[{'K',0},{'J',1},{bs@type_atoms,0}]}.
+4-{function,0,bs@type_atoms,0,[{clause,0,[],[],[{nil,0}]}]}.
+5-{attribute,0,file,{"Neg/a.bs",1}}.
+6-{attribute,0,spec,
+7:           {{'K',0},
+8-            [{type,0,'fun',[{type,0,product,[]},{type,0,integer,[]}]}]}}.
+9:{function,0,'K',0,[{clause,{3,1},[],[],[{op,{3,1},'-',{integer,{3,1},5}}]}]}.
+10-{attribute,0,spec,
+compile ms x10: 438 465 482 485 487 554 560 593 633 635 

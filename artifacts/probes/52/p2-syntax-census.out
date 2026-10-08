@@ -1,0 +1,9 @@
+ok   PlainQuoted                accepted (expected accepted)
+ok   AttrApp                    refused  (expected refused)
+       | AttrApp/a.bs:2:1: error: syntax error before: '['
+ok   AttrOnly                   refused  (expected refused)
+       | AttrOnly/a.bs:2:1: error: syntax error before: '['
+ok   AliasT106                  refused  (expected refused)
+       | AliasT106/a.bs:3:1: error: syntax error before: 'GetOrCrash'
+ok   AppKeyword                 refused  (expected refused)
+       | AppKeyword/a.bs:2:1: error: syntax error before: app

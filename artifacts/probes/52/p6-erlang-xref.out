@@ -1,0 +1,6 @@
+undefined_function_calls = [{{'Dep','Go',1},{'Elixir.Req',new,1}}]
+modules Dep calls = ['Elixir.Req']
+--- control: NoDep.beam alone (expect [])
+undefined_function_calls = []
+--- the app-level list lives in a hand-written file: ssl.app line 85 (installed OTP 25)
+    {applications, [crypto, public_key, kernel, stdlib]},

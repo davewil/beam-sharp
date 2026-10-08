@@ -1,0 +1,20 @@
+--- A_pub
+6
+--- A_priv
+A_priv/a.bs:4:1: error: Go calls Priv/1, which B declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in B, or move the call inside it.
+--- A_unm
+A_unm/a.bs:4:1: error: Go calls Unmarked/1, which B declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in B, or move the call inside it.
+--- A_qpriv
+A_qpriv/a.bs:4:1: error: Go calls B.Priv/1, which B declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in B, or move the call inside it.
+--- A_qpub
+6
+--- A_nousing
+A_nousing/a.bs:3:1: error: B is called but never imported
+  add `using B` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.

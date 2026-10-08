@@ -1,0 +1,50 @@
+total 16
+-rw-r--r-- 1 root root 2705 Oct  8 23:11 Dep.abstr
+-rw-r--r-- 1 root root 1108 Oct  8 23:11 Dep.beam
+-rw-r--r-- 1 root root  738 Oct  8 23:11 NoDep.abstr
+-rw-r--r-- 1 root root  844 Oct  8 23:11 NoDep.beam
+=== Dep chunks
+[{imports,[{'Elixir.Req',new,1},
+           {erlang,get_module_info,1},
+           {erlang,get_module_info,2},
+           {lists,sum,1}]},
+ {attributes,[{vsn,[70550225947695000349425285835844442201]}]},
+ {compile_info,[{version,"8.2.6.3"},
+                {options,[debug_info,from_abstr]},
+                {source,"/tmp/tmp.7yEcigeTVt/out/Dep.abstr"}]},
+ {exports,[{'Go',1},
+           {'S',1},
+           {bs@type_atoms,0},
+           {module_info,0},
+           {module_info,1}]},
+ {locals,[]}]
+chunk AtU8 87 bytes
+chunk Code 109 bytes
+chunk StrT 0 bytes
+chunk ImpT 52 bytes
+chunk ExpT 64 bytes
+chunk LocT 4 bytes
+chunk Attr 40 bytes
+chunk CInf 120 bytes
+chunk Dbgi 462 bytes
+chunk Line 33 bytes
+chunk Type 26 bytes
+=== NoDep chunks
+[{imports,[{erlang,get_module_info,1},{erlang,get_module_info,2}]},
+ {attributes,[{vsn,[328449979279863239029632291529254623663]}]},
+ {compile_info,[{version,"8.2.6.3"},
+                {options,[debug_info,from_abstr]},
+                {source,"/tmp/tmp.7yEcigeTVt/out/NoDep.abstr"}]},
+ {exports,[{'Id',1},{bs@type_atoms,0},{module_info,0},{module_info,1}]},
+ {locals,[]}]
+chunk AtU8 62 bytes
+chunk Code 84 bytes
+chunk StrT 0 bytes
+chunk ImpT 28 bytes
+chunk ExpT 52 bytes
+chunk LocT 4 bytes
+chunk Attr 40 bytes
+chunk CInf 122 bytes
+chunk Dbgi 284 bytes
+chunk Line 34 bytes
+chunk Type 26 bytes

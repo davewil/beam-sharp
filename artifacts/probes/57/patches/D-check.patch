@@ -1,0 +1,19 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ bs_check.erl	2026-10-08 23:08:22.304883011 +0000
+@@ -2879,6 +2879,7 @@
+ %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
++type_of({e_neg, _, {e_int, _, N}}, _S, _C) -> {bs_types:range(-N, -N), []};
+ type_of({e_neg, L, E}, S, C) ->
+     {Ty, D} = type_of(E, S, C),
+     case operand_verdict(Ty, C) of
+@@ -4957,6 +4958,8 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
++comparison({e_op, L, Op, {e_var, _, V}, {e_neg, _, {e_int, IL, K}}}) -> comparison({e_op, L, Op, {e_var, 0, V}, {e_int, IL, -K}});
++comparison({e_op, L, Op, {e_neg, _, {e_int, IL, K}}, {e_var, _, V}}) -> comparison({e_op, L, Op, {e_int, IL, -K}, {e_var, 0, V}});
+ comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+ comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->

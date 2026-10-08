@@ -1,0 +1,10 @@
+=== emitter base
+  Inner 1   pass-through-from-guarded-export             abstract_test=no beam_test=no
+  Go   2   private-recursive-loop                       abstract_test=no beam_test=no
+  Cap  1   captured-as-fun/UNKNOWN-callers              abstract_test=no beam_test=no
+  Tot  1   record-tag,pass-through-from-guarded-export  abstract_test=yes beam_test=yes
+=== emitter B
+  Inner 1   pass-through-from-guarded-export             abstract_test=yes beam_test=no
+  Go   2   private-recursive-loop                       abstract_test=yes beam_test=no
+  Cap  1   captured-as-fun/UNKNOWN-callers              abstract_test=yes beam_test=yes
+  Tot  1   record-tag,pass-through-from-guarded-export  abstract_test=yes beam_test=yes

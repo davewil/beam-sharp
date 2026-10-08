@@ -1,0 +1,115 @@
+FAILED to compile (scratch build): examples/Signalbox: compile: Function: 'ModelKey'/1 /tmp/claude-0/-home-user-beam-sharp/2fe6ea1f-3b09-568f-980f-d43cdc197de1/scratchpad/p2ebin/Signalbox.abstr: internal e
+FAILED to compile (scratch build): examples/exemplars/25a-http-api-server: error: this directory holds `.bs` files and no `module` line     examples/exemplars/25a-http-api-server/index.bs     examples/exemplars/25a-http-api-s
+FAILED to compile (scratch build): examples/exemplars/25b-websocket-handler: examples/exemplars/25b-websocket-handler/handle_info.bs:12:1: error: syntax error before: ',' 
+FAILED to compile (scratch build): examples/exemplars/25c-event-queue-consumer: examples/exemplars/25c-event-queue-consumer/encode.bs:13:1: error: syntax error before: '<<' 
+FAILED to compile (scratch build): examples/exemplars/25d-database-querying: error: this directory holds `.bs` files and no `module` line     examples/exemplars/25d-database-querying/index.bs     examples/exemplars/25d-database
+FAILED to compile (scratch build): examples/exemplars/25e-dynamic-web-page: examples/exemplars/25e-dynamic-web-page/index.bs:10:1: error: `module Shop.Page` does not match its directory   this directory says `module exemplars.
+FAILED to compile (scratch build): examples/exemplars/25f-llm-evaluation-client: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory   this directory says `module 
+FAILED to compile (scratch build): examples/exemplars/25g-jev-server: examples/exemplars/25f-llm-evaluation-client/index.bs:10:1: error: `module Support.Triage` does not match its directory   this directory says `module 
+modules compiled: 27  failed: 8  beams: 27
+p2.erl:21:1: Warning: function r3/1 is unused
+%   21| r3([C|T]) when C >= $A, C =< $Z -> [C+32|T].
+%     | ^
+
+public exports (excluding module_info, bs@ names): 94 across 27 modules
+distinct names: 80
+
+name -> R1 / R2 (differences only):
+
+R1 collisions across (module, arity):
+  []
+
+names whose alias is an auto-imported BIF (erl_internal:bif/2) at same arity, R1:
+  Size/1 in Foreign -> size (BIF)
+  Now/0 in Interop -> now (BIF)
+  Length/1 in Shop.Collections.Ints -> length (BIF)
+
+names whose R1 alias is an Elixir/Erlang reserved word:
+  Band -> band
+
+names whose R1 alias already exists as an export of the same module/arity:
+
+names containing digits or underscore (R1/R2 ambiguity):
+  handle_call R1=handle_call R2=handle_call
+  handle_cast R1=handle_cast R2=handle_cast
+
+sample all names (R1): [{'Accented',accented},
+                        {'Amount',amount},
+                        {'Attempt',attempt},
+                        {'Band','band'},
+                        {'Beat',beat},
+                        {'Bump',bump},
+                        {'Ceiling',ceiling},
+                        {'Chained',chained},
+                        {'Charge',charge},
+                        {'Charged',charged},
+                        {'Check',check},
+                        {'Classify',classify},
+                        {'Counted',counted},
+                        {'Decide',decide},
+                        {'Decode',decode},
+                        {'Diagnose',diagnose},
+                        {'Doubled',doubled},
+                        {'Due',due},
+                        {'Fib',fib},
+                        {'Fully',fully},
+                        {'Grade',grade},
+                        {'Greeting',greeting},
+                        {'Ids',ids},
+                        {'InBand',in_band},
+                        {'Inline',inline},
+                        {'Kind',kind},
+                        {'Label',label},
+                        {'Large',large},
+                        {'Length',length},
+                        {'Mean',mean},
+                        {'Method',method},
+                        {'NameOf',name_of},
+                        {'Names',names},
+                        {'New',new},
+                        {'Now',now},
+                        {'Opcode',opcode},
+                        {'OrElse',or_else},
+                        {'Owed',owed},
+                        {'Parse',parse},
+                        {'Pay',pay},
+                        {'Pence',pence},
+                        {'Pick',pick},
+                        {'Place',place},
+                        {'PortOr',port_or},
+                        {'Post',post},
+                        {'Quantity',quantity},
+                        {'Rank',rank},
+                        {'Rate',rate},
+                        {'Raw',raw},
+                        {'Read',read},
+                        {'Readable',readable},
+                        {'Registered',registered},
+                        {'Reported',reported},
+                        {'Request',request},
+                        {'Resolve',resolve},
+                        {'Restate',restate},
+                        {'Restated',restated},
+                        {'Route',route},
+                        {'Rowed',rowed},
+                        {'Rows',rows},
+                        {'Rule',rule},
+                        {'RunLength',run_length},
+                        {'Sample',sample},
+                        {'Sign',sign},
+                        {'Size',size},
+                        {'Sizing',sizing},
+                        {'Slurp',slurp},
+                        {'Squared',squared},
+                        {'Steps',steps},
+                        {'Sum',sum},
+                        {'Total',total},
+                        {'Unwrap',unwrap},
+                        {'Verdict',verdict},
+                        {'ViaAlias',via_alias},
+                        {'Weigh',weigh},
+                        {'Which',which},
+                        {'Width',width},
+                        {handle_call,handle_call},
+                        {handle_cast,handle_cast},
+                        {init,init}]
