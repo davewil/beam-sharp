@@ -1,0 +1,12 @@
+erlang: {function,1,f,1,
+                  [{clause,1,
+                           [{var,1,'X'}],
+                           [[{op,1,'>=',
+                                 {var,1,'X'},
+                                 {op,1,'-',{integer,1,5}}}]],
+                           [{op,1,'-',{integer,1,5}}]}]}
+erlang pattern: {function,1,f,1,
+                          [{clause,1,
+                                   [{op,1,'-',{integer,1,5}}],
+                                   [],
+                                   [{atom,1,a}]}]}

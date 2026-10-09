@@ -1,0 +1,14 @@
+module Dial02
+
+type Dial = int where value >= 0 and value <= 99
+
+public Dial Id(Dial d)
+Id(d) -> d
+
+public int Hit(Dial pos)
+Hit(0) -> 1
+Hit(n) -> 0
+
+public int Idx(int n)
+Idx(n) when n >= 0 and n <= 99 -> Hit(n)
+Idx(n) -> 0

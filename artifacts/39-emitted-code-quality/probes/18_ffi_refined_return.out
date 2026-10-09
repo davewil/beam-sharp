@@ -1,0 +1,65 @@
+--- 'Refined'/1 (15 instrs)
+  {func_info,{atom,'Ffi18'},{atom,'Refined'},1}
+  {test,is_integer,{f,3},[{x,0}]}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_integer,{f,5},[{x,0}]}
+  {test,is_ge,{f,5},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+  {test,is_ge,{f,5},[{integer,99},{tr,{x,0},{t_integer,{0,'+inf'}}}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+  {case_end,{x,0}}
+
+--- 'Plain'/1 (13 instrs)
+  {func_info,{atom,'Ffi18'},{atom,'Plain'},1}
+  {test,is_integer,{f,6},[{x,0}]}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap_plain,1}}
+  {test,is_integer,{f,8},[{x,0}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+  {case_end,{x,0}}
+
+--- module_info/0 (6 instrs)
+17-         [[{call,
+18-               {11,1},
+19:               {remote,{11,1},{atom,{11,1},erlang},{atom,{11,1},is_integer}},
+20-               [{var,{11,1},'N'}]}]],
+21-         [{op,{11,30},
+22-              '+',
+23-              {'case',
+24-                  {11,15},
+25-                  {call,
+26-                      {11,15},
+27-                      {remote,
+--
+40-                                     {11,15},
+41-                                     {atom,{11,15},erlang},
+42:                                     {atom,{11,15},is_integer}},
+43-                                 [{var,{11,15},bs@rv0}]},
+44-                             {op,{11,15},
+45-                                 'andalso',
+46-                                 {op,{11,15},
+47-                                     '>=',
+48-                                     {var,{11,15},bs@rv0},
+49-                                     {integer,{11,15},0}},
+50-                                 {op,{11,15},
+--
+65-         [[{call,
+66-               {14,1},
+67:               {remote,{14,1},{atom,{14,1},erlang},{atom,{14,1},is_integer}},
+68-               [{var,{14,1},'N'}]}]],
+69-         [{op,{14,34},
+70-              '+',
+71-              {'case',
+72-                  {14,13},
+73-                  {call,
+74-                      {14,13},
+75-                      {remote,
+--
+86-                                 {14,13},
+87-                                 {atom,{14,13},erlang},
+88:                                 {atom,{14,13},is_integer}},
+89-                             [{var,{14,13},bs@rv1}]}]],

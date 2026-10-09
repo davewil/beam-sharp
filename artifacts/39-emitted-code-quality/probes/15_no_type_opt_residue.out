@@ -1,0 +1,37 @@
+== Wrap/1 instructions, no_type_opt: erlang vs bsc ==
+--- wrap/1 (8 instrs)
+  {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}
+  {gc_bif,'+',{f,0},1,[{x,0},{integer,100}],{x,0}}
+  {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}
+  return
+
+--- hit/1 (10 instrs)
+--- 'Wrap'/1 (12 instrs)
+  {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}
+  {test,is_integer,{f,5},[{x,0}]}
+  {gc_bif,'+',{f,0},1,[{x,0},{integer,100}],{x,0}}
+  {gc_bif,'rem',{f,0},1,[{x,0},{integer,100}],{x,0}}
+  {test,is_integer,{f,5},[{x,0}]}
+  return
+  {case_end,{x,0}}
+
+--- 'Hit'/1 (10 instrs)
+is_integer tests in whole module: erl=0 bsc=2 (default-opt bsc: 0)
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.94    21.16    33.01    99.99  1.005x
+e_no_type_opt     16.85    22.51    38.26    95.20  1.000x
+b_default         16.91    20.89    32.44   105.67  1.003x
+b_no_type_opt     17.43    20.54    31.56    82.25  1.035x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.94    23.76    40.44    87.92  1.009x
+e_no_type_opt     17.02    22.95    31.97    52.48  1.014x
+b_default         16.78    23.26    36.72   131.08  1.000x
+b_no_type_opt     17.48    23.70    45.11   182.38  1.042x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         17.05    22.05    37.50    69.26  1.011x
+e_no_type_opt     17.08    21.11    29.78    67.38  1.013x
+b_default         16.86    20.89    30.33    40.46  1.000x
+b_no_type_opt     17.60    23.56    45.42   218.98  1.044x
+

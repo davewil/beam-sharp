@@ -1,0 +1,4 @@
+module Ipub
+
+public int Get(int n)
+Get(n) -> n * 2

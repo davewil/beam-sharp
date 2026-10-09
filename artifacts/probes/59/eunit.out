@@ -1,0 +1,13 @@
+=== emitter base
+  All 34 tests passed.
+result: ok
+=== emitter A
+  All 34 tests passed.
+result: ok
+=== emitter B
+=======================================================
+  Failed: 2.  Skipped: 0.  Passed: 32.
+result: error
+=== emitter E
+  All 34 tests passed.
+result: ok

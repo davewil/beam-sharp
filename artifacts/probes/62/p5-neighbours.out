@@ -1,0 +1,112 @@
+### A. Elixir stdlib export-name shapes (Enum, String, Map, Kernel): how ? ! and operators appear as atoms ###
+Enum: 76 distinct names; ends-?: 4; ends-!: 1; non [a-z_]-initial: 0; uppercase-initial: 0
+String: 54 distinct names; ends-?: 8; ends-!: 0; non [a-z_]-initial: 0; uppercase-initial: 0
+Map: 36 distinct names; ends-?: 2; ends-!: 5; non [a-z_]-initial: 0; uppercase-initial: 0
+Kernel: 133 distinct names; ends-?: 3; ends-!: 4; non [a-z_]-initial: 75; uppercase-initial: 59
+Keyword: 42 distinct names; ends-?: 3; ends-!: 6; non [a-z_]-initial: 0; uppercase-initial: 0
+List: 35 distinct names; ends-?: 4; ends-!: 1; non [a-z_]-initial: 0; uppercase-initial: 0
+sample ?/! exports as raw atoms: [:all?, :any?, :empty?, :fetch!, :member?]
+Kernel non-letter-initial exports (operators): [:"MACRO-!", :!=, :!==, :"MACRO-&&", :*, :**, :+, :++, :-, :--, :"MACRO-..",
+ :"MACRO-..//"]
+
+### B. Erlang/OTP 25: exports (all .beam under /usr/lib/erlang/lib/*/ebin) whose name is NOT lowercase-letter-initial or contains uppercase ###
+beams read: 1118, total exported function names: 37611
+exports not lowercase-letter-initial: 47 (13 modules)
+  sample: [{beam_bounds,'*'},
+           {beam_bounds,'+'},
+           {beam_bounds,'-'},
+           {erlang,'!'},
+           {erlang,'*'},
+           {erlang,'+'},
+           {erlang,'+'},
+           {erlang,'++'},
+           {erlang,'-'},
+           {erlang,'-'},
+           {erlang,'--'},
+           {erlang,'/'},
+           {erlang,'/='},
+           {erlang,'<'},
+           {erlang,'=/='},
+           {erlang,'=:='},
+           {erlang,'=<'},
+           {erlang,'=='},
+           {erlang,'>'},
+           {erlang,'>='}]
+exports containing any uppercase letter: 19072 (253 modules)
+  sample: [{asn1ct_eval_ext,transform_to_EXTERNAL1994},
+           {asn1ct_eval_ext,transform_to_EXTERNAL1994_maps},
+           {crypto,macN},
+           {crypto,macN},
+           {crypto,mac_finalN},
+           {dbg_wx_filedialog_win,getDirectory},
+           {dbg_wx_filedialog_win,getFilename},
+           {dbg_wx_filedialog_win,getFilenames},
+           {zlib,deflateEnd},
+           {zlib,deflateInit},
+           {zlib,deflateInit},
+           {zlib,deflateInit},
+           {zlib,deflateParams},
+           {zlib,deflateReset},
+           {zlib,deflateSetDictionary},
+           {zlib,getBufSize},
+           {zlib,inflateChunk},
+           {zlib,inflateChunk},
+           {zlib,inflateEnd},
+           {zlib,inflateGetDictionary},
+           {zlib,inflateInit},
+           {zlib,inflateInit},
+           {zlib,inflateInit},
+           {zlib,inflateReset},
+           {zlib,inflateSetDictionary}]
+  ...excluding wx* modules: 1966 exports in 24 modules; modules: ['OTP-PUB-KEY',
+                                                                  'PKCS-FRAME',
+                                                                  asn1ct_eval_ext,
+                                                                  crypto,
+                                                                  dbg_wx_filedialog_win,
+                                                                  gl,glu,
+                                                                  observer_perf_wx,
+                                                                  pubkey_cert_records,
+                                                                  release_handler,
+                                                                  snmp_community_mib,
+                                                                  snmp_framework_mib,
+                                                                  snmp_misc,
+                                                                  snmp_notification_mib,
+                                                                  snmp_standard_mib,
+                                                                  snmp_target_mib,
+                                                                  snmp_user_based_sm_mib,
+                                                                  snmp_view_based_acm_mib,
+                                                                  snmpa_usm,
+                                                                  snmpc_lib,
+                                                                  ssh_transport,
+                                                                  ssh_xfer,
+                                                                  xmerl_xsd_type,
+                                                                  zlib]
+uppercase-INITIAL exports: [{wxImage,'Destroy'},
+                            {wxMenu,'Destroy'},
+                            {wxRegion,'Xor'},
+                            {wxRegion,'Xor'},
+                            {wxWindow,'Destroy'}]
+CONTROL (must list 'New' and '_x'): ['New','_x']
+
+### C. Elixir tooling on a non-snake export atom (1.14.0) ###
+:Shop."New"(1)
+:shop.new(1)
+:Shop."Which"(x) |> :Shop."Amount"()
+inspect_atom :New: ":New"
+inspect :New: :New
+Macro.to_string of quoted call: ":Shop.\"New\"(1)"
+surround_context :Shop.New: :none
+IEx autocomplete :Shop.Ne: {:yes, [],
+ ['application', 'application_controller', 'application_master',
+  'application_starter', 'array', 'atomics', 'auth', 'base64', 'beam_a',
+  'beam_asm', 'beam_block', 'beam_bounds', 'beam_call_types', 'beam_clean',
+  'beam_dict', 'beam_digraph', 'beam_disasm', 'beam_flatten', 'beam_jump',
+  'beam_kernel_to_ssa', 'beam_lib', 'beam_listing', 'beam_opcodes', 'beam_ssa',
+  'beam_ssa_bc_size', 'beam_ssa_bool', 'beam_ssa_bsm', 'beam_ssa_codegen',
+  'beam_ssa_dead', 'beam_ssa_lint', 'beam_ssa_opt', 'beam_ssa_pp',
+  'beam_ssa_pre_codegen', 'beam_ssa_recv', 'beam_ssa_share', 'beam_ssa_throw',
+  'beam_ssa_type', 'beam_trim', 'beam_types', 'beam_utils', 'beam_validator',
+  'beam_z', 'binary', 'c', 'calendar', 'cerl', 'cerl_clauses', ...]}
+
+### D. Elixir compiler warnings when calling the quoted-name form from a compiled module ###
+Caller.go(): %{Id: 1, Kind: :"Shop.Order", Total: 0}

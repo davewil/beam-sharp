@@ -1,0 +1,14 @@
+module Dial01
+
+type Dial = int where value >= 0 and value <= 99
+
+using :erlang {
+    int rem(int a, int b)
+}
+
+private Dial Wrap(int n)
+Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
+
+public int Hit(Dial pos)
+Hit(0) -> 1
+Hit(n) -> 0

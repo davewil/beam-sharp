@@ -1,0 +1,12 @@
+# columns: emitter=<.beam file bytes>/<Code chunk bytes>
+Rpub1     base=1112/100 C=1040/88 A=1112/100
+Rpriv1    base=1300/131 C=1224/119 A=1224/119
+Rpub3     base=1136/100 C=1064/88 A=1136/100
+Rpriv3    base=1328/131 C=1252/119 A=1252/119
+Rpub8     base=1184/100 C=1108/88 A=1184/100
+Rpriv8    base=1388/131 C=1308/119 A=1308/119
+Rpub16    base=1272/100 C=1192/88 A=1268/100
+Rpriv16   base=1476/131 C=1404/119 A=1404/119
+Ipub      base=948/93 D=884/88 B=944/93
+Ipriv     base=1084/119 D=1084/119 B=1132/124
+Ipass     base=1060/121 D=1024/116 B=1076/121

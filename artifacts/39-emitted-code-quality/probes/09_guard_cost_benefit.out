@@ -1,0 +1,12 @@
+plain        result=101000000 min=52.72 ms med=69.99 ms
+guard_int    result=101000000 min=51.08 ms med=70.92 ms
+guard_range  result=101000000 min=48.40 ms med=71.46 ms
+
+plain        result=101000000 min=51.31 ms med=75.71 ms
+guard_int    result=101000000 min=50.55 ms med=70.19 ms
+guard_range  result=101000000 min=49.24 ms med=68.61 ms
+
+plain        result=101000000 min=50.07 ms med=70.45 ms
+guard_int    result=101000000 min=51.24 ms med=69.66 ms
+guard_range  result=101000000 min=49.00 ms med=68.04 ms
+

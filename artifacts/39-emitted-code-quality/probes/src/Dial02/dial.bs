@@ -1,0 +1,7 @@
+module Dial02
+
+type Dial = int where value >= 0 and value <= 99
+
+public Dial Succ(Dial d)
+Succ(d) when d < 99 -> d + 1
+Succ(d) -> 0

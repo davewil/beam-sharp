@@ -1,0 +1,16 @@
+### N=50 modules
+boot                     n=15 median=188ms min=171 max=250 IQR=30
+baseline-on-A-shaped     n=15 median=911ms min=619 max=1395 IQR=391
+A                        n=15 median=946ms min=646 max=1839 IQR=486
+baseline-on-B-shaped     n=15 median=923ms min=659 max=1485 IQR=350
+B                        n=15 median=844ms min=638 max=2150 IQR=385
+baseline-on-C-shaped     n=15 median=827ms min=682 max=1818 IQR=159
+C                        n=15 median=908ms min=654 max=2151 IQR=300
+### N=200 modules
+boot                     n=15 median=283ms min=218 max=360 IQR=60
+baseline-on-A-shaped     n=15 median=1482ms min=1233 max=1757 IQR=340
+A                        n=15 median=1499ms min=1316 max=1753 IQR=161
+baseline-on-B-shaped     n=15 median=1649ms min=1406 max=2025 IQR=375
+B                        n=15 median=1688ms min=1392 max=1947 IQR=272
+baseline-on-C-shaped     n=15 median=1502ms min=1273 max=1772 IQR=179
+C                        n=15 median=1443ms min=1276 max=1667 IQR=222

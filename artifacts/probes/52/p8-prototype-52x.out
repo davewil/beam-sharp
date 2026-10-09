@@ -1,0 +1,28 @@
+### Withapp: using :'Elixir.Enum' in :elixir { {
+  proto, ERL_LIBS=elixir lib           => accepted
+  proto, ERL_LIBS unset                => refused: Withapp/a.bs:2:1: error: module :'Elixir.Enum' is not on the code path this file says it belongs to application `elixir`; is `elixir` in ERL_LIBS or --lib? 
+  proto, unset, BSB_DEP_CHECK=off      => accepted
+### Noapp: using :'Elixir.Enum' { {
+  proto, ERL_LIBS=elixir lib           => accepted
+  proto, ERL_LIBS unset                => refused: Noapp/a.bs:2:1: error: module :'Elixir.Enum' is not on the code path 
+  proto, unset, BSB_DEP_CHECK=off      => accepted
+### Wrongapp: using :'Elixir.Enum' in :stdlib { {
+  proto, ERL_LIBS=elixir lib           => refused: Wrongapp/a.bs:2:1: error: module :'Elixir.Enum' is not in application `stdlib` found at /usr/lib/elixir/lib/elixir/ebin/Elixir.Enum.beam 
+  proto, ERL_LIBS unset                => refused: Wrongapp/a.bs:2:1: error: module :'Elixir.Enum' is not on the code path this file says it belongs to application `stdlib`; is `stdlib` in ERL_LIBS or --lib? 
+  proto, unset, BSB_DEP_CHECK=off      => accepted
+### severity: the same missing dependency as a WARNING (BSB_DEP_CHECK=warn): rc and beam emitted?
+  mode=warn -> Withapp/a.bs:2:1: warning: module :'Elixir.Enum' is not on the code path  beams_emitted=1
+  mode=error -> Withapp/a.bs:2:1: error: module :'Elixir.Enum' is not on the code path  beams_emitted=0
+### CONTROL: stock compiler, Noapp, ERL_LIBS unset (today's behaviour = P1: accepted)
+  stock, ERL_LIBS unset                => accepted
+### CONTROL: stdlib module, app named correctly, no ERL_LIBS (expect accepted)
+  proto, lists in stdlib               => accepted
+### stock compiler on the new syntax (expect refused: syntax error)
+  stock, Withapp                       => refused: Withapp/a.bs:2:1: error: syntax error before: in 
+### bs@needs/0 and imports chunk of Withapp.beam (proto, ERL_LIBS set)
+bs@needs() = [elixir]
+imports = [{'Elixir.Enum',count,1},
+           {erlang,get_module_info,1},
+           {erlang,get_module_info,2}]
+### run Go([:a,:b,:c]) through the prototype with the dependency present
+3

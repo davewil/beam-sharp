@@ -1,0 +1,28 @@
+module Ledger
+
+record Order { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+
+type Batch = { Orders: list<Order>, Note: atom }
+type Wrapped = { Item: Order, Note: atom }
+
+public int Handle(Order o)
+Handle(o) -> Inner(o)
+
+private int Inner(Order o)
+Inner(o) -> o.Total
+
+// forged record nested in a field of an exported record-less map type
+public int Unwrap(Wrapped w)
+Unwrap(w) -> Inner(w.Item)
+
+// forged records inside a list: List.Map with a private function value
+public list<int> Totals(list<Order> os)
+Totals(os) -> List.Map(os, Inner/1)
+
+public int Sum(Batch b)
+Sum(b) -> b.Orders |> List.Fold(0, (acc, o) => acc + Inner(o))
+
+// returns a private function as a value
+public fn(Order) -> int Picker(atom which)
+Picker(_) -> Inner/1

@@ -1,0 +1,20 @@
+--- plain
+badarith
+[{erlang,'div',[10,0],[{error_info,#{module => erl_erts_errors}}]},
+ {trace13,boom,1,[{file,"src/trace13.erl"},{line,4}]},
+ {trace13,run,1,[{file,"src/trace13.erl"},{line,3}]},
+ {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+ {erl_eval,try_clauses,10,[{file,"erl_eval.erl"},{line,1530}]},
+ {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},
+ {init,start_it,1,[]},
+ {init,start_em,1,[]}]
+--- inline
+badarith
+[{erlang,'div',[10,0],[{error_info,#{module => erl_erts_errors}}]},
+ {trace13,run,1,[{file,"src/trace13.erl"},{line,4}]},
+ {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+ {erl_eval,try_clauses,10,[{file,"erl_eval.erl"},{line,1530}]},
+ {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},
+ {init,start_it,1,[]},
+ {init,start_em,1,[]},
+ {init,do_boot,3,[]}]

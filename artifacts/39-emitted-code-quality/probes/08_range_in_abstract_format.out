@@ -1,0 +1,60 @@
+=== plain/1 ===
+  {func_info,{atom,call08},{atom,plain},1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}}
+=== spec/1 ===
+  {func_info,{atom,call08},{atom,spec},1}
+  {call_ext,1,{extfunc,lib08,wrap_spec,1}}
+  {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}}
+=== guard_int/1 ===
+  {func_info,{atom,call08},{atom,guard_int},1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_integer,{f,7},[{x,0}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+=== guard_range/1 ===
+  {func_info,{atom,call08},{atom,guard_range},1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_integer,{f,10},[{x,0}]}
+  {test,is_ge,{f,10},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+  {test,is_ge,{f,10},[{integer,99},{tr,{x,0},{t_integer,{0,'+inf'}}}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,1}],{x,0}}
+=== guard_range_cs/1 ===
+  {func_info,{atom,call08},{atom,guard_range_cs},1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_ge,{f,13},[{x,0},{integer,0}]}
+  {test,is_ge,{f,13},[{integer,99},{tr,{x,0},any}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_number,{0,99}}},{integer,1}],{x,0}}
+
+== does the compiler even read the spec? grep beam_ssa_type / sys_core_fold for spec handling ==
+beam_core_to_ssa.erl beam_doc.erl 
+sys_core_fold.erl:17:%% See the License for the specific language governing permissions and
+sys_core_fold.erl:151:%%  No special handling of anything except values.
+sys_core_fold.erl:1067:			   %% We must not copy funs, and especially not into guards.
+sys_core_fold.erl:1401:%%  Generate a warning if none of the user-specified clauses
+sys_core_fold.erl:1411:	    %% user-specified clause, but none of them will match.
+sys_core_fold.erl:1415:	    %% Either there were user-specified clauses left in
+sys_core_fold.erl:1417:	    %% clauses were user-specified to begin with (as in 'andalso').
+v3_core.erl:17:%% See the License for the specific language governing permissions and
+
+== where beam_core_to_ssa mentions spec ==
+17:%% See the License for the specific language governing permissions and
+196:include_attribute(spec) -> false;
+214:        %% insert a special `debug_line` instruction as the
+261:%%  We handle guards almost as bodies. The only special thing we
+1272:%%  comparing with the literal (that is especially true for binaries).
+
+== core erlang of the spec'd module: is the -spec there? ==
+6
+(>0 : the spec IS in Core; beam_core_to_ssa.erl:196 include_attribute(spec) -> false drops it before beam_ssa_type runs)
+
+== JIT asm: does the range-guarded + drop the checks? (+JDdump true writes call08.beam.asm) ==
+      1 guard_int/1: # is_integer_fs
+      1 guard_int/1: # simplified fetching of BEAM register
+      1 guard_int/1: # simplified test for small operands since both are numbers
+      1 guard_range/1: # add without overflow check
+      1 guard_range/1: # is_int_in_range_fScc
+      1 guard_range_cs/1: # is_in_range_ffScc
+      1 guard_range_cs/1: # simplified small & range tests since failure labels are equal
+      1 guard_range_cs/1: # simplified test for small operands since both are numbers
+      1 guard_range_cs/1: # skipped overflow test because the result is always small
+      1 plain/1: # is the operand small?

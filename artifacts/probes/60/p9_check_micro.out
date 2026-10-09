@@ -1,0 +1,6 @@
+A internal_ok (refused path) median 3687 ns/call (min 3534, max 4166)
+A internal_ok (no Internal segment) median 1239 ns/call (min 1153, max 1414)
+C friend_ok (refused path) median 2209 ns/call (min 2091, max 2372)
+C friend_ok (no friends) median 75 ns/call (min 45, max 104)
+B view/2 over a 200-module World median 105264 ns/call (min 72528, max 130948)
+(B's view/2 runs once per compiled module in the prototype; 200 modules => 200 calls per full build)

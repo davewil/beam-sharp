@@ -1,0 +1,32 @@
+--- Ledger:Handle (public-record), emitter base
+'Handle'(O) when map_get('Kind', O) =:= 'Ledger.Order' ->
+    'Inner'(O).
+--- Ledger:Inner (private-record), emitter base
+'Inner'(O) when map_get('Kind', O) =:= 'Ledger.Order' ->
+    map_get('Total', O).
+--- Kinds:DoubleP (public-int), emitter base
+'DoubleP'(N) when is_integer(N) ->
+    N * 2.
+--- Kinds:Double (private-int), emitter base
+'Double'(N) ->
+    N * 2.
+--- Kinds:Band (private-refined-int), emitter base
+'Band'(N) when N =< 64 ->
+    low;
+'Band'(_N) ->
+    high.
+--- tag/kind test counts per function (base emitter), is_public = in export list
+Ledger:Handle          public  tag_test=true  kind_test=false
+Ledger:Inner           private tag_test=true  kind_test=false
+Ledger:Unwrap          public  tag_test=false kind_test=false
+Ledger:Totals          public  tag_test=false kind_test=false
+Ledger:Sum             public  tag_test=false kind_test=false
+Ledger:Picker          public  tag_test=false kind_test=false
+Kinds:DoubleP          public  tag_test=false kind_test=true
+Kinds:Double           private tag_test=false kind_test=false
+Kinds:Band             private tag_test=false kind_test=false
+Kinds:Doubled          public  tag_test=false kind_test=false
+Kinds:FromField        public  tag_test=false kind_test=false
+Kinds:Picker           public  tag_test=false kind_test=false
+Kinds:Bands            public  tag_test=false kind_test=false
+Kinds:Band2            private tag_test=false kind_test=false

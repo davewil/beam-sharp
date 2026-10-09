@@ -1,0 +1,11 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_B/bs_check.erl	2026-10-08 23:07:08.405086298 +0000
+@@ -4957,6 +4957,8 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
++comparison({e_op, L, Op, {e_var, _, V}, {e_neg, _, {e_int, IL, K}}}) -> comparison({e_op, L, Op, {e_var, 0, V}, {e_int, IL, -K}});
++comparison({e_op, L, Op, {e_neg, _, {e_int, IL, K}}, {e_var, _, V}}) -> comparison({e_op, L, Op, {e_int, IL, -K}, {e_var, 0, V}});
+ comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+ comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->

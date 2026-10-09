@@ -1,0 +1,19 @@
+STATIC grep (exemplars do not compile, see exemplars/README.md): private signatures, how many take a declared record param, how many take an int-ish param
+25a-http-api-server          records= 2 public=  3 private=  6 private_w_record_param= 0 private_w_int_param= 0
+25b-websocket-handler        records= 1 public=  3 private=  2 private_w_record_param= 0 private_w_int_param= 1
+25c-event-queue-consumer     records= 3 public=  5 private=  4 private_w_record_param= 1 private_w_int_param= 1
+25d-database-querying        records= 2 public=  6 private= 11 private_w_record_param= 3 private_w_int_param= 1
+25e-dynamic-web-page         records= 2 public=  3 private=  9 private_w_record_param= 2 private_w_int_param= 2
+25f-llm-evaluation-client    records=11 public=  5 private= 25 private_w_record_param= 2 private_w_int_param= 1
+25g-jev-server               records= 3 public=  5 private=  7 private_w_record_param= 2 private_w_int_param= 0
+TOTAL public=30 private=64 private_w_record_param=10 private_w_int_param=6
+
+private record-taking functions, with textual call-site count (name followed by '(' or '/N' outside signature/clause-head lines), grep heuristic
+  25d-database-querying      Prepend                params=(OrderRow row, result<list<OrderRow>, FetchError> rest)  call_sites=1
+  25d-database-querying      Tally                  params=(list<OrderRow> rows, Totals t)  call_sites=1
+  25d-database-querying      Add                    params=(Totals t, OrderRow r)  call_sites=1
+  25e-dynamic-web-page       Rows                   params=(list<OrderRow> orders, list<Iodata> acc)  call_sites=1
+  25e-dynamic-web-page       Row                    params=(OrderRow o)  call_sites=1
+  25f-llm-evaluation-client  Envelope               params=(Model m, Json state, list<(string, Question)> qs)  call_sites=1
+  25f-llm-evaluation-client  Call                   params=(Model m, Send send, string token, Json state, list<(string, Question)> qs)  call_sites=1
+total textual call sites: 7

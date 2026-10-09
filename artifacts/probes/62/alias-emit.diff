@@ -1,0 +1,73 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_62_x/bs_emit.erl	2026-10-08 23:13:47.803366834 +0000
+@@ -28,7 +28,9 @@
+ %%% as `'Readings':'Classify'(X)`.
+ %%% ---------------------------------------------------------------------------
+ 
+-forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
++forms(Module) -> alias_post(forms0(Module)).
++
++forms0(Module = #{module := Mod, functions := Fns, env := Env}) ->
+     %% A private function is emitted and `-spec`'d like a public one; it is
+     %% left out of the export list, the BEAM's only mechanism for the
+     %% distinction.
+@@ -2521,3 +2523,59 @@
+ to_abstr(Forms) ->
+     iolist_to_binary(["%% coding: latin-1\n"
+                       | [io_lib:format("~p.~n", [F]) || F <- Forms]]).
++
++
++%%% ---------------------------------------------------------------------------
++%%% PROTOTYPE (ticket 62 probe, not compiler code): snake_case export aliases.
++%%% BS_ALIAS = wrap (alias is a one-clause tail wrapper over the PascalCase
++%%% function) | dup (alias is a full copy of the function's clauses) | unset
++%%% (no alias). BS_ALIAS_SPEC=1 also copies each -spec to the alias.
++%%% Rule R1: insert `_` before every upper-case letter but the first, downcase.
++%%% ---------------------------------------------------------------------------
++alias_r1(Name) ->
++    list_to_atom(lists:flatten(alias_r1s(atom_to_list(Name), true))).
++alias_r1s([], _) -> [];
++alias_r1s([C|T], First) when C >= $A, C =< $Z -> [[$_ || not First], C + 32 | alias_r1s(T, false)];
++alias_r1s([C|T], _) -> [C | alias_r1s(T, false)].
++
++alias_post(Forms) ->
++    case os:getenv("BS_ALIAS") of
++        false -> Forms;
++        Mode ->
++            [Exp] = [L || {attribute, _, export, L} <- Forms],
++            Taken = sets:from_list(Exp),
++            Cands = [{alias_r1(N), Ar, N} || {N, Ar} <- Exp,
++                        not lists:prefix("bs@", atom_to_list(N)),
++                        alias_r1(N) =/= N],
++            %% first writer wins; an alias that is already an export is skipped
++            {Keep, _} = lists:foldl(
++                fun({Al, Ar, N}, {Acc, Seen}) ->
++                    case sets:is_element({Al, Ar}, Seen) of
++                        true -> {Acc, Seen};
++                        false -> {[{Al, Ar, N} | Acc], sets:add_element({Al, Ar}, Seen)}
++                    end
++                end, {[], Taken}, Cands),
++            Al = lists:reverse(Keep),
++            ByOrig = maps:from_list([{{N, Ar}, Alias} || {Alias, Ar, N} <- Al]),
++            WithSpec = os:getenv("BS_ALIAS_SPEC") =:= "1",
++            lists:flatmap(
++              fun({attribute, A, export, L}) ->
++                      [{attribute, A, export, L ++ [{Alias, Ar} || {Alias, Ar, _} <- Al]}];
++                 ({attribute, A, spec, {{N, Ar}, T}} = Sp) when WithSpec ->
++                      case maps:find({N, Ar}, ByOrig) of
++                          {ok, Alias} -> [Sp, {attribute, A, spec, {{Alias, Ar}, T}}];
++                          error -> [Sp]
++                      end;
++                 ({function, A, N, Ar, Cl} = Fn) ->
++                      case maps:find({N, Ar}, ByOrig) of
++                          {ok, Alias} when Mode =:= "dup" ->
++                              [Fn, {function, A, Alias, Ar, Cl}];
++                          {ok, Alias} ->
++                              Vs = [{var, A, list_to_atom("Bs@a" ++ integer_to_list(I))} || I <- lists:seq(1, Ar)],
++                              [Fn, {function, A, Alias, Ar,
++                                    [{clause, A, Vs, [], [{call, A, {atom, A, N}, Vs}]}]}];
++                          error -> [Fn]
++                      end;
++                 (Other) -> [Other]
++              end, Forms)
++    end.

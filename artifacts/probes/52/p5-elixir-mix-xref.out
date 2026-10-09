@@ -1,0 +1,30 @@
+=== (a) :ssl used, not declared
+Compiling 1 file (.ex)
+warning: :ssl.start/0 defined in application :ssl is used by the current application but the current application does not depend on :ssl. To fix this, you must do one of:
+  1. If :ssl is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
+  2. If :ssl is a dependency, make sure it is listed under "def deps" in your mix.exs
+exit=0
+Compiling 1 file (.ex)
+Generated demo app
+=== (b) :ssl declared (control) exit=0
+=== (b2) SURPRISE above: declaring :ssl AFTER a first compile in the same dir still warned (state carried over). Fresh project, :ssl declared from the start:
+Compiling 1 file (.ex)
+Generated demo app
+(no warning line above = control is clean) exit=0
+=== (c) absent module
+Compiling 1 file (.ex)
+warning: Nope.Absent.f/0 is undefined (module Nope.Absent is not available or is yet to be defined)
+  lib/demo.ex:2: Demo.go/0
+Generated demo app
+exit=0
+=== (e) what the compiled .beam records (beam_lib imports) for case (c)
+[{'Elixir.Nope.Absent',f,0},
+ {erlang,get_module_info,1},
+ {erlang,get_module_info,2}]
+=== (f) the generated demo.app
+{application,demo,
+             [{applications,[kernel,stdlib,elixir,logger,ssl]},
+              {description,"demo"},
+              {modules,['Elixir.Demo']},
+              {registered,[]},
+              {vsn,"0.1.0"}]}.

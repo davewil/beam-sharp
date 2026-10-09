@@ -1,0 +1,4 @@
+elixir ast: {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+elixir -5: {:-, [line: 1], [5]}
+elixir '- 5': {:-, [line: 1], [5]}
+elixir guard on -5: {:in, :out}

@@ -1,0 +1,24 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ bs_check.erl	2026-10-08 23:12:27.637985207 +0000
+@@ -4957,6 +4957,8 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
++comparison({e_op, L, Op, {e_var, _, V}, R}) when element(1,R) =:= e_op; element(1,R) =:= e_neg ->
++    case cfold(R) of {ok, K} -> comparison({e_op, L, Op, {e_var, 0, V}, {e_int, 0, K}}); error -> unknown end;
+ comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+ comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -4971,6 +4973,12 @@
+ comparison(_) ->
+     unknown.
+ 
++cfold({e_int,_,K}) -> {ok,K};
++cfold({e_neg,_,E}) -> case cfold(E) of {ok,K} -> {ok,-K}; X -> X end;
++cfold({e_op,_,Op,A,B}) when Op=:='+';Op=:='-';Op=:='*' ->
++    case {cfold(A),cfold(B)} of {{ok,X},{ok,Y}} -> {ok,case Op of '+'->X+Y;'-'->X-Y;'*'->X*Y end}; _ -> error end;
++cfold(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

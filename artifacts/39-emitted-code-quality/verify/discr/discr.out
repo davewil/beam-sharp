@@ -1,0 +1,36 @@
+answer e_default = 6770
+answer e_same = 6770
+answer e_slow = 6770
+answer e_slow2 = 6770
+answer bsc = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.90    26.53    53.22   157.59  1.259x
+e_same            16.82    26.58    59.10   241.95  1.253x
+e_slow            13.42    22.76    48.71   179.44  1.000x
+e_slow2           13.51    21.85    33.82   150.61  1.007x
+bsc               16.71    25.45    46.10   116.47  1.245x
+
+answer e_default = 6770
+answer e_same = 6770
+answer e_slow = 6770
+answer e_slow2 = 6770
+answer bsc = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.79    17.91    33.22   142.17  1.269x
+e_same            16.80    18.52    31.91   159.89  1.270x
+e_slow            13.31    14.66    24.32   108.81  1.007x
+e_slow2           13.23    14.25    25.56   154.54  1.000x
+bsc               16.69    17.86    31.39   130.63  1.262x
+
+answer e_default = 6770
+answer e_same = 6770
+answer e_slow = 6770
+answer e_slow2 = 6770
+answer bsc = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.88    20.52    31.07    56.42  1.271x
+e_same            16.80    20.70    35.03    77.58  1.266x
+e_slow            13.27    16.05    27.27    85.26  1.000x
+e_slow2           13.46    16.18    26.11    83.10  1.014x
+bsc               16.69    20.76    30.35    61.98  1.257x
+

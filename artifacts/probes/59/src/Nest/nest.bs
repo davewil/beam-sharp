@@ -1,0 +1,21 @@
+module Nest
+
+record Order { Id: int, Total: int }
+record Wrapper { Item: Order, Count: int }
+
+public int Unwrap(Wrapper w)
+Unwrap(w) -> Inner(w.Item)
+
+private int Inner(Order o)
+Inner(o) -> o.Total
+
+record Cfg { Level: int }
+
+public int FromField(Cfg c)
+FromField(c) -> Twice(c.Level)
+
+private int Twice(int n)
+Twice(n) -> n * 2
+
+public int FromList(list<Order> os)
+FromList(os) -> os |> List.Fold(0, (acc, o) => acc + Inner(o))

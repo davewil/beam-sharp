@@ -1,0 +1,9 @@
+grep 'severity => warn' bs_diag.erl : 0 hits (misleading)
+grep 'Sev =:= warning' bs_diag.erl  : 1 hit  (the real producer)
+--- U
+U/a.bs:5:1: warning: arm 2 of this switch in F is unreachable
+  every value it matches is matched by an earlier arm.
+compile: U/a.bs:5:1: Warning: this clause cannot match because a previous clause at line 4 always matches
+rc=0 beam_emitted=1
+--- C
+rc=0 beam_emitted=1

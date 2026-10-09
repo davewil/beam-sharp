@@ -1,0 +1,3 @@
+S3 Elm: ran `elm make` (npm-installed Elm at /tmp/elmi) once on a package with elm.json "exposed-modules":["Orders"] and a hidden Internal.Pricing.
+Result: blocked before compiling -- "PROBLEM LOADING PACKAGE LIST ... ProxyConnectException package.elm-lang.org 443 (Status 403 Forbidden)".
+UNVERIFIED-NOT-EXECUTED: anything about what Elm does with a non-exposed module of a package is NOT asserted here.

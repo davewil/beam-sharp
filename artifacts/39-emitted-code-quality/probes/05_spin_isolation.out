@@ -1,0 +1,21 @@
+== Spin only: one rotation of 673,364 clicks (answer differs from 6770 by design; same across impls is what matters) ==
+answer Erlang = 6734
+answer Elixir(re28) = 6734
+answer Gleam = 6734
+answer beam-sharp = 6734
+impl             min ms   med ms   p90 ms   max ms min/bes
+Erlang            16.70    20.91    34.50   113.88  1.565x
+Elixir(re28)      16.49    20.58    32.14   281.69  1.546x
+Gleam             10.67    13.16    19.53    47.90  1.000x
+beam-sharp        16.59    20.61    31.79    77.44  1.555x
+
+== full fold again for contrast ==
+answer Erlang = 6770
+answer Elixir(re28) = 6770
+answer Gleam = 6770
+answer beam-sharp = 6770
+impl             min ms   med ms   p90 ms   max ms min/bes
+Erlang            16.79    21.33    33.02   275.03  1.551x
+Elixir(re28)      16.65    21.89    33.07   144.30  1.538x
+Gleam             10.82    13.69    21.63    41.50  1.000x
+beam-sharp        16.72    21.25    31.88   187.76  1.545x

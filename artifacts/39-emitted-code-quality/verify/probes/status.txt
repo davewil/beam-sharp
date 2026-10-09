@@ -1,0 +1,20 @@
+00_build.sh exit=0
+01_elixir_forms.sh exit=0
+02_reproduce_gap.sh exit=0
+03_disasm.sh exit=0
+04_instr_diff.sh exit=0
+05_spin_isolation.sh exit=0
+06_strip_annotations.sh exit=0
+07_inline_lever.sh exit=0
+08_range_in_abstract_format.sh exit=0
+09_guard_cost_benefit.sh exit=0
+10_spec_strip.sh exit=0
+11_does_bsharp_know_the_range.sh exit=0
+12_inline_attr_and_cost.sh exit=0
+13_inline_stacktrace.sh exit=0
+14_jit_asm_diff.sh exit=0
+15_no_type_opt_residue.sh exit=0
+16_neighbours_and_compile_time.sh exit=0
+17_inline_error_class.sh exit=0
+18_ffi_refined_return.sh exit=0
+DONE

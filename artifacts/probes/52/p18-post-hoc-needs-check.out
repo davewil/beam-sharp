@@ -1,0 +1,6 @@
+--- ERL_LIBS set
+App needs elixir: found at /usr/lib/elixir/lib/elixir
+App needs stdlib: found at /usr/lib/erlang/lib/stdlib-4.3.1.3
+--- ERL_LIBS unset (expect elixir MISSING; stdlib found)
+App needs elixir: MISSING
+App needs stdlib: found at /usr/lib/erlang/lib/stdlib-4.3.1.3

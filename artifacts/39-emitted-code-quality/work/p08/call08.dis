@@ -1,0 +1,117 @@
+MODULE call08
+
+--- plain/1 (9 instrs)
+  {label,1}
+  {line,1}
+  {func_info,{atom,call08},{atom,plain},1}
+  {label,2}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+
+--- spec/1 (9 instrs)
+  {line,2}
+  {label,3}
+  {func_info,{atom,call08},{atom,spec},1}
+  {label,4}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap_spec,1}}
+  {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+
+--- guard_int/1 (12 instrs)
+  {line,3}
+  {label,5}
+  {func_info,{atom,call08},{atom,guard_int},1}
+  {label,6}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_integer,{f,7},[{x,0}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+  {label,7}
+  {case_end,{x,0}}
+
+--- guard_range/1 (14 instrs)
+  {line,4}
+  {label,8}
+  {func_info,{atom,call08},{atom,guard_range},1}
+  {label,9}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_integer,{f,10},[{x,0}]}
+  {test,is_ge,{f,10},[{tr,{x,0},{t_integer,any}},{integer,0}]}
+  {test,is_ge,{f,10},[{integer,99},{tr,{x,0},{t_integer,{0,'+inf'}}}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,{0,99}}},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+  {label,10}
+  {case_end,{x,0}}
+
+--- guard_range_cs/1 (13 instrs)
+  {line,5}
+  {label,11}
+  {func_info,{atom,call08},{atom,guard_range_cs},1}
+  {label,12}
+  {allocate,0,1}
+  {call_ext,1,{extfunc,lib08,wrap,1}}
+  {test,is_ge,{f,13},[{x,0},{integer,0}]}
+  {test,is_ge,{f,13},[{integer,99},{tr,{x,0},any}]}
+  {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_number,{0,99}}},{integer,1}],{x,0}}
+  {deallocate,0}
+  return
+  {label,13}
+  {case_end,{x,0}}
+
+--- run/2 (6 instrs)
+  {line,6}
+  {label,14}
+  {func_info,{atom,call08},{atom,run},2}
+  {label,15}
+  {move,{integer,0},{x,2}}
+  {call_only,3,{call08,run,3}}
+
+--- run/3 (22 instrs)
+  {line,7}
+  {label,16}
+  {func_info,{atom,call08},{atom,run},3}
+  {label,17}
+  {test,is_eq_exact,{f,18},[{x,1},{integer,0}]}
+  {move,{x,2},{x,0}}
+  return
+  {label,18}
+  {line,8}
+  {gc_bif,'-',{f,0},3,[{x,1},{integer,1}],{x,3}}
+  {allocate,3,4}
+  {move,{x,3},{y,0}}
+  {move,{x,2},{y,1}}
+  {move,{x,0},{y,2}}
+  {move,{x,0},{x,2}}
+  {move,{x,1},{x,0}}
+  {move,{atom,call08},{x,1}}
+  {apply,1}
+  {gc_bif,'+',{f,0},1,[{tr,{y,1},{t_number,any}},{x,0}],{x,2}}
+  {move,{y,0},{x,1}}
+  {move,{y,2},{x,0}}
+  {call_last,3,{call08,run,3},3}
+
+--- module_info/0 (6 instrs)
+  {line,0}
+  {label,19}
+  {func_info,{atom,call08},{atom,module_info},0}
+  {label,20}
+  {move,{atom,call08},{x,0}}
+  {call_ext_only,1,{extfunc,erlang,get_module_info,1}}
+
+--- module_info/1 (7 instrs)
+  {line,0}
+  {label,21}
+  {func_info,{atom,call08},{atom,module_info},1}
+  {label,22}
+  {move,{x,0},{x,1}}
+  {move,{atom,call08},{x,0}}
+  {call_ext_only,2,{extfunc,erlang,get_module_info,2}}

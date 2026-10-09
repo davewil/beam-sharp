@@ -1,0 +1,23 @@
+mode            N    beam_bytes  exports  compile_ms(in-proc, 12 reps; 1st dropped)       
+none         5       1952        8   median=16.80 min=14.40 max=35.10 n=11
+none       200      38980      203   median=297.80 min=266.20 max=398.90 n=11
+wrap         5       2228       13   median=22.80 min=16.60 max=28.20 n=11
+wrap       200      49476      403   median=413.10 min=331.40 max=576.80 n=11
+dup          5       2456       13   median=27.30 min=19.60 max=53.30 n=11
+dup        200      60008      403   median=646.90 min=488.60 max=862.10 n=11
+
+== load time (us per code:load_binary), 10 fresh VMs x 40 loads each; per-VM median, then median/min/max across the 10 VMs ==
+none   N=5    median=705.50 min=689.00 max=882.00 n=10
+none   N=200  median=2522.50 min=2410.00 max=2992.00 n=10
+wrap   N=5    median=726.00 min=703.00 max=784.00 n=10
+wrap   N=200  median=3129.00 min=2824.00 max=4726.00 n=10
+dup    N=5    median=778.50 min=468.00 max=1052.00 n=10
+dup    N=200  median=4885.00 min=4322.00 max=7520.00 n=10
+
+== call overhead: 5M calls of F(1) (alias wrapper vs direct), ns/call, 10 fresh VMs each; Fn1 = direct PascalCase, fn1 = alias (wrap) / copy (dup) ==
+wrap  Fn1  median=17.73 min=16.71 max=21.07 n=10
+wrap  fn1  median=18.89 min=17.65 max=20.76 n=10
+dup   Fn1  median=20.59 min=16.76 max=40.70 n=10
+dup   fn1  median=18.39 min=17.19 max=24.93 n=10
+(baseline: unpatched "none" build, Fn1 only; no slow-path control was run)
+none  Fn1  median=18.32 min=17.14 max=20.61 n=10

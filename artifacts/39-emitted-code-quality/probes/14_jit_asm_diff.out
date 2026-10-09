@@ -1,0 +1,8 @@
+ 120 bs_spin.txt
+ 120 erl_spin.txt
+ 134 gl_spin.txt
+  63 bs_wrap.txt
+  63 erl_wrap.txt
+ 500 total
+spin: erlang vs bsc diff lines: 4
+wrap: erlang vs bsc diff lines: 0

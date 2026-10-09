@@ -1,0 +1,33 @@
+-- parse (Code.string_to_quoted) --
+:Shop."New"(1)                                      :parses
+:Shop."New"                                         :parses
+:Shop."Total"(1)                                    :parses
+:Shop.New(1)                                        {:SYNTAX_ERROR, "unexpected ( after alias New"}
+:"BSharp.Shop".New(1)                               {:SYNTAX_ERROR, "unexpected ( after alias New"}
+:"Elixir.Shop".New(1)                               {:SYNTAX_ERROR, "unexpected ( after alias New"}
+:Shop.new(1)                                        :parses
+:shop.new(1)                                        :parses
+Shop.New(1)                                         {:SYNTAX_ERROR, "unexpected ( after alias New"}
+:"Shop.Reports".Totals(1)                           {:SYNTAX_ERROR, "unexpected ( after alias Totals"}
+mod = :Shop; mod.New(1)                             {:SYNTAX_ERROR, "unexpected ( after alias New"}
+:Shop.New                                           {:SYNTAX_ERROR, "atom cannot be followed by an alias"}
+:Shop.NEW(1)                                        {:SYNTAX_ERROR, "unexpected ( after alias NEW"}
+:Shop._New(1)                                       :parses
+-- run: Shop exports --
+exports                                             [Amount: 1, Band: 1, Bump: 1, New: 1, Pay: 1, Squared: 1, Total: 1, Which: 1, bs@type_atoms: 0]
+-- run: ways to call New/1 --
+apply(:Shop, :New, [1])                             {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+Kernel.apply(:Shop, :New, [1])                      {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+:erlang.apply(:Shop,:New,[1])                       {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+Code.eval_string quoted :Shop."New"(1)              {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+mod = :Shop; mod."New"(1)   (quoted name, var module){:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+compiled defmodule C do :Shop."New"(1) end          {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+capture &:Shop."New"/1                              {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+pipe 1 |> :Shop."New"()                             {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+macro W.bs(:Shop, :New, [1]) (mod.unquote(fun)(..)) {:ok, %{Id: 1, Kind: :"Shop.Order", Total: 0}}
+Module.concat([:Shop]) === :Shop ?                  {:ok, false}
+Module.concat([:Shop]).New(1)                       {:raised, SyntaxError}
+Module.safe_concat(["Shop"])                        {:ok, Shop}
+`import :Shop` then New(1)                          {:raised, SyntaxError}
+`import :Shop` then new(1)  (control: absent)       {:raised, CompileError}
+control: :lists.reverse([1,2])                      {:ok, [2, 1]}

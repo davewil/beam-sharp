@@ -1,0 +1,4 @@
+s        bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+p        bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+c        bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 16 reduce/reduce
+(s = stock, p = patched with 'in :app', c = control with a duplicated production)

@@ -1,0 +1,50 @@
+module 'lib08' ['module_info'/0,
+		'module_info'/1,
+		'wrap'/1,
+		'wrap_spec'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[112|[114|[111|[98|[101|[115|[47|[115|[114|[99|[47|[108|[105|[98|[48|[56|[46|[101|[114|[108]]]]]]]]]]]]]]]]]]]],1}],
+		%% Line 5
+		'spec' =
+		    %% Line 5
+		    [{{'wrap_spec',1},[{'type',{5,16},'fun',[{'type',{5,16},'product',[{'type',{5,17},'integer',[]}]}|[{'type',{5,31},'range',[{'integer',{5,31},0}|[{'integer',{5,34},99}]]}]]}]}]]
+'wrap'/1 =
+    %% Line 4
+    ( fun (_0) ->
+	  let <_1> =
+	      call 'erlang':'rem'
+		  (( _0
+		     -| [{'function',{'wrap',1}}] ), 100)
+	  in  let <_2> =
+		  call 'erlang':'+'
+		      (_1, 100)
+	      in  call 'erlang':'rem'
+		      (_2, 100)
+      -| [{'function',{'wrap',1}}] )
+'wrap_spec'/1 =
+    %% Line 6
+    ( fun (_0) ->
+	  let <_1> =
+	      call 'erlang':'rem'
+		  (( _0
+		     -| [{'function',{'wrap_spec',1}}] ), 100)
+	  in  let <_2> =
+		  call 'erlang':'+'
+		      (_1, 100)
+	      in  call 'erlang':'rem'
+		      (_2, 100)
+      -| [{'function',{'wrap_spec',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('lib08')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('lib08', ( _0
+			  -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

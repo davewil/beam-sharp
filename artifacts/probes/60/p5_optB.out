@@ -1,0 +1,20 @@
+=== UNPATCHED bsc (baseline: 'internal' is not a keyword; the callee file itself is a syntax error)
+Acme/Orders            REFUSED
+      | Acme/Orders/a.bs:3:1: error: syntax error before: int
+=== PATCHED bsc, Option B
+Acme/Orders            accepted
+Acme/Orders/Tests      accepted
+Acme/Billing_unq       REFUSED
+      | Acme/Billing_unq/a.bs:5:1: error: Due calls Recompute/1, which Acme.Orders declares `internal`
+      |   an internal function is visible only to Acme.Orders and the modules beneath it.
+Acme/Billing_qual      REFUSED
+      | Acme/Billing_qual/a.bs:5:1: error: Due calls Acme.Orders.Recompute/1, which Acme.Orders declares `internal`
+      |   an internal function is visible only to Acme.Orders and the modules beneath it.
+Acme/Billing_pub       accepted
+Acme/Billing_fun       accepted
+=== run the hand-out bypass and the allowed descendant (patched)
+10
+10
+=== runtime: is the internal function in the .beam export list, and callable from Erlang?
+exports: [{bs@type_atoms,0},{'Total',1},{'Handout',0},{'Recompute',1}]
+erlang:apply(Acme.Orders,Recompute,[5]) -> 10

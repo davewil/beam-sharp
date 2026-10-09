@@ -1,0 +1,42 @@
+module BenchKndB
+
+record Rec { A: int, B: int, C: int }
+
+// tag test: a private record function called once per iteration, plus the private recursion carrying the record
+public int RunRec(Rec r, int n)
+RunRec(r, n) -> SpinRec(r, n, 0)
+
+private int SpinRec(Rec r, int n, int acc)
+SpinRec(r, n, acc) when n <= 0 -> acc
+SpinRec(r, n, acc) -> SpinRec(r, n - 1, acc + GetA(r))
+
+private int GetA(Rec r)
+GetA(r) -> r.A
+
+// kind test, pass-through (erlc can elide): private int loop reached from a guarded export
+public int RunInt(int n)
+RunInt(n) -> SpinInt(n, 0)
+
+private int SpinInt(int n, int acc)
+SpinInt(n, acc) when n <= 0 -> acc
+SpinInt(n, acc) -> SpinInt(n - 1, acc + 1)
+
+// kind test, unknown callers (cannot be elided): private function captured and mapped over a list
+public list<int> RunMap(list<int> xs)
+RunMap(xs) -> List.Map(xs, Dbl/1)
+
+private int Dbl(int n)
+Dbl(n) -> n * 2
+
+// kind test, UNKNOWN-typed argument to a private recursion: seeded from a list element
+public int RunSeed(list<int> xs, int n)
+RunSeed(xs, n) -> xs |> List.Fold(0, (acc, x) => acc + SpinInt(n, x))
+
+// tag test, exactly ONE per iteration: the loop carries a list, only GetA takes the record
+public int RunOne(list<Rec> rs, int n)
+RunOne(rs, n) -> SpinOne(rs, n, 0)
+
+private int SpinOne(list<Rec> rs, int n, int acc)
+SpinOne(rs, n, acc) when n <= 0 -> acc
+SpinOne([h, ..t], n, acc) -> SpinOne([h, ..t], n - 1, acc + GetA(h))
+SpinOne([], _, acc) -> acc

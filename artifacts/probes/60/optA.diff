@@ -1,0 +1,61 @@
+--- compiler/src/bs_check.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_60_a/bs_check.erl	2026-10-08 23:12:48.743054805 +0000
+@@ -496,14 +496,32 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case internal_ok(Self, M) of
++                ok          -> add_module_import(M, World, Acc);
++                {no, Parent} -> erlang:error({internal_module, M, Parent, L})
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, [C || C <- Children, internal_ok(Self, C) =:= ok], Acc)
++            end
++    end.
++
++%% OPTION A (prototype): a module whose path has an `Internal` segment may be
++%% named only from the subtree rooted at the segments before the first `Internal`.
++internal_ok(Self, M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}     -> ok;
++        {Parent, _} ->
++            SelfSegs = string:split(atom_to_list(Self), ".", all),
++            case lists:prefix(Parent, SelfSegs) of
++                true  -> ok;
++                false -> {no, list_to_atom(lists:flatten(lists:join(".", Parent)))}
+             end
+     end.
+ 
+--- compiler/src/bs_diag.erl	2026-10-06 23:03:23.684655679 +0000
++++ /tmp/bsb_60_a/bs_diag.erl	2026-10-08 23:12:48.744235380 +0000
+@@ -649,6 +649,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {internal_module, Mod, Parent, Line}) ->
++    #{tag => internal_module, severity => error, file => Path, line => Line,
++      module => Mod, visible_to => Parent};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2026,6 +2029,11 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := internal_module, file := P, line := L, column := C, module := Mod, visible_to := Par}) ->
++    {"~s:~p:~p: error: `using ~s` names an internal module~n"
++     "  a module under an `Internal` segment is visible only to ~s and~n"
++     "  the modules beneath it.~n",
++     [P, L, C, Mod, Par]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

@@ -1,0 +1,50 @@
+== whole-module normalised diff erl vs bsc (empty = identical) ==
+1a2,5
+> --- bs@type_atoms/0 (6 instrs)
+>   {move,nil,{x,0}}
+>   return
+> 
+48,53c52,53
+< --- sign/1 (13 instrs)
+<   {test,is_ne_exact,{f,L},[{x,0},{integer,0}]}
+<   {test,is_lt,{f,L},[{integer,0},{x,0}]}
+<   {move,{integer,1},{x,0}}
+<   return
+<   {test,is_lt,{f,L},[{tr,{x,0},{t_number,{'-inf',0}}},{integer,0}]}
+---
+> --- sign/1 (10 instrs)
+>   {test,is_lt,{f,L},[{x,0},{integer,0}]}
+56,58c56
+< 
+< --- size_/1 (10 instrs)
+<   {test,is_ge,{f,L},[{x,0},{integer,0}]}
+---
+>   {move,{integer,1},{x,0}}
+59a58,60
+> 
+> --- size_/1 (9 instrs)
+>   {test,is_lt,{f,L},[{x,0},{integer,0}]}
+60a62
+>   return
+== per-function instr counts ==
+bench_erl
+--- wrap/1 (8 instrs)
+--- hit/1 (10 instrs)
+--- spin/4 (26 instrs)
+--- sign/1 (13 instrs)
+--- size_/1 (10 instrs)
+--- clicks/3 (29 instrs)
+--- part_two/1 (7 instrs)
+--- module_info/0 (6 instrs)
+--- module_info/1 (7 instrs)
+Day01
+--- bs@type_atoms/0 (6 instrs)
+--- 'Wrap'/1 (8 instrs)
+--- 'Hit'/1 (10 instrs)
+--- 'Spin'/4 (26 instrs)
+--- 'Sign'/1 (10 instrs)
+--- 'Size'/1 (9 instrs)
+--- 'Clicks'/3 (29 instrs)
+--- 'PartTwo'/1 (7 instrs)
+--- module_info/0 (6 instrs)
+--- module_info/1 (7 instrs)

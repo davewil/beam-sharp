@@ -1,0 +1,6 @@
+erlc: all four modules compiled, billing -> pricing accepted
+xref {module_use,pricing}: [billing,orders]
+exports_not_used: [{billing,due,1},{orders,total,1},{x,main,0}]
+--- control: same modules compiled WITHOUT +debug_info (xref has nothing to read)
+{'EXIT',{{badmatch,{error,xref_compiler,{unknown_constant,"pricing"}}},
+         [{x,main,0,[{file,"x.erl"},{line,6}]},

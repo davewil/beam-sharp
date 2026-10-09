@@ -1,0 +1,8 @@
+lists                  dir=stdlib-4.3.1.3 get_application={ok,stdlib} derived={stdlib,
+                                                                               "4.3.1.3"}
+ssl                    dir=ssl-10.9.1.3 get_application=undefined derived={ssl,
+                                                                           "10.9.1.3"}
+'Elixir.Enum'          dir=elixir get_application=undefined derived={elixir,
+                                                                     "1.14.0"}
+flatmod                dir=tmp get_application=undefined derived=none_no_app_file
+'Elixir.Nope.Absent'   which=non_existing  get_application=undefined  derived=NONE (absent)

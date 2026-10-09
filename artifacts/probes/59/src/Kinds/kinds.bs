@@ -1,0 +1,32 @@
+module Kinds
+
+type Octet = int where value >= 0 and value <= 255
+type Cfg = { Level: int, Note: atom }
+
+// control: the same function, exported, takes the kind test (F24)
+public int DoubleP(int n)
+DoubleP(n) -> n * 2
+
+private int Double(int n)
+Double(n) -> n * 2
+
+private atom Band(Octet n)
+Band(n) when n <= 64 -> :low
+Band(n) -> :high
+
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Double/1)
+
+public int FromField(Cfg c)
+FromField(c) -> Double(c.Level)
+
+public fn(int) -> int Picker(atom which)
+Picker(_) -> Double/1
+
+public list<atom> Bands(list<Octet> xs)
+Bands(xs) -> List.Map(xs, Band/1)
+
+private atom Band2(Octet n)
+Band2(<= 64) -> :low
+Band2(>= 65) -> :high
+

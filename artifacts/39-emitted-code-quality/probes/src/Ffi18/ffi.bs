@@ -1,0 +1,14 @@
+module Ffi18
+
+type Dial = int where value >= 0 and value <= 99
+
+using :lib08 {
+    Dial wrap(int n)
+    int wrap_plain(int n)
+}
+
+public int Refined(int n)
+Refined(n) -> :lib08.wrap(n) + 1
+
+public int Plain(int n)
+Plain(n) -> :lib08.wrap_plain(n) + 1

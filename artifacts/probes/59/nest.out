@@ -1,0 +1,28 @@
+== emitter base ==
+  Unwrap(Wrapper{Item=forged Invoice})  [record in record]       {error,function_clause}
+  Unwrap(Wrapper{Item=genuine}) [control]                        {ok,100}
+  FromList([forged Invoice])  [lambda -> direct call to Inner]   {error,function_clause}
+  FromField(Cfg{Level=1.5})  [float in record field -> Twice]    {ok,3.0}
+  FromField(Cfg{Level=2})    [control]                           {ok,4}
+  Unwrap(forged Wrapper tag) [control: outer tag test]           {error,function_clause}
+== emitter A ==
+  Unwrap(Wrapper{Item=forged Invoice})  [record in record]       {ok,100}
+  Unwrap(Wrapper{Item=genuine}) [control]                        {ok,100}
+  FromList([forged Invoice])  [lambda -> direct call to Inner]   {ok,100}
+  FromField(Cfg{Level=1.5})  [float in record field -> Twice]    {ok,3.0}
+  FromField(Cfg{Level=2})    [control]                           {ok,4}
+  Unwrap(forged Wrapper tag) [control: outer tag test]           {error,function_clause}
+== emitter B ==
+  Unwrap(Wrapper{Item=forged Invoice})  [record in record]       {error,function_clause}
+  Unwrap(Wrapper{Item=genuine}) [control]                        {ok,100}
+  FromList([forged Invoice])  [lambda -> direct call to Inner]   {error,function_clause}
+  FromField(Cfg{Level=1.5})  [float in record field -> Twice]    {error,function_clause}
+  FromField(Cfg{Level=2})    [control]                           {ok,4}
+  Unwrap(forged Wrapper tag) [control: outer tag test]           {error,function_clause}
+== emitter E ==
+  Unwrap(Wrapper{Item=forged Invoice})  [record in record]       {ok,100}
+  Unwrap(Wrapper{Item=genuine}) [control]                        {ok,100}
+  FromList([forged Invoice])  [lambda -> direct call to Inner]   {ok,100}
+  FromField(Cfg{Level=1.5})  [float in record field -> Twice]    {ok,3.0}
+  FromField(Cfg{Level=2})    [control]                           {ok,4}
+  Unwrap(forged Wrapper tag) [control: outer tag test]           {error,function_clause}

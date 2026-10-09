@@ -1,0 +1,8 @@
+pub(forged)           [def head pattern]            {:raised, FunctionClauseError}
+nested(%{item: forged}) [defp head pattern]         {:raised, FunctionClauseError}
+mapped([forged])        [defp via &priv/1]          {:raised, FunctionClauseError}
+leak().(forged)         [escaped defp]              {:raised, FunctionClauseError}
+nested_loose(%{item: forged}) [defp, no pattern]    {:ok, 100}
+pub(%Order{total: 5}) [control]                     {:ok, 5}
+--- compile-time: does 1.14 warn about a defp that accepts a wider type than its callers pass? (no type checker in 1.14)
+elixir 1.14.0

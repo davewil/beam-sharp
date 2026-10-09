@@ -1,0 +1,18 @@
+### N=50 modules (in-VM ms per full compile, 12 runs x 2 VMs)
+baseline-on-A-shaped     n=24 median=220ms min=181 max=248 IQR=20
+A                        n=24 median=211ms min=183 max=250 IQR=16
+baseline-on-B-shaped     n=24 median=248ms min=212 max=348 IQR=39
+B                        n=24 median=242ms min=206 max=355 IQR=40
+baseline-on-C-shaped     n=24 median=208ms min=194 max=260 IQR=14
+C                        n=24 median=234ms min=203 max=329 IQR=40
+### N=200 modules (in-VM ms per full compile, 12 runs x 2 VMs)
+baseline-on-A-shaped     n=24 median=1082ms min=903 max=1499 IQR=310
+A                        n=24 median=1210ms min=992 max=1755 IQR=321
+baseline-on-B-shaped     n=24 median=1374ms min=975 max=2614 IQR=279
+B                        n=24 median=1331ms min=1100 max=2002 IQR=342
+baseline-on-C-shaped     n=24 median=1121ms min=882 max=1418 IQR=272
+C                        n=24 median=1029ms min=860 max=1266 IQR=117
+
+real	4m43.362s
+user	4m29.916s
+sys	1m12.544s

@@ -1,0 +1,32 @@
+2:-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+e_default: bytes=1344 spin: --- spin/4 (26 instrs) calls_in_spin=3
+e_inline: bytes=1244 spin: --- spin/4 (25 instrs) calls_in_spin=1
+b_default: bytes=1368 spin: --- 'Spin'/4 (26 instrs) calls_in_spin=3
+b_inline: bytes=1252 spin: --- 'Spin'/4 (28 instrs) calls_in_spin=2
+b_inline_listed: bytes=1356 spin: --- 'Spin'/4 (25 instrs) calls_in_spin=1
+
+== timing (min is the stable column; box is shared & loaded) 100 rounds x3 ==
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.86    19.13    27.02    59.84  1.568x
+e_inline          10.77    11.85    16.53    47.74  1.002x
+b_default         16.67    19.18    26.97    53.77  1.551x
+b_inline          10.75    12.82    18.82    57.19  1.000x
+b_inline_liste    10.83    12.22    18.46    49.36  1.008x
+gleam             10.79    11.78    17.47    26.93  1.004x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.83    19.09    27.53    55.20  1.584x
+e_inline          10.80    11.98    18.16    34.01  1.017x
+b_default         16.73    18.38    29.37    69.58  1.574x
+b_inline          10.63    12.02    17.68    67.23  1.000x
+b_inline_liste    10.80    12.30    19.13    27.88  1.017x
+gleam             10.78    12.28    17.06    40.54  1.014x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+e_default         16.78    18.59    26.07    61.32  1.611x
+e_inline          10.77    11.68    16.87    38.85  1.034x
+b_default         16.72    19.02    28.41    83.22  1.605x
+b_inline          10.42    12.67    18.72    23.21  1.000x
+b_inline_liste    10.79    11.71    15.65    26.31  1.036x
+gleam             10.81    11.62    17.00    32.81  1.037x
+

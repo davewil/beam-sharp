@@ -1,0 +1,15 @@
+stock  T1 (no foreign)                       median=438 min=376 max=488 ms (n=15)
+stock  T2 (foreign, no app)                  median=427 min=403 max=484 ms (n=15)
+proto  T2 check on                           median=425 min=398 max=490 ms (n=15)
+proto  T2 check off (control)                median=462 min=404 max=648 ms (n=15)
+proto  T3 check on (in :elixir)              median=546 min=490 max=720 ms (n=15)
+proto  T3 check off (control)                median=537 min=457 max=654 ms (n=15)
+--- .beam sizes (bytes)
+stock    T1  836 bytes
+stock    T2  928 bytes
+proto    T2  928 bytes
+proto    T3  1036 bytes
+--- bs@needs/0 as a function: bytes added by T3 over T2 are the 'size of the term a design would add' (here: [elixir])
+--- code:which cost, in-VM: 1000 calls x 20 modules, default path vs path plus every OTP lib dir and elixir (most already present)
+default path (38 dirs): 764.02 us per code:which
+path after add_pathz (39 dirs): 780.11 us per code:which

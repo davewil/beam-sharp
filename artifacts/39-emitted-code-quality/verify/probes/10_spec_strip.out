@@ -1,0 +1,18 @@
+specs in .abstr: 7
+instr lists identical (module name normalised): YES
+beam bytes: with=1320 without=1328
+impl             min ms   med ms   p90 ms   max ms min/bes
+with_spec         16.69    17.15    19.20    27.80  1.000x
+no_spec           16.72    17.11    18.89    31.56  1.002x
+erlang            16.79    17.23    18.89    25.27  1.006x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+with_spec         16.67    16.88    17.57    22.20  1.000x
+no_spec           16.67    16.90    17.49    19.76  1.000x
+erlang            16.77    17.05    17.86    21.97  1.006x
+
+impl             min ms   med ms   p90 ms   max ms min/bes
+with_spec         16.68    16.93    17.57    19.12  1.002x
+no_spec           16.66    16.91    18.25    20.42  1.000x
+erlang            16.80    17.04    17.97    20.43  1.008x
+

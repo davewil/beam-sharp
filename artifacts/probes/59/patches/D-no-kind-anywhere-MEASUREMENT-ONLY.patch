@@ -1,0 +1,11 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-08 23:03:39.900302570 +0000
++++ /tmp/bsb_59_d/bs_emit.erl	2026-10-08 23:14:23.856328947 +0000
+@@ -281,7 +281,7 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none when Public andalso false ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
