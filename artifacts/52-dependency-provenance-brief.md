@@ -144,7 +144,7 @@ Ask **Q1** alone and first: *may `bsc`'s verdict on a `.bs` file depend on the m
 - required would force `in :erts` onto every `:erlang` block;
 - no new grammar conflicts and a 5-tuple change at four sites (`p20`, `p14`).
 
-Two cautions that argue for stopping at "record, don't enforce" until a consumer exists: the application name does not replace the manifest (no version or source), and a check that reads an ambient environment variable contradicts S3's own precedent (the native check is keyed on the explicit `--src-root`). If David wants the ticket's original promise (a compile-time diagnostic) the cheapest honest form is Option 1's check as a **warning**, with the application clause added only if the diagnostic needs to name the missing application (it cannot otherwise: it does not know the name, `p8` Noapp). Sequence with ticket 106's alias, which also edits the `using` block.
+Two cautions that argue for stopping at "record, don't enforce" until a consumer exists: the application name does not replace the manifest (no version or source), and a check that reads an ambient environment variable contradicts S3's own precedent (the native check resolves against the source tree the compiler is handed, not an environment variable; the verifier showed it is not keyed on `--src-root` specifically). If David wants the ticket's original promise (a compile-time diagnostic) the cheapest honest form is Option 1's check as a **warning**, with the application clause added only if the diagnostic needs to name the missing application (it cannot otherwise: it does not know the name, `p8` Noapp). Sequence with ticket 106's alias, which also edits the `using` block.
 
 ## 8. Not measured / could not run
 
