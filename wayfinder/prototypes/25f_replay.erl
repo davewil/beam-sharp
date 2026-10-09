@@ -71,7 +71,8 @@ main() ->
                               'Expected' := <<"string">>, 'Reason' := missing}}} ->
             io:format("malformed: ok~n");
         _ ->
-            io:format("malformed: WRONG ~0p~n", [Malformed])
+            io:format("malformed: WRONG ~0p~n", [Malformed]),
+            halt(1)
     end,
     run("typesafe, 401", <<"typesafe:jev-latest">>, serve(401, #{<<"error">> => <<"bad key">>})),
     run("unknown provider", <<"anthropic:claude-haiku-4-5">>, serve(200, typesafe())),

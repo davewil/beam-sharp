@@ -2634,9 +2634,12 @@ type, so `{}` against `{ "a": int }` is `Path = ["[\"a\"]"]`, `Expected = "int"`
 key is never missing. `:unknown_key` is a key an exact type does not name: the path ends at that
 key and `Expected` is the keys the type does name, so `{ "a" = 1, "b" = 2 }` against the same type
 is `Path = ["[\"b\"]"]`, `Expected = "\"a\""`. An absent key is reported before an unknown one,
-and among several of either the first in key order. Both are reported where the type at that
-position has one field-set or record member; a union of several is reported whole, at the union,
-as `:mismatch`. `:not_json` is `FromJson`'s. `:duplicate_key` is in the type and nothing builds it
+and among several of either the first in key order; an unknown key is reported before a named
+key's wrong value, and one the path cannot spell is not named, the blame stopping at the map as
+`:mismatch`. A record's `Kind` is asked about first: a map without it is `:missing` at `.Kind`,
+and one carrying another record's is `:mismatch` there. All of this is reported where the type at
+that position has one map member, a field set or a record; a union of several, a `map<K, V>`
+among them, is reported whole, at the union, as `:mismatch`. `:not_json` is `FromJson`'s. `:duplicate_key` is in the type and nothing builds it
 yet. A hand-built `ValidationError` names all three fields. **shipped** — F70.
 <!-- decided by ticket 78 Q16, Q12 and Q21, and ticket 79 as reopened; built by F70 -->
 

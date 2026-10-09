@@ -1347,6 +1347,8 @@ stratum_one() ->
                      {t_tuple, [{t_atom, throw}, {t_builtin, term}]},
                      {t_tuple, [{t_atom, exit},  {t_builtin, term}]}]}}.
 
+validation_reasons() -> [not_json, missing, unknown_key, duplicate_key, mismatch].
+
 %% `ValidationError` is the validator's record payload: path, expected type
 %% and which of five things went wrong (ticket 78 Q16).
 %% `record_of/3`, `known_record_tags/0` and `bs_emit:record_tag/2` read its tag
@@ -1354,8 +1356,6 @@ stratum_one() ->
 %% Its bare tag cannot collide with user record tags, which contain a dot.
 %% `compiler_known_redeclared/1` prevents shadowing; merge order does not.
 %% Rationale: compiler/features/F49-validation-error-record.md.
-validation_reasons() -> [not_json, missing, unknown_key, duplicate_key, mismatch].
-
 stratum_two() ->
     #{'ValidationError' =>
           {t_map, [{field, 'Kind', {t_atom, 'ValidationError'}},

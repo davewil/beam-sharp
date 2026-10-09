@@ -154,6 +154,60 @@ a_records_extra_field_is_unknown_test() ->
                  M:'Decode'(#{'Kind' => 'VrOrders.Order', 'Id' => 1, 'Total' => 2,
                               'Extra' => 3})).
 
+%%% F70.12 — a record's tag, and keys the path cannot spell
+
+parcel_src() ->
+    "module VrParcel\n"
+    "record Parcel { Id: int, Note: option<string> }\n"
+    "type Doc = { Kind: :invoice }\n"
+    "public result<Parcel, ValidationError> Decode(term t)\n"
+    "Decode(t) -> ValidateAs<Parcel>(t)\n"
+    "public result<Doc, ValidationError> Tagged(term t)\n"
+    "Tagged(t) -> ValidateAs<Doc>(t)\n".
+
+a_map_without_the_tag_is_missing_it_test() ->
+    M = build_and_load(parcel_src(), 'VrParcel'),
+    ?assertEqual(err([<<".Kind">>], <<":'VrParcel.Parcel'">>, missing),
+                 M:'Decode'(#{'Id' => 1, 'Note' => nothing})).
+
+another_records_tag_is_a_mismatch_at_the_tag_test() ->
+    M = build_and_load(parcel_src(), 'VrParcel'),
+    Wrong = err([<<".Kind">>], <<":'VrParcel.Parcel'">>, mismatch),
+    ?assertEqual(Wrong, M:'Decode'(#{'Kind' => 'Other.Order', 'Id' => 1, 'Note' => nothing})),
+    %% The same answer beside an extra key, and beside an absent option key.
+    ?assertEqual(Wrong, M:'Decode'(#{'Kind' => 'Other.Order', 'Id' => 1, 'Note' => nothing,
+                                     'Extra' => 2})),
+    ?assertEqual(Wrong, M:'Decode'(#{'Kind' => 'Other.Order', 'Id' => 1})),
+    %% Another record altogether is not this one with a field absent.
+    ?assertEqual(Wrong, M:'Decode'(#{'Kind' => 'Other.Thing', 'Name' => 1})).
+
+an_unknown_key_beside_an_absent_option_key_is_named_test() ->
+    M = build_and_load(parcel_src(), 'VrParcel'),
+    ?assertEqual(err([<<".Extra">>], <<"Id | Note">>, unknown_key),
+                 M:'Decode'(#{'Kind' => 'VrParcel.Parcel', 'Id' => 1, 'Extra' => 2})),
+    ?assertEqual(#{'Kind' => 'VrParcel.Parcel', 'Id' => 1, 'Note' => nothing},
+                 M:'Decode'(#{'Kind' => 'VrParcel.Parcel', 'Id' => 1})).
+
+%% A type naming no field but its tag has no keys to list, so it is printed.
+a_type_with_only_a_tag_expects_itself_test() ->
+    M = build_and_load(parcel_src(), 'VrParcel'),
+    ?assertEqual(err([<<".Extra">>], <<"{ Kind: :invoice }">>, unknown_key),
+                 M:'Tagged'(#{'Kind' => invoice, 'Extra' => 1})).
+
+%% A key with no spelling moves the blame to the map, as F43's does. A key
+%% that is not a name is spelled as a map entry's is.
+unknown_keys_that_are_not_names_test() ->
+    M = intake(),
+    ?assertEqual(err([], <<"{ \"a\": int }">>, mismatch),
+                 M:'Check'(#{<<"a">> => 1, {1, 2} => 3})),
+    ?assertEqual(err([<<"[7]">>], <<"\"a\"">>, unknown_key),
+                 M:'Check'(#{<<"a">> => 1, 7 => 3})).
+
+%% An unknown key is found before a named key's value is looked at.
+an_unknown_key_is_reported_before_a_wrong_value_test() ->
+    ?assertEqual(err([<<"[\"b\"]">>], <<"\"a\"">>, unknown_key),
+                 (intake()):'Read'(<<"{\"a\":\"x\",\"b\":2}">>)).
+
 %%% F70.7 — several keys: which is reported, and what Expected lists
 
 pair_src() ->
@@ -192,6 +246,15 @@ one_field_set_beside_an_atom_still_names_the_key_test() ->
     ?assertEqual(null, M:'One'(<<"null">>)),
     ?assertEqual(err([<<"[\"a\"]">>], <<"int">>, missing), M:'One'(<<"{}">>)).
 
+%% A `map<K, V>` member is a second member a map could belong to.
+a_field_set_beside_a_domain_map_is_reported_whole_test() ->
+    M = build_and_load("module VrDom\n"
+                       "type W = { \"a\": int }\n"
+                       "public result<W | map<int, int>, ValidationError> Check(term t)\n"
+                       "Check(t) -> ValidateAs<W | map<int, int>>(t)\n", 'VrDom'),
+    ?assertMatch({error, #{'Path' := [], 'Reason' := mismatch}},
+                 M:'Check'(#{<<"a">> => 1, <<"b">> => 2})).
+
 several_field_sets_are_reported_whole_as_a_mismatch_test() ->
     M = build_and_load(union_src(), 'VrUnion'),
     ?assertEqual(err([], <<"{ \"a\": int } | { \"b\": int }">>, mismatch),
@@ -221,7 +284,10 @@ a_hand_built_error_without_a_reason_is_refused_test_() ->
              fun(Path, _Out) ->
                  {Rc, Output} = bs_test_support:run_cli_result(Path),
                  ?assertEqual(1, Rc),
-                 ?assertNotEqual(nomatch, string:find(Output, "Reason"))
+                 ?assertNotEqual(nomatch,
+                                 string:find(Output, "builds an ValidationError with the wrong fields")),
+                 ?assertNotEqual(nomatch,
+                                 string:find(Output, "missing, and must be supplied:\n    Reason"))
              end)
      end}.
 
@@ -231,8 +297,11 @@ a_reason_outside_the_five_is_refused_test_() ->
          with_src("vrbuilt.bs",
              built_src("Path = [], Expected = \"int\", Reason = :other"),
              fun(Path, _Out) ->
-                 {Rc, _} = bs_test_support:run_cli_result(Path),
-                 ?assertEqual(1, Rc)
+                 {Rc, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertEqual(1, Rc),
+                 ?assertNotEqual(nomatch,
+                                 string:find(Output, "assigns Reason a value ValidationError does not accept")),
+                 ?assertNotEqual(nomatch, string:find(Output, ":other"))
              end)
      end}.
 

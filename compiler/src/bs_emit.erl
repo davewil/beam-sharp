@@ -2007,9 +2007,11 @@ pass_ok(V) -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, V]}], [], [{tuple, ?A, 
 %%% map that member's clause did not take is asked why. A required key that
 %%% is absent is `:missing` at that key, expecting the key's type; a key an
 %%% exact member does not name is `:unknown_key` at that key, expecting the
-%%% keys it does name. Whatever is left is an absent option key, which the
-%%% fill attempts take, or a tag holding another value, which is this node's
-%%% mismatch. With several members there is no one member to ask about.
+%%% keys it does name. Ahead of both, a key whose type is one atom is asked
+%%% about first, absent or holding another: a map carrying another record's
+%%% `Kind` is not this record with fields astray. Whatever is left is an
+%%% absent option key, which the fill attempts take. With several map
+%%% members, a `map<K, V>` among them, there is no one member to ask about.
 %%% Rationale: compiler/features/F70-validation-reason.md.
 
 keyed_member(#{maps := [M = {Kind, _}]}) when Kind =:= closed; Kind =:= open -> M;
@@ -2026,26 +2028,39 @@ keys_clause(Name) ->
 keys_form(none, _Ty, _Name, _Fills, _Err) -> [];
 keys_form({Kind, Fs}, Ty, Name, Fills, Err) ->
     Keys = lists:sort(maps:keys(Fs)),
-    Required = case Fills of
-                   [] -> Keys;
-                   _  -> Keys -- fill_keys(Fs)
-               end,
-    Rest = case Fills of
-               [] -> Err;
-               _  -> {call, ?A, {atom, ?A, fill_name(Name, 1)}, [?VV, ?VP, {atom, ?A, none}]}
-           end,
-    Absent = [{clause, ?A, [{var, ?A, '_'}],
-               [[{op, ?A, 'not', guard_call(is_map_key, [key_lit(K, ?A), ?VV])}]],
-               [error_at({cons, ?A, bin_str(field_seg(K)), ?VP},
-                         bs_types:to_string(maps:get(K, Fs)), missing)]}
-              || K <- Required],
+    {Required, Rest} =
+        case Fills of
+            [] -> {Keys, Err};
+            _  -> {Keys -- fill_keys(Fs),
+                   {call, ?A, {atom, ?A, fill_name(Name, 1)}, [?VV, ?VP, {atom, ?A, none}]}}
+        end,
+    At = fun(K, Reason) ->
+                 error_at({cons, ?A, bin_str(field_seg(K)), ?VP},
+                          bs_types:to_string(maps:get(K, Fs)), Reason)
+         end,
+    Absent = fun(K) ->
+                     {clause, ?A, [{var, ?A, '_'}],
+                      [[{op, ?A, 'not', guard_call(is_map_key, [key_lit(K, ?A), ?VV])}]],
+                      [At(K, missing)]}
+             end,
+    Tags = [{K, A} || K <- Required, {tag, A} <- [tag_of(maps:get(K, Fs))]],
+    %% Each tag's second clause is reached only with the key present.
+    Tagged = lists:append(
+               [[Absent(K),
+                 {clause, ?A, [{var, ?A, '_'}],
+                  [[{op, ?A, '=/=', guard_call(map_get, [key_lit(K, ?A), ?VV]),
+                     {atom, ?A, A}}]],
+                  [At(K, mismatch)]}]
+                || {K, A} <- Tags]),
+    Untagged = [Absent(K) || K <- Required, not lists:keymember(K, 1, Tags)],
     Last = case Kind of
                open   -> Rest;
                closed -> unknown_case(Keys, Ty, Rest, Err)
            end,
     [{function, ?A, keys_name(Name), 2,
       [{clause, ?A, [?VV, ?VP], [],
-        [{'case', ?A, ?VV, Absent ++ [{clause, ?A, [{var, ?A, '_'}], [], [Last]}]}]}]}].
+        [{'case', ?A, ?VV,
+          Tagged ++ Untagged ++ [{clause, ?A, [{var, ?A, '_'}], [], [Last]}]}]}]}].
 
 %% A key that has no spelling moves the blame to this node, as F43's does.
 unknown_case(Keys, Ty, Rest, Err) ->

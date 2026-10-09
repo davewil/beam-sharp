@@ -1,6 +1,6 @@
 # F70 — `ValidationError` says why: `Reason`, and a key blamed at its own path
 
-**Status**      **in progress** — built 2026-10-09, 23 tests in `validation_reason_tests`;
+**Status**      **in progress** — built 2026-10-09, 30 tests in `validation_reason_tests`;
                 closing it is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q16, Q12, Q21
                 and Q24, and [ticket 79](../../wayfinder/issues/79-validationerror-as-a-record.md)'s
@@ -55,16 +55,22 @@ $ bsc Intake Read '"nope"'
 - `:mismatch` is every failure the other four do not name, and what every validator
   reported before this feature.
 - `:not_json` is `FromJson`'s alone: the text did not parse.
-- `:missing`: where the type at a position has exactly one field-set member and the value
-  is a map lacking a key that member requires, the error is at that key's path, and
-  `Expected` is the key's type. An `option<T>` key is not required (F61). With several
-  absent, the first in key order is reported.
+- `:missing`: where the type at a position has exactly one map member, a field set or a
+  record, and the value is a map lacking a key that member requires, the error is at that
+  key's path, and `Expected` is the key's type. An `option<T>` key is not required (F61).
+  With several absent, the first in key order is reported.
 - `:unknown_key`: where that one member is exact and the map has a key it does not name,
   the error is at that key's path, and `Expected` is the keys the type names, joined with
-  ` | `. With several, the first in the term's key order. An absent key is reported before
-  an unknown one.
-- A position whose type has several field-set members is reported as before: the whole
-  type at the position, as `:mismatch`. ENG-618 changes that for a tagged union.
+  ` | `; a type naming none but its tag is printed whole. With several, the first in the
+  term's key order. An absent key is reported before an unknown one, and an unknown one
+  before a named key's wrong value. A key the path cannot spell, a tuple or a binary that
+  is not text, is not named: the whole type at the map, as `:mismatch`, as F43 does.
+- A key whose type is a single atom, a record's `Kind` above all, is asked about before
+  any other: absent it is `:missing`, and holding another atom it is `:mismatch`, both at
+  that key. Another record is so reported as another record, whatever else it lacks.
+- A position whose type has several map members, a `map<K, V>` among them, is reported
+  as before: the whole type at the position, as `:mismatch`. ENG-618 changes that for a
+  tagged union.
 - `:duplicate_key` is in the type and built by nothing yet (ENG-617).
 - `ValidateAs<T>` reports `:mismatch`, `:missing` and `:unknown_key` as `FromJson<T>` does.
 - A hand-built `ValidationError` names all three fields.
@@ -98,7 +104,8 @@ order F43 walks a map's entries in. Reported to David with the build.
   four of the five clauses is refused as *not exhaustive*, and the clause it asks for is
   `Explain(ValidationError v) -> ...`. It is the same for any record: a
   `record Light { State: :red | :amber | :green }` covered for two states gets
-  `Say(Light l) -> ...`. Not this feature's; raised as a defect.
+  `Say(Light l) -> ...`. Not this feature's:
+  [ENG-439](https://linear.app/davewil/issue/ENG-439) has it.
 - **An unknown key is spelled from the value, a known one from the type.** A name key
   is `.Extra` either way. A string key holding `"` or `\` is escaped in a known key's
   segment, as the type prints it, and written raw in an unknown key's, as F43 writes a
@@ -123,6 +130,7 @@ order F43 walks a map's entries in. Reported to David with the build.
 | F70.8 | `W \| :null` given `{}`; a two-member union given a map neither takes | `:missing` at `["a"]`; the whole union at `[]`, `:mismatch` |
 | F70.9 | a hand-built error with `Reason`; without it; `e.Reason` | compiles; refused; the atom |
 | F70.10 | a value that is not a map at a field-set position | the whole type, `:mismatch` |
+| F70.12 | a record with no `Kind`; with another record's; a tuple key; `W \| map<int, int>` | `:missing` at `.Kind`; `:mismatch` at `.Kind`; the whole type, `:mismatch`; the whole union |
 | F70.11 | exemplar 25f on `{"answers":{}}` | `(:error, (:malformed, ValidationError { Path = ["[\"model\"]"], Expected = "string", Reason = :missing }))` |
 
 ## Done when
@@ -132,7 +140,7 @@ after, and `./bin/verify.sh` is green twice from a clean clone.
 
 ## Evidence — 2026-10-09
 
-Before the build, `validation_reason_tests` failed 20 of 23 and `check-validation-reason.sh`
+Before the build, `validation_reason_tests` failed 20 of its first 23 and `check-validation-reason.sh`
 was red on all six cases: R1 to R5 printed `Reason is not declared by ValidationError`,
 and R6 printed the whole `ReplyWire` type at `Path = []`. Its `--self-test` sees four
 defects (`no_reason`, `blames_object`, `all_mismatch`, `open_reason`) and accepts the
