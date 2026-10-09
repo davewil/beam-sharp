@@ -1,0 +1,11 @@
+const { z } = require("zod");
+const show = (l, r) => console.log("--- " + l + "\n" + (r.success ? "OK " + JSON.stringify(r.data) : JSON.stringify(r.error.issues)));
+const Req = z.object({ model: z.string(), n: z.number() });
+show("1 extra default", Req.safeParse({ model: "m", n: 1, extra: true }));
+show("1 extra strict", Req.strict().safeParse({ model: "m", n: 1, extra: true }));
+show("1 extra passthrough", Req.passthrough().safeParse({ model: "m", n: 1, extra: true }));
+show("2 missing", Req.safeParse({ n: "x" }));
+const A = z.object({ type: z.literal("text"), text: z.string() }), B = z.object({ type: z.literal("image"), url: z.string() });
+show("3a union", z.union([A, B]).safeParse({ type: "image" }));
+show("3a du", z.discriminatedUnion("type", [A, B]).safeParse({ type: "image" }));
+show("3b du", z.discriminatedUnion("type", [A, B]).safeParse({ type: "video" }));

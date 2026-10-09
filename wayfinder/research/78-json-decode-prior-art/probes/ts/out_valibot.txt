@@ -1,0 +1,363 @@
+--- 1 extra key, object
+OK {"model":"m","n":1}
+--- 1 extra key, strictObject
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "strict_object",
+  "expected": "never",
+  "received": "\"extra\"",
+  "message": "Invalid key: Expected never but received \"extra\"",
+  "path": [
+   "extra"
+  ],
+  "dotPath": "extra"
+ }
+]
+FLAT {"nested":{"extra":["Invalid key: Expected never but received \"extra\""]}}
+--- 1 extra key, looseObject
+OK {"model":"m","n":1,"extra":true}
+--- 1 extra key, objectWithRest(number)
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "number",
+  "expected": "number",
+  "received": "true",
+  "message": "Invalid type: Expected number but received true",
+  "path": [
+   "extra"
+  ],
+  "dotPath": "extra"
+ }
+]
+FLAT {"nested":{"extra":["Invalid type: Expected number but received true"]}}
+--- 2 missing model
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"model\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"model\" but received undefined",
+  "path": [
+   "model"
+  ],
+  "dotPath": "model"
+ }
+]
+FLAT {"nested":{"model":["Invalid key: Expected \"model\" but received undefined"]}}
+--- 2 missing model + wrong n
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"model\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"model\" but received undefined",
+  "path": [
+   "model"
+  ],
+  "dotPath": "model"
+ },
+ {
+  "kind": "schema",
+  "type": "number",
+  "expected": "number",
+  "received": "\"x\"",
+  "message": "Invalid type: Expected number but received \"x\"",
+  "path": [
+   "n"
+  ],
+  "dotPath": "n"
+ }
+]
+FLAT {"nested":{"model":["Invalid key: Expected \"model\" but received undefined"],"n":["Invalid type: Expected number but received \"x\""]}}
+--- 2 missing model + wrong n, abortEarly
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"model\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"model\" but received undefined",
+  "path": [
+   "model"
+  ],
+  "dotPath": "model"
+ }
+]
+FLAT {"nested":{"model":["Invalid key: Expected \"model\" but received undefined"]}}
+--- 2 nested missing
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"model\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"model\" but received undefined",
+  "path": [
+   "a",
+   1,
+   "model"
+  ],
+  "dotPath": "a.1.model"
+ }
+]
+FLAT {"nested":{"a.1.model":["Invalid key: Expected \"model\" but received undefined"]}}
+--- 3a union, valid tag missing key
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "union",
+  "expected": "Object",
+  "received": "Object",
+  "message": "Invalid type: Expected Object but received Object",
+  "dotPath": null,
+  "nested": [
+   {
+    "type": "literal",
+    "expected": "\"text\"",
+    "received": "\"image\"",
+    "message": "Invalid type: Expected \"text\" but received \"image\"",
+    "path": [
+     "type"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"text\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"text\" but received undefined",
+    "path": [
+     "text"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"url\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"url\" but received undefined",
+    "path": [
+     "url"
+    ]
+   },
+   {
+    "type": "literal",
+    "expected": "\"tool\"",
+    "received": "\"image\"",
+    "message": "Invalid type: Expected \"tool\" but received \"image\"",
+    "path": [
+     "type"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"name\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"name\" but received undefined",
+    "path": [
+     "name"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"input\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"input\" but received undefined",
+    "path": [
+     "input"
+    ]
+   }
+  ]
+ }
+]
+FLAT {"root":["Invalid type: Expected Object but received Object"]}
+--- 3b union, unknown tag
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "union",
+  "expected": "Object",
+  "received": "Object",
+  "message": "Invalid type: Expected Object but received Object",
+  "dotPath": null,
+  "nested": [
+   {
+    "type": "literal",
+    "expected": "\"text\"",
+    "received": "\"video\"",
+    "message": "Invalid type: Expected \"text\" but received \"video\"",
+    "path": [
+     "type"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"text\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"text\" but received undefined",
+    "path": [
+     "text"
+    ]
+   },
+   {
+    "type": "literal",
+    "expected": "\"image\"",
+    "received": "\"video\"",
+    "message": "Invalid type: Expected \"image\" but received \"video\"",
+    "path": [
+     "type"
+    ]
+   },
+   {
+    "type": "literal",
+    "expected": "\"tool\"",
+    "received": "\"video\"",
+    "message": "Invalid type: Expected \"tool\" but received \"video\"",
+    "path": [
+     "type"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"name\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"name\" but received undefined",
+    "path": [
+     "name"
+    ]
+   },
+   {
+    "type": "object",
+    "expected": "\"input\"",
+    "received": "undefined",
+    "message": "Invalid key: Expected \"input\" but received undefined",
+    "path": [
+     "input"
+    ]
+   }
+  ]
+ }
+]
+FLAT {"root":["Invalid type: Expected Object but received Object"]}
+--- 3a variant, valid tag missing key
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"url\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"url\" but received undefined",
+  "path": [
+   "url"
+  ],
+  "dotPath": "url"
+ }
+]
+FLAT {"nested":{"url":["Invalid key: Expected \"url\" but received undefined"]}}
+--- 3b variant, unknown tag
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "variant",
+  "expected": "(\"text\" | \"image\" | \"tool\")",
+  "received": "\"video\"",
+  "message": "Invalid type: Expected (\"text\" | \"image\" | \"tool\") but received \"video\"",
+  "path": [
+   "type"
+  ],
+  "dotPath": "type"
+ }
+]
+FLAT {"nested":{"type":["Invalid type: Expected (\"text\" | \"image\" | \"tool\") but received \"video\""]}}
+--- 3c variant, tag absent
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "variant",
+  "expected": "(\"text\" | \"image\" | \"tool\")",
+  "received": "undefined",
+  "message": "Invalid type: Expected (\"text\" | \"image\" | \"tool\") but received undefined",
+  "path": [
+   "type"
+  ],
+  "dotPath": "type"
+ }
+]
+FLAT {"nested":{"type":["Invalid type: Expected (\"text\" | \"image\" | \"tool\") but received undefined"]}}
+--- D {b:null}
+OK {"b":null}
+--- D {a:null,b:null}
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "string",
+  "expected": "string",
+  "received": "null",
+  "message": "Invalid type: Expected string but received null",
+  "path": [
+   "a"
+  ],
+  "dotPath": "a"
+ }
+]
+FLAT {"nested":{"a":["Invalid type: Expected string but received null"]}}
+--- D {}
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"b\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"b\" but received undefined",
+  "path": [
+   "b"
+  ],
+  "dotPath": "b"
+ }
+]
+FLAT {"nested":{"b":["Invalid key: Expected \"b\" but received undefined"]}}
+--- D {b:null,d:undefined}
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "string",
+  "expected": "string",
+  "received": "undefined",
+  "message": "Invalid type: Expected string but received undefined",
+  "path": [
+   "d"
+  ],
+  "dotPath": "d"
+ }
+]
+FLAT {"nested":{"d":["Invalid type: Expected string but received undefined"]}}
+has parseJson function isoTimestamp function
+--- F parseJson not-json
+ISSUES [
+ {
+  "kind": "transformation",
+  "type": "parse_json",
+  "expected": null,
+  "received": "\"Expected property name or '}' in JSON at position 1 (line 1 column 2)\"",
+  "message": "Invalid JSON: Received \"Expected property name or '}' in JSON at position 1 (line 1 column 2)\"",
+  "dotPath": null
+ }
+]
+FLAT {"root":["Invalid JSON: Received \"Expected property name or '}' in JSON at position 1 (line 1 column 2)\""]}
+--- F parseJson wrong shape
+ISSUES [
+ {
+  "kind": "schema",
+  "type": "object",
+  "expected": "\"model\"",
+  "received": "undefined",
+  "message": "Invalid key: Expected \"model\" but received undefined",
+  "path": [
+   "model"
+  ],
+  "dotPath": "model"
+ }
+]
+FLAT {"nested":{"model":["Invalid key: Expected \"model\" but received undefined"]}}

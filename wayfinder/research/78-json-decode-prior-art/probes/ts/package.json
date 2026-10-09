@@ -1,0 +1,23 @@
+{
+  "name": "priorart-ts-work",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.52",
+    "ajv": "^8.20.0",
+    "arktype": "^2.2.8",
+    "effect": "^4.0.2",
+    "fp-ts": "^2.16.11",
+    "io-ts": "^2.2.22",
+    "valibot": "^1.5.0",
+    "zod": "^4.6.5"
+  }
+}

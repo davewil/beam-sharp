@@ -1,0 +1,208 @@
+--- 1 extra key, default
+OK {"model":"m","n":1,"extra":true}
+--- 1 extra key, '+':'reject'
+SUMMARY: extra must be removed
+e2 must be removed
+ERRORS [
+ {
+  "code": "predicate",
+  "path": [
+   "extra"
+  ],
+  "expected": "removed",
+  "actual": "",
+  "message": "extra must be removed"
+ },
+ {
+  "code": "predicate",
+  "path": [
+   "e2"
+  ],
+  "expected": "removed",
+  "actual": "",
+  "message": "e2 must be removed"
+ }
+]
+--- 1 extra key, '+':'delete'
+OK {"model":"m","n":1}
+--- 1 extra key, index signature number
+SUMMARY: extra must be a number or a string (was boolean)
+ERRORS [
+ {
+  "code": "predicate",
+  "path": [
+   "extra"
+  ],
+  "expected": "a number or a string",
+  "actual": "boolean",
+  "message": "extra must be a number or a string (was boolean)"
+ }
+]
+--- 2 missing model
+SUMMARY: model must be a string (was missing)
+ERRORS [
+ {
+  "code": "required",
+  "path": [
+   "model"
+  ],
+  "expected": "a string",
+  "actual": "missing",
+  "message": "model must be a string (was missing)"
+ }
+]
+--- 2 missing model + wrong n
+SUMMARY: model must be a string (was missing)
+n must be a number (was a string)
+ERRORS [
+ {
+  "code": "required",
+  "path": [
+   "model"
+  ],
+  "expected": "a string",
+  "actual": "missing",
+  "message": "model must be a string (was missing)"
+ },
+ {
+  "code": "domain",
+  "path": [
+   "n"
+  ],
+  "expected": "a number",
+  "actual": "a string",
+  "message": "n must be a number (was a string)"
+ }
+]
+--- 2 nested missing
+SUMMARY: a[1].model must be a string (was missing)
+ERRORS [
+ {
+  "code": "required",
+  "path": [
+   "a",
+   1,
+   "model"
+  ],
+  "expected": "a string",
+  "actual": "missing",
+  "message": "a[1].model must be a string (was missing)"
+ }
+]
+--- 3a union, valid tag missing key
+SUMMARY: url must be a string (was missing)
+ERRORS [
+ {
+  "code": "required",
+  "path": [
+   "url"
+  ],
+  "expected": "a string",
+  "actual": "missing",
+  "message": "url must be a string (was missing)"
+ }
+]
+--- 3b union, unknown tag
+SUMMARY: type must be "tool", "text" or "image" (was "video")
+ERRORS [
+ {
+  "code": "predicate",
+  "path": [
+   "type"
+  ],
+  "expected": "\"tool\", \"text\" or \"image\"",
+  "actual": "\"video\"",
+  "message": "type must be \"tool\", \"text\" or \"image\" (was \"video\")"
+ }
+]
+--- 3c union, tag absent
+SUMMARY: type must be "tool", "text" or "image" (was undefined)
+ERRORS [
+ {
+  "code": "predicate",
+  "path": [
+   "type"
+  ],
+  "expected": "\"tool\", \"text\" or \"image\"",
+  "actual": "undefined",
+  "message": "type must be \"tool\", \"text\" or \"image\" (was undefined)"
+ }
+]
+--- 3d non-discriminable union
+SUMMARY: a must be a string (was missing) or b must be a number (was missing)
+ERRORS [
+ {
+  "code": "union",
+  "path": [],
+  "expected": "a must be a string (was missing) or b must be a number (was missing)",
+  "actual": "{\"c\":1}",
+  "message": "a must be a string (was missing) or b must be a number (was missing)"
+ }
+]
+--- D {b:null}
+OK {"b":null}
+--- D {a:null,b:null}
+SUMMARY: a must be a string (was null)
+ERRORS [
+ {
+  "code": "domain",
+  "path": [
+   "a"
+  ],
+  "expected": "a string",
+  "actual": "null",
+  "message": "a must be a string (was null)"
+ }
+]
+--- D {}
+SUMMARY: b must be a string or null (was missing)
+ERRORS [
+ {
+  "code": "required",
+  "path": [
+   "b"
+  ],
+  "expected": "a string or null",
+  "actual": "missing",
+  "message": "b must be a string or null (was missing)"
+ }
+]
+--- D {a:undefined,b:null}
+SUMMARY: a must be a string (was undefined)
+ERRORS [
+ {
+  "code": "domain",
+  "path": [
+   "a"
+  ],
+  "expected": "a string",
+  "actual": "undefined",
+  "message": "a must be a string (was undefined)"
+ }
+]
+--- F json.parse not-json
+SUMMARY: must be a JSON string (SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2))
+ERRORS [
+ {
+  "code": "predicate",
+  "path": [],
+  "expected": "a JSON string",
+  "actual": "\"{nope\"",
+  "message": "must be a JSON string (SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2))"
+ }
+]
+--- F json.parse wrong shape
+SUMMARY: model must be a string (was missing)
+ERRORS [
+ {
+  "code": "required",
+  "path": [
+   "model"
+  ],
+  "expected": "a string",
+  "actual": "missing",
+  "message": "model must be a string (was missing)"
+ }
+]
+--- F json.parse ok
+OK {"model":"m","n":1}

@@ -1,0 +1,19 @@
+Rw  {"a":1,"a":2}                              => {"a" = 1}
+Rw  {"a":1,"a":"x"}                            => {"a" = 1}
+Rw  {"a":"x","a":1}                            => (:error, {Kind = :'ValidationError', Expected = "int", Path = ["["a"]"]})
+Rw  {"a":1} x                                  => (:error, {Kind = :'ValidationError', Expected = "JSON", Path = []})
+Rw  {"a":1.0}                                  => (:error, {Kind = :'ValidationError', Expected = "int", Path = ["["a"]"]})
+Rw  {"a":1e2}                                  => (:error, {Kind = :'ValidationError', Expected = "int", Path = ["["a"]"]})
+Rw  {"a":123456789012345678901234567890}       => {"a" = 123456789012345678901234567890}
+Rw  {"a":1,"b":2}                              => (:error, {Kind = :'ValidationError', Expected = "{ "a": int }", Path = []})
+Rw  {"a":null}                                 => (:error, {Kind = :'ValidationError', Expected = "int", Path = ["["a"]"]})
+Rw  {}                                         => (:error, {Kind = :'ValidationError', Expected = "{ "a": int }", Path = []})
+Rf  {"a":1}                                    => (:error, {Kind = :'ValidationError', Expected = "float", Path = ["["a"]"]})
+Rf  {"a":1.5}                                  => {"a" = 1.5}
+Rn  {"a":1}                                    => {"a" = 1}
+Ra  {"type":"choice"}                          => (:error, {Kind = :'ValidationError', Expected = "{ "choice": string, "type": "choice", .. } | { "score": int, "type": "score", .. }", Path = []})
+Ra  {"type":"tri","choice":"x"}                => (:error, {Kind = :'ValidationError', Expected = "{ "choice": string, "type": "choice", .. } | { "score": int, "type": "score", .. }", Path = []})
+Ra  {"choice":"x"}                             => (:error, {Kind = :'ValidationError', Expected = "{ "choice": string, "type": "choice", .. } | { "score": int, "type": "score", .. }", Path = []})
+Ra  {"type":"score","score":"x"}               => (:error, {Kind = :'ValidationError', Expected = "{ "choice": string, "type": "choice", .. } | { "score": int, "type": "score", .. }", Path = []})
+Rl  {"xs":[{"a":1},{"a":"x"},{"a":"y"}]}       => (:error, {Kind = :'ValidationError', Expected = "int", Path = ["["xs"]", "[1]", "["a"]"]})
+Rl  {"xs":[{"a":1},{}]}                        => (:error, {Kind = :'ValidationError', Expected = "{ "a": int }", Path = ["["xs"]", "[1]"]})

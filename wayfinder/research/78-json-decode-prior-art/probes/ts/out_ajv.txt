@@ -1,0 +1,290 @@
+TypeBox schema: {"type":"object","required":["model","n"],"properties":{"model":{"type":"string"},"n":{"type":"number"}}}
+--- 1 extra key, default
+OK {"model":"m","n":1,"extra":true}
+--- 1 extra key, additionalProperties:false
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/additionalProperties",
+  "keyword": "additionalProperties",
+  "params": {
+   "additionalProperty": "extra"
+  },
+  "message": "must NOT have additional properties"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/additionalProperties",
+  "keyword": "additionalProperties",
+  "params": {
+   "additionalProperty": "e2"
+  },
+  "message": "must NOT have additional properties"
+ }
+]
+TEXT: data must NOT have additional properties, data must NOT have additional properties
+--- 1 extra key, removeAdditional
+OK {"model":"m","n":1}
+--- 2 missing model (default, first error)
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "model"
+  },
+  "message": "must have required property 'model'"
+ }
+]
+TEXT: data must have required property 'model'
+--- 2 missing model + wrong n (allErrors)
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "model"
+  },
+  "message": "must have required property 'model'"
+ },
+ {
+  "instancePath": "/n",
+  "schemaPath": "#/properties/n/type",
+  "keyword": "type",
+  "params": {
+   "type": "number"
+  },
+  "message": "must be number"
+ }
+]
+TEXT: data must have required property 'model', data/n must be number
+--- 2 nested missing
+ERRORS [
+ {
+  "instancePath": "/a/1",
+  "schemaPath": "#/properties/a/items/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "model"
+  },
+  "message": "must have required property 'model'"
+ }
+]
+TEXT: data/a/1 must have required property 'model'
+TypeBox union keyword: [ 'anyOf' ]
+--- 3a anyOf, valid tag missing key
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/0/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "text"
+  },
+  "message": "must have required property 'text'"
+ },
+ {
+  "instancePath": "/type",
+  "schemaPath": "#/anyOf/0/properties/type/const",
+  "keyword": "const",
+  "params": {
+   "allowedValue": "text"
+  },
+  "message": "must be equal to constant"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/1/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "url"
+  },
+  "message": "must have required property 'url'"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/2/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "name"
+  },
+  "message": "must have required property 'name'"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/2/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "input"
+  },
+  "message": "must have required property 'input'"
+ },
+ {
+  "instancePath": "/type",
+  "schemaPath": "#/anyOf/2/properties/type/const",
+  "keyword": "const",
+  "params": {
+   "allowedValue": "tool"
+  },
+  "message": "must be equal to constant"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf",
+  "keyword": "anyOf",
+  "params": {},
+  "message": "must match a schema in anyOf"
+ }
+]
+TEXT: data must have required property 'text', data/type must be equal to constant, data must have required property 'url', data must have required property 'name', data must have required property 'input', data/type must be equal to constant, data must match a schema in anyOf
+--- 3b anyOf, unknown tag
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/0/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "text"
+  },
+  "message": "must have required property 'text'"
+ },
+ {
+  "instancePath": "/type",
+  "schemaPath": "#/anyOf/0/properties/type/const",
+  "keyword": "const",
+  "params": {
+   "allowedValue": "text"
+  },
+  "message": "must be equal to constant"
+ },
+ {
+  "instancePath": "/type",
+  "schemaPath": "#/anyOf/1/properties/type/const",
+  "keyword": "const",
+  "params": {
+   "allowedValue": "image"
+  },
+  "message": "must be equal to constant"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/2/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "name"
+  },
+  "message": "must have required property 'name'"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf/2/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "input"
+  },
+  "message": "must have required property 'input'"
+ },
+ {
+  "instancePath": "/type",
+  "schemaPath": "#/anyOf/2/properties/type/const",
+  "keyword": "const",
+  "params": {
+   "allowedValue": "tool"
+  },
+  "message": "must be equal to constant"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/anyOf",
+  "keyword": "anyOf",
+  "params": {},
+  "message": "must match a schema in anyOf"
+ }
+]
+TEXT: data must have required property 'text', data/type must be equal to constant, data/type must be equal to constant, data must have required property 'name', data must have required property 'input', data/type must be equal to constant, data must match a schema in anyOf
+--- 3a discriminator, valid tag missing key
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/oneOf/1/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "url"
+  },
+  "message": "must have required property 'url'"
+ }
+]
+TEXT: data must have required property 'url'
+--- 3b discriminator, unknown tag
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/discriminator",
+  "keyword": "discriminator",
+  "params": {
+   "error": "mapping",
+   "tag": "type",
+   "tagValue": "video"
+  },
+  "message": "value of tag \"type\" must be in oneOf"
+ }
+]
+TEXT: data value of tag "type" must be in oneOf
+--- 3c discriminator, tag absent
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "type"
+  },
+  "message": "must have required property 'type'"
+ },
+ {
+  "instancePath": "",
+  "schemaPath": "#/discriminator",
+  "keyword": "discriminator",
+  "params": {
+   "error": "tag",
+   "tag": "type"
+  },
+  "message": "tag \"type\" must be string"
+ }
+]
+TEXT: data must have required property 'type', data tag "type" must be string
+--- TypeBox Value.Errors
+extra []
+missing [{"type":45,"path":"/model","message":"Expected required property","nested":0},{"type":54,"path":"/model","message":"Expected string","nested":0}]
+union valid tag [{"type":62,"path":"","message":"Expected union value","nested":3}]
+union unknown tag [{"type":62,"path":"","message":"Expected union value","nested":3}]
+--- D {b:null}
+OK {"b":null}
+--- D {a:null,b:null}
+ERRORS [
+ {
+  "instancePath": "/a",
+  "schemaPath": "#/properties/a/type",
+  "keyword": "type",
+  "params": {
+   "type": "string"
+  },
+  "message": "must be string"
+ }
+]
+TEXT: data/a must be string
+--- D {}
+ERRORS [
+ {
+  "instancePath": "",
+  "schemaPath": "#/required",
+  "keyword": "required",
+  "params": {
+   "missingProperty": "b"
+  },
+  "message": "must have required property 'b'"
+ }
+]
+TEXT: data must have required property 'b'

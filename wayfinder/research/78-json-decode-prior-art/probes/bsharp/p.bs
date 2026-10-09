@@ -1,0 +1,22 @@
+module P
+
+type W = { "a": int }
+type F = { "a": float }
+type N = { "a": int | float }
+type S = { "s": string }
+type A = { "type": "choice", "choice": string, .. }
+       | { "type": "score", "score": int, .. }
+type L = { "xs": list<W> }
+
+public result<W, ValidationError> Rw(string t)
+Rw(t) -> FromJson<W>(t)
+public result<F, ValidationError> Rf(string t)
+Rf(t) -> FromJson<F>(t)
+public result<N, ValidationError> Rn(string t)
+Rn(t) -> FromJson<N>(t)
+public result<S, ValidationError> Rs(string t)
+Rs(t) -> FromJson<S>(t)
+public result<A, ValidationError> Ra(string t)
+Ra(t) -> FromJson<A>(t)
+public result<L, ValidationError> Rl(string t)
+Rl(t) -> FromJson<L>(t)

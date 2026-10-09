@@ -1,0 +1,479 @@
+--- 1 extra key, z.object
+OK {"model":"m","n":1}
+--- 1 extra key, z.strictObject
+ISSUES [
+ {
+  "code": "unrecognized_keys",
+  "keys": [
+   "extra",
+   "e2"
+  ],
+  "path": [],
+  "message": "Unrecognized keys: \"extra\", \"e2\""
+ }
+]
+PRETTY
+✖ Unrecognized keys: "extra", "e2"
+--- 1 extra key, z.looseObject
+OK {"model":"m","n":1,"extra":true}
+--- 1 extra key, catchall(z.number())
+ISSUES [
+ {
+  "expected": "number",
+  "code": "invalid_type",
+  "path": [
+   "extra"
+  ],
+  "message": "Invalid input: expected number, received boolean"
+ }
+]
+PRETTY
+✖ Invalid input: expected number, received boolean
+  → at extra
+--- 2 missing model
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "model"
+  ],
+  "message": "Invalid input: expected string, received undefined"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received undefined
+  → at model
+--- 2 missing model + wrong n (all errors?)
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "model"
+  ],
+  "message": "Invalid input: expected string, received undefined"
+ },
+ {
+  "expected": "number",
+  "code": "invalid_type",
+  "path": [
+   "n"
+  ],
+  "message": "Invalid input: expected number, received string"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received undefined
+  → at model
+✖ Invalid input: expected number, received string
+  → at n
+--- 2 nested missing
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "a",
+   1,
+   "model"
+  ],
+  "message": "Invalid input: expected string, received undefined"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received undefined
+  → at a[1].model
+--- 3a union, valid tag missing key
+ISSUES [
+ {
+  "code": "invalid_union",
+  "errors": [
+   [
+    {
+     "code": "invalid_value",
+     "values": [
+      "text"
+     ],
+     "path": [
+      "type"
+     ],
+     "message": "Invalid input: expected \"text\""
+    },
+    {
+     "expected": "string",
+     "code": "invalid_type",
+     "path": [
+      "text"
+     ],
+     "message": "Invalid input: expected string, received undefined"
+    }
+   ],
+   [
+    {
+     "expected": "string",
+     "code": "invalid_type",
+     "path": [
+      "url"
+     ],
+     "message": "Invalid input: expected string, received undefined"
+    }
+   ],
+   [
+    {
+     "code": "invalid_value",
+     "values": [
+      "tool"
+     ],
+     "path": [
+      "type"
+     ],
+     "message": "Invalid input: expected \"tool\""
+    },
+    {
+     "expected": "string",
+     "code": "invalid_type",
+     "path": [
+      "name"
+     ],
+     "message": "Invalid input: expected string, received undefined"
+    },
+    {
+     "expected": "number",
+     "code": "invalid_type",
+     "path": [
+      "input"
+     ],
+     "message": "Invalid input: expected number, received undefined"
+    }
+   ]
+  ],
+  "path": [],
+  "message": "Invalid input"
+ }
+]
+PRETTY
+✖ Invalid input
+--- 3b union, unknown tag
+ISSUES [
+ {
+  "code": "invalid_union",
+  "errors": [
+   [
+    {
+     "code": "invalid_value",
+     "values": [
+      "text"
+     ],
+     "path": [
+      "type"
+     ],
+     "message": "Invalid input: expected \"text\""
+    },
+    {
+     "expected": "string",
+     "code": "invalid_type",
+     "path": [
+      "text"
+     ],
+     "message": "Invalid input: expected string, received undefined"
+    }
+   ],
+   [
+    {
+     "code": "invalid_value",
+     "values": [
+      "image"
+     ],
+     "path": [
+      "type"
+     ],
+     "message": "Invalid input: expected \"image\""
+    }
+   ],
+   [
+    {
+     "code": "invalid_value",
+     "values": [
+      "tool"
+     ],
+     "path": [
+      "type"
+     ],
+     "message": "Invalid input: expected \"tool\""
+    },
+    {
+     "expected": "string",
+     "code": "invalid_type",
+     "path": [
+      "name"
+     ],
+     "message": "Invalid input: expected string, received undefined"
+    },
+    {
+     "expected": "number",
+     "code": "invalid_type",
+     "path": [
+      "input"
+     ],
+     "message": "Invalid input: expected number, received undefined"
+    }
+   ]
+  ],
+  "path": [],
+  "message": "Invalid input"
+ }
+]
+PRETTY
+✖ Invalid input
+--- 3a discriminatedUnion, valid tag missing key
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "url"
+  ],
+  "message": "Invalid input: expected string, received undefined"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received undefined
+  → at url
+--- 3b discriminatedUnion, unknown tag
+ISSUES [
+ {
+  "code": "invalid_union",
+  "errors": [],
+  "note": "No matching discriminator",
+  "discriminator": "type",
+  "options": [
+   "text",
+   "image",
+   "tool"
+  ],
+  "path": [
+   "type"
+  ],
+  "message": "Invalid discriminator value. Expected 'text' | 'image' | 'tool'"
+ }
+]
+PRETTY
+✖ Invalid discriminator value. Expected 'text' | 'image' | 'tool'
+  → at type
+--- 3c discriminatedUnion, tag absent
+ISSUES [
+ {
+  "code": "invalid_union",
+  "errors": [],
+  "note": "No matching discriminator",
+  "discriminator": "type",
+  "options": [
+   "text",
+   "image",
+   "tool"
+  ],
+  "path": [
+   "type"
+  ],
+  "message": "Invalid discriminator value. Expected 'text' | 'image' | 'tool'"
+ }
+]
+PRETTY
+✖ Invalid discriminator value. Expected 'text' | 'image' | 'tool'
+  → at type
+--- D {b:null}
+OK {"b":null}
+--- D {a:null,b:null}
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "a"
+  ],
+  "message": "Invalid input: expected string, received null"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received null
+  → at a
+--- D {} (b absent)
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "b"
+  ],
+  "message": "Invalid input: expected string, received undefined"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received undefined
+  → at b
+--- D {a:undefined,b:null} key present
+OK {"b":null}
+has z.json function
+has z.codec function
+--- F codec not-json
+ISSUES [
+ {
+  "code": "invalid_format",
+  "format": "json",
+  "message": "Expected property name or '}' in JSON at position 1 (line 1 column 2)",
+  "path": []
+ }
+]
+PRETTY
+✖ Expected property name or '}' in JSON at position 1 (line 1 column 2)
+--- F codec wrong shape
+ISSUES [
+ {
+  "expected": "string",
+  "code": "invalid_type",
+  "path": [
+   "model"
+  ],
+  "message": "Invalid input: expected string, received undefined"
+ }
+]
+PRETTY
+✖ Invalid input: expected string, received undefined
+  → at model
+encode {"model":"m","n":1}
+--- z.json() on a function-free value
+OK {"a":[1,null,"x"]}
+--- z.json() on undefined member
+ISSUES [
+ {
+  "code": "invalid_union",
+  "errors": [
+   [
+    {
+     "expected": "string",
+     "code": "invalid_type",
+     "path": [],
+     "message": "Invalid input: expected string, received object"
+    }
+   ],
+   [
+    {
+     "expected": "number",
+     "code": "invalid_type",
+     "path": [],
+     "message": "Invalid input: expected number, received object"
+    }
+   ],
+   [
+    {
+     "expected": "boolean",
+     "code": "invalid_type",
+     "path": [],
+     "message": "Invalid input: expected boolean, received object"
+    }
+   ],
+   [
+    {
+     "expected": "null",
+     "code": "invalid_type",
+     "path": [],
+     "message": "Invalid input: expected null, received object"
+    }
+   ],
+   [
+    {
+     "expected": "array",
+     "code": "invalid_type",
+     "path": [],
+     "message": "Invalid input: expected array, received object"
+    }
+   ],
+   [
+    {
+     "code": "invalid_union",
+     "errors": [
+      [
+       {
+        "expected": "string",
+        "code": "invalid_type",
+        "path": [],
+        "message": "Invalid input: expected string, received undefined"
+       }
+      ],
+      [
+       {
+        "expected": "number",
+        "code": "invalid_type",
+        "path": [],
+        "message": "Invalid input: expected number, received undefined"
+       }
+      ],
+      [
+       {
+        "expected": "boolean",
+        "code": "invalid_type",
+        "path": [],
+        "message": "Invalid input: expected boolean, received undefined"
+       }
+      ],
+      [
+       {
+        "expected": "null",
+        "code": "invalid_type",
+        "path": [],
+        "message": "Invalid input: expected null, received undefined"
+       }
+      ],
+      [
+       {
+        "expected": "array",
+        "code": "invalid_type",
+        "path": [],
+        "message": "Invalid input: expected array, received undefined"
+       }
+      ],
+      [
+       {
+        "expected": "record",
+        "code": "invalid_type",
+        "path": [],
+        "message": "Invalid input: expected record, received undefined"
+       }
+      ]
+     ],
+     "path": [
+      "a"
+     ],
+     "message": "Invalid input"
+    }
+   ]
+  ],
+  "path": [],
+  "message": "Invalid input"
+ }
+]
+PRETTY
+✖ Invalid input
+--- non-object input
+ISSUES [
+ {
+  "expected": "object",
+  "code": "invalid_type",
+  "path": [],
+  "message": "Invalid input: expected object, received string"
+ }
+]
+PRETTY
+✖ Invalid input: expected object, received string
+--- null input
+ISSUES [
+ {
+  "expected": "object",
+  "code": "invalid_type",
+  "path": [],
+  "message": "Invalid input: expected object, received null"
+ }
+]
+PRETTY
+✖ Invalid input: expected object, received null

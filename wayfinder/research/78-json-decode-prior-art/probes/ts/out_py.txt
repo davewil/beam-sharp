@@ -1,0 +1,251 @@
+pydantic 2.14.0
+--- 1 extra, default ignore
+OK Req(model='m', n=1)
+--- 1 extra, forbid
+ERRORS [{"type": "extra_forbidden", "loc": ["extra"], "msg": "Extra inputs are not permitted", "input": true}, {"type": "extra_forbidden", "loc": ["e2"], "msg": "Extra inputs are not permitted", "input": 1}]
+STR
+2 validation errors for ReqForbid
+extra
+  Extra inputs are not permitted [type=extra_forbidden, input_value=True, input_type=bool]
+    For further information visit https://errors.pydantic.dev/2.14/v/extra_forbidden
+e2
+  Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.14/v/extra_forbidden
+--- 1 extra, allow typed int
+OK {'extra': 1}
+--- 1 extra, allow typed int bad
+ERRORS [{"type": "int_parsing", "loc": ["extra"], "msg": "Input should be a valid integer, unable to parse string as an integer", "input": "zz"}]
+STR
+1 validation error for ReqAllow
+extra
+  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='zz', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/int_parsing
+--- 2 missing model
+ERRORS [{"type": "missing", "loc": ["model"], "msg": "Field required", "input": {"n": 1}}]
+STR
+1 validation error for Req
+model
+  Field required [type=missing, input_value={'n': 1}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+--- 2 missing model + wrong n
+ERRORS [{"type": "missing", "loc": ["model"], "msg": "Field required", "input": {"n": "x"}}, {"type": "int_parsing", "loc": ["n"], "msg": "Input should be a valid integer, unable to parse string as an integer", "input": "x"}]
+STR
+2 validation errors for Req
+model
+  Field required [type=missing, input_value={'n': 'x'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+n
+  Input should be a valid integer, unable to parse string as an integer [type=int_parsing, input_value='x', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/int_parsing
+--- 2 nested missing
+ERRORS [{"type": "missing", "loc": ["a", 1, "model"], "msg": "Field required", "input": {"n": 2}}]
+STR
+1 validation error for Outer
+a.1.model
+  Field required [type=missing, input_value={'n': 2}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+--- 3a smart union, valid tag missing key
+ERRORS [{"type": "literal_error", "loc": ["A", "type"], "msg": "Input should be 'text'", "input": "image", "ctx": {"expected": "'text'"}}, {"type": "missing", "loc": ["A", "text"], "msg": "Field required", "input": {"type": "image"}}, {"type": "missing", "loc": ["B", "url"], "msg": "Field required", "input": {"type": "image"}}, {"type": "literal_error", "loc": ["C", "type"], "msg": "Input should be 'tool'", "input": "image", "ctx": {"expected": "'tool'"}}, {"type": "missing", "loc": ["C", "name"], "msg": "Field required", "input": {"type": "image"}}, {"type": "missing", "loc": ["C", "input"], "msg": "Field required", "input": {"type": "image"}}]
+STR
+6 validation errors for union[A,B,C]
+A.type
+  Input should be 'text' [type=literal_error, input_value='image', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/literal_error
+A.text
+  Field required [type=missing, input_value={'type': 'image'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+B.url
+  Field required [type=missing, input_value={'type': 'image'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+C.type
+  Input should be 'tool' [type=literal_error, input_value='image', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/literal_error
+C.name
+  Field required [type=missing, input_value={'type': 'image'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+C.input
+  Field required [type=missing, input_value={'type': 'image'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+--- 3b smart union, unknown tag
+ERRORS [{"type": "literal_error", "loc": ["A", "type"], "msg": "Input should be 'text'", "input": "video", "ctx": {"expected": "'text'"}}, {"type": "missing", "loc": ["A", "text"], "msg": "Field required", "input": {"type": "video", "url": "x"}}, {"type": "literal_error", "loc": ["B", "type"], "msg": "Input should be 'image'", "input": "video", "ctx": {"expected": "'image'"}}, {"type": "literal_error", "loc": ["C", "type"], "msg": "Input should be 'tool'", "input": "video", "ctx": {"expected": "'tool'"}}, {"type": "missing", "loc": ["C", "name"], "msg": "Field required", "input": {"type": "video", "url": "x"}}, {"type": "missing", "loc": ["C", "input"], "msg": "Field required", "input": {"type": "video", "url": "x"}}]
+STR
+6 validation errors for union[A,B,C]
+A.type
+  Input should be 'text' [type=literal_error, input_value='video', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/literal_error
+A.text
+  Field required [type=missing, input_value={'type': 'video', 'url': 'x'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+B.type
+  Input should be 'image' [type=literal_error, input_value='video', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/literal_error
+C.type
+  Input should be 'tool' [type=literal_error, input_value='video', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/literal_error
+C.name
+  Field required [type=missing, input_value={'type': 'video', 'url': 'x'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+C.input
+  Field required [type=missing, input_value={'type': 'video', 'url': 'x'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+--- 3a discriminated, valid tag missing key
+ERRORS [{"type": "missing", "loc": ["image", "url"], "msg": "Field required", "input": {"type": "image"}}]
+STR
+1 validation error for tagged-union[A,B,C]
+image.url
+  Field required [type=missing, input_value={'type': 'image'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+--- 3b discriminated, unknown tag
+ERRORS [{"type": "union_tag_invalid", "loc": [], "msg": "Input tag 'video' found using 'type' does not match any of the expected tags: 'text', 'image', 'tool'", "input": {"type": "video", "url": "x"}, "ctx": {"discriminator": "'type'", "tag": "video", "expected_tags": "'text', 'image', 'tool'"}}]
+STR
+1 validation error for tagged-union[A,B,C]
+  Input tag 'video' found using 'type' does not match any of the expected tags: 'text', 'image', 'tool' [type=union_tag_invalid, input_value={'type': 'video', 'url': 'x'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/union_tag_invalid
+--- 3c discriminated, tag absent
+ERRORS [{"type": "union_tag_not_found", "loc": [], "msg": "Unable to extract tag using discriminator 'type'", "input": {"url": "x"}, "ctx": {"discriminator": "'type'"}}]
+STR
+1 validation error for tagged-union[A,B,C]
+  Unable to extract tag using discriminator 'type' [type=union_tag_not_found, input_value={'url': 'x'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/union_tag_not_found
+--- D {} (a: Optional[str] no default)
+ERRORS [{"type": "missing", "loc": ["a"], "msg": "Field required", "input": {}}]
+STR
+1 validation error for O
+a
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.14/v/missing
+--- D {a:null}
+OK O(a=None, b=None, c='d')
+--- D {a:null,c:null}
+ERRORS [{"type": "string_type", "loc": ["c"], "msg": "Input should be a valid string", "input": null}]
+STR
+1 validation error for O
+c
+  Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.14/v/string_type
+fields_set {'a'} | exclude_unset dump: {"a":null}
+--- E not json
+ERRORS [{"type": "json_invalid", "loc": [], "msg": "Invalid JSON: key must be a string at line 1 column 2", "input": "{nope", "ctx": {"error": "key must be a string at line 1 column 2"}}]
+STR
+1 validation error for Req
+  Invalid JSON: key must be a string at line 1 column 2 [type=json_invalid, input_value='{nope', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/json_invalid
+--- E trailing data
+ERRORS [{"type": "json_invalid", "loc": [], "msg": "Invalid JSON: trailing characters at line 1 column 21", "input": "{\"model\":\"m\",\"n\":1} x", "ctx": {"error": "trailing characters at line 1 column 21"}}]
+STR
+1 validation error for Req
+  Invalid JSON: trailing characters at line 1 column 21 [type=json_invalid, input_value='{"model":"m","n":1} x', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/json_invalid
+--- E bytes
+OK Req(model='m', n=1)
+--- E invalid utf8 bytes
+ERRORS [{"type": "json_invalid", "loc": [], "msg": "Invalid JSON: invalid unicode code point at line 1 column 12", "input": "b'{\"model\":\"\\xff\",\"n\":1}'", "ctx": {"error": "invalid unicode code point at line 1 column 12"}}]
+STR
+1 validation error for Req
+  Invalid JSON: invalid unicode code point at line 1 column 12 [type=json_invalid, input_value=b'{"model":"\xff","n":1}', input_type=bytes]
+    For further information visit https://errors.pydantic.dev/2.14/v/json_invalid
+--- E duplicate keys
+OK Req(model='b', n=1)
+--- E big int
+OK Req(model='a', n=123456789012345678901234567890)
+--- E float 1.0 into int (lax)
+OK Req(model='a', n=1)
+--- E float 1.5 into int
+ERRORS [{"type": "int_from_float", "loc": ["n"], "msg": "Input should be a valid integer, got a number with a fractional part", "input": 1.5}]
+STR
+1 validation error for Req
+n
+  Input should be a valid integer, got a number with a fractional part [type=int_from_float, input_value=1.5, input_type=float]
+    For further information visit https://errors.pydantic.dev/2.14/v/int_from_float
+--- E string '1' into int (lax)
+OK Req(model='a', n=1)
+--- E string '1' into int (strict)
+ERRORS [{"type": "int_type", "loc": ["n"], "msg": "Input should be a valid integer", "input": "1"}]
+STR
+1 validation error for Req
+n
+  Input should be a valid integer [type=int_type, input_value='1', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/int_type
+--- E float 1.0 into int (strict)
+ERRORS [{"type": "int_type", "loc": ["n"], "msg": "Input should be a valid integer", "input": 1.0}]
+STR
+1 validation error for Req
+n
+  Input should be a valid integer [type=int_type, input_value=1.0, input_type=float]
+    For further information visit https://errors.pydantic.dev/2.14/v/int_type
+--- E NaN token
+OK nan
+--- E empty
+ERRORS [{"type": "json_invalid", "loc": [], "msg": "Invalid JSON: EOF while parsing a value at line 1 column 0", "input": "", "ctx": {"error": "EOF while parsing a value at line 1 column 0"}}]
+STR
+1 validation error for Req
+  Invalid JSON: EOF while parsing a value at line 1 column 0 [type=json_invalid, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.14/v/json_invalid
+===== stdlib json
+dup {'a': 2}
+NaN [nan, inf]
+bigint 123456789012345678901234567890
+1.0 [1, 1.0]
+trailing EXC (<class 'json.decoder.JSONDecodeError'>, <class 'ValueError'>, <class 'Exception'>) Extra data: line 1 column 4 (char 3)
+badutf8 EXC (<class 'UnicodeDecodeError'>, <class 'UnicodeError'>, <class 'ValueError'>) 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte
+bytes {'a': 1}
+===== msgspec
+msgspec 0.22.0
+--- 1 extra default
+OK MReq(model='m', n=1)
+--- 1 extra forbid
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Object contains unknown field `extra`
+--- 2 missing model
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Object missing required field `model`
+--- 2 missing model + wrong n
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Expected `int`, got `str` - at `$.n`
+--- 2 nested missing
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Object missing required field `model` - at `$.a[1]`
+--- 3a tagged valid tag missing key
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Object missing required field `url`
+--- 3b tagged unknown tag
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Invalid value 'video' - at `$.type`
+--- 3c tagged tag absent
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Object missing required field `type`
+--- D {}
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Object missing required field `a`
+--- D {a:null}
+OK MO(a=None, b=None, c=UNSET)
+--- D {a:null,c:null}
+OK MO(a=None, b=None, c=None)
+--- E not json
+EXC ['DecodeError', 'MsgspecError', 'ValueError', 'Exception'] | JSON is malformed: object keys must be strings (byte 1)
+--- E trailing
+EXC ['DecodeError', 'MsgspecError', 'ValueError', 'Exception'] | JSON is malformed: trailing characters (byte 21)
+--- E str input
+OK MReq(model='m', n=1)
+--- E invalid utf8
+EXC ['UnicodeDecodeError', 'UnicodeError', 'ValueError', 'Exception'] | 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+--- E dup keys
+OK MReq(model='b', n=1)
+--- E big int
+OK MReq(model='a', n=123456789012345678901234567890)
+--- E 1.0 into int
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Expected `int`, got `float` - at `$.n`
+--- E 1.5 into int
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Expected `int`, got `float` - at `$.n`
+--- E '1' into int strict default
+EXC ['ValidationError', 'DecodeError', 'MsgspecError', 'ValueError'] | Expected `int`, got `str` - at `$.n`
+--- E '1' into int strict=False
+OK MReq(model='a', n=1)
+--- E NaN
+EXC ['DecodeError', 'MsgspecError', 'ValueError', 'Exception'] | JSON is malformed: invalid character (byte 0)
+===== cattrs
+cattrs ? attrs 26.1.0
+--- 1 extra default
+OK CReq(model='m', n=1)
+--- 1 extra forbid_extra_keys
+EXC ClassValidationError | ClassValidationError('While structuring CReq', [ForbiddenExtraKeysError('', <class '__main__.CReq'>, {'extra'})]) | transform_error: ['extra fields found (extra) @ $']
+--- 2 missing model
+EXC ClassValidationError | ClassValidationError('While structuring CReq', [KeyError('model')]) | transform_error: ['required field missing @ $.model']
+--- 2 missing model + wrong n
+EXC ClassValidationError | ClassValidationError('While structuring CReq', [KeyError('model'), ValueError("invalid literal for int() with base 10: 'x'")]) | transform_error: ['required field missing @ $.model', 'invalid value for type, expected int @ $.n']
+--- 2 nested missing
+EXC ClassValidationError | ClassValidationError('While structuring COuter', [IterableValidationError('While structuring list[__main__.CReq]', [ClassValidationError('While structuring CReq', [KeyError('model')])])]) | transform_error: ['required field missing @ $.a[1].model']
+--- coercion: n='1'
+OK CReq(model='5', n=1)

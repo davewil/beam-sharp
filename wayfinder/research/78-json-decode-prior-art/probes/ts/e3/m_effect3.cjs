@@ -1,0 +1,40 @@
+const { Schema: S, ParseResult, Either } = require("effect");
+const show = (label, schema, input, opts) => {
+  console.log("--- " + label);
+  const r = S.decodeUnknownEither(schema, opts)(input);
+  if (Either.isRight(r)) console.log("OK", JSON.stringify(r.right));
+  else {
+    console.log("TREE\n" + ParseResult.TreeFormatter.formatErrorSync(r.left));
+    console.log("ARRAY", JSON.stringify(ParseResult.ArrayFormatter.formatErrorSync(r.left)));
+  }
+};
+const Req = S.Struct({ model: S.String, n: S.Number });
+const x = { model: "m", n: 1, extra: true };
+show("1 extra default", Req, x);
+show("1 extra onExcessProperty error", Req, x, { onExcessProperty: "error" });
+show("1 extra onExcessProperty preserve", Req, x, { onExcessProperty: "preserve" });
+show("1 extra index signature number", S.Struct({ model: S.String, n: S.Number }, S.Record({ key: S.String, value: S.Union(S.Number, S.String) })), x);
+show("2 missing model", Req, { n: 1 });
+show("2 missing + wrong n (default errors:first)", Req, { n: "x" });
+show("2 missing + wrong n (errors:all)", Req, { n: "x" }, { errors: "all" });
+show("2 nested", S.Struct({ a: S.Array(Req) }), { a: [{ model: "m", n: 1 }, { n: 2 }] });
+const A = S.Struct({ type: S.Literal("text"), text: S.String });
+const B = S.Struct({ type: S.Literal("image"), url: S.String });
+const C = S.Struct({ type: S.Literal("tool"), name: S.String, input: S.Number });
+const U = S.Union(A, B, C);
+show("3a union valid tag missing key", U, { type: "image" }, { errors: "all" });
+show("3b union unknown tag", U, { type: "video", url: "x" }, { errors: "all" });
+show("3c union tag absent", U, { url: "x" }, { errors: "all" });
+show("3d non-discriminable union", S.Union(S.Struct({ a: S.String }), S.Struct({ b: S.Number })), { c: 1 }, { errors: "all" });
+const O = S.Struct({ a: S.optional(S.String), b: S.NullOr(S.String), c: S.optionalWith(S.String, { exact: true }), d: S.optionalWith(S.String, { nullable: true }) });
+show("D {b:null}", O, { b: null });
+show("D {a:null,b:null}", O, { a: null, b: null });
+show("D {a:undefined,b:null}", O, { a: undefined, b: null });
+show("D {b:null,c:undefined} exact", O, { b: null, c: undefined });
+show("D {b:null,d:null} nullable", O, { b: null, d: null });
+show("D {}", O, {});
+const J = S.parseJson(Req);
+show("F parseJson not json", J, "{nope");
+show("F parseJson wrong shape", J, '{"n":1}');
+show("F parseJson non-string", J, 5);
+console.log("encode:", S.encodeSync(J)({ model: "m", n: 1 }));

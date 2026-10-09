@@ -1,0 +1,42 @@
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const Ajv = require("ajv");
+const { Type } = require("@sinclair/typebox");
+const { Value } = require("@sinclair/typebox/value");
+const run = (label, ajv, schema, data) => {
+  console.log("--- " + label);
+  const validate = ajv.compile(schema);
+  const ok = validate(data);
+  console.log(ok ? "OK " + JSON.stringify(data) : "ERRORS " + JSON.stringify(validate.errors, null, 1));
+  if (!ok) console.log("TEXT: " + ajv.errorsText(validate.errors));
+};
+const first = new Ajv();
+const all = new Ajv({ allErrors: true });
+const Req = Type.Object({ model: Type.String(), n: Type.Number() });
+console.log("TypeBox schema:", JSON.stringify(Req));
+run("1 extra key, default", all, Req, { model: "m", n: 1, extra: true });
+run("1 extra key, additionalProperties:false", all, Type.Object({ model: Type.String(), n: Type.Number() }, { additionalProperties: false }), { model: "m", n: 1, extra: true, e2: 1 });
+run("1 extra key, removeAdditional", new Ajv({ removeAdditional: true }), Type.Object({ model: Type.String(), n: Type.Number() }, { additionalProperties: false }), { model: "m", n: 1, extra: true });
+run("2 missing model (default, first error)", first, Req, { n: "x" });
+run("2 missing model + wrong n (allErrors)", all, Req, { n: "x" });
+run("2 nested missing", all, Type.Object({ a: Type.Array(Req) }), { a: [{ model: "m", n: 1 }, { n: 2 }] });
+const A = Type.Object({ type: Type.Literal("text"), text: Type.String() });
+const B = Type.Object({ type: Type.Literal("image"), url: Type.String() });
+const C = Type.Object({ type: Type.Literal("tool"), name: Type.String(), input: Type.Number() });
+const U = Type.Union([A, B, C]);
+console.log("TypeBox union keyword:", Object.keys(U));
+run("3a anyOf, valid tag missing key", all, U, { type: "image" });
+run("3b anyOf, unknown tag", all, U, { type: "video", url: "x" });
+const disc = new Ajv({ allErrors: true, discriminator: true });
+const DU = { type: "object", discriminator: { propertyName: "type" }, required: ["type"], oneOf: [A, B, C] };
+run("3a discriminator, valid tag missing key", disc, DU, { type: "image" });
+run("3b discriminator, unknown tag", disc, DU, { type: "video", url: "x" });
+run("3c discriminator, tag absent", disc, DU, { url: "x" });
+// TypeBox's own checker
+console.log("--- TypeBox Value.Errors");
+for (const [l, s, d] of [["extra", Req, { model: "m", n: 1, extra: true }], ["missing", Req, { n: 1 }], ["union valid tag", U, { type: "image" }], ["union unknown tag", U, { type: "video" }]])
+  console.log(l, JSON.stringify([...Value.Errors(s, d)].map(e => ({ type: e.type, path: e.path, message: e.message, nested: e.errors?.length }))));
+const O = Type.Object({ a: Type.Optional(Type.String()), b: Type.Union([Type.String(), Type.Null()]) });
+run("D {b:null}", all, O, { b: null });
+run("D {a:null,b:null}", all, O, { a: null, b: null });
+run("D {}", all, O, {});

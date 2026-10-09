@@ -1,0 +1,178 @@
+== A unknown keys
+[A1 default ignore] {"a":1,"zzz":2}
+    OK  Dflt { a: 1, b: 0 }
+[A2 deny_unknown_fields] {"a":1,"zzz":2}
+    ERR unknown field `zzz`, expected `a` at line 1 column 12
+        category=Data line=1 column=12
+[A3 flatten capture] {"a":1,"zzz":2,"y":[1]}
+    OK  Extras { a: 1, rest: {"y": Array [Number(1)], "zzz": Number(2)} }
+== B missing field
+[B1 missing age] {"name":"x","addrs":[]}
+    ERR missing field `age` at line 1 column 23
+        category=Data line=1 column=23
+[B2 missing nested zip] {"name":"x","age":1,"addrs":[{"city":"a","zip":1},{"city":"b"}]}
+    ERR missing field `zip` at line 1 column 62
+        category=Data line=1 column=62
+[B2/path_to_error] {"name":"x","age":1,"addrs":[{"city":"a","zip":1},{"city":"b"}]}
+    ERR display=addrs[1]: missing field `zip` at line 1 column 62
+        path=addrs[1] inner=missing field `zip` at line 1 column 62
+[B3 serde(default)] {"a":1}
+    OK  Dflt { a: 1, b: 0 }
+== C type errors
+[C1 wrong type] {"name":"x","age":"old","addrs":[]}
+    ERR invalid type: string "old", expected u8 at line 1 column 23
+        category=Data line=1 column=23
+[C1/path_to_error] {"name":"x","age":"old","addrs":[]}
+    ERR display=age: invalid type: string "old", expected u8 at line 1 column 23
+        path=age inner=invalid type: string "old", expected u8 at line 1 column 23
+[C2 two errors] {"name":5,"age":"old","addrs":[]}
+    ERR invalid type: integer `5`, expected a string at line 1 column 9
+        category=Data line=1 column=9
+[C3 out of range] {"name":"x","age":300,"addrs":[]}
+    ERR invalid value: integer `300`, expected u8 at line 1 column 21
+        category=Data line=1 column=21
+[C4 float for int] {"name":"x","age":1.0,"addrs":[]}
+    ERR invalid type: floating point `1.0`, expected u8 at line 1 column 21
+        category=Data line=1 column=21
+[C5 nested wrong type/path_to_error] {"name":"x","age":1,"addrs":[{"city":"a","zip":"q"}]}
+    ERR display=addrs[0].zip: invalid type: string "q", expected u32 at line 1 column 50
+        path=addrs[0].zip inner=invalid type: string "q", expected u32 at line 1 column 50
+[C6 top-level not object] [1,2]
+    ERR invalid type: integer `1`, expected a string at line 1 column 2
+        category=Data line=1 column=2
+== D null vs absent
+[D1 nick null] {"name":"x","age":1,"nick":null,"addrs":[]}
+    OK  User { name: "x", age: 1, nick: None, addrs: [] }
+[D2 nick absent] {"name":"x","age":1,"addrs":[]}
+    OK  User { name: "x", age: 1, nick: None, addrs: [] }
+[D3 null for non-option] {"name":null,"age":1,"addrs":[]}
+    ERR invalid type: null, expected a string at line 1 column 12
+        category=Data line=1 column=12
+[D4 Option<Option> absent] {}
+    OK  DblOpt { a: None }
+[D5 Option<Option> null] {"a":null}
+    OK  DblOpt { a: None }
+[D6 Option<Option> 1] {"a":1}
+    OK  DblOpt { a: Some(Some(1)) }
+== E input
+[E1 trailing] {"a":1} x
+    ERR trailing characters at line 1 column 9
+        category=Syntax line=1 column=9
+[E2 trailing second value] {"a":1}{"a":2}
+    ERR trailing characters at line 1 column 8
+        category=Syntax line=1 column=8
+[E3 duplicate key struct] {"a":1,"a":2}
+    ERR duplicate field `a` at line 1 column 10
+        category=Data line=1 column=10
+[E4 duplicate key map] {"a":1,"a":2}
+    OK  {"a": 2}
+[E5 duplicate key Value] {"a":1,"a":2}
+    OK  Object {"a": Number(2)}
+[E5b duplicate key in flatten] {"a":1,"z":1,"z":2}
+    OK  Extras { a: 1, rest: {"z": Number(2)} }
+[E6 u64 max] 18446744073709551615
+    OK  18446744073709551615
+[E7 u64 overflow] 18446744073709551616
+    ERR invalid type: floating point `1.8446744073709552e+19`, expected u64 at line 1 column 20
+        category=Data line=1 column=20
+[E8 i64 from 2^63] 9223372036854775808
+    ERR invalid value: integer `9223372036854775808`, expected i64 at line 1 column 19
+        category=Data line=1 column=19
+[E9 Value bigint] 123456789012345678901234567890
+    OK  Number(1.2345678901234568e+29)
+[E10 f64 from int] 1
+    OK  1.0
+[E11 i32 from 1e2] 1e2
+    ERR invalid type: floating point `100.0`, expected i32 at line 1 column 3
+        category=Data line=1 column=3
+[E12 case] {"A":1}
+    ERR missing field `a` at line 1 column 7
+        category=Data line=1 column=7
+[E13 from_slice invalid utf8 String]
+    ERR invalid unicode code point at line 1 column 5
+        category=Syntax
+[E14 lone surrogate escape]
+    ERR unexpected end of hex escape at line 1 column 13
+        category=Syntax
+[E15 from_reader trailing]
+    ERR trailing characters at line 1 column 9
+        category=Syntax
+== F syntax vs data
+[F1 not json] hello
+    ERR expected value at line 1 column 1
+        category=Syntax line=1 column=1
+[F2 truncated] {"a":
+    ERR EOF while parsing a value at line 1 column 5
+        category=Eof line=1 column=5
+[F3 empty] 
+    ERR EOF while parsing a value at line 1 column 0
+        category=Eof line=1 column=0
+[F4 trailing comma] {"a":1,}
+    ERR trailing comma at line 1 column 8
+        category=Syntax line=1 column=8
+[F5 wrong shape] {"a":"s"}
+    ERR invalid type: string "s", expected i32 at line 1 column 8
+        category=Data line=1 column=8
+== G enums
+[G1 ext ok] {"Circle":{"r":1}}
+    OK  Circle { r: 1.0 }
+[G2 ext unknown variant] {"Triangle":{}}
+    ERR unknown variant `Triangle`, expected one of `Circle`, `Square`, `Unit` at line 1 column 11
+        category=Data line=1 column=11
+[G3 ext missing field] {"Circle":{}}
+    ERR missing field `r` at line 1 column 12
+        category=Data line=1 column=12
+[G3b ext unit string] "Unit"
+    OK  Unit
+[G3c ext two keys] {"Circle":{"r":1},"Square":{"side":1}}
+    ERR expected value at line 1 column 17
+        category=Syntax line=1 column=17
+[G4 int ok] {"type":"Circle","r":1}
+    OK  Circle { r: 1.0 }
+[G5 int unknown tag] {"type":"Triangle"}
+    ERR unknown variant `Triangle`, expected `Circle` or `Square` at line 1 column 18
+        category=Data line=1 column=18
+[G6 int missing tag] {"r":1}
+    ERR missing field `type` at line 1 column 7
+        category=Data line=1 column=7
+[G7 int missing field] {"type":"Circle"}
+    ERR missing field `r`
+        category=Data line=0 column=0
+[G8 int wrong field type] {"type":"Circle","r":"x"}
+    ERR invalid type: string "x", expected f64
+        category=Data line=0 column=0
+[G8b int tag not string] {"type":1,"r":1}
+    ERR invalid type: integer `1`, expected variant identifier at line 1 column 9
+        category=Data line=1 column=9
+[G9 int nested missing field] {"shapes":[{"type":"Square","side":1},
+ {"type":"Circle"}]}
+    ERR missing field `r` at line 2 column 19
+        category=Data line=2 column=19
+[G9/path_to_error] {"shapes":[{"type":"Square","side":1},
+ {"type":"Circle"}]}
+    ERR display=shapes[1]: missing field `r` at line 2 column 19
+        path=shapes[1] inner=missing field `r` at line 2 column 19
+[G10 adj unknown tag] {"t":"Triangle","c":{}}
+    ERR unknown variant `Triangle`, expected `Circle` or `Square` at line 1 column 15
+        category=Data line=1 column=15
+[G11 adj missing field] {"t":"Circle","c":{}}
+    ERR missing field `r` at line 1 column 20
+        category=Data line=1 column=20
+[G11b adj missing content] {"t":"Circle"}
+    ERR missing field `c` at line 1 column 14
+        category=Data line=1 column=14
+[G12 unt ok] {"side":2}
+    OK  Square { side: 2.0 }
+[G13 unt no match] {"r":"x"}
+    ERR data did not match any variant of untagged enum Unt
+        category=Data line=0 column=0
+[G14 unt both match] {"r":1,"side":2}
+    OK  Circle { r: 1.0 }
+[G15 unt nested no match] {"shapes":[{"side":1},
+ {"radius":2}]}
+    ERR data did not match any variant of untagged enum Unt at line 2 column 14
+        category=Data line=2 column=14
+[G15/path_to_error] {"shapes":[{"side":1},
+ {"radius":2}]}
+    ERR display=shapes[1]: data did not match any variant of untagged enum Unt at line 2 column 14
+        path=shapes[1] inner=data did not match any variant of untagged enum Unt at line 2 column 14
