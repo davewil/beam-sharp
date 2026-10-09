@@ -1,7 +1,7 @@
 # 15 — Error model
 
 Type: grilling
-Status: resolved 2026-08-12
+Status: claimed 2026-10-09 — reopened by David on one point, [ENG-181](https://linear.app/davewil/issue/ENG-181). Was: resolved 2026-08-12
 Blocked by: 06, 14 (both resolved)
 
 ## Question
@@ -574,6 +574,15 @@ a `term` until you match it."* This ticket adds the failure half without changin
 including the unprotected one. The harness was wrapping each case in `catch` — supplying the very
 protection the probe existed to measure. The correction is recorded in the file itself so it is not
 repeated. A probe that returns the answer you expected is the one to re-read.
+
+## Reopened 2026-10-09: one error, or all of them
+
+David reopened this ticket after [the JSON-decoding prior-art review](../research/78-json-decode-prior-art.md)
+(finding 3). The point reopened is §2's `result<T, ValidationError>`: whether a failed validation
+returns one error or a list. Nothing else in this ticket is reopened.
+
+The question is asked once, as **Q17 of [ticket 78](78-the-decode-direction.md)'s round 8**, with
+its program and compiler delta. Its answer is recorded there and here.
 
 ## Decisions entry
 

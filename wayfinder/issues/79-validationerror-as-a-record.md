@@ -1,7 +1,7 @@
 # 79 — `ValidationError` as a record, so the 422 body can go on the wire
 
 Type: grilling
-Status: resolved 2026-09-15 — [ENG-374](https://linear.app/davewil/issue/ENG-374). Raised 2026-09-15 on resolving
+Status: claimed 2026-10-09 — reopened by David on one point. Was: resolved 2026-09-15 — [ENG-374](https://linear.app/davewil/issue/ENG-374). Raised 2026-09-15 on resolving
 [ticket 77](77-what-goes-on-the-wire.md)
 Blocked by: —
 
@@ -232,6 +232,17 @@ What a program can now write, and what it gets:
   entry names *today's* `ValidationError` deliberately.
 - **`found`**, Gleam's third field, stays fog on the map: cheap now, still a decision.
 - **`CONTEXT.md`**'s entry drops *"a tuple today; a record candidate"* in this commit.
+
+## Reopened 2026-10-09: does the record say what kind of failure it is
+
+David reopened this ticket after [the JSON-decoding prior-art review](../research/78-json-decode-prior-art.md)
+(findings 2, 9 and 10). The point reopened is the record's content: whether it gains a field
+saying what went wrong, beside `Path` and `Expected`. This ticket left `found` as fog; the
+question is next to that one and is not the same.
+
+It is asked once, as **Q16 of [ticket 78](78-the-decode-direction.md)'s round 8**, with its
+program and compiler delta. Q12 there (where an absent key is blamed) depends on it. The answers
+are recorded there and here.
 
 ## Decisions entry
 

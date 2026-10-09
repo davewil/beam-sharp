@@ -1,11 +1,11 @@
 # F69 — `FromJson<T>`: JSON text to a wire value
 
-**Status**      **in progress** — built 2026-10-09, 20 tests in `from_json_tests`;
-                closing is David's call
+**Status**      **done** — built 2026-10-09, 20 tests in `from_json_tests`; closed by
+                David 2026-10-09 on three of ENG-410's four clauses (ticket 78 Q14)
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
                 Q10. Decides nothing; see *One reading of the ticket*
-**Closes**      [ENG-410](https://linear.app/davewil/issue/ENG-410), three of its
-                four done-when clauses; see *Left*
+**Closes**      [ENG-410](https://linear.app/davewil/issue/ENG-410). Its fourth clause is
+                [ENG-612](https://linear.app/davewil/issue/ENG-612); see *Left*
 **Unblocks**    the reply side of exemplar 25f; see *Left*
 **Depends on**  F18 (`ValidateAs`), F50 (`ToJson`), F58 (string keys), F59 (open
                 field sets), F61 (the absent option key), F68 (string-literal
@@ -55,7 +55,8 @@ Q10 says *"`T` is any type `ToJson` accepts, except one containing a record"*.
 `FromJson<ReplyWire>`, where `ReplyWire` is open because OpenRouter's reply
 carries keys TypeSafe's does not. Taken to the letter, the sentence refuses the
 program it was written under. This build reads an open type and keeps every
-other refusal `ToJson` makes. `ToJson`'s reason for refusing one, that it would
+other refusal `ToJson` makes. **David confirmed that reading on 2026-10-09
+(ticket 78 Q11).** `ToJson`'s reason for refusing one, that it would
 publish keys no type declares, is about writing. David's answer line names the
 record refusal alone. Reported to David with the build.
 
@@ -97,8 +98,8 @@ record refusal alone. Reported to David with the build.
 
 - Reading a record back from JSON: deferred by ticket 78 Q4, requirements in
   the ticket.
-- `FromJson` over a `binary`. Q10 says `string`; 25f's `Parse` validates the
-  body as a `string` first (25f write-up, friction 9).
+- `FromJson` over a `binary`. Q10 said `string`; ticket 78 Q13 changed that on
+  2026-10-09 and [ENG-611](https://linear.app/davewil/issue/ENG-611) builds it.
 - Which key an absent required key is blamed at. It is `[]`, as F61 recorded.
 - A type no JSON can inhabit for a reason other than the refusals above: an
   atom other than `:null`, `:true` or `:false`, a name key, a `map<int, V>`.
@@ -110,8 +111,10 @@ record refusal alone. Reported to David with the build.
 
 - A hand-written `{ Kind: :'P.Thing', "a": int }` is refused as "`Thing` is a
   record". `record_name/1` takes any dotted tag for a minted one.
+  [ENG-613](https://linear.app/davewil/issue/ENG-613).
 - The `validate_indiscriminable` refusal says the function "validates into a
   union" and does not name `FromJson`.
+  [ENG-614](https://linear.app/davewil/issue/ENG-614).
 
 ## Left
 

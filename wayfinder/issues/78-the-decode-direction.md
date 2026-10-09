@@ -622,6 +622,189 @@ Recommended: **close ENG-410**, and raise one build issue for the request side, 
 three, so the clause has a home. The two review findings F69 left (a hand-written dotted `Kind`
 called a record; the indiscriminable refusal not naming `FromJson`) are filed as defects.
 
+**Answered 2026-10-09 (David), after [the prior-art review](../research/78-json-decode-prior-art.md):
+Q11 yes, Q13 yes, Q14 yes. Q12 moves to round 8.**
+
+- **Q11.** An open type is a `FromJson` target. `ToJson` still refuses to write one. Q10's sentence
+  *"`T` is any type `ToJson` accepts"* is corrected by this: `T` is any type `ToJson` accepts, or an
+  open one.
+- **Q13.** `FromJson<T>` takes a `binary`. Unbuilt: its build issue is
+  [ENG-611](https://linear.app/davewil/issue/ENG-611).
+- **Q14.** ENG-410 is closed on three clauses. 25f's request side is
+  [ENG-612](https://linear.app/davewil/issue/ENG-612), blocked by ENG-609, ENG-552 and ENG-454. The
+  two review findings are [ENG-613](https://linear.app/davewil/issue/ENG-613) and
+  [ENG-614](https://linear.app/davewil/issue/ENG-614).
+
+## Round 8 — 2026-10-09: what the prior-art review found
+
+David reopened tickets [15](15-error-model.md) and [79](79-validationerror-as-a-record.md) for
+this round, since two of its questions change what they decided. The round is written here, once,
+and those two files point at it. Evidence for each question is in
+[the review](../research/78-json-decode-prior-art.md), by finding number.
+
+Q15, Q16, Q17, Q18 and Q19 do not depend on each other. Q12 depends on Q16 and is asked with it
+because David moved it here; its recommendation is conditional and says so.
+
+**Q15. Is JSON with a repeated key refused?** *(finding 7)*
+
+```csharp
+type W = { "a": int }
+
+FromJson<W>("{\"a\":1,\"a\":\"x\"}")
+
+// today: the first value is kept and the second is never validated
+{ "a" = 1 }
+
+// asked
+(:error, ValidationError { Path = [], Expected = "JSON" })
+```
+
+David's lean, 2026-10-09: reject, so that `FromJson` cannot introduce the vulnerability. He asked
+whether a callback changes that. It does not: the callback is OTP's, and it is how the generated
+code would see the second key at all. A B# author never writes or passes one, so there is no form
+of the call that accepts a repeated key.
+
+Compiler delta: `bs_emit`'s `text_form` calls `json:decode/3` in place of `json:decode/1`, with an
+`object_push` that raises on a key it has already pushed, under the catch that is already there.
+`decode/3` hands back the unread remainder where `decode/1` refused it, so the generated function
+also refuses a remainder that is not whitespace. The error is at `Path = []`: the decoder's
+callbacks carry no path. What it reports beyond that follows Q16.
+
+Recommended: **yes, always, with no way to switch it off.** The parsers that accept a repeated
+key disagree about which value wins, and that disagreement is what the published attacks use.
+
+**Q16. Does `ValidationError` say what kind of failure it is?** *(findings 2, 9, 10; reopens ticket 79)*
+
+```csharp
+// ticket 79, as built
+ValidationError { Path: list<string>, Expected: string }
+
+// asked
+ValidationError { Path: list<string>, Expected: string,
+                  Reason: :not_json | :missing | :unknown_key | :duplicate_key | :mismatch }
+
+public string Explain(ValidationError e)
+
+Explain(ValidationError { Reason: :not_json })      -> "the body is not JSON"
+Explain(ValidationError { Reason: :missing })       -> "a required key is absent"
+Explain(ValidationError { Reason: :unknown_key })   -> "a key is not one the type names"
+Explain(ValidationError { Reason: :duplicate_key }) -> "a key is repeated"
+Explain(ValidationError { Reason: :mismatch })      -> "a value is not of its type"
+```
+
+Today the five cases differ only in the `Expected` string: `"JSON"` for the first, a type for the
+rest. A handler that wants to answer them differently compares strings, and `Explain` above cannot
+be written with a residual the compiler checks.
+
+Compiler delta: the stratum-two entry for `ValidationError` gains `Reason`; `error_expr/1` in
+`bs_emit` takes the reason at each of the sites that build one; `LANGUAGE.md`'s renderings of the
+record gain the field. `Expected` keeps its meaning. `found`, which ticket 79 left open, stays
+open: this does not echo the offending value.
+
+Recommended: **yes.** A closed atom union in a clause head is what the language is for, and the
+five members are exactly the five things a wire decoder can find wrong.
+
+**Q12. Is an absent required key blamed at its own path?** *(finding 2; moved from round 7)*
+
+```csharp
+type ReplyWire = { "model": string, "answers": map<string, AnswerWire>, "usage": UsageWire, .. }
+
+Parse("{\"answers\":{}}")
+
+// today
+ValidationError { Path = [], Expected = "{ \"model\": string, ... }" }          // 299 characters
+
+// asked, under a yes to Q16
+ValidationError { Path = ["[\"model\"]"], Expected = "string", Reason = :missing }
+```
+
+Compiler delta: as written in round 7. A field-set validator with one map member checks each
+required key with `is_map_key` before its guard and returns the error at the first absent key, in
+declaration order.
+
+Recommended: **yes if Q16 is yes, and no if Q16 is no.** Without `Reason`, the asked value is the
+same as the one a `"model"` holding `7` produces, and a caller cannot tell the key was absent. Zod
+and Gleam have that fault. With `Reason`, the path at the key is what the libraries that return
+errors as values do.
+
+**Q17. Does a failed decode return one error, or all of them?** *(finding 3; reopens ticket 15)*
+
+```csharp
+// ticket 15, as built: every function that calls FromJson or ValidateAs says this
+public result<ReplyWire, ValidationError> Parse(binary body)
+
+// the other answer
+public result<ReplyWire, list<ValidationError>> Parse(binary body)
+```
+
+Compiler delta for the other answer: every generated validator stops returning at its first
+failure and threads a list; `result<T, ValidationError>` changes in every signature in the corpus,
+the exemplars, `LANGUAGE.md` and the tour; a failed union has to say which members' errors it is
+reporting.
+
+Recommended: **one, as ticket 15 decided.** Three reasons. Collecting across a union's members is
+where every surveyed library's worst output comes from. Untrusted input should fail at the first
+fault. And the other answer is not lost by waiting: it can arrive later as a second name beside
+`FromJson`, returning a list, without changing a signature that exists. What that later form would
+need is recorded in ticket 15 if this is the answer.
+
+**Q18. Does a `float` field read a JSON integer?** *(finding 8)*
+
+```csharp
+type F = { "price": float }
+
+FromJson<F>("{\"price\":1}")
+
+// today
+ValidationError { Path = ["[\"price\"]"], Expected = "float" }
+
+// asked
+{ "price" = 1.0 }
+```
+
+JSON has one number type, and JavaScript writes the float `1.0` as `1`. A `float` field therefore
+works on `0.5` and is refused on `1`, from the same sender. 25f writes `int | float` at each such
+field to avoid it.
+
+Compiler delta: the validator `FromJson` generates treats an integer at a `float` position as that
+float, when the integer has an exact one, and refuses it otherwise. `ValidateAs<T>` over a BEAM
+term does not change: there `1` is an `int` because the program that made it said so. This is a
+second conversion beside Q8's absent key, and the first that `FromJson` makes and `ValidateAs`
+does not, so Q10's *"it converts nothing `ValidateAs` does not"* would no longer hold.
+
+Recommended: **yes.** The alternative is a field that passes its tests and fails in service. An
+`int` field still refuses `1.0`.
+
+**Q19. Is a failed tagged union blamed at the tag, or inside the member the tag names?** *(finding 4)*
+
+```csharp
+type AnswerWire = { "type": "choice", "choice": string, .. }
+                | { "type": "score", "score": int, .. }
+
+// today, all three
+ValidationError { Path = [], Expected = "{ \"choice\": string, \"type\": \"choice\", .. } | { … }" }
+
+// asked
+FromJson<AnswerWire>("{\"type\":\"tri\",\"choice\":\"x\"}")
+ValidationError { Path = ["[\"type\"]"], Expected = "\"choice\" | \"score\"" }
+
+FromJson<AnswerWire>("{\"type\":\"score\",\"score\":\"x\"}")
+ValidationError { Path = ["[\"score\"]"], Expected = "int" }
+```
+
+Compiler delta: where every map member of a union has one key in common whose types are string
+literals no two members share (what F68 already closes a field set on), the generated validator
+reads that key first. A value no member names is the first error above. A value one member names
+validates against that member alone, so its errors carry their own paths. A union with no such key
+is reported as today. No new syntax: the tag is found from the types, as ArkType, Effect Schema
+and io-ts do.
+
+Recommended: **yes.** What an absent tag reports follows Q12.
+
+**Waiting on this round:** how a repeated key is reported (Q16); whether an unknown key under an
+exact type is named (Q16); what an absent tag reports (Q12, Q19); what bytes that are not UTF-8
+report (Q16); what 25f's `(:malformed, …)` carries (Q12, Q16).
+
 ## Decisions entry
 
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
@@ -649,6 +832,11 @@ called a record; the indiscriminable refusal not naming `FromJson`) are filed as
   [ENG-407](https://linear.app/davewil/issue/ENG-407), the brace expression
   [ENG-408](https://linear.app/davewil/issue/ENG-408), 26 §4's absent key
   [ENG-409](https://linear.app/davewil/issue/ENG-409), `FromJson<T>`
-  [ENG-410](https://linear.app/davewil/issue/ENG-410).
+  [ENG-410](https://linear.app/davewil/issue/ENG-410). **Amended 2026-10-09 (round 7)**, after F69
+  built Q10: an open type is a `FromJson` target though `ToJson` refuses to write one (Q11), and
+  `FromJson<T>` takes a `binary` (Q13, [ENG-611](https://linear.app/davewil/issue/ENG-611)).
+  Round 8 is open: six questions raised by
+  [the prior-art review](research/78-json-decode-prior-art.md), two of them reopening tickets 15
+  and 79.
 ```
 
