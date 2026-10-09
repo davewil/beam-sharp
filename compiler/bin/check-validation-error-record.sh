@@ -33,7 +33,7 @@ BAD="{ Kind = :'Orders.Order', Id = 1, Total = :x }"
 expected_value() {
   case "$1" in
     P1) echo '[".Total"]' ;;
-    P2) echo "(:error, {Kind = :'ValidationError', Expected = \"int\", Path = [\".Total\"]})" ;;
+    P2) echo "(:error, {Kind = :'ValidationError', Expected = \"int\", Path = [\".Total\"], Reason = :mismatch})" ;;
     P3) echo '["x"]' ;;
   esac
 }
@@ -76,7 +76,7 @@ Where(t) -> Decode(t) switch {
 }
 
 public list<string> RoundTrip(list<string> p)
-RoundTrip(p) -> Rejected(ValidationError { Path = p, Expected = "int" })
+RoundTrip(p) -> Rejected(ValidationError { Path = p, Expected = "int", Reason = :mismatch })
 EOF
   (cd "$dir" &&
      { "$BSC" Orders Where "$BAD" > P1.out 2>&1 || true; } &&

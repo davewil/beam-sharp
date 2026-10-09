@@ -5,7 +5,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [build_and_load/2, with_src/3, validation_error/2]).
+-import(bs_test_support, [build_and_load/2, with_src/3, validation_error/2,
+                          validation_error/3]).
 
 reply_src() ->
     "module FjReply\n"
@@ -26,7 +27,7 @@ json_text_becomes_the_wire_value_test() ->
 
 text_that_is_not_json_is_an_error_value_test() ->
     M = build_and_load(reply_src(), 'FjReply'),
-    NotJson = validation_error([], <<"JSON">>),
+    NotJson = validation_error([], <<"JSON">>, not_json),
     ?assertEqual(NotJson, M:'Parse'(<<"{\"model\":">>)),
     ?assertEqual(NotJson, M:'Parse'(<<>>)),
     ?assertEqual(NotJson, M:'Parse'(<<"{\"model\":\"jev\"} trailing">>)).
@@ -72,7 +73,7 @@ a_string_keyed_type_written_by_to_json_is_read_back_test() ->
     ?assertEqual(U, M:'Check'(U)),
     ?assertEqual([1, 2, 3], M:'Ints'(<<"[1,2,3]">>)),
     %% An exact type refuses a key it does not name, as ValidateAs does.
-    ?assertMatch({error, #{'Path' := []}},
+    ?assertMatch({error, #{'Path' := [<<"[\"cost\"]">>], 'Reason' := unknown_key}},
                  M:'Read'(<<"{\"input_tokens\":3,\"output_tokens\":9,\"cost\":1}">>)).
 
 %%% The refusals, read off the published term
@@ -115,11 +116,11 @@ a_record_inside_a_wire_type_is_refused_at_its_path_test() ->
 
 %% `{ Kind: :invoice }` is a field set whose key happens to be `Kind`: no
 %% record was declared, so nothing is deferred. It compiles, and JSON's string
-%% keys fail it at run time as they fail any name key.
+%% keys fail it at run time as they fail any name key: the name is absent.
 a_hand_tagged_field_set_is_not_a_record_test() ->
     Src = over("type Doc = { Kind: :invoice, Total: int }\n", "Doc"),
     M = build_and_load(Src, 'FjOver'),
-    ?assertMatch({error, #{'Path' := []}},
+    ?assertMatch({error, #{'Path' := [<<".Kind">>], 'Reason' := missing}},
                  M:'Read'(<<"{\"Kind\":\"invoice\",\"Total\":4}">>)).
 
 %%% F69.7 — what no JSON decodes to is refused, as ToJson refuses to write it

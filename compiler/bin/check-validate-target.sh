@@ -164,7 +164,7 @@ if [ "${1:-}" = "--self-test" ]; then
   A4="$(expected_value V4)"; A5="$(expected_value V5)"
   A6="$(expected_value V6)"; A7="$(expected_value V7)"
   A8="$(expected_value V8)"
-  E8="(:error, {Kind = :'ValidationError', Expected = \"int\", Path = [\"[0]\", \"[\"a\"]\"]})"
+  E8="(:error, {Kind = :'ValidationError', Expected = \"int\", Path = [\"[0]\", \"[\"a\"]\"], Reason = :mismatch})"
   # What a refused case prints when it is compiled and not refused: nothing.
   C=''
 

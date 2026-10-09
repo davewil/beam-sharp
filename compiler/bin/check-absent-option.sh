@@ -35,13 +35,15 @@ input() {
   esac
 }
 
-# Copied from `bsc`'s output on the correct build, 2026-09-25.
+# Copied from `bsc`'s output on the correct build, 2026-09-25. V3 gained
+# `Reason` with F70 (2026-10-09), and V4 moved from the whole type at `[]` to
+# the absent key: only an `option<T>` key is filled, so `Tag` is missing.
 expected_value() {
   case "$1" in
     V1) echo '{Id = :nothing, Model = "m"}' ;;
     V2) echo "[{Kind = :'V2.Outer', Inner = {Kind = :'V2.R', Id = :nothing, Model = \"m\"}}]" ;;
-    V3) echo "(:error, {Kind = :'ValidationError', Expected = \":nothing | string\", Path = [\".Id\"]})" ;;
-    V4) echo "(:error, {Kind = :'ValidationError', Expected = \"{ Model: string, Tag: atom }\", Path = []})" ;;
+    V3) echo "(:error, {Kind = :'ValidationError', Expected = \":nothing | string\", Path = [\".Id\"], Reason = :mismatch})" ;;
+    V4) echo "(:error, {Kind = :'ValidationError', Expected = \"atom\", Path = [\".Tag\"], Reason = :missing})" ;;
   esac
 }
 

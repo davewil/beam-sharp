@@ -24,7 +24,16 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    e190a2eab4af2ab82a1848e4a9fdd490a5b43e177170a224e1574446f7f0daf1
+sha256    3b860c86c68d24f4754d767939cfd6e9b63c4c689e76397b1c34a7f4c10bf210
+verified  2026-10-09 (for F70, `Reason` on `ValidationError`, ENG-615) — chapter 15's third Intake
+          transcript gained `Reason = :mismatch`, which is what `bsc` prints now, and the
+          paragraph under it says the record carries a reason, with an absent field `:missing`
+          and an undeclared one `:unknown_key`, each at its own path. No capability row changed,
+          so the appendix's 66 stands. Part 3 named the transcript as DRIFTED on the first run
+          after the build, and part 4 was red against the old stamp before the republish. The
+          live page (version 32) was read back first and did not carry `Reason` anywhere; read
+          back after (version 33), it carries it in the transcript and the paragraph.
+
 verified  2026-10-09 (for F69, `FromJson<T>`, ENG-410) — the appendix gained `JSON text read
           into a wire type`, the row `corpus_tests` added, pointing at `examples/Stream/stream.bs`,
           and its own count moved from 65 to 66. No chapter changed: chapter 15 does not teach

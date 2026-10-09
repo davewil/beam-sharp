@@ -2201,8 +2201,8 @@ Size((:node, l, r)) -> 1 + Size(l) + Size(r)
 refused as unreachable. Delete either clause and the residual names the shape that is missing rather
 than unfolding forever. The emitted `-spec` is a recursive Erlang `-type`, not `any()`, and
 `ValidateAs<Tree>` generates a validator that calls itself: handed `(:node, :leaf, 7)` it returns
-`(:error, {Kind = :'ValidationError', Expected = "Tree", Path = ["(3)"]})` — the position inside
-the tree and the type expected there.
+`(:error, {Kind = :'ValidationError', Expected = "Tree", Path = ["(3)"], Reason = :mismatch})` —
+the position inside the tree, the type expected there, and what was wrong.
 
 A definition whose recursion passes through nothing but unions and aliases describes no value at
 all, and no amount of implementation will change that. A union is a **Boolean connective, not a
@@ -2597,7 +2597,7 @@ Decode(t) -> ValidateAs<list<Reading>>(t)
 
 **shipped** — `examples/Intake` runs it. Handed a list holding one reading whose `Value` is
 `:warm`, `Decode` returns `(:error, {Kind = :'ValidationError', Expected = "int", Path = ["[0]",
-".Value"]})`; handed a well-formed one it returns the list unchanged.
+".Value"], Reason = :mismatch})`; handed a well-formed one it returns the list unchanged.
 
 `ValidateAs<T>` is a **codegen obligation, not a call**. The compiler reads the type argument,
 generates a traversal for that one concrete type, and lowers the call site to a local call of it —
@@ -2618,13 +2618,27 @@ tried, puts a term both members hold (`[]` here) in the first, and blames a term
 against the last. `list<int> | list<atom>` is accepted, because a guard on the first element tells
 the two apart.
 
-**`ValidationError` is a path into the term plus the type expected there** — the compiler-known
-record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module, so a
+**`ValidationError` is a path into the term, the type expected there, and a reason** — the
+compiler-known record `{ Path: list<string>, Expected: string, Reason: :not_json | :missing |
+:unknown_key | :duplicate_key | :mismatch }`, tagged `:'ValidationError'` with no module, so a
 handler takes it apart as any record: `Rejected(ValidationError { Path: p })`, or `e.Path`. A path segment
 is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` for a list element,
 `"(2)"` for a tuple component, `"[\"views\"]"` or `"[:views]"` or `"[7]"` for a map entry, by its
 key. An empty path means the term itself was wrong. A map entry whose key has no literal — a
 tuple, a binary that is not text — is not named: the blame stops at the map.
+
+**`Reason` is a closed union, so a function with a clause for each member is total.** `:mismatch`
+is a value of the wrong type, and the reason wherever the other four do not apply. `:missing` is a
+key the type requires and the map lacks: the path ends at that key and `Expected` is the key's
+type, so `{}` against `{ "a": int }` is `Path = ["[\"a\"]"]`, `Expected = "int"`. An `option<T>`
+key is never missing. `:unknown_key` is a key an exact type does not name: the path ends at that
+key and `Expected` is the keys the type does name, so `{ "a" = 1, "b" = 2 }` against the same type
+is `Path = ["[\"b\"]"]`, `Expected = "\"a\""`. An absent key is reported before an unknown one,
+and among several of either the first in key order. Both are reported where the type at that
+position has one field-set or record member; a union of several is reported whole, at the union,
+as `:mismatch`. `:not_json` is `FromJson`'s. `:duplicate_key` is in the type and nothing builds it
+yet. A hand-built `ValidationError` names all three fields. **shipped** — F70.
+<!-- decided by ticket 78 Q16, Q12 and Q21, and ticket 79 as reopened; built by F70 -->
 
 The bracket is admitted after **exactly five** compiler-known names — `ValidateAs<T>`,
 `ParseAtom<T>`, `ToJson<T>`, `FromJson<T>` and `ToExistingAtom` — and after nothing else, which is
@@ -2935,8 +2949,8 @@ sets alike, at every depth: a record field, a tuple component, a list element, a
 `null` is not absent. It stays `:null` and is refused at an `option<string>` field, so a field that
 takes both is `option<string | :null>`. An `atom` or `term` field is not an `option`, since
 `:nothing` is in it only by absorption, and an absent one is still refused. `ToJson` converts
-nothing: handed a value with an option key missing, it crashes as before, blamed where the key is
-missing. **shipped** — F61.
+nothing: handed a value with an option key missing, it crashes as before, blamed at the missing
+key. **shipped** — F61.
 <!-- decided by ticket 26 §4 and ticket 78 Q8; built by F61 -->
 
 ```csharp
@@ -2954,8 +2968,9 @@ A reply with no `id` comes back with `"id" => :nothing`, one with an `id` keeps 
 ### `FromJson<T>` — JSON text to a wire value
 
 **`FromJson<T>(text)` is the platform's decoder, then `ValidateAs<T>`.** It takes a `string` and
-returns `result<T, ValidationError>`. Text that is not JSON is the failure too, with `Path = []`
-and `Expected = "JSON"`, so one arm answers a bad parse and a wrong shape. It converts what
+returns `result<T, ValidationError>`. Text that is not JSON is the failure too, with `Path = []`,
+`Expected = "JSON"` and `Reason = :not_json`, so one arm answers a bad parse and a wrong shape,
+and a clause on `Reason` tells them apart. It converts what
 `ValidateAs` converts and nothing more: an absent key at an `option<T>` field is `:nothing`, and
 `null` stays `:null`. **shipped** — F69.
 <!-- decided by ticket 78 Q10; built by F69 -->

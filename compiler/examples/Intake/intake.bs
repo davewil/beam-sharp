@@ -6,7 +6,7 @@
 //     bsc --src-root examples examples/Intake Decode "[{ Kind = :'Intake.Reading', Sensor = \"t1\", Value = 21 }]"
 //         -> the list, unchanged
 //     bsc --src-root examples examples/Intake Decode "[{ Kind = :'Intake.Reading', Sensor = \"t1\", Value = :warm }]"
-//         -> (:error, {Kind = :'ValidationError', Expected = "int", Path = ["[0]", ".Value"]})
+//         -> (:error, {Kind = :'ValidationError', Expected = "int", Path = ["[0]", ".Value"], Reason = :mismatch})
 //     bsc --src-root examples examples/Intake Verdict 7
 //         -> :rejected
 //

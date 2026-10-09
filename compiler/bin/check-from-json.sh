@@ -38,12 +38,12 @@ input() {
 
 # Written before the build, 2026-10-09, from what `ValidateAs` prints for
 # the same values, and matched by the build unchanged. J4 is the refusal's
-# first line after the position.
+# first line after the position. J2 and J3 gained `Reason` with F70.
 expected_value() {
   case "$1" in
     J1) echo '{"cost" = 2, "id" = :nothing, "model" = "jev"}' ;;
-    J2) echo "(:error, {Kind = :'ValidationError', Expected = \"JSON\", Path = []})" ;;
-    J3) echo "(:error, {Kind = :'ValidationError', Expected = \"string\", Path = [\"[\"model\"]\"]})" ;;
+    J2) echo "(:error, {Kind = :'ValidationError', Expected = \"JSON\", Path = [], Reason = :not_json})" ;;
+    J3) echo "(:error, {Kind = :'ValidationError', Expected = \"string\", Path = [\"[\"model\"]\"], Reason = :mismatch})" ;;
     J4) echo 'error: Decode calls FromJson over a type that holds a record' ;;
   esac
 }
@@ -122,10 +122,10 @@ if [ "${1:-}" = "--self-test" ]; then
   stub decode_only     '{"cost" = 2, "model" = "jev"}' "$G2" '{"model" = 7}' "$G4"
   stub crash           "$G1" 'error: Decode crashed: unexpected_end' "$G3" "$G4"
   stub blames_type     "$G1" \
-       "(:error, {Kind = :'ValidationError', Expected = \"{ \"id\": :nothing | string, \"model\": string, .. }\", Path = []})" \
+       "(:error, {Kind = :'ValidationError', Expected = \"{ \"id\": :nothing | string, \"model\": string, .. }\", Path = [], Reason = :mismatch})" \
        "$G3" "$G4"
   stub record_admitted "$G1" "$G2" "$G3" \
-       "(:error, {Kind = :'ValidationError', Expected = \"{ Kind: :'J4.Order', Id: int }\", Path = [\"[0]\"]})"
+       "(:error, {Kind = :'ValidationError', Expected = \"{ Kind: :'J4.Order', Id: int }\", Path = [\"[0]\"], Reason = :mismatch})"
 
   for bad in decode_only crash blames_type record_admitted; do
     if [ -z "$(judge "$W/$bad")" ]; then

@@ -10,7 +10,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--import(bs_test_support, [build_and_load/2, validation_error/2]).
+-import(bs_test_support, [build_and_load/2, validation_error/2, validation_error/3]).
 
 src(Ty, Decls) ->
     "module Absent\n"
@@ -92,17 +92,17 @@ a_failure_deeper_than_a_fill_keeps_its_path_test() ->
 
 an_absent_atom_field_is_refused_test() ->
     M = load("{ Tag: atom, Model: string }"),
-    ?assertEqual(validation_error([], <<"{ Model: string, Tag: atom }">>),
+    ?assertEqual(validation_error([<<".Tag">>], <<"atom">>, missing),
                  M:'Check'(#{'Model' => <<"m">>})).
 
 an_absent_required_key_is_refused_test() ->
     M = load(wire()),
-    ?assertEqual(validation_error([], <<"{ Id: :nothing | string, Model: string }">>),
+    ?assertEqual(validation_error([<<".Model">>], <<"string">>, missing),
                  M:'Check'(#{'Id' => <<"x">>})).
 
 an_unknown_key_beside_an_absent_option_is_refused_test() ->
     M = load(wire()),
-    ?assertEqual(validation_error([], <<"{ Id: :nothing | string, Model: string }">>),
+    ?assertEqual(validation_error([<<".Extra">>], <<"Id | Model">>, unknown_key),
                  M:'Check'(#{'Model' => <<"m">>, 'Extra' => 1})).
 
 %%% F61.6 — ticket 78 Q8's program on both providers' replies.
@@ -143,16 +143,18 @@ to_json_src() ->
 
 to_json_on_an_absent_option_still_crashes_test() ->
     M = build_and_load(to_json_src(), 'Json61'),
-    ?assertError({to_json, #{'Kind' := 'ValidationError', 'Path' := []}},
+    ?assertError({to_json, #{'Kind' := 'ValidationError', 'Path' := [<<".Id">>],
+                             'Reason' := missing}},
                  M:'Body'(#{'Kind' => 'Json61.R', 'Model' => <<"m">>})).
 
-%% The blame is where the key is missing, as it was before F61, not the root.
+%% `ToJson` fills nothing, so the option key is required of it, and since
+%% F70 the blame is the absent key itself, at its depth.
 to_json_blames_an_absent_option_at_its_depth_test() ->
     M = build_and_load("module Json61b\n" ++ rec() ++
                        "public string Body(list<R> rs)\n"
                        "Body(rs) -> ToJson<list<R>>(rs)\n", 'Json61b'),
-    ?assertError({to_json, #{'Path' := [<<"[0]">>],
-                             'Expected' := <<"{ Kind: :'Json61b.R', Id: :nothing | string, Model: string }">>}},
+    ?assertError({to_json, #{'Path' := [<<"[0]">>, <<".Id">>],
+                             'Expected' := <<":nothing | string">>, 'Reason' := missing}},
                  M:'Body'([#{'Kind' => 'Json61b.R', 'Model' => <<"m">>}])).
 
 to_json_on_a_whole_value_encodes_nothing_as_before_test() ->

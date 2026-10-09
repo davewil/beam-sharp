@@ -10,7 +10,7 @@
 //     bsc --src-root examples examples/Stream Parse '"{\"type\":\"ping\",\"n\":1}"'
 //         -> {"n" = 1, "type" = "ping"}
 //     bsc --src-root examples examples/Stream Parse '"{\"type\":"'
-//         -> (:error, {Kind = :'ValidationError', Expected = "JSON", Path = []})
+//         -> (:error, {Kind = :'ValidationError', Expected = "JSON", Path = [], Reason = :not_json})
 //
 // THE PROPERTY WORTH LOOKING AT is that `Kind` has no catch-all. A streaming
 // API's `message_stop` and `ping` events carry nothing but `"type"`, and every

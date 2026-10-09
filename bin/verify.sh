@@ -324,6 +324,9 @@ run_stages \
   "\`FromJson<T>\` decodes then validates, and refuses a record" \
     "cd compiler && ./bin/check-from-json.sh --self-test && ./bin/check-from-json.sh" \
 \
+  "A \`ValidationError\` carries its \`Reason\`, and a key is blamed at its own path" \
+    "cd compiler && ./bin/check-validation-reason.sh --self-test && ./bin/check-validation-reason.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

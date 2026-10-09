@@ -25,7 +25,8 @@
 #   P1  `OrderBody` on a good order — its three members are on the wire.
 #   P2  `ParcelBody` with no note — `"Note":"nothing"`, key present.
 #   P3  `OrderBody` on an order carrying `Secret` — crashes, and `Secret` is not
-#       printed. Red under `unguarded`.
+#       on the wire. The crash names the field as an unknown key (F70); what
+#       must not appear is the member `"Secret":`. Red under `unguarded`.
 #   P4  compiling `Refused` — `result<Order, ValidationError>` is refused.
 #   P5  compiling `Hidden` — the tuple behind the aliases is named, at its path.
 #       Red under `written_walk`.
@@ -57,7 +58,7 @@ judge() {
   has   P1 '"Total":5'
   has   P2 '"Note":"nothing"'
   has   P3 "crashed: to_json {Kind = :'ValidationError'"
-  lacks P3 'Secret'
+  lacks P3 '"Secret":'
   has   P4 "$REFUSED_LINE"
   has   P5 "$HIDDEN_LINE"
   [ "$(cat "$dir/P6.rc")" = "1" ] || echo "P6: --api must exit 1, exited $(cat "$dir/P6.rc")"
@@ -122,7 +123,7 @@ if [ "${1:-}" = "--self-test" ]; then
   PARCELJ='"{"Kind":"Orders.Parcel","Id":1,"Note":"nothing"}"'
   # Both measured, not written to agree: the crash on the built tree, and what
   # `--api` printed for `Refused` before F50 wired the refusal into it.
-  CRASH="crashed: to_json {Kind = :'ValidationError', Expected = \"{ Kind: :'Orders.Order', Id: int, Total: int }\", Path = []}"
+  CRASH="crashed: to_json {Kind = :'ValidationError', Expected = \"Id | Total\", Path = [\".Secret\"], Reason = :unknown_key}"
   API="module Refused
 string Outcome((:error, { Kind: :'ValidationError', Expected: string, Path: list<string> }) | { Kind: :'Refused.Order', Id: int, Total: int })"
   # What a compiler that does not know the name prints — measured on the tree

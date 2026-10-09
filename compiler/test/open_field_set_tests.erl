@@ -40,8 +40,9 @@ an_open_type_admits_extra_keys_test() ->
 %% F59.2 — a named key still has to be there, with the declared type.
 a_named_key_is_still_required_test() ->
     M = build_and_load(reply_src(), 'Open1'),
-    {error, #{'Path' := P1}} = M:'Read'(maps:remove(<<"model">>, openrouter())),
-    ?assertEqual([], P1),
+    {error, #{'Path' := P1, 'Reason' := R1}} =
+        M:'Read'(maps:remove(<<"model">>, openrouter())),
+    ?assertEqual({[<<"[\"model\"]">>], missing}, {P1, R1}),
     {error, #{'Path' := P2, 'Expected' := E2}} =
         M:'Read'((openrouter())#{<<"model">> => 7}),
     ?assertEqual({[<<"[\"model\"]">>], <<"string">>}, {P2, E2}).
@@ -51,7 +52,7 @@ without_the_marker_it_stays_exact_test() ->
     M = build_and_load("module Open3\n"
                        "public result<{ \"model\": string }, ValidationError> Read(term t)\n"
                        "Read(t) -> ValidateAs<{ \"model\": string }>(t)\n", 'Open3'),
-    ?assertMatch({error, #{'Path' := []}},
+    ?assertMatch({error, #{'Path' := [<<"[\"id\"]">>], 'Reason' := unknown_key}},
                  M:'Read'(#{<<"model">> => <<"m">>, <<"id">> => <<"x">>})).
 
 %% F59.4 — `ToJson` refuses an open type, naming where it is. The refusal is

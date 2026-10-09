@@ -57,13 +57,22 @@ run(Label, Spec, Send) ->
         #{'Kind' := 'Support.Triage.Evaluation'} ->
             io:format("route: ~p~n", ['Support.Triage':'Decide'(R)]);
         _ -> ok
-    end.
+    end,
+    R.
 
 main() ->
     run("typesafe, 200", <<"typesafe:jev-latest">>, serve(200, typesafe())),
     run("openrouter, 200", <<"openrouter:typesafe/jev-1.13">>, serve(200, openrouter())),
-    run("openrouter, 200, malformed (ReqLLM's own case)", <<"openrouter:typesafe/jev-1.13">>,
-        serve(200, #{<<"answers">> => #{}})),
+    Malformed = run("openrouter, 200, malformed (ReqLLM's own case)", <<"openrouter:typesafe/jev-1.13">>,
+                    serve(200, #{<<"answers">> => #{}})),
+    %% Ticket 78 Q24: the reply lacks "model", and the error says so.
+    case Malformed of
+        {error, {malformed, #{'Kind' := 'ValidationError', 'Path' := [<<"[\"model\"]">>],
+                              'Expected' := <<"string">>, 'Reason' := missing}}} ->
+            io:format("malformed: ok~n");
+        _ ->
+            io:format("malformed: WRONG ~0p~n", [Malformed])
+    end,
     run("typesafe, 401", <<"typesafe:jev-latest">>, serve(401, #{<<"error">> => <<"bad key">>})),
     run("unknown provider", <<"anthropic:claude-haiku-4-5">>, serve(200, typesafe())),
     halt(0).

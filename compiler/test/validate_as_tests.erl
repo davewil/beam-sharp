@@ -83,15 +83,15 @@ a_nested_failure_composes_the_whole_path_test() ->
 an_extra_key_is_rejected_test() ->
     M = build_and_load(order_src(), 'VaOrder'),
     Wide = (order(1, []))#{'Note' => <<"hi">>},
-    %% Extra keys invalidate the whole record, not a single field.
-    ?assertEqual(validation_error([], <<"{ Kind: :'VaOrder.Order', Id: int, "
-                                "Lines: list<{ Kind: :'VaOrder.Line', "
-                                "Price: int, Sku: string }> }">>),
+    %% F70: the extra key is named, with the fields the record declares.
+    ?assertEqual({error, #{'Kind' => 'ValidationError', 'Path' => [<<".Note">>],
+                           'Expected' => <<"Id | Lines">>, 'Reason' => unknown_key}},
                  M:'Decode'(Wide)).
 
 a_missing_key_is_rejected_test() ->
     M = build_and_load(order_src(), 'VaOrder'),
-    ?assertMatch({error, #{'Kind' := 'ValidationError', 'Path' := []}},
+    ?assertMatch({error, #{'Kind' := 'ValidationError', 'Path' := [<<".Lines">>],
+                           'Reason' := missing}},
                  M:'Decode'(#{'Kind' => 'VaOrder.Order', 'Id' => 1})).
 
 a_wrong_tag_is_rejected_test() ->

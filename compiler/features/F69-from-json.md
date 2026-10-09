@@ -100,7 +100,8 @@ record refusal alone. Reported to David with the build.
   the ticket.
 - `FromJson` over a `binary`. Q10 said `string`; ticket 78 Q13 changed that on
   2026-10-09 and [ENG-611](https://linear.app/davewil/issue/ENG-611) builds it.
-- Which key an absent required key is blamed at. It is `[]`, as F61 recorded.
+- Which key an absent required key is blamed at. It was `[]`, as F61 recorded; F70
+  blames the key (ticket 78 Q12).
 - A type no JSON can inhabit for a reason other than the refusals above: an
   atom other than `:null`, `:true` or `:false`, a name key, a `map<int, V>`.
   Each compiles and fails at run time, as ticket 78 Q9 decided for the atom.

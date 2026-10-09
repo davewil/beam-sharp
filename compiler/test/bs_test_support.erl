@@ -10,11 +10,15 @@
          escript/0, built/0, run_command_result/1, run_cli/1, run_cli_result/1,
          run_cli_split_result/1, run_cli_with_stdin_file_result/2, with_src/3,
          run_root/0, fixture_root/0, place/3,
-         showcase_src/0, shop_src/0, an_order/0, count/2, validation_error/2]).
+         showcase_src/0, shop_src/0, an_order/0, count/2, validation_error/2, validation_error/3]).
 
 %% The generated ValidateAs<T> failure contains a ValidationError record.
-validation_error(Path, Expected) ->
-    {error, #{'Kind' => 'ValidationError', 'Path' => Path, 'Expected' => Expected}}.
+%% `/2` is the reason every failure had before F70.
+validation_error(Path, Expected) -> validation_error(Path, Expected, mismatch).
+
+validation_error(Path, Expected, Reason) ->
+    {error, #{'Kind' => 'ValidationError', 'Path' => Path, 'Expected' => Expected,
+              'Reason' => Reason}}.
 
 -define(OUT, run_root()).
 

@@ -21,7 +21,7 @@ orders_src() ->
     "public string Expected(ValidationError e)\n"
     "Expected(e) -> e.Expected\n"
     "public ValidationError Built(list<string> p)\n"
-    "Built(p) -> ValidationError { Path = p, Expected = \"int\" }\n"
+    "Built(p) -> ValidationError { Path = p, Expected = \"int\", Reason = :mismatch }\n"
     "public list<string> RoundTrip(list<string> p)\n"
     "RoundTrip(p) -> Rejected(Built(p))\n".
 
@@ -38,7 +38,7 @@ the_validator_returns_the_record_test() ->
     M = build_and_load(orders_src(), 'VeOrders'),
     ?assertEqual({error, #{'Kind' => 'ValidationError',
                            'Path' => [<<".Total">>],
-                           'Expected' => <<"int">>}},
+                           'Expected' => <<"int">>, 'Reason' => mismatch}},
                  M:'Decode'(bad_order())).
 
 %% F49.3 — a projection reads a field.
@@ -51,7 +51,7 @@ a_projection_reads_the_expected_type_test() ->
 a_hand_built_value_carries_the_bare_tag_test() ->
     M = build_and_load(orders_src(), 'VeOrders'),
     ?assertEqual(#{'Kind' => 'ValidationError', 'Path' => [<<"x">>],
-                   'Expected' => <<"int">>},
+                   'Expected' => <<"int">>, 'Reason' => mismatch},
                  M:'Built'([<<"x">>])),
     ?assertEqual([<<"x">>], M:'RoundTrip'([<<"x">>])).
 
@@ -67,5 +67,5 @@ the_value_goes_on_the_wire_test() ->
     Json = iolist_to_binary(json:encode(E)),
     ?assertEqual(#{<<"Kind">> => <<"ValidationError">>,
                    <<"Path">> => [<<".Total">>],
-                   <<"Expected">> => <<"int">>},
+                   <<"Expected">> => <<"int">>, <<"Reason">> => <<"mismatch">>},
                  json:decode(Json)).

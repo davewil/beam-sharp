@@ -56,7 +56,7 @@ an_absent_option_is_the_string_nothing_test() ->
 a_validation_error_goes_on_the_wire_test() ->
     M = build_and_load(orders_src(), 'TjOrders'),
     ?assertEqual(#{<<"Kind">> => <<"ValidationError">>, <<"Path">> => [<<".Total">>],
-                   <<"Expected">> => <<"int">>},
+                   <<"Expected">> => <<"int">>, <<"Reason">> => <<"mismatch">>},
                  decoded(M:'Outcome'((an_order())#{'Total' => x}))),
     ?assertEqual(#{<<"Kind">> => <<"TjOrders.Order">>, <<"Id">> => 1, <<"Total">> => 5},
                  decoded(M:'Outcome'(an_order()))).

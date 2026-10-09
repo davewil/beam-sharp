@@ -1808,8 +1808,11 @@ validator_forms({Roots, Jsons, Texts, Table}) ->
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
     ++ [json_form(maps:get(Ty, Table), maps:get(Ty, StrictTable)) || Ty <- Jsons]
     ++ [text_form(maps:get(Ty, Table)) || Ty <- Texts]
-    ++ [F || lists:any(fun({Ty, _}) -> dom_walk(bs_types:unfold(Ty)) =/= none end,
-                       Ordered),
+    ++ [F || lists:any(fun({Ty, _}) -> exact_keyed(Ty) end, Ordered),
+             F <- unknown_forms()]
+    ++ [F || lists:any(fun({Ty, _}) ->
+                               dom_walk(bs_types:unfold(Ty)) =/= none orelse exact_keyed(Ty)
+                       end, Ordered),
              F <- key_forms()].
 
 %% Only the root unwraps internal success. Keeping call sites variable-free
@@ -1851,7 +1854,8 @@ text_form(Name) ->
                 {map, ?A,
                  [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
                   {map_field_assoc, ?A, {atom, ?A, 'Path'}, {nil, ?A}},
-                  {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str("JSON")}]}]},
+                  {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str("JSON")},
+                  {map_field_assoc, ?A, {atom, ?A, 'Reason'}, {atom, ?A, not_json}}]}]},
     {function, ?A, text_name(Name), 1,
      [{clause, ?A, [XV], [],
        [{'try', ?A,
@@ -1964,31 +1968,142 @@ validator_form(Ty, Name, Table, Conv) ->
     Body = bs_types:unfold(Ty),
     %% A strict twin is emitted with an empty `Conv`, so it gets no attempts.
     Fills = [M || lists:member(Ty, Conv), M <- fillable_members(Body)],
+    Keyed = keyed_member(Body),
     Clauses = ty_clauses(Body, Name, Table, Conv, Err)
-              ++ [fill_clause(Name) || Fills =/= []]
+              ++ [keys_clause(Name) || Keyed =/= none]
+              ++ [fill_clause(Name) || Fills =/= [], Keyed =:= none]
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
     Fn = {function, ?A, Name, 2,
           [{clause, ?A, [?VV, ?VP], [], [{'case', ?A, ?VV, Clauses}]}]},
     [Fn | walker_form(Body, Name, Table, Conv, Err)
           ++ dom_walker_form(Body, Name, Table, Conv, Err)
+          ++ keys_form(Keyed, Ty, Name, Fills, Err)
           ++ fill_forms(Fills, Name, Err)].
 
 %% Reverse the path once per failure. Keys and tag must match the
 %% `ValidationError` record in `stratum_two/0`; clause heads test that tag.
-error_expr(Ty) ->
+error_expr(Ty) -> error_at(?VP, bs_types:to_string(Ty), mismatch).
+
+%% `Path` is the reversed path to blame; `Reason` is one of the atoms the
+%% record's `Reason` field declares.
+error_at(Path, Expected, Reason) ->
     {tuple, ?A,
      [{atom, ?A, error},
       {map, ?A,
        [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
         {map_field_assoc, ?A, {atom, ?A, 'Path'},
-         {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [?VP]}},
-        {map_field_assoc, ?A, {atom, ?A, 'Expected'},
-         bin_str(bs_types:to_string(Ty))}]}]}.
+         {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [Path]}},
+        {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str(Expected)},
+        {map_field_assoc, ?A, {atom, ?A, 'Reason'}, {atom, ?A, Reason}}]}]}.
 
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.
 
 %% `{ok, V} -> {ok, V}`: a child's value, returned as the child built it.
 pass_ok(V) -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, V]}], [], [{tuple, ?A, [{atom, ?A, ok}, V]}]}.
+
+%%% --- Absent and unknown keys ---
+%%%
+%%% Ticket 78 Q12 and Q21: where a type has exactly one field-set member, a
+%%% map that member's clause did not take is asked why. A required key that
+%%% is absent is `:missing` at that key, expecting the key's type; a key an
+%%% exact member does not name is `:unknown_key` at that key, expecting the
+%%% keys it does name. Whatever is left is an absent option key, which the
+%%% fill attempts take, or a tag holding another value, which is this node's
+%%% mismatch. With several members there is no one member to ask about.
+%%% Rationale: compiler/features/F70-validation-reason.md.
+
+keyed_member(#{maps := [M = {Kind, _}]}) when Kind =:= closed; Kind =:= open -> M;
+keyed_member(_) -> none.
+
+keys_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@k").
+
+keys_clause(Name) ->
+    {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
+     [{call, ?A, {atom, ?A, keys_name(Name)}, [?VV, ?VP]}]}.
+
+%% `Fills` is non-empty only for a validator that fills, so a strict twin
+%% requires its option keys too, as `ToJson` does.
+keys_form(none, _Ty, _Name, _Fills, _Err) -> [];
+keys_form({Kind, Fs}, Ty, Name, Fills, Err) ->
+    Keys = lists:sort(maps:keys(Fs)),
+    Required = case Fills of
+                   [] -> Keys;
+                   _  -> Keys -- fill_keys(Fs)
+               end,
+    Rest = case Fills of
+               [] -> Err;
+               _  -> {call, ?A, {atom, ?A, fill_name(Name, 1)}, [?VV, ?VP, {atom, ?A, none}]}
+           end,
+    Absent = [{clause, ?A, [{var, ?A, '_'}],
+               [[{op, ?A, 'not', guard_call(is_map_key, [key_lit(K, ?A), ?VV])}]],
+               [error_at({cons, ?A, bin_str(field_seg(K)), ?VP},
+                         bs_types:to_string(maps:get(K, Fs)), missing)]}
+              || K <- Required],
+    Last = case Kind of
+               open   -> Rest;
+               closed -> unknown_case(Keys, Ty, Rest, Err)
+           end,
+    [{function, ?A, keys_name(Name), 2,
+      [{clause, ?A, [?VV, ?VP], [],
+        [{'case', ?A, ?VV, Absent ++ [{clause, ?A, [{var, ?A, '_'}], [], [Last]}]}]}]}].
+
+%% A key that has no spelling moves the blame to this node, as F43's does.
+unknown_case(Keys, Ty, Rest, Err) ->
+    SV = {var, ?A, 'Bs@s'},
+    Own = lists:foldr(fun(K, Acc) -> {cons, ?A, key_lit(K, ?A), Acc} end, {nil, ?A}, Keys),
+    Iter = {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, iterator}},
+            [?VV, {atom, ?A, ordered}]},
+    {'case', ?A, {call, ?A, {atom, ?A, unknown_name()}, [Iter, Own]},
+     [{clause, ?A, [{atom, ?A, none}], [], [Rest]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, key}, {atom, ?A, none}]}], [], [Err]},
+      {clause, ?A, [{tuple, ?A, [{atom, ?A, key}, SV]}], [],
+       [error_at({cons, ?A, SV, ?VP}, named_keys(Keys, Ty), unknown_key)]}]}.
+
+%% The keys an exact type names, as a union. `Kind` is the record's tag, not
+%% a field its author wrote.
+named_keys(Keys, Ty) ->
+    case [bs_types:key_str(K) || K <- Keys, K =/= 'Kind'] of
+        []    -> bs_types:to_string(Ty);
+        Names -> lists:join(" | ", [binary_to_list(unicode:characters_to_binary(N))
+                                    || N <- Names])
+    end.
+
+unknown_name() -> 'bs@validate@unknown'.
+segment_name() -> 'bs@validate@segment'.
+
+%% The first key, in key order, that is not one of `Own`, as `{key, Segment}`:
+%% a name as `field_seg/1` spells a field, anything else as F43 spells a key,
+%% which is `none` for a key with no spelling.
+unknown_forms() ->
+    IT = {var, ?A, 'Bs@it'},
+    OV = {var, ?A, 'Bs@own'},
+    KV = {var, ?A, 'Bs@k'},
+    NV = {var, ?A, 'Bs@n'},
+    [{function, ?A, unknown_name(), 2,
+      [{clause, ?A, [IT, OV], [],
+        [{'case', ?A, {call, ?A, {remote, ?A, {atom, ?A, maps}, {atom, ?A, next}}, [IT]},
+          [{clause, ?A, [{atom, ?A, none}], [], [{atom, ?A, none}]},
+           {clause, ?A, [{tuple, ?A, [KV, {var, ?A, '_'}, NV]}], [],
+            [{'case', ?A, {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, member}},
+                           [KV, OV]},
+              [{clause, ?A, [{atom, ?A, true}], [],
+                [{call, ?A, {atom, ?A, unknown_name()}, [NV, OV]}]},
+               {clause, ?A, [{atom, ?A, false}], [],
+                [{tuple, ?A, [{atom, ?A, key},
+                              {call, ?A, {atom, ?A, segment_name()}, [KV]}]}]}]}]}]}]}]},
+     {function, ?A, segment_name(), 1,
+      [{clause, ?A, [KV], [[guard_call(is_atom, [KV])]],
+        [{call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, iolist_to_binary}},
+          [{cons, ?A, {integer, ?A, $.},
+            {cons, ?A, {call, ?A, {remote, ?A, {atom, ?A, erlang}, {atom, ?A, atom_to_binary}},
+                        [KV]}, {nil, ?A}}}]}]},
+       {clause, ?A, [KV], [], [{call, ?A, {atom, ?A, key_name()}, [KV]}]}]}].
+
+exact_keyed(Ty) ->
+    case keyed_member(bs_types:unfold(Ty)) of
+        {closed, _} -> true;
+        _           -> false
+    end.
 
 %%% --- Absent option keys ---
 %%%

@@ -682,6 +682,18 @@ jobs:
         working-directory: compiler
         run: ./bin/check-from-json.sh
 
+      # F70 / ENG-615. Four stubs: the two-field record F49 built, an absent
+      # or unknown key reported as the whole type at the object, every failure
+      # called a mismatch, and a `Reason` that is any atom so no set of
+      # clauses over it is ever short.
+      - name: The validation-reason gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-validation-reason.sh --self-test
+
+      - name: 'A `ValidationError` carries its `Reason`, and a key is blamed at its own path'
+        working-directory: compiler
+        run: ./bin/check-validation-reason.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

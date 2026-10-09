@@ -1347,17 +1347,21 @@ stratum_one() ->
                      {t_tuple, [{t_atom, throw}, {t_builtin, term}]},
                      {t_tuple, [{t_atom, exit},  {t_builtin, term}]}]}}.
 
-%% `ValidationError` is the validator's record payload: path and expected type.
+%% `ValidationError` is the validator's record payload: path, expected type
+%% and which of five things went wrong (ticket 78 Q16).
 %% `record_of/3`, `known_record_tags/0` and `bs_emit:record_tag/2` read its tag
 %% from this map layout.
 %% Its bare tag cannot collide with user record tags, which contain a dot.
 %% `compiler_known_redeclared/1` prevents shadowing; merge order does not.
 %% Rationale: compiler/features/F49-validation-error-record.md.
+validation_reasons() -> [not_json, missing, unknown_key, duplicate_key, mismatch].
+
 stratum_two() ->
     #{'ValidationError' =>
           {t_map, [{field, 'Kind', {t_atom, 'ValidationError'}},
                    {field, 'Path', {t_generic, list, [{t_builtin, string}]}},
-                   {field, 'Expected', {t_builtin, string}}]},
+                   {field, 'Expected', {t_builtin, string}},
+                   {field, 'Reason', {t_union, [{t_atom, A} || A <- validation_reasons()]}}]},
       %% F60 (ticket 88): the tuples OTP sends, named by `bs_types:views/0`.
       'Down' =>
           {t_tuple, [{t_atom, 'DOWN'},

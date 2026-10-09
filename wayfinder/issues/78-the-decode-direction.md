@@ -820,6 +820,13 @@ report (Q16); what 25f's `(:malformed, …)` carries (Q12, Q16).
   validated by that key first: an unknown tag is blamed at the tag with the tags as `Expected`, a
   known one validates against its member alone.
 
+**Found building Q12 ([F70](../../compiler/features/F70-validation-reason.md), 2026-10-09), and
+David's to confirm or change.** Q12's delta says the first absent key *"in declaration order"*.
+A field-set type does not carry one: `{ "a": int, "b": int }` and `{ "b": int, "a": int }` are the
+same type, with one validator and one printed form. F70 reports the first absent key in key
+order, the order the type prints in and the order a map's entries are walked in (F43). Declaration
+order would need the validator keyed by the written type and not the resolved one.
+
 ## Round 9 — 2026-10-09: what each new reason reports
 
 Round 8 settled that the error has a `Reason` and where two of the failures point. What is left is

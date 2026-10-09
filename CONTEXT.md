@@ -370,8 +370,9 @@ recoverable at runtime.
 _Avoid_: cast, coercion, decoder, parser, validator
 
 **ValidationError**:
-`ValidateAs<T>`'s reason: a compiler-known record, `Path` into the offending term plus the
-`Expected` type there, tagged `:'ValidationError'` with no module.
+`ValidateAs<T>`'s and `FromJson<T>`'s reason: a compiler-known record, `Path` into the offending
+term, the `Expected` type there, and a `Reason`, one of `:not_json`, `:missing`, `:unknown_key`,
+`:duplicate_key` and `:mismatch`, tagged `:'ValidationError'` with no module.
 _Avoid_: DecodeError, error message, failure
 
 **Foreign wrapper**:
