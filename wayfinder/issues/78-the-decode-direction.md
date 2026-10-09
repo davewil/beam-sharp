@@ -912,6 +912,17 @@ case asserts the value above.
 Recommended: **keep the record.** It now says everything the string did, and a caller can match
 on it.
 
+**Answered 2026-10-09 (David): all five as recommended.** The frontier is empty: no question waits
+on these. Nothing in rounds 8 and 9 is built except what F69 already did; the build issues are
+raised once David confirms the tree is complete.
+
+- **Q20.** A repeated key reports `Path = []`, `Expected = "\"a\" once"`, `Reason = :duplicate_key`.
+- **Q21.** An unknown key under an exact type is named: `Path` is the key, `Expected` the keys the
+  type names, `Reason = :unknown_key`. `ValidateAs` shares it.
+- **Q22.** An absent tag reports the tag's path, the tags as `Expected`, `Reason = :missing`.
+- **Q23.** Bytes that are not UTF-8 report the same value as any text that is not JSON.
+- **Q24.** 25f's `:malformed` keeps the `ValidationError`.
+
 ## Decisions entry
 
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
@@ -948,6 +959,10 @@ on it.
   its own path as `:missing` (Q12); one error, not a list ([15](issues/15-error-model.md), Q17);
   under `FromJson` a `float` position reads a JSON integer, the one conversion `ValidateAs` does
   not make (Q18); a union tagged by a string-literal key is validated by that key first (Q19).
-  Round 9 is open: the exact value each new reason reports.
+  **Amended 2026-10-09 (round 9)**, the value each reason reports: a repeated key is `Path = []`
+  with the key in `Expected` (Q20); an unknown key under an exact type is blamed at that key with
+  the type's keys as `Expected` (Q21); an absent tag is `:missing` at the tag's path (Q22); bytes
+  that are not UTF-8 are `:not_json` like any other text that is not JSON (Q23); 25f's
+  `:malformed` keeps the record (Q24). Rounds 8 and 9 are decided and unbuilt.
 ```
 
