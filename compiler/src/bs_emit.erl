@@ -1877,14 +1877,7 @@ blank_name()  -> 'bs@validate@blank'.
 repeat_tag()  -> 'bs@validate@repeat'.
 
 %% An error no path leads to: the decoder's, at the top.
-text_error(Expected, Reason) ->
-    {tuple, ?A,
-     [{atom, ?A, error},
-      {map, ?A,
-       [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
-        {map_field_assoc, ?A, {atom, ?A, 'Path'}, {nil, ?A}},
-        {map_field_assoc, ?A, {atom, ?A, 'Expected'}, Expected},
-        {map_field_assoc, ?A, {atom, ?A, 'Reason'}, {atom, ?A, Reason}}]}]}.
+text_error(Expected, Reason) -> error_value({nil, ?A}, Expected, Reason).
 
 decode_forms() ->
     XV = {var, ?A, 'Bs@x'},
@@ -2056,13 +2049,17 @@ error_expr(Ty) -> error_at(?VP, bs_types:to_string(Ty), mismatch).
 %% `Path` is the reversed path to blame; `Reason` is one of the atoms the
 %% record's `Reason` field declares.
 error_at(Path, Expected, Reason) ->
+    error_value({call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [Path]},
+                bin_str(Expected), Reason).
+
+%% The one place the record is spelled. `Path` and `Expected` are expressions.
+error_value(Path, Expected, Reason) ->
     {tuple, ?A,
      [{atom, ?A, error},
       {map, ?A,
        [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
-        {map_field_assoc, ?A, {atom, ?A, 'Path'},
-         {call, ?A, {remote, ?A, {atom, ?A, lists}, {atom, ?A, reverse}}, [Path]}},
-        {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str(Expected)},
+        {map_field_assoc, ?A, {atom, ?A, 'Path'}, Path},
+        {map_field_assoc, ?A, {atom, ?A, 'Expected'}, Expected},
         {map_field_assoc, ?A, {atom, ?A, 'Reason'}, {atom, ?A, Reason}}]}]}.
 
 ok_expr() -> {tuple, ?A, [{atom, ?A, ok}, ?VV]}.

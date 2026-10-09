@@ -102,7 +102,7 @@ probe() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — six defects and one correct form.
+# --self-test — eight defects and one correct form.
 #
 #   first_wins    the first value is kept, as `json:decode/1` kept it
 #   last_wins     the last value is kept and validated
@@ -110,6 +110,10 @@ probe() {
 #   unequal_only  a repeat is refused only where its values differ
 #   prefix        the value is read and the text after it is dropped
 #   strict_end    whitespace after the value is refused
+#   top_only      a repeat is seen in the outermost object alone, so D2 is
+#                 the only case that is wrong
+#   exemplar_only every probe is right and the exemplar still hands back an
+#                 evaluation, so D6 is the only case that is wrong
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -140,21 +144,28 @@ repeated: WRONG #{}'
   stub unequal_only "$G1" "$G1" "$ONE" "$G4" "$G5" "$G6"
   stub prefix       "$G1" "$G1" "$G1" "$ONE" "$G5" "$G6"
   stub strict_end   "$G1" "$G1" "$G1" "$G4" "$G4" "$G6"
+  stub top_only     "$G1" "$LIST" "$G1" "$G4" "$G5" "$G6"
+  stub exemplar_only "$G1" "$G1" "$G1" "$G4" "$G5" "$BAD6"
 
-  for bad in first_wins last_wins no_key unequal_only prefix strict_end; do
+  for bad in first_wins last_wins no_key unequal_only prefix strict_end top_only exemplar_only; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
       echo "  ok red on $bad"
     fi
   done
+  # The two single-case stubs must be red for their own case and no other.
+  [ "$(judge "$W/top_only" | cut -d: -f1)" = "D2" ] \
+    || { echo "  x SELF-TEST: 'top_only' was not red on D2 alone"; fail=1; }
+  [ "$(judge "$W/exemplar_only" | cut -d: -f1)" = "D6" ] \
+    || { echo "  x SELF-TEST: 'exemplar_only' was not red on D6 alone"; fail=1; }
   if [ -n "$(judge "$W/good")" ]; then
     echo "  x SELF-TEST: the CORRECT set of outputs was rejected -"; judge "$W/good"; fail=1
   else
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: six defects seen, correct form accepted"
+  echo "self-test passed: eight defects seen, correct form accepted"
   exit 0
 fi
 

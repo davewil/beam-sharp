@@ -50,7 +50,7 @@ $ bsc Repeat Read '"{\"a\":1} "'
 - `Path` is `[]` however deep the object sits: the decoder's callback is handed the key
   and not where its object is.
 - The same key in two different objects is not a repeat.
-- Two spellings of one key are one key: `"a"` and `"a"` repeat each other.
+- Two spellings of one key are one key: `"a"` and `"\u0061"` repeat each other.
 - The repeat is found during the decode, before `T` is consulted, so it is reported
   ahead of anything a validator would say.
 - Text after the value is `:not_json`, as it was under F69. JSON's whitespace after the
@@ -79,6 +79,10 @@ $ bsc Repeat Read '"{\"a\":1} "'
   as `int` is `:duplicate_key`, not a mismatch. Q15 says always, and the decode runs
   first.
 - **The first repeat in the text is the one reported**, since the decode stops there.
+- **Large objects decode more slowly.** The review measured a 300,000-key object, 3.2 MB,
+  at 862 ms through the generated function against 148 ms through `json:decode/1`. The
+  cost is one map insertion per key, which is how the push knows a key has been seen. A
+  reply of ordinary size was not measured.
 - **Text that ends inside the second value is `:not_json`.** The key is pushed once its
   value has been read, so `{"a":1,"a":` never reaches the push.
 
@@ -88,7 +92,7 @@ $ bsc Repeat Read '"{\"a\":1} "'
 |---|---|---|
 | F71.1 | `Read` on `{"a":1,"a":"x"}`; on `{"a":"x","a":1}` | `Path = []`, `Expected = "\"a\" once"`, `:duplicate_key`, both |
 | F71.2 | the repeat in a nested object; in a list element; one key in two objects | the same value, `Path = []`; the same; accepted |
-| F71.3 | `{"a":1,"a":1}`; an open type given `cost` twice; `"a"` then `"a"` | all three refused |
+| F71.3 | `{"a":1,"a":1}`; an open type given `cost` twice; `"a"` then `"\u0061"` | all three refused |
 | F71.4 | a `switch` arm on `ValidationError { Reason: :duplicate_key, Expected: e }` | binds `"\"a\" once"` |
 | F71.5 | `{"a":1} x`; two values; `12x`; a `0xFF` byte after the value; a form feed after it | `:not_json` |
 | F71.6 | whitespace before and after the value; `7` and `7\n` read as `int` | accepted |
@@ -105,6 +109,6 @@ Before the build, `duplicate_key_tests` failed 9 of 14; the five that passed are
 F71.6, which F69's `decode/1` already satisfied and which the move to `decode/3` must not
 lose. `check-duplicate-key.sh` was red on D1, D2, D3 and D6: the first three printed the
 value with the first `"a"` kept, and D6 printed a whole `Evaluation` for the reply with two
-models. Its `--self-test` sees six defects (`first_wins`, `last_wins`, `no_key`,
-`unequal_only`, `prefix`, `strict_end`) and accepts the correct outputs. F71.7 is D6:
+models. Its `--self-test` sees eight defects (`first_wins`, `last_wins`, `no_key`,
+`unequal_only`, `prefix`, `strict_end`, `top_only`, `exemplar_only`) and accepts the correct outputs. F71.7 is D6:
 `wayfinder/prototypes/25f_replay.erl` serves the reply and prints `repeated: ok`.
