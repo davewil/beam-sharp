@@ -330,8 +330,9 @@ declared(Sources, World, Expect, Mode) ->
     %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
     %% `error_members/1`, which requires non-recursive members.
     foreign_rets_decidable(Decls, Env),
-    %% Scan bodies for `ToJson<T>` refusals: `--api` does not type bodies.
-    to_json_refused(Decls ++ implementation_clauses(Decls), Env),
+    %% Scan bodies for `ToJson<T>` and `FromJson<T>` refusals: `--api` does
+    %% not type bodies.
+    wire_form_refused(Decls ++ implementation_clauses(Decls), Env),
     %% F64: a block's type arguments resolve here, so `--api` refuses
     %% `Enumerable<Nope>` as a compile does.
     [at_loc(L, fun() -> resolve(T, Env) end)
@@ -3029,7 +3030,7 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
                       length(Args)}}]}
     end;
 %% FromJson is `json:decode` then ValidateAs, so its target meets the same
-%% refusals and its result is the same type. to_json_refused/2 checks the
+%% refusals and its result is the same type. wire_form_refused/2 checks the
 %% wire form before body typing. The argument is the text, a `string`.
 %% Rationale: compiler/features/F69-from-json.md.
 type_of({e_inst, L, 'FromJson', TypeArgs, Args}, S, C) ->
@@ -3076,7 +3077,7 @@ type_of({e_inst, L, 'ParseAtom', TypeArgs, Args}, S, C) ->
                      {obligation_arity, 'ParseAtom', length(TypeArgs),
                       length(Args)}}]}
     end;
-%% to_json_refused/2 checks wire forms before body typing. Here T must be
+%% wire_form_refused/2 checks wire forms before body typing. Here T must be
 %% ground and the argument must be contained in T, as for an ordinary call.
 type_of({e_inst, L, 'ToJson', TypeArgs, Args}, S, C) ->
     case {TypeArgs, Args, over_variable(TypeArgs, C)} of
@@ -3343,14 +3344,15 @@ compiler_known_function(Decls) ->
         [{N, L} | _] -> erlang:error({compiler_known_function, N, L})
     end.
 
-%%% --- `ToJson<T>` ---
+%%% --- `ToJson<T>` and `FromJson<T>` ---
 %%%
-%%% `json:encode` rejects tuples, arrows and invalid UTF-8 binaries. Walk the
-%%% resolved type to find these behind aliases; `term` admits them too. Check
-%%% clause bodies in the declaration pass: `bsc --api` skips typing bodies.
-%%% Rationale: compiler/features/F50-to-json.md.
+%%% `json:encode` rejects tuples, arrows and invalid UTF-8 binaries, and
+%%% `json:decode` produces none of them. Walk the resolved type to find these
+%%% behind aliases; `term` admits them too. Check clause bodies in the
+%%% declaration pass: `bsc --api` skips typing bodies.
+%%% Rationale: compiler/features/F50-to-json.md, F69-from-json.md.
 
-to_json_refused(Decls, Env) ->
+wire_form_refused(Decls, Env) ->
     TVars = maps:from_list([{{N, length(Ps)}, TV}
                             || {signature, _, N, _, Ps, _, TV} <- Decls]),
     lists:foreach(

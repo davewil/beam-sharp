@@ -50,7 +50,8 @@ an_absent_option_key_is_nothing_and_extras_are_kept_test() ->
     ?assertEqual(validation_error([<<"[\"id\"]">>], <<":nothing | string">>),
                  M:'Parse'(<<"{\"id\":null,\"model\":\"jev\",\"refusal\":null}">>)).
 
-%%% F69.5 — one `T` under all three obligations, and `FromJson` in a pipe
+%%% F69.5 — one string-keyed `T` under all three obligations, and `FromJson`
+%%% in a pipe
 
 round_src() ->
     "module FjRound\n"
@@ -64,7 +65,7 @@ round_src() ->
     "public result<list<int>, ValidationError> Ints(string body)\n"
     "Ints(body) -> FromJson<list<int>>(body)\n".
 
-what_to_json_wrote_from_json_reads_test() ->
+a_string_keyed_type_written_by_to_json_is_read_back_test() ->
     M = build_and_load(round_src(), 'FjRound'),
     U = #{<<"input_tokens">> => 3, <<"output_tokens">> => 9},
     ?assertEqual(U, M:'Read'(M:'Write'(U))),
@@ -131,6 +132,32 @@ binary_and_term_are_refused_test() ->
     ?assertMatch(#{kind := binary, path := []}, the_refusal(over("", "binary"))),
     ?assertMatch(#{kind := term, path := ["[_]"]},
                  the_refusal(over("", "map<string, term>"))).
+
+%% A function and a process have no value in any text, so neither is read.
+an_arrow_and_a_pid_are_refused_test() ->
+    ?assertMatch(#{kind := arrow, path := ["[\"f\"]"]},
+                 the_refusal(over("type W = { \"f\": fn(int) -> int }\n", "W"))),
+    ?assertMatch(#{kind := opaque, path := ["[_]"]}, the_refusal(over("", "list<pid>"))).
+
+%% Each kind's prose says what was found, where, and what to read instead.
+the_prose_names_the_member_and_what_to_read_instead_test() ->
+    Prose = fun(Decls, Type) ->
+        with_src("in.bs", over(Decls, Type), fun(Path, Root) ->
+            {1, _, Err} = bs_test_support:run_cli_split_result(
+                            "--src-root " ++ Root ++ " " ++ Path),
+            Err
+        end)
+    end,
+    Says = fun(Err, Text) -> ?assertNotEqual({Text, nomatch}, {Text, string:find(Err, Text)}) end,
+    Tuple = Prose("type P = { \"at\": (int, int) }\n", "P"),
+    Says(Tuple, "error: Read calls FromJson over a type with no wire form"),
+    Says(Tuple, "in [\"at\"], `(int, int)` is a tuple"),
+    Says(Tuple, "Declare a field set or a list where the"),
+    Says(Prose("type W = { \"f\": fn(int) -> int }\n", "W"),
+         "Leave the function out of the type you read."),
+    Says(Prose("", "list<pid>"), "Leave it out of the type you read"),
+    Says(Prose("", "binary"), "Declare it `string`: a JSON string is always UTF-8."),
+    Says(Prose("", "map<string, term>"), "Name the shape the JSON has").
 
 %% ToJson refuses an open type because it would publish undeclared keys.
 %% Reading one publishes nothing, and it is the shape a reply has.

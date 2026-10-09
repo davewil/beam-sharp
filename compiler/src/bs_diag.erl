@@ -1708,7 +1708,7 @@ message(#{tag := undecodable_member, function := Fn, type := Ty, path := Segs,
      placed_args(D) ++ [Fn, unencodable_at(Segs), M, Ty]};
 message(#{tag := undecodable_member, function := Fn, type := Ty, path := Segs,
           member := M, kind := Kind} = D) ->
-    {placed(D) ++ "error: ~s calls FromJson over a type no JSON decodes to~n"
+    {placed(D) ++ "error: ~s calls FromJson over a type with no wire form~n"
      "  ~s~s~n"
      "  the type is: ~s~n"
      "  ~s~n",

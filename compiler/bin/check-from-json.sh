@@ -36,8 +36,9 @@ input() {
   esac
 }
 
-# Copied from `bsc`'s output on the correct build, 2026-10-09. J4 is the
-# refusal's first line after the position.
+# Written before the build, 2026-10-09, from what `ValidateAs` prints for
+# the same values, and matched by the build unchanged. J4 is the refusal's
+# first line after the position.
 expected_value() {
   case "$1" in
     J1) echo '{"cost" = 2, "id" = :nothing, "model" = "jev"}' ;;
@@ -95,7 +96,8 @@ probe() {
 # --self-test — four defects and one correct form.
 #
 #   decode_only      the decoded term is returned unvalidated
-#   crash            the decoder's exception escapes
+#   crash            the decoder's exception escapes (a line written by hand:
+#                    no build that does this was kept to copy one from)
 #   blames_type      a failed parse is reported as a failed validation
 #   record_admitted  a record target compiles
 # ---------------------------------------------------------------------------

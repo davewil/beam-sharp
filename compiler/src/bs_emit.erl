@@ -1628,8 +1628,8 @@ tuple_part(Components) ->
 -define(VP, {var, ?A, 'Bs@p'}).                 % the path so far, reversed
 
 %% Validators are shared by resolved type, including subtypes. `ToJson` must
-%% validate exact field sets before encoding, but only `ValidateAs` roots get
-%% wrappers returning the untagged language result.
+%% validate exact field sets before encoding, but only a `ValidateAs` or
+%% `FromJson` root gets a wrapper returning the untagged language result.
 validator_table(Fns, Env) ->
     Nodes = inst_nodes(Fns),
     Texts = lists:usort([bs_check:resolve(TE, Env)

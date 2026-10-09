@@ -1,10 +1,11 @@
 # F69 — `FromJson<T>`: JSON text to a wire value
 
-**Status**      **in progress** — built 2026-10-09, 18 tests in `from_json_tests`;
+**Status**      **in progress** — built 2026-10-09, 20 tests in `from_json_tests`;
                 closing is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
                 Q10. Decides nothing; see *One reading of the ticket*
-**Closes**      [ENG-410](https://linear.app/davewil/issue/ENG-410)
+**Closes**      [ENG-410](https://linear.app/davewil/issue/ENG-410), three of its
+                four done-when clauses; see *Left*
 **Unblocks**    the reply side of exemplar 25f; see *Left*
 **Depends on**  F18 (`ValidateAs`), F50 (`ToJson`), F58 (string keys), F59 (open
                 field sets), F61 (the absent option key), F68 (string-literal
@@ -86,7 +87,7 @@ record refusal alone. Reported to David with the build.
 | F69.4 | no `id`, an extra `cost`; `"id": null` | `"id" => :nothing`, `cost` kept; refused at `["id"]` |
 | F69.5 | one exact `T` under `ToJson`, `FromJson` and `ValidateAs`; `body \|> FromJson<T>()` | what `ToJson` wrote, `FromJson` reads; an extra key is refused |
 | F69.6 | `FromJson<Order>`; a record under `"usage"` in a list; `{ Kind: :invoice, .. }` | `undecodable_member`, `record`, `path = []`; `path = ["usage"][_]`; compiles |
-| F69.7 | a tuple field; `binary`; `map<string, term>`; an open type read, then written | `tuple`, `binary`, `term`; read; `unencodable_member`, `open_map` |
+| F69.7 | a tuple field; `binary`; `map<string, term>`; an arrow field; `list<pid>`; each one's prose; an open type read, then written | `tuple`, `binary`, `term`, `arrow`, `opaque`; the member, its path and what to read instead; read; `unencodable_member`, `open_map` |
 | F69.8 | `FromJson<T>` over a type variable; a `binary` argument; two type arguments; `A \| B` open and untagged | `obligation_over_type_variable`; `arg_not_accepted`; `obligation_arity`; `validate_indiscriminable` |
 | F69.9 | `int Read(string s) -> FromJson<int>(s)` | `return_not_declared` |
 | F69.10 | the record refusal's prose | names the function, the record, its path and ticket 78 Q4 |
@@ -99,6 +100,18 @@ record refusal alone. Reported to David with the build.
 - `FromJson` over a `binary`. Q10 says `string`; 25f's `Parse` validates the
   body as a `string` first (25f write-up, friction 9).
 - Which key an absent required key is blamed at. It is `[]`, as F61 recorded.
+- A type no JSON can inhabit for a reason other than the refusals above: an
+  atom other than `:null`, `:true` or `:false`, a name key, a `map<int, V>`.
+  Each compiles and fails at run time, as ticket 78 Q9 decided for the atom.
+  So `FromJson<T>(ToJson<T>(v))` gives `v` back for a string-keyed type and is
+  an error for `type Level = :low | :high`, which `ToJson` writes as `"low"`.
+
+## Found by the review, not fixed here
+
+- A hand-written `{ Kind: :'P.Thing', "a": int }` is refused as "`Thing` is a
+  record". `record_name/1` takes any dotted tag for a minted one.
+- The `validate_indiscriminable` refusal says the function "validates into a
+  union" and does not name `FromJson`.
 
 ## Left
 
@@ -112,7 +125,10 @@ and it is met in part:
 - **Not done.** `type Json` and `using :json { term encode(term value) }` are
   still in `index.bs`, for the request side. Moving `Body` to `ToJson` needs a
   parameter of the recursive JSON value type, which hangs the compiler
-  ([ENG-609](https://linear.app/davewil/issue/ENG-609), on master too), and a
+  ([ENG-609](https://linear.app/davewil/issue/ENG-609), on master too), and
+  whose validator refuses every JSON object
+  ([ENG-552](https://linear.app/davewil/issue/ENG-552): `FromJson<Json>` on
+  `{}` is refused at `[]`, where `[[1]]` is read), and a
   `map<string, QuestionWire>` built from pairs, which B# cannot do without a
   foreign call and a second validation
   ([ENG-454](https://linear.app/davewil/issue/ENG-454)). 25f's friction 9 has

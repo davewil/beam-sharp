@@ -572,6 +572,9 @@ things stop that today:
   parameter of that type does not finish compiling: `public Json F(Json j)`, `F(j) -> j` was
   killed after 15 seconds, on master as well as on this build. Filed as a defect,
   [ENG-609](https://linear.app/davewil/issue/ENG-609).
+  Behind that, the type's validator refuses every JSON object: `FromJson<Json>` on `{}` returns
+  a `ValidationError` at `[]`, where `[[1]]` is read
+  ([ENG-552](https://linear.app/davewil/issue/ENG-552)).
 - `"questions"` is a `map<string, QuestionWire>` built from a list of pairs, which is the first
   item again from the other side: `maps:from_list` hands back `map<term, term>`, so `Body` would
   return a `result` for a failure that cannot happen, twice (the questions, and each `criteria`).
