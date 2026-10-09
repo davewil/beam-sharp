@@ -1747,8 +1747,8 @@ The language's **name** is also open. `beam-sharp` is a working title.
 
 ## Appendix: the construct index
 
-**The corpus gate names 65 capabilities and fails by name when one has no example to look
-at.** All 65 are below, in the gate's own wording, so the two lists can be diffed by machine
+**The corpus gate names 66 capabilities and fails by name when one has no example to look
+at.** All 66 are below, in the gate's own wording, so the two lists can be diffed by machine
 — `compiler/bin/check-tour.sh` does exactly that, and this table is red the day the compiler
 grows a capability the tour has not met.
 
@@ -1809,6 +1809,7 @@ grows a capability the tour has not met.
 | a codegen obligation instantiated | `examples/Intake/intake.bs` | 15 |
 | ValidationError as a declared type | `examples/Intake/intake.bs` | 15 |
 | a string parsed into a named set | `examples/Levels/levels.bs` | 15 |
+| JSON text read into a wire type | `examples/Stream/stream.bs` | 15 |
 | a string resolved to an atom the VM has | `examples/Names/names.bs` | 15 |
 | a binary pattern | `examples/Frame/frame.bs` | 10 |
 | a byte-or-wider segment width | `examples/Frame/frame.bs` | 10 |
