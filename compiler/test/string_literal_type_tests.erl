@@ -245,3 +245,22 @@ a_catch_all_over_an_untagged_open_member_is_legal_test() ->
                        "Go({ \"a\": _ }) -> 1\n"
                        "Go(_) -> 0\n", 'Ev15'),
     ?assertEqual(0, M:'Go'(#{<<"b">> => <<"x">>})).
+
+%% F68.16 — a tag key with several literals left gets one head per literal, so
+%% the refusal names each case and no pasted head is a catch-all in disguise.
+each_leftover_literal_gets_its_own_head_test_() ->
+    {timeout, 60,
+     fun() ->
+         bs_test_support:with_src("ev16.bs",
+             "module Ev16\n"
+             "type S = { \"type\": \"stop\" | \"halt\" | \"end\", \"n\": int }\n"
+             "public atom Kind(S e)\n"
+             "Kind({ \"type\": \"stop\" }) -> :stop\n"
+             "Kind(_) -> :other\n",
+             fun(Path, _Out) ->
+                 {_, Output} = bs_test_support:run_cli_result(Path),
+                 ?assertNotEqual(nomatch, string:find(Output, "\"type\": \"halt\" }) -> ...")),
+                 ?assertNotEqual(nomatch, string:find(Output, "\"type\": \"end\" }) -> ...")),
+                 ?assertEqual(nomatch, string:find(Output, "\"type\": _"))
+             end)
+     end}.

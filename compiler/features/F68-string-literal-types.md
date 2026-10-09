@@ -1,6 +1,6 @@
 # F68 — a string literal is a type: `{ "type": "ping", .. }`
 
-**Status**      **in progress** — built 2026-10-08 and 2026-10-09, 16 tests in
+**Status**      **in progress** — built 2026-10-08 and 2026-10-09, 17 tests in
                 `string_literal_type_tests`; closing is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
                 Q5 and [ticket 117](../../wayfinder/issues/117-a-literal-tagged-field-set-and-the-catch-all.md),
@@ -83,7 +83,8 @@ of it is refused as it is for `:a | :b` (ticket 117 Q2).
   closed, whether or not it carries `..`.
 - `bs_types:m_hd/2` and `m_pat/1`: a key that holds exactly one literal prints
   it, in a residual head and in a "not covered" refusal, `{ "type": "ping" }`.
-  Both printed `{ "type": _ }`, which names no member. `key_str/1` writes the
+  Both printed `{ "type": _ }`, which names no member. A key with several
+  literals left gets one head per literal. `key_str/1` writes the
   lexer's whole set of escapes, so a literal with a newline prints as source.
 - `bs_check`: `resolve/3` reads `t_str`; `pattern_type/3` and `type_of/3` give
   a literal its singleton, where both said `string`; the foreign-return check
@@ -113,15 +114,18 @@ of it is refused as it is for `:a | :b` (ticket 117 Q2).
 | F68.10 | a foreign function declared to return `Level` | `"low"` passes; `"mid"` crashes `case_clause` |
 | F68.11 | `Rank(l) when l == "low"` and `when l == "high"` over `Level` | exhaustive; runs |
 | F68.12 | a missing literal holding `"` and a newline, at `bsc` | the head prints `"a\"q\n"`, escaped as source |
+| F68.13 | a clause returns `"none"` where `int` is declared, at `bsc` | the offered signature is `public int \| string Pick(bool b)` |
 | F68.14 | `Kind` naming one member, then `Kind(_)`, over an open tagged member and a closed one with an `int` field, at `bsc` | `catch_all_over_closed`, naming both leftover heads by their tag |
 | F68.15 | `Go(_)` over `{ "a": int, .. } \| { "b": string, .. }` | compiles: an untagged open member stays open |
-| F68.13 | a clause returns `"none"` where `int` is declared, at `bsc` | the offered signature is `public int \| string Pick(bool b)` |
+| F68.16 | `{ "type": "stop" \| "halt" \| "end", "n": int }` with `"stop"` named, then `Kind(_)`, at `bsc` | one head per literal left, `"halt"` and `"end"`; none with `_` at the tag |
 
 ## Out of scope
 
 - Projection by a string key: deferred by ticket 78 Q6.
-- A literal-tagged member with more than one literal left at its key prints
-  the key's value as `_` in a residual, as any other value does.
+- A `switch` arm's `_` refused over a residual prints its leftovers as function
+  heads and can omit a member (measured over `ValidateAs<Ping | Stop>(t) switch`,
+  and over two records the same way). The printer's fault, and older than
+  this feature; F68 widens where it is met.
 
 ## Left
 

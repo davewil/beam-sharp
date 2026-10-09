@@ -487,10 +487,11 @@ m_open(Ms)  -> lists:any(fun({dom, _, _}) ->
                                  %% fields hold: the tag names the case (ticket
                                  %% 101). A field set closes the same way on a
                                  %% key that holds only string literals, open
-                                 %% or not (ticket 117 Q1).
+                                 %% or not (ticket 117 Q1). Otherwise an open
+                                 %% member admits arbitrary extra fields, and a
+                                 %% closed one is as open as its fields.
                                  discriminator(M) =:= none
                                      andalso not literal_tagged(Fs)
-                                     %% Open members admit arbitrary extra fields.
                                      andalso (Kind =:= open orelse
                                               lists:any(fun is_open/1, maps:values(Fs)))
                          end, Ms).
@@ -1742,27 +1743,37 @@ sp_pat({P, {open, _}}, Names, Seen)      ->
      || C <- combos([texts(hd_parts(E, Names, nested, Seen)) || E <- P])].
 
 ms_hd(top, _Names)    -> [{binder, binder("m")}];
-ms_hd(Members, Names) -> [m_hd(M, Names) || M <- Members].
+ms_hd(Members, Names) -> lists:append([m_hd(M, Names) || M <- Members]).
 
 %% Prefer an in-scope record name; otherwise use its Kind discriminator. Domain
 %% maps yield annotated binders, which have no legal clause head.
 m_hd({dom, K, V}, _Names) ->
-    {annotated,
-     binder("m") ++ ": map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">"};
+    [{annotated,
+      binder("m") ++ ": map<" ++ to_string(K) ++ ", " ++ to_string(V) ++ ">"}];
 m_hd({_Kind, Fields}, Names) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                tuples := [], lists := [], maps := [], bins := [], opaques := []}} ->
             case maps:find(Tag, Names) of
-                {ok, Src} -> {shape, Src ++ " " ++ binder(initial(Src))};
-                error     -> {shape, "{ Kind: " ++ atom_str(Tag) ++ " }"}
+                {ok, Src} -> [{shape, Src ++ " " ++ binder(initial(Src))}];
+                error     -> [{shape, "{ Kind: " ++ atom_str(Tag) ++ " }"}]
             end;
         _ ->
+            %% F68: one head per literal a tag key still holds, so each names a
+            %% case. A head with `_` at the tag would take them all.
             Ks = lists:sort(maps:keys(Fields)),
-            {shape, "{ " ++ string:join([key_str(K) ++ ": " ++ tag_pat(maps:get(K, Fields))
-                                         || K <- Ks],
-                                        ", ") ++ " }"}
+            [{shape, "{ " ++ string:join(Fs, ", ") ++ " }"}
+             || Fs <- combos([[key_str(K) ++ ": " ++ V || V <- tag_pats(maps:get(K, Fields))]
+                              || K <- Ks])]
     end.
+
+%% The spellings a field's value takes in a head: each literal of a key that
+%% holds only string literals, and `_` for anything else.
+tag_pats(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := [],
+           lists := [], maps := [], bins := [{finite, Strs}], opaques := [], funs := []}) ->
+    [key_str(S) || S <- Strs];
+tag_pats(_) ->
+    ["_"].
 
 %% F68: a key that holds exactly one string literal is the member's tag, and
 %% the head has to say it: `{ "type": _ }` printed once per member names no

@@ -101,5 +101,6 @@ refused naming the record. A tuple is not: a tuple residual with an unbounded pa
   of literals was already closed, and `(:ok, int)` stays open. `result<T, E>` is not a tagged
   pair here: it is `T | (:error, E)`, so its residual after the error clause is a bare `T` and
   this ticket does not reach it. Not decided: a foreign struct (no B# tag, so open), and ENG-407's
-  string-literal tags. Built — ENG-402 (`2c6783c`).
+  string-literal tags, which [117](issues/117-a-literal-tagged-field-set-and-the-catch-all.md)
+  decided on 2026-10-09. Built — ENG-402 (`2c6783c`).
 ```

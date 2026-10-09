@@ -96,7 +96,7 @@ has its own string as its type, which is what lets `{ "type" = "ping" }` build a
 `"a" | "b"` and the `_` is refused (measured):
 
 ```
-Use/use.bs:5:28: error: Use discards cases the compiler can name
+Use/use.bs:6:28: error: Use discards cases the compiler can name
   every value left here comes from a type you declared, so `_`
   hides a case rather than admitting an unknown one:
     "b"
