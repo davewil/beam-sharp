@@ -7,6 +7,10 @@
 //         -> {"id" = 7, "type" = "message_stop"}
 //     bsc --src-root examples examples/Stream Rank '"high"'
 //         -> 2
+//     bsc --src-root examples examples/Stream Parse '"{\"type\":\"ping\",\"n\":1}"'
+//         -> {"n" = 1, "type" = "ping"}
+//     bsc --src-root examples examples/Stream Parse '"{\"type\":"'
+//         -> (:error, {Kind = :'ValidationError', Expected = "JSON", Path = []})
 //
 // THE PROPERTY WORTH LOOKING AT is that `Kind` has no catch-all. A streaming
 // API's `message_stop` and `ping` events carry nothing but `"type"`, and every
@@ -37,6 +41,13 @@ Kind({ "type": "ping" })                -> :ping
 public result<Event, ValidationError> Read(term doc)
 
 Read(doc) -> ValidateAs<Event>(doc)
+
+// `FromJson` starts one step earlier, at the text: the platform's decoder,
+// then the same check. Text that is not JSON is a `ValidationError` too, at
+// the top, expecting `"JSON"` (F69, ticket 78 Q10).
+public result<Event, ValidationError> Parse(string text)
+
+Parse(text) -> FromJson<Event>(text)
 
 // A literal on its own is a type too. `string` stays open: over it these two
 // clauses would still need a `_`.

@@ -671,6 +671,17 @@ jobs:
         working-directory: compiler
         run: ./bin/check-to-json.sh
 
+      # F69 / ENG-410. Four stubs: the decoded term handed back unvalidated,
+      # the decoder's exception escaping, a failed parse reported as a failed
+      # validation, and a record target that compiles.
+      - name: The from-json gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-from-json.sh --self-test
+
+      - name: '`FromJson<T>` decodes then validates, and refuses a record'
+        working-directory: compiler
+        run: ./bin/check-from-json.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

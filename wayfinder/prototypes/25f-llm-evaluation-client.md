@@ -1,7 +1,9 @@
 # PROTOTYPE 25f — exemplar: an LLM evaluation client (ReqLLM's `evaluate/4` against Jev)
 
 > **Throwaway.** Ticket [25](../issues/25-exemplar-programs.md), exemplar 6. Written against the
-> surface as it stands after F55 (2026-09-24).
+> surface as it stands after F55 (2026-09-24). **The reply side was rewritten on 2026-10-09**
+> onto ticket 78's wire types and `FromJson<T>` (F69): `index.bs`, `evaluate.bs` and `decode.bs`
+> below are the rewritten files, and each friction says what the rewrite did to it.
 > The run is [`25f_replay.erl`](25f_replay.erl): it drives the module `bsc` compiles from this
 > write-up, serving it the wire bodies ReqLLM's own test suite serves. The compiler measurements
 > are [`25f_surface_probe.sh`](25f_surface_probe.sh). Everything claimed below was executed.
@@ -48,7 +50,7 @@ to a `.beam` and
 |---|---|
 | `typesafe:jev-latest`, ReqLLM's TypeSafe fixture | an `Evaluation` with three answers; `Decide` gives `Queue = :billing`, `Page = true` |
 | `openrouter:typesafe/jev-1.13`, ReqLLM's OpenRouter fixture (extra `id`, `provider`, `usage.cost`) | the same answers; the body sent carried `"provider":{"zdr":true}` |
-| OpenRouter, `200` with `{"answers":{}}`, ReqLLM's own malformed case | `(:error, (:malformed, "model"))` |
+| OpenRouter, `200` with `{"answers":{}}`, ReqLLM's own malformed case | `(:error, (:malformed, e))`, `e` a `ValidationError` with `Path = []` and the whole of `ReplyWire` as `Expected` (friction 9) |
 | TypeSafe, `401` | `(:error, (:status, 401))` |
 | `anthropic:claude-haiku-4-5` | `(:error, (:unknown_model, …))`, and nothing was sent |
 
@@ -58,8 +60,15 @@ for the yes/no question. The replay prints it, so a reader can compare it with
 
 So the verdict is different from 25a–25e's. It is the first of ticket 25's exemplars that the
 compiler builds and runs unmodified. The language can write this client today. The cost
-is in *how*. 101 of the module's 206 non-blank lines are `decode.bs`, which reads one JSON
-object; the domain logic, `route.bs`, is 24. The friction list below accounts for that gap.
+was in *how*. As first written, 101 of the module's 206 non-blank lines were `decode.bs`, which
+reads one JSON object; the domain logic, `route.bs`, is 24. The friction list below accounts for
+that gap.
+
+**2026-10-09: the reply side is rewritten, and `decode.bs` is 20 lines of 130.** Ticket 78's
+answers are all built (F57, F58, F59, F61, F68, F69), so the reply is three wire types and one
+`FromJson<ReplyWire>`. The same five cases run and return the same values, except the malformed
+one, which now carries a `ValidationError` where it carried the missing key's name. The request
+side is as it was. Friction 9 is what the rewrite found.
 
 ---
 
@@ -113,15 +122,22 @@ record HttpRequest { Url: string, Token: string, Body: binary }
 type HttpResponse = (int, binary)
 type Send = fn(HttpRequest) -> HttpResponse
 
-type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, string)
+type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, ValidationError)
 
-// What `json:decode/1` can hand back. `term` is the honest answer and is
-// refused: it absorbs the failure channel.
+// The reply, key for key as the wire writes it. Open, because OpenRouter
+// adds `id`, `provider` and `usage.cost`, and each answer carries more than
+// this program reads.
+type UsageWire  = { "input_tokens": int, "output_tokens": int, .. }
+type AnswerWire = { "type": "choice", "choice": string, "confidence": int | float, .. }
+                | { "type": "score", "score": int | float, "confidence": int | float, .. }
+                | { "type": "noul", "noul": int | float, .. }
+type ReplyWire  = { "model": string, "answers": map<string, AnswerWire>, "usage": UsageWire, .. }
+
+// What the model is shown, and what `json:encode/1` takes.
 type Json = map<term, term> | list<term> | binary | int | float | atom
 
 using :json {
     term encode(term value)
-    result<Json, foreign_error> decode(binary text)
 }
 
 using :erlang {
@@ -130,8 +146,7 @@ using :erlang {
 
 using :maps {
     map<term, term> from_list(list<(binary, term)> pairs)
-    list<term> to_list(map<term, term> m)
-    (:ok, term) | :error find(binary key, map<term, term> m)
+    list<term> to_list(map<string, AnswerWire> m)
 }
 ```
 
@@ -141,10 +156,14 @@ doing the job a Req plug does, and it is why the replay can drive the module wit
 A production `Send` over `:httpc` is not written: `httpc` wants charlist header names, and that is
 a separate exemplar's problem.
 
-**`Json` is six members because `term` is refused.** `json:decode/1` raises on bad input, so
-the declaration asks for the wrapper with `foreign_error`. The honest success type is `term`, and
-`result<term, foreign_error>` is refused because `term` absorbs the failure member (§7, ticket
-64). The fix is to list what the platform decoder can return. See friction 5.
+**The reply is three wire types.** Their keys are the wire's own strings (F58), they are open
+(F59) because OpenRouter sends more than TypeSafe does, and an answer is told apart by the value
+of its `"type"` (F68). `FromJson<ReplyWire>` (F69) checks a reply against them in one call.
+
+**`Json` stays, for the request.** It was first declared as what `json:decode/1` returns, six
+members because `result<term, foreign_error>` is refused (friction 5). `FromJson` removed that
+declaration. The type is still what `state` is and what `:json.encode` takes, because the request
+side is not rewritten: see friction 9.
 
 ---
 
@@ -235,11 +254,15 @@ Read((status, _))                                       -> (:error, (:status, st
 
 private result<Evaluation, EvalError> Parse(binary body)
 
-Parse(body) -> :json.decode(body) switch {
-    (:error, _) => (:error, (:malformed, "the body is not JSON")),
-    doc         => Object(doc) |?> Decode()
+Parse(body) -> (ValidateAs<string>(body) |?> FromJson<ReplyWire>()) switch {
+    (:error, e) => (:error, (:malformed, e)),
+    reply       => Decode(reply)
 }
 ```
+
+`Parse` is two checks and one arm for both failures. `FromJson` takes a `string` and an HTTP body
+is a `binary`, so `ValidateAs<string>` goes first; both fail with a `ValidationError`, so the
+valve joins them and `(:malformed, e)` carries whichever it was.
 
 The valve fits the outer chain. `ParseSpec` fails as a value, and `Call` is declared over `Model`,
 not `result<Model, EvalError>`, because `|?>` has already removed the failure (§8). That is
@@ -255,147 +278,50 @@ missing heads. The second clause is there because those two ranges are the error
 ## `decode.bs`
 
 ```csharp
-// Reading a JSON object is one `:maps.find` per key and one validation per
-// value, because B# has no spelling for a lowercase string key.
-private result<Evaluation, EvalError> Decode(map<string, term> doc)
+// `FromJson<ReplyWire>` has validated the whole reply, so what is left is
+// copying it into the domain records, one clause head per object.
+private result<Evaluation, EvalError> Decode(ReplyWire r)
 
-Decode(doc) -> (Text("model", doc), Obj("answers", doc), Obj("usage", doc)) switch {
-    ((:error, e), _, _) => (:error, e),
-    (_, (:error, e), _) => (:error, e),
-    (_, _, (:error, e)) => (:error, e),
-    (model, answers, usage) => Assemble(model, answers, usage)
-}
+Decode({ "model": model, "answers": answers, "usage": usage }) ->
+    ValidateAs<list<(string, AnswerWire)>>(:maps.to_list(answers)) switch {
+        (:error, e) => (:error, (:malformed, e)),
+        pairs       => Evaluation { Model = model, Usage = Tokens(usage),
+                                    Answers = [(name, One(a)) for (name, a) in pairs] }
+    }
 
-private result<Evaluation, EvalError> Assemble(string model, map<string, term> answers, map<string, term> usage)
+private Usage Tokens(UsageWire u)
 
-Assemble(model, answers, usage) -> (Answers(:maps.to_list(answers)), Tokens(usage)) switch {
-    ((:error, e), _) => (:error, e),
-    (_, (:error, e)) => (:error, e),
-    (named, u)       => Evaluation { Model = model, Answers = named, Usage = u }
-}
-
-private result<Usage, EvalError> Tokens(map<string, term> usage)
-
-Tokens(usage) -> (Int("input_tokens", usage), Int("output_tokens", usage)) switch {
-    ((:error, e), _) => (:error, e),
-    (_, (:error, e)) => (:error, e),
-    (i, o)           => Usage { InputTokens = i, OutputTokens = o }
-}
-
-private result<list<(string, Answer)>, EvalError> Answers(list<term> pairs)
-
-Answers([]) -> []
-Answers([pair, ..rest]) -> (Named(pair), Answers(rest)) switch {
-    ((:error, e), _) => (:error, e),
-    (_, (:error, e)) => (:error, e),
-    (one, more)      => [one, ..more]
-}
-
-private result<(string, Answer), EvalError> Named(term pair)
-
-Named(pair) -> ValidateAs<(string, map<string, term>)>(pair) switch {
-    (:error, _)    => (:error, (:malformed, "an answer is not an object")),
-    (name, answer) => One(answer) |?> Tag(name)
-}
-
-private (string, Answer) Tag(Answer a, string name)
-
-Tag(a, name) -> (name, a)
+Tokens({ "input_tokens": i, "output_tokens": o }) -> Usage { InputTokens = i, OutputTokens = o }
 
 // The wire's `type` names the answer. `noul` is the boolean.
-private result<Answer, EvalError> One(map<string, term> a)
+private Answer One(AnswerWire a)
 
-One(a) -> Text("type", a) switch {
-    "choice"    => ChosenFrom(a),
-    "score"     => ScoredFrom(a),
-    "noul"      => LikelyFrom(a),
-    (:error, e) => (:error, e),
-    other       => (:error, (:malformed, other))
-}
-
-private result<Answer, EvalError> ChosenFrom(map<string, term> a)
-
-ChosenFrom(a) -> (Text("choice", a), Number("confidence", a)) switch {
-    ((:error, e), _) => (:error, e),
-    (_, (:error, e)) => (:error, e),
-    (c, p)           => Chosen { Choice = c, Confidence = p }
-}
-
-private result<Answer, EvalError> ScoredFrom(map<string, term> a)
-
-ScoredFrom(a) -> (Number("score", a), Number("confidence", a)) switch {
-    ((:error, e), _) => (:error, e),
-    (_, (:error, e)) => (:error, e),
-    (s, p)           => Scored { Score = s, Confidence = p }
-}
-
-private result<Answer, EvalError> LikelyFrom(map<string, term> a)
-
-LikelyFrom(a) -> Number("noul", a) switch {
-    (:error, e) => (:error, e),
-    p           => Likely { Probability = p }
-}
-
-// One getter per value type: `ValidateAs<T>` inside `Get<T>` is refused,
-// because an obligation cannot be generated for a type nobody has chosen.
-private result<map<string, term>, EvalError> Obj(string key, map<string, term> m)
-
-Obj(key, m) -> :maps.find(key, m) switch {
-    :error   => (:error, (:malformed, key)),
-    (:ok, v) => Object(v)
-}
-
-private result<map<string, term>, EvalError> Object(term t)
-
-Object(t) -> ValidateAs<map<string, term>>(t) switch {
-    (:error, _) => (:error, (:malformed, "expected an object")),
-    m           => m
-}
-
-private result<string, EvalError> Text(string key, map<string, term> m)
-
-Text(key, m) -> :maps.find(key, m) switch {
-    :error   => (:error, (:malformed, key)),
-    (:ok, v) => ValidateAs<string>(v) switch {
-        (:error, _) => (:error, (:malformed, key)),
-        s           => s
-    }
-}
-
-private result<int, EvalError> Int(string key, map<string, term> m)
-
-Int(key, m) -> :maps.find(key, m) switch {
-    :error   => (:error, (:malformed, key)),
-    (:ok, v) => ValidateAs<int>(v) switch {
-        (:error, _) => (:error, (:malformed, key)),
-        n           => n
-    }
-}
+One({ "type": "choice", "choice": c, "confidence": p }) -> Chosen { Choice = c, Confidence = Widen(p) }
+One({ "type": "score", "score": s, "confidence": p })   -> Scored { Score = Widen(s), Confidence = Widen(p) }
+One({ "type": "noul", "noul": p })                      -> Likely { Probability = Widen(p) }
 
 // JSON writes 1.0 as 1, so a probability arrives as either part.
-private result<float, EvalError> Number(string key, map<string, term> m)
-
-Number(key, m) -> :maps.find(key, m) switch {
-    :error   => (:error, (:malformed, key)),
-    (:ok, v) => ValidateAs<int | float>(v) switch {
-        (:error, _) => (:error, (:malformed, key)),
-        n           => Widen(n)
-    }
-}
-
 private float Widen(int | float n)
 
 Widen(int i)   -> Float.FromInt(i)
 Widen(float f) -> f
 ```
 
-**This is where the 101 lines are.** Each value is read in two steps: `:maps.find` for the key,
-and a `ValidateAs` for the type. Most of the file is failures being passed along by hand. See
-frictions 2, 3 and 4.
+**This was where 101 lines were; it is 20.** As first written, each value was read in two steps,
+`:maps.find` for the key and a `ValidateAs` for the type, and most of the file passed failures
+along by hand (frictions 2, 3 and 4). Now `FromJson<ReplyWire>` has checked every key and value
+before `Decode` is called, so `Tokens` and `One` are total: a clause head per object, no failure
+to forward. `One` has no catch-all, and a fourth answer type added to `AnswerWire` makes it fail
+to compile.
 
-`Widen` is the part that reads well. JSON writes `1.0` as `1`, so `confidence` can decode as an
-`int`. `ValidateAs<int | float>` accepts either, and F53's type prefix takes the union apart in two
-clauses with no catch-all.
+One failure arm is left, and it cannot fire. `answers` is a `map<string, AnswerWire>`, and the
+only way to walk a `map<K, V>` today is OTP's `maps:to_list`, whose declared return may promise no
+more than `list<term>`. So the pairs are validated a second time to get their type back. See
+friction 9.
+
+`Widen` still reads well. JSON writes `1.0` as `1`, so `confidence` can decode as an `int`. The
+wire type says `int | float`, and F53's type prefix takes the union apart in two clauses with no
+catch-all.
 
 ---
 
@@ -491,6 +417,10 @@ What works today is the pair list and `:maps.find`, and it costs the 101 lines a
 > `decode.bs` is not rewritten yet: the `"type"`-tagged answers need string-literal types
 > ([ENG-407](https://linear.app/davewil/issue/ENG-407)).
 
+> **2026-10-09: `decode.bs` is rewritten.** String-literal types landed as F68 and `FromJson<T>`
+> as F69 ([ENG-410](https://linear.app/davewil/issue/ENG-410)). The reply's keys are named in
+> `ReplyWire`, `AnswerWire` and `UsageWire`, and no `:maps.find` is left in the module.
+
 - **Waits on a decision.** Ticket 77 decided the encode direction is the platform's encoding of
   the erased record, `Kind` and PascalCase field names included. Ticket 78 (open, ENG-373) is the
   decode direction, and its program is a B# server reading its own records back. 25f is the case
@@ -507,6 +437,8 @@ parameter added it is `obligation_over_type_variable`, because a codegen obligat
 type (§9). So `decode.bs` has `Obj`, `Text`, `Int` and `Number`, which are the same function four
 times.
 
+- **2026-10-09: gone.** `Obj`, `Text`, `Int` and `Number` are deleted. A wire type names each
+  key's type once, and the validator `FromJson` generates does the four getters' work.
 - Both refusals are correct as the rules stand. What would remove the duplication is `Map.Get`
   returning the found value, with one `ValidateAs` written at each call site. That is ticket 48's
   unbuilt operation again, not a new capability.
@@ -524,6 +456,10 @@ conditions, though. Every arm is the same condition, *did this one fail*, so `co
 help. What the program wants is Elixir's `with` over several bindings, or an applicative
 combine.
 
+- **2026-10-09: none left in this module.** All 15 forwarding arms are deleted, because nothing
+  after `FromJson` can fail: the reply is validated whole, in one place. The question stands for a
+  program that combines values from separate sources (ticket 92,
+  [ENG-433](https://linear.app/davewil/issue/ENG-433)); this module no longer asks it.
 - Unasked. Ticket 31 decided the valve is the middleware mechanism for a single threaded value;
   combining independent fallible values is a different question, and this is the first exemplar
   to ask it at width three.
@@ -537,6 +473,9 @@ reading OTP's `json` source rather than by being told.
 
 - Ticket 64 (open, ENG-254) is this problem. 25f is a second program for it, and it is the most
   ordinary foreign call in the module.
+- **2026-10-09: the declaration is deleted.** `FromJson<T>` (F69) decodes under a catch and
+  validates, so the module no longer declares `json:decode`. Ticket 64's question is untouched;
+  this module stopped asking it.
 
 ### 6. A catch-all over a union of records is admitted when it should not be — a defect
 
@@ -609,12 +548,57 @@ Recorded because 25a–25e had no floats, and this protocol is full of them: eve
 confidence and score. F51's `float`, `Float.FromInt` and a float guard (`l.Probability >= 0.8`)
 covered all of it. The one wrinkle, `1` versus `1.0` on the wire, is `Widen`, which is four lines.
 
+### 9. What the 2026-10-09 rewrite found
+
+The reply side moved onto wire types and `FromJson<T>`. Four things stood in the way or were left
+worse. Each was measured on the rewritten module or on a scratch module beside it.
+
+**A `map<K, V>` cannot be walked or built in B#.** `answers` is a `map<string, AnswerWire>`. There
+is no `Map` operation that lists its entries and no pattern form for it, so `Decode` calls OTP's
+`maps:to_list`. A foreign return may promise only what one guard decides, so it is declared
+`list<term>`, and `ValidateAs<list<(string, AnswerWire)>>` gets the type back with a failure arm
+that cannot fire. Declaring the return `list<(string, AnswerWire)>` is refused, correctly.
+
+- The `List` and `Map` rows are decided and unbuilt
+  ([ENG-454](https://linear.app/davewil/issue/ENG-454)); the pattern form is
+  [ENG-323](https://linear.app/davewil/issue/ENG-323).
+
+**The request side is not rewritten, and `Json` and `using :json` are still here.** Ticket 78 Q7
+writes it as `ToJson<RequestWire>({ "model" = m.Id, "state" = state, "questions" = qs })`. Two
+things stop that today:
+
+- `state` is any JSON value, whose type is ticket 09's
+  `:null | bool | int | float | string | list<Json> | map<string, Json>`. A function with a
+  parameter of that type does not finish compiling: `public Json F(Json j)`, `F(j) -> j` was
+  killed after 15 seconds, on master as well as on this build. Filed as a defect,
+  [ENG-609](https://linear.app/davewil/issue/ENG-609).
+- `"questions"` is a `map<string, QuestionWire>` built from a list of pairs, which is the first
+  item again from the other side: `maps:from_list` hands back `map<term, term>`, so `Body` would
+  return a `result` for a failure that cannot happen, twice (the questions, and each `criteria`).
+
+So `Body` still builds `map<term, term>` from pairs and calls `:json.encode`, and `ToJson` checks
+nothing about the request.
+
+**A missing key is blamed at the top.** ReqLLM's malformed case, `{"answers":{}}`, used to return
+`(:malformed, "model")`. It now returns a `ValidationError` with `Path = []` and `Expected` holding
+the whole of `ReplyWire`, 299 characters. The validator refuses an object with a key missing at
+the object, so the caller is not told which key. F61 recorded this rule (`{ Model = 1 }` is blamed
+at `.Model`; an absent required key at `[]`); this is the first exemplar to meet it.
+
+- Unasked: whether an absent required key is blamed at its own path.
+
+**`FromJson` takes a `string`, and a body is a `binary`.** `Parse` validates the body as a
+`string` first. It is one stage in a valve, and both failures are a `ValidationError`, so it costs
+no arm.
+
+- Unasked. Ticket 78 Q10 says `FromJson<T>(string)`.
+
 ## What this says to the tickets ticket 25 serves
 
 - **Ticket 12 (closed residuals):** zero forced closes, because of friction 6. Two deliberate ones
   (`Queue`, `Page`, three members named in each). Naming them read better, since a fourth `Answer`
   kind should make both functions fail to compile.
-- **Ticket 17 job 1 (ladders):** six tuple switches of width two or three, all error forwarding.
+- **Ticket 17 job 1 (ladders), as first written:** six tuple switches of width two or three, all error forwarding (none since the 2026-10-09 rewrite).
   They are not the unrelated-conditions ladder 17 asked about. `cond` would not help; see friction
   4.
 - **Ticket 22 (opinionated grammar vs a gateway):** a closed provider union reads well at two, and

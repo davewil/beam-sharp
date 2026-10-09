@@ -2387,10 +2387,10 @@ Incs(xs) -> Map(xs, Inc/1)
 Instantiation is matching, not constraint solving — which is what keeps the cost sane, and why the
 three bullets above are load-bearing rather than preferences.
 
-**User code never writes a type argument.** Only three compiler-known names take an explicit one:
-`ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>`. The fourth name in the closed set, `ToExistingAtom`, is
-written bare, since its result is fixed, and its bracket is refused. So `<` opens a bracket after one
-of those four names and is comparison everywhere else — a lexer rule on a closed set, with no
+**User code never writes a type argument.** Only four compiler-known names take an explicit one:
+`ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>`, `FromJson<T>`. The fifth name in the closed set,
+`ToExistingAtom`, is written bare, since its result is fixed, and its bracket is refused. So `<`
+opens a bracket after one of those five names and is comparison everywhere else — a lexer rule on a closed set, with no
 lookahead and no turbofish.
 <!-- decided by ticket 28, measured against four grammar variants; same ticket cleared `..` for list rest -->
 
@@ -2626,12 +2626,12 @@ is spelled the way you would reach that place: `".Value"` for a field, `"[0]"` f
 key. An empty path means the term itself was wrong. A map entry whose key has no literal — a
 tuple, a binary that is not text — is not named: the blame stops at the map.
 
-The bracket is admitted after **exactly four** compiler-known names — `ValidateAs<T>`,
-`ParseAtom<T>`, `ToJson<T>` and `ToExistingAtom` — and after nothing else, which is what keeps `<`
-a comparison everywhere in the language. All four are built. `ToExistingAtom` takes no type
+The bracket is admitted after **exactly five** compiler-known names — `ValidateAs<T>`,
+`ParseAtom<T>`, `ToJson<T>`, `FromJson<T>` and `ToExistingAtom` — and after nothing else, which is
+what keeps `<` a comparison everywhere in the language. All five are built. `ToExistingAtom` takes no type
 argument, so what is written in its bracket is refused; the name stays in the closed set so that
 `<` after it is never read as a comparison.
-<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28, with `ToJson` by 16 §4; built as F18, F39, F50 and F54 -->
+<!-- decided by tickets 11 §2, 15 §2, 27 §8 and 28, with `ToJson` by 16 §4 and `FromJson` by 78 Q10; built as F18, F39, F50, F54 and F69 -->
 
 ### `ParseAtom<T>` — a string to a member of a named set
 
@@ -2950,6 +2950,39 @@ Read(doc) -> ValidateAs<ReplyWire>(doc)
 
 A reply with no `id` comes back with `"id" => :nothing`, one with an `id` keeps its string, and a
 `null` refusal stays `:null`.
+
+### `FromJson<T>` — JSON text to a wire value
+
+**`FromJson<T>(text)` is the platform's decoder, then `ValidateAs<T>`.** It takes a `string` and
+returns `result<T, ValidationError>`. Text that is not JSON is the failure too, with `Path = []`
+and `Expected = "JSON"`, so one arm answers a bad parse and a wrong shape. It converts what
+`ValidateAs` converts and nothing more: an absent key at an `option<T>` field is `:nothing`, and
+`null` stays `:null`. **shipped** — F69.
+<!-- decided by ticket 78 Q10; built by F69 -->
+
+```csharp
+module Replies2
+
+type ReplyWire = { "id": option<string>, "model": string, "refusal": string | :null, .. }
+
+public result<ReplyWire, ValidationError> Parse(string body)
+Parse(body) -> FromJson<ReplyWire>(body)
+```
+
+`T` is a type JSON can decode to. A tuple, an arrow, `binary` and `term` are refused, as `ToJson`
+refuses them. An open type is read, though `ToJson` will not write one. **A type holding a record
+is refused**: reading a record back from JSON is deferred, so the wire's shape is declared as a
+field set and a clause head builds the record from it.
+
+<!-- diagnoses: undecodable_member -->
+```csharp
+module Replies3
+
+record Usage { InputTokens: int, OutputTokens: int }
+
+public result<Usage, ValidationError> Parse(string body)
+Parse(body) -> FromJson<Usage>(body)
+```
 
 **Validating against `term` is an error.** `result<term, ValidationError>` normalises straight back
 to `term`, so the failure channel does not survive and no caller could write the failure clause.
@@ -3647,6 +3680,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | a string key in a field-set type, pattern and brace, `{ "input_tokens": int }` | **shipped** — F58 |
 | an open field set, `{ "model": string, .. }` | **shipped** — F59 |
 | a string literal as a type, `{ "type": "ping", .. }` and `"low" \| "high"` | **shipped** — F68 |
+| `FromJson<T>(text)`, JSON text decoded and validated into a wire type; a record refused | **shipped** — F69 |
 | local bindings in a body, with rebinding and unbound names rejected | **shipped** |
 | destructuring binds (`(a, b) = pair`), where they cannot fail | **shipped** |
 | the boundary tag guard on an exported record parameter | **shipped** |

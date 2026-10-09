@@ -111,6 +111,7 @@ has been withdrawn.
 | `ValidationError` | the reason: a path into the term plus the type expected there, the compiler-known record `{ Path: list<string>, Expected: string }`, tagged `:'ValidationError'` with no module | unqualified | **built** — F18; a record since F49 ([ENG-379](https://linear.app/davewil/issue/ENG-379)). The spelling of a path segment is F18's recorded assumption, not a decision. **Compiler-known** because its tag is minted by no module, which a `record` declaration cannot write, and **protected** because an obligation returns it | 15 §2, 79 |
 | `ParseAtom<T>` | codegen: parses to a **finite atom union**; a cofinite `T` is an error | unqualified | **built** — F39. The argument is a `string` or a `binary`; a `term` is refused, since the match is over the members' printed names and a value of another kind could only answer `:nothing` | 10 §4 |
 | `ToJson<T>` | codegen: a value of `T` as the platform's JSON, returned as a `string`; a member with no wire form — a tuple, an arrow, `binary`, `term` — is refused at the declaration, naming it | unqualified | **built** — F50 ([ENG-375](https://linear.app/davewil/issue/ENG-375)). The value is checked against `T` before it is encoded, as ticket 18 §1(c) owes generated code. *This row replaces `a serialisation encoder` — **decided** — removed 2026-09-15 when F50 built it: two rows for one entry is how a status goes unread, which ticket 48's row did for nine days* | 16 §4, 77 |
+| `FromJson<T>` | codegen: JSON text as a value of `T`: the platform's decoder, then what `ValidateAs<T>` does, returning `result<T, ValidationError>`. Text that is not JSON is the failure with `Path = []` and `Expected = "JSON"`. The argument is a `string` | unqualified | **built** — F69 ([ENG-410](https://linear.app/davewil/issue/ENG-410), 2026-10-09). A `T` holding a record is refused at the call: reading a record back is deferred (78 Q4). A tuple, an arrow, `binary` and `term` are refused as `ToJson` refuses them; an open field set is read, though `ToJson` will not write one | 78 Q10 |
 | `ToExistingAtom` | the genuine interop escape — a peer node's reply, a dynamically named atom; asks the atom table and returns `result<atom, string>`, the failure carrying the name | unqualified | **built** — F54 ([ENG-294](https://linear.app/davewil/issue/ENG-294), 2026-09-21). Written bare, `ToExistingAtom(name)`, with no type argument: its result is fixed. The argument is a `string`; a `binary` is refused, since the failure's reason is the name as a `string` and invalid UTF-8 would fail as `badarg` indistinguishably | 10 §4, 15 §1, 67 |
 | `string` | `binary` refined by valid UTF-8 | unqualified | **built** — F9 as a *type*; F18 generates the membership check **inside `ValidateAs<T>`** and nowhere else, so a term from outside can now establish the property that only a literal could before | 20 |
 | OTP message shapes | `Down`, `Exit`: compiler-known named views of the tuples OTP sends, `Down { Ref, Type, Object, Reason }` and `Exit { Pid, Reason }` | unqualified | **built** — F60 ([ENG-416](https://linear.app/davewil/issue/ENG-416)). *`Timeout` was on this row until ticket 88 (2026-09-24): a `gen_server` timeout is the atom `:timeout`, which needs no type* | 14 §6, 88 |
@@ -193,7 +194,7 @@ this"*.
 
 - **type names** — `option`, `result`, `list`, `bool`, `string`, and now `map`;
 - **codegen obligations** — `ValidateAs<T>`, `ParseAtom<T>`, the serialisation encoder `ToJson<T>`,
-  `ToExistingAtom`, plus the types they return;
+  its decoder `FromJson<T>`, `ToExistingAtom`, plus the types they return;
 - **`raise`** — and it is the *only* function anywhere in this file;
 - one **unnamed gap**: `<`'s "named prelude escape" for the BEAM's universal term order.
 
@@ -286,7 +287,7 @@ Sorting the actual inventory against both axes:
 |---|---|---|
 | `int`, `float`, `bool`, `string`, `atom`, `term` | yes | yes — builtin |
 | `list<T>`, `option<T>`, `result<T, E>`, `map<K, V>` | yes | yes |
-| `ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>` | yes | yes — codegen obligations |
+| `ValidateAs<T>`, `ParseAtom<T>`, `ToJson<T>`, `FromJson<T>` | yes | yes — codegen obligations |
 | `Map.Get`, `List.Map` | yes | **no** — qualified, and lowered to OTP's own function (96) |
 | `raise` | yes | **grammar — a keyword, not a name** (67) |
 | the 47 terminals below | yes | **grammar — not names at all** |

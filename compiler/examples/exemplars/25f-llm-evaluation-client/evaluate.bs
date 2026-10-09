@@ -23,8 +23,8 @@ Read((status, _))                                       -> (:error, (:status, st
 
 private result<Evaluation, EvalError> Parse(binary body)
 
-Parse(body) -> :json.decode(body) switch {
-    (:error, _) => (:error, (:malformed, "the body is not JSON")),
-    doc         => Object(doc) |?> Decode()
+Parse(body) -> (ValidateAs<string>(body) |?> FromJson<ReplyWire>()) switch {
+    (:error, e) => (:error, (:malformed, e)),
+    reply       => Decode(reply)
 }
 

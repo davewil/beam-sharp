@@ -970,7 +970,7 @@ expr({e_call, L, F, As}, C)   ->
 %% Rationale: compiler/features/F18-validate-as.md.
 expr({e_inst, L, 'ValidateAs', [TypeExpr], [Arg]}, C) ->
     Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
-    {_Roots, _Jsons, Table} = maps:get(validators, C),
+    {_Roots, _Jsons, _Texts, Table} = maps:get(validators, C),
     {call, L, {atom, L, root_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% `ParseAtom<T>(s)` is emitted inline rather than as a generated function: the
@@ -1004,8 +1004,17 @@ expr({e_inst, L, 'ParseAtom', [TypeExpr], [Arg]}, C) ->
 %% Rationale: compiler/features/F50-to-json.md.
 expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
     Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
-    {_Roots, _Jsons, Table} = maps:get(validators, C),
+    {_Roots, _Jsons, _Texts, Table} = maps:get(validators, C),
     {call, L, {atom, L, json_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
+
+%% `FromJson<T>(s)` is a bare local call to the decoder generated for `T`: the
+%% platform's decoder under a catch, then the function a `ValidateAs<T>` calls.
+%% One per distinct `T`, as the encoders are.
+%% Rationale: compiler/features/F69-from-json.md.
+expr({e_inst, L, 'FromJson', [TypeExpr], [Arg]}, C) ->
+    Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
+    {_Roots, _Jsons, _Texts, Table} = maps:get(validators, C),
+    {call, L, {atom, L, text_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% A qualified call is a remote call; the module atom is already the
 %% full dotted path, so no name is built here. A reserved qualifier such
@@ -1623,17 +1632,21 @@ tuple_part(Components) ->
 %% wrappers returning the untagged language result.
 validator_table(Fns, Env) ->
     Nodes = inst_nodes(Fns),
-    Roots = lists:usort([bs_check:resolve(TE, Env)
-                         || {e_inst, _, 'ValidateAs', [TE], [_]} <- Nodes]),
+    Texts = lists:usort([bs_check:resolve(TE, Env)
+                         || {e_inst, _, 'FromJson', [TE], [_]} <- Nodes]),
+    %% A `FromJson<T>` ends in the root a `ValidateAs<T>` would call.
+    Roots = lists:usort(Texts ++ [bs_check:resolve(TE, Env)
+                                  || {e_inst, _, 'ValidateAs', [TE], [_]} <- Nodes]),
     Jsons = lists:usort([bs_check:resolve(TE, Env)
                          || {e_inst, _, 'ToJson', [TE], [_]} <- Nodes]),
-    {Roots, Jsons, close_over(Roots ++ Jsons, #{})}.
+    {Roots, Jsons, Texts, close_over(Roots ++ Jsons, #{})}.
 
 %% Obligations can occur anywhere in an expression; walk all term children.
 inst_nodes(T) when is_tuple(T) ->
     Here = case T of
                {e_inst, _, 'ValidateAs', [_], [_]} -> [T];
                {e_inst, _, 'ToJson', [_], [_]}     -> [T];
+               {e_inst, _, 'FromJson', [_], [_]}   -> [T];
                _                                   -> []
            end,
     Here ++ inst_nodes(tuple_to_list(T));
@@ -1780,7 +1793,7 @@ tag_of(_) -> none.
 %% `term` needs no validator; the checker rejects `ValidateAs<term>`.
 checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
 
-validator_forms({Roots, Jsons, Table}) ->
+validator_forms({Roots, Jsons, Texts, Table}) ->
     Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
     Conv = converting(Table),
     %% A validator that can fill is emitted only where `ValidateAs` reaches
@@ -1794,6 +1807,7 @@ validator_forms({Roots, Jsons, Table}) ->
                      || {Ty, _} <- Ordered, lists:member(Ty, Strict)])
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
     ++ [json_form(maps:get(Ty, Table), maps:get(Ty, StrictTable)) || Ty <- Jsons]
+    ++ [text_form(maps:get(Ty, Table)) || Ty <- Texts]
     ++ [F || lists:any(fun({Ty, _}) -> dom_walk(bs_types:unfold(Ty)) =/= none end,
                        Ordered),
              F <- key_forms()].
@@ -1825,6 +1839,28 @@ json_form(Name, Validator) ->
        [{'case', ?A, {call, ?A, {atom, ?A, Validator}, [XV, {nil, ?A}]},
          [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [], [Encode]},
           {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash]}]}]}]}.
+
+%% Decode, then validate. Text that is not JSON is a value, as a term outside
+%% `T` is: a `ValidationError` at the top, expecting JSON. The decoder raises
+%% only `error`, and only the decode is under the catch.
+text_form(Name) ->
+    XV = {var, ?A, 'Bs@x'},
+    VV = {var, ?A, 'Bs@v'},
+    NotJson = {tuple, ?A,
+               [{atom, ?A, error},
+                {map, ?A,
+                 [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
+                  {map_field_assoc, ?A, {atom, ?A, 'Path'}, {nil, ?A}},
+                  {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str("JSON")}]}]},
+    {function, ?A, text_name(Name), 1,
+     [{clause, ?A, [XV], [],
+       [{'try', ?A,
+         [{call, ?A, {remote, ?A, {atom, ?A, json}, {atom, ?A, decode}}, [XV]}],
+         [{clause, ?A, [VV], [], [{call, ?A, {atom, ?A, root_name(Name)}, [VV]}]}],
+         [{clause, ?A,
+           [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}, {var, ?A, '_'}]}], [],
+           [NotJson]}],
+         []}]}]}.
 
 %% `ToJson` converts nothing, so its guard must not fill an absent option key.
 %% A type that could fill gets a strict twin, emitted as validators were
@@ -1918,6 +1954,7 @@ atom_name_pattern(L, A) ->
 
 root_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@r").
 json_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@j").
+text_name(Name)   -> list_to_atom(atom_to_list(Name) ++ "@t").
 walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 
 %% Errors name the binder; traversal uses its unfolding. Recursive positions

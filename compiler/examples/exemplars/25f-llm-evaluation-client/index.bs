@@ -35,15 +35,22 @@ record HttpRequest { Url: string, Token: string, Body: binary }
 type HttpResponse = (int, binary)
 type Send = fn(HttpRequest) -> HttpResponse
 
-type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, string)
+type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, ValidationError)
 
-// What `json:decode/1` can hand back. `term` is the honest answer and is
-// refused: it absorbs the failure channel.
+// The reply, key for key as the wire writes it. Open, because OpenRouter
+// adds `id`, `provider` and `usage.cost`, and each answer carries more than
+// this program reads.
+type UsageWire  = { "input_tokens": int, "output_tokens": int, .. }
+type AnswerWire = { "type": "choice", "choice": string, "confidence": int | float, .. }
+                | { "type": "score", "score": int | float, "confidence": int | float, .. }
+                | { "type": "noul", "noul": int | float, .. }
+type ReplyWire  = { "model": string, "answers": map<string, AnswerWire>, "usage": UsageWire, .. }
+
+// What the model is shown, and what `json:encode/1` takes.
 type Json = map<term, term> | list<term> | binary | int | float | atom
 
 using :json {
     term encode(term value)
-    result<Json, foreign_error> decode(binary text)
 }
 
 using :erlang {
@@ -52,7 +59,6 @@ using :erlang {
 
 using :maps {
     map<term, term> from_list(list<(binary, term)> pairs)
-    list<term> to_list(map<term, term> m)
-    (:ok, term) | :error find(binary key, map<term, term> m)
+    list<term> to_list(map<string, AnswerWire> m)
 }
 

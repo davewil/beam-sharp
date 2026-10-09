@@ -1390,12 +1390,14 @@ view_pattern(Line, Name, Fields) ->
 %% a comparison. Checked here rather than in the lexer, because here a
 %% built name, a decided-but-unbuilt name and a non-obligation differ.
 %% Rationale: compiler/features/F6-angle-brackets.md.
-codegen_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
+codegen_obligations() ->
+    ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson', 'FromJson'].
 
 %% The names this compiler generates code for. The unbuilt-obligation
 %% diagnostic reads this list rather than carrying its own sentence, so it
 %% cannot go stale when the next name is built.
-built_obligations() -> ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson'].
+built_obligations() ->
+    ['ValidateAs', 'ParseAtom', 'ToExistingAtom', 'ToJson', 'FromJson'].
 
 %%% --- Protocols (F64) ---
 %%%
@@ -3019,33 +3021,34 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
              D0 ++ [{error, L, C#ctx.fname,
                      {obligation_over_type_variable, 'ValidateAs', V}}]};
         {[TypeExpr], [_], []} ->
-            %% resolve/2 owns diagnostics for unknown, cyclic or recursive
-            %% types.
-            Ty = resolve(TypeExpr, C#ctx.types),
-            %% Fun types cannot be recovered at runtime for validation. Check
-            %% member separability last so arrows and collapse each produce
-            %% only their own diagnostic.
-            case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types)} of
-                {true, _} ->
-                    {reported(),
-                     D0 ++ [{error, L, C#ctx.fname, {validate_over_arrow, Ty}}]};
-                {_, true} ->
-                    {reported(),
-                     D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
-                _ ->
-                    case inseparable_pair(Ty) of
-                        {A, B} ->
-                            {reported(),
-                             D0 ++ [{error, L, C#ctx.fname,
-                                     {validate_indiscriminable, Ty, A, B}}]};
-                        none ->
-                            {validate_result(Ty, C#ctx.types), D0}
-                    end
-            end;
+            validated(L, TypeExpr, D0, C);
         _ ->
             {reported(),
              D0 ++ [{error, L, C#ctx.fname,
                      {obligation_arity, 'ValidateAs', length(TypeArgs),
+                      length(Args)}}]}
+    end;
+%% FromJson is `json:decode` then ValidateAs, so its target meets the same
+%% refusals and its result is the same type. to_json_refused/2 checks the
+%% wire form before body typing. The argument is the text, a `string`.
+%% Rationale: compiler/features/F69-from-json.md.
+type_of({e_inst, L, 'FromJson', TypeArgs, Args}, S, C) ->
+    case {TypeArgs, Args, over_variable(TypeArgs, C)} of
+        {_, _, [V | _]} ->
+            {_, D0} = type_of_all(Args, S, C),
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_over_type_variable, 'FromJson', V}}]};
+        {[TypeExpr], [_], []} ->
+            Text = bs_types:string(),
+            {ATys, D0} = expected_all(Args, [Text], S, C),
+            validated(L, TypeExpr,
+                      arg_diags(L, 'FromJson', Args, ATys, [Text], 1, C) ++ D0, C);
+        _ ->
+            {_, D0} = type_of_all(Args, S, C),
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname,
+                     {obligation_arity, 'FromJson', length(TypeArgs),
                       length(Args)}}]}
     end;
 %% ParseAtom generates matches from printed names to a finite set of atoms. Its
@@ -3171,6 +3174,31 @@ type_of(_, _S, _C) ->
 %% erase to names absent from the emitter's validator environment.
 over_variable(TypeArgs, C) ->
     lists:append([vars_in(T, C#ctx.tvars) || T <- TypeArgs]).
+
+%% What a validation of `TypeExpr` returns, or the reason it cannot be
+%% generated. resolve/2 owns diagnostics for unknown, cyclic or recursive
+%% types. Fun types cannot be recovered at runtime for validation. Check
+%% member separability last so arrows and collapse each produce only their own
+%% diagnostic.
+validated(L, TypeExpr, D0, C) ->
+    Ty = resolve(TypeExpr, C#ctx.types),
+    case {has_arrow(Ty), validate_collapses(Ty, C#ctx.types)} of
+        {true, _} ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname, {validate_over_arrow, Ty}}]};
+        {_, true} ->
+            {reported(),
+             D0 ++ [{error, L, C#ctx.fname, {validate_collapses, Ty}}]};
+        _ ->
+            case inseparable_pair(Ty) of
+                {A, B} ->
+                    {reported(),
+                     D0 ++ [{error, L, C#ctx.fname,
+                             {validate_indiscriminable, Ty, A, B}}]};
+                none ->
+                    {validate_result(Ty, C#ctx.types), D0}
+            end
+    end.
 
 %% Namespace imports may shadow reserved qualifiers. Reject only ambiguous
 %% short-qualified calls; imports, unqualified and fully qualified calls stand.
@@ -3329,9 +3357,9 @@ to_json_refused(Decls, Env) ->
       fun({clause, _, Fn, Ps, _, _} = Clause) ->
               Vars = maps:get({Fn, length(Ps)}, TVars, []),
               lists:foreach(
-                fun({e_inst, L, 'ToJson', [TE], _}) ->
-                        to_json_site(L, Fn, TE, Vars, Env)
-                end, to_json_nodes(Clause));
+                fun({e_inst, L, Name, [TE], _}) ->
+                        wire_site(Name, L, Fn, TE, Vars, Env)
+                end, wire_nodes(Clause));
          (_) ->
               ok
       end, Decls).
@@ -3339,51 +3367,71 @@ to_json_refused(Decls, Env) ->
 %% Walk arbitrary expression positions without duplicating the node grammar.
 %% The dependency is `bs_emit` -> `bs_check`; this cannot call the emitter's
 %% equivalent walk.
-to_json_nodes(T) when is_tuple(T) ->
+wire_nodes(T) when is_tuple(T) ->
     Here = case T of
-               {e_inst, _, 'ToJson', [_], _} -> [T];
-               _                             -> []
+               {e_inst, _, 'ToJson', [_], _}   -> [T];
+               {e_inst, _, 'FromJson', [_], _} -> [T];
+               _                               -> []
            end,
-    Here ++ to_json_nodes(tuple_to_list(T));
-to_json_nodes(L) when is_list(L) -> lists:append([to_json_nodes(E) || E <- L]);
-to_json_nodes(_)                 -> [].
+    Here ++ wire_nodes(tuple_to_list(T));
+wire_nodes(L) when is_list(L) -> lists:append([wire_nodes(E) || E <- L]);
+wire_nodes(_)                 -> [].
 
 %% `type_of/3` diagnoses type variables; `resolve/2` diagnoses resolution
 %% failures. Catch all resolution errors here to avoid duplicate reports.
-to_json_site(L, Fn, TE, Vars, Env) ->
+wire_site(Name, L, Fn, TE, Vars, Env) ->
     Resolved = case vars_in(TE, Vars) of
                    [] -> try {ok, resolve(TE, Env)} catch error:_ -> skip end;
                    _  -> skip
                end,
-    case Resolved of
-        {ok, Ty} ->
+    case {Resolved, Name} of
+        {{ok, Ty}, 'ToJson'} ->
             case unencodable(Ty) of
                 none ->
                     ok;
                 {Segs, Member, Kind} ->
                     erlang:error({unencodable_member, L, Fn, Ty, Segs, Member, Kind})
             end;
-        skip ->
+        %% F69: what no JSON text decodes to. The member is named here, since
+        %% a record's name is the checker's to know.
+        {{ok, Ty}, 'FromJson'} ->
+            case unencodable(decode, Ty, [], []) of
+                none ->
+                    ok;
+                {Segs, Member, record} ->
+                    erlang:error({undecodable_member, L, Fn, Ty, Segs,
+                                  atom_to_list(record_name(Member)), record});
+                {Segs, Member, Kind} ->
+                    erlang:error({undecodable_member, L, Fn, Ty, Segs,
+                                  bs_types:to_string(Member), Kind})
+            end;
+        {skip, _} ->
             ok
     end.
 
 %% Return `{Segments, Member, Kind}` or `none`. Segments use `.Field`, `[_]`
 %% for elements/values and `[key]` for keys. Member is the failing constituent,
 %% not the whole union.
-unencodable(Ty) -> unencodable(Ty, [], []).
+%% F69: `decode` asks what `FromJson<T>` asks. An open member reads what an
+%% exact one does, so it stands; a record is refused, its inverse being
+%% deferred by ticket 78 Q4.
+unencodable(Ty) -> unencodable(encode, Ty, [], []).
 
-unencodable(#{mu := N} = T, Segs, Seen) ->
+unencodable(Dir, #{mu := N} = T, Segs, Seen) ->
     case lists:member(N, Seen) of
         true  -> none;
-        false -> unencodable(bs_types:unfold(T), Segs, [N | Seen])
+        false -> unencodable(Dir, bs_types:unfold(T), Segs, [N | Seen])
     end;
-unencodable(#{recvar := _}, _Segs, _Seen) ->
+unencodable(_Dir, #{recvar := _}, _Segs, _Seen) ->
     none;
-unencodable(T, Segs, Seen) ->
+unencodable(Dir, T, Segs, Seen) ->
     #{tuples := Ts, funs := Fs, bins := Bs, maps := Ms, opaques := Os} = T,
     At = lists:reverse(Segs),
     %% F59: an open member would publish keys no type declares.
-    Open = is_list(Ms) andalso lists:any(fun({open, _}) -> true; (_) -> false end, Ms),
+    Open = Dir =:= encode andalso is_list(Ms)
+           andalso lists:any(fun({open, _}) -> true; (_) -> false end, Ms),
+    Records = [C || Dir =:= decode, C <- bs_types:constituents(T),
+                    record_name(C) =/= unknown],
     case bs_types:is_subtype(bs_types:term(), T) orelse Ms =:= top of
         true -> {At, T, term};
         false when Ts =/= [] -> {At, holding(tuples, T), tuple};
@@ -3391,10 +3439,11 @@ unencodable(T, Segs, Seen) ->
         false when Open      -> {At, open_member(T), open_map};
         %% F60: a process, reference or port has no value outside this VM.
         false when Os =/= [] -> {At, holding(opaques, T), opaque};
+        false when Records =/= [] -> {At, hd(Records), record};
         false ->
             case lists:member(other, Bs) of
                 true  -> {At, holding(bins, T), binary};
-                false -> first_unencodable(inner_positions(T), Segs, Seen)
+                false -> first_unencodable(Dir, inner_positions(T), Segs, Seen)
             end
     end.
 
@@ -3425,11 +3474,11 @@ inner_positions(#{maps := Ms} = T) ->
 field_path_seg(F) when is_atom(F)   -> "." ++ atom_to_list(F);
 field_path_seg(F) when is_binary(F) -> "[" ++ bs_types:key_str(F) ++ "]".
 
-first_unencodable([], _Segs, _Seen) ->
+first_unencodable(_Dir, [], _Segs, _Seen) ->
     none;
-first_unencodable([{Seg, Ty} | Rest], Segs, Seen) ->
-    case unencodable(Ty, [Seg | Segs], Seen) of
-        none  -> first_unencodable(Rest, Segs, Seen);
+first_unencodable(Dir, [{Seg, Ty} | Rest], Segs, Seen) ->
+    case unencodable(Dir, Ty, [Seg | Segs], Seen) of
+        none  -> first_unencodable(Dir, Rest, Segs, Seen);
         Found -> Found
     end.
 

@@ -86,6 +86,8 @@ demonstrated_surface() ->
      {"ValidationError as a declared type",      "ValidationError>"},
      %% ValidateAs alone cannot satisfy the separate ParseAtom probe.
      {"a string parsed into a named set",        "ParseAtom<"},
+     %% Validating a term does not demonstrate reading text.
+     {"JSON text read into a wire type",         "FromJson<"},
      %% The compiler reserves this name, so user functions cannot match.
      {"a string resolved to an atom the VM has", "ToExistingAtom\\("},
      %% A binary delimiter alone does not demonstrate sized segments.

@@ -321,6 +321,9 @@ run_stages \
   "\`ToJson<T>\` puts a value on the wire and refuses what has no wire form" \
     "cd compiler && ./bin/check-to-json.sh --self-test && ./bin/check-to-json.sh" \
 \
+  "\`FromJson<T>\` decodes then validates, and refuses a record" \
+    "cd compiler && ./bin/check-from-json.sh --self-test && ./bin/check-from-json.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

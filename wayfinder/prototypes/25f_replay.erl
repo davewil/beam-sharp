@@ -3,7 +3,7 @@
 %%% Throwaway. Ticket 25. Unlike 25a-25e this is not a hand lowering: the module
 %%% compiles, so the Erlang it runs is the Erlang bsc emits. This file only
 %%% drives it. 25f_surface_probe.sh builds 'Support.Triage' from the extracted
-%%% exemplar, unmodified since F56, and then runs:
+%%% exemplar (its reply side rewritten onto FromJson<T>, F69) and then runs:
 %%%
 %%%   erlc 25f_replay.erl && erl -noshell -pa EBIN -s '25f_replay' main
 %%%

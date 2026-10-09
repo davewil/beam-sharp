@@ -467,6 +467,14 @@ built(Path, {unencodable_member, Line, Fn, Ty, Segs, Member, Kind}) ->
                                  path => Segs,
                                  member => bs_types:to_string(Member),
                                  kind => Kind};
+%% F69: the checker has already named the member, a record by its name.
+built(Path, {undecodable_member, Line, Fn, Ty, Segs, Member, Kind}) ->
+    (at(error, Path, Line, Fn))#{tag => undecodable_member,
+                                 obligation => 'FromJson',
+                                 type => bs_types:to_string(Ty),
+                                 path => Segs,
+                                 member => Member,
+                                 kind => Kind};
 built(Path, {Sev, Line, Fn, {obligation_arity, Name, Types, Args}}) ->
     (at(Sev, Path, Line, Fn))#{tag => obligation_arity,
                                obligation => Name,
@@ -899,6 +907,22 @@ unencodable_repair(open_map) ->
 unencodable_repair(term) ->
     "Validate the term into a declared type first, with ValidateAs<T>, and\n"
     "  encode that type.".
+
+%% F69: the same members read from the other side, so each repair names
+%% what to read instead.
+undecodable_repair(tuple) ->
+    "JSON holds objects and arrays. Declare a field set or a list where the\n"
+    "  tuple is, and build the tuple from it in a clause.";
+undecodable_repair(arrow) ->
+    "Leave the function out of the type you read.";
+undecodable_repair(binary) ->
+    "Declare it `string`: a JSON string is always UTF-8.";
+undecodable_repair(opaque) ->
+    "Leave it out of the type you read, or read what identifies it, such as\n"
+    "  a name.";
+undecodable_repair(term) ->
+    "Name the shape the JSON has: a field set, a list, a scalar, or a union\n"
+    "  of those.".
 
 message(#{tag := inexhaustive, file := P, line := L, column := C, function := Fn,
           heads := Heads}) ->
@@ -1670,6 +1694,26 @@ message(#{tag := unencodable_member, function := Fn, type := Ty, path := Segs,
      "  ~s~n",
      placed_args(D) ++ [Fn, unencodable_at(Segs), unencodable_member(M, Kind), Ty,
                         unencodable_repair(Kind)]};
+%% F69: a record has its own headline, since the type has a wire form and
+%% it is the reading of one that is deferred.
+message(#{tag := undecodable_member, function := Fn, type := Ty, path := Segs,
+          member := M, kind := record} = D) ->
+    {placed(D) ++ "error: ~s calls FromJson over a type that holds a record~n"
+     "  ~s`~s` is a record, and reading a record back from JSON is~n"
+     "  deferred (ticket 78 Q4)~n"
+     "  the type is: ~s~n"
+     "  Declare the shape the JSON has as a field set, such as~n"
+     "  `{ \"id\": int }`, read that, and build the record from it in a~n"
+     "  clause.~n",
+     placed_args(D) ++ [Fn, unencodable_at(Segs), M, Ty]};
+message(#{tag := undecodable_member, function := Fn, type := Ty, path := Segs,
+          member := M, kind := Kind} = D) ->
+    {placed(D) ++ "error: ~s calls FromJson over a type no JSON decodes to~n"
+     "  ~s~s~n"
+     "  the type is: ~s~n"
+     "  ~s~n",
+     placed_args(D) ++ [Fn, unencodable_at(Segs), unencodable_member(M, Kind), Ty,
+                        undecodable_repair(Kind)]};
 message(#{tag := not_an_obligation, file := P, line := L, column := C, function := Fn,
           name := Name, obligations := Names}) ->
     {"~s:~p:~p: error: ~s writes ~s<...>, and ~s is not a codegen obligation~n"
