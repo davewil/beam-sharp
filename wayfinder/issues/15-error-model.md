@@ -1,7 +1,7 @@
 # 15 — Error model
 
 Type: grilling
-Status: claimed 2026-10-09 — reopened by David on one point, [ENG-181](https://linear.app/davewil/issue/ENG-181). Was: resolved 2026-08-12
+Status: resolved 2026-08-12; reopened on one point and resolved again 2026-10-09 — [ENG-181](https://linear.app/davewil/issue/ENG-181)
 Blocked by: 06, 14 (both resolved)
 
 ## Question
@@ -584,6 +584,25 @@ returns one error or a list. Nothing else in this ticket is reopened.
 The question is asked once, as **Q17 of [ticket 78](78-the-decode-direction.md)'s round 8**, with
 its program and compiler delta. Its answer is recorded there and here.
 
+**Answered 2026-10-09 (David): one error.** §2 stands: `ValidateAs<T>` and `FromJson<T>` return
+`result<T, ValidationError>`, and a validator returns at its first failure. Where several things
+are wrong, the first in declaration order (an absent key) or in the term's order (a list element,
+an unknown key) is the one reported.
+
+**Deferred: a form that returns every error.** Not refused; not built. It would arrive as a second
+name beside `FromJson` and `ValidateAs`, returning `result<T, list<ValidationError>>`, so no
+signature that exists changes. What it would need:
+
+- Generated validators that carry on after a failure: across the keys of a field set and the
+  elements of a list, in document order.
+- A rule for unions. Under ticket 78 Q19 a tag-dispatched union reports its chosen member's errors
+  alone; a union with no tag would report one error at the union, never one per member. Every
+  surveyed library that reports per member produces its worst output there.
+- A bound on how many are collected, since the input is untrusted.
+- A name, which is a ticket of its own.
+
+Reopen when an exemplar has to tell a caller every bad field of one body in one reply.
+
 ## Decisions entry
 
 <!-- This ticket's entry. wayfinder/decisions.md is GENERATED from blocks like this
@@ -623,4 +642,9 @@ its program and compiler delta. Its answer is recorded there and here.
   26's record update. *A methodological note kept in the file: the first run of 15c reported every
   case surviving, because the harness wrapped each in `catch` — supplying the protection the probe
   existed to measure.*
+  **Amended 2026-10-09**, reopened on one point by
+  [the JSON-decoding prior-art review](research/78-json-decode-prior-art.md): a failed validation
+  still returns **one** `ValidationError`, the first met. A form returning all of them is deferred,
+  as a second name that changes no existing signature; its requirements and reopen trigger are in
+  the file. The record itself gains a `Reason` under [79](issues/79-validationerror-as-a-record.md).
 ```

@@ -1,7 +1,7 @@
 # 79 — `ValidationError` as a record, so the 422 body can go on the wire
 
 Type: grilling
-Status: claimed 2026-10-09 — reopened by David on one point. Was: resolved 2026-09-15 — [ENG-374](https://linear.app/davewil/issue/ENG-374). Raised 2026-09-15 on resolving
+Status: resolved 2026-09-15; reopened on one point and resolved again 2026-10-09 — [ENG-374](https://linear.app/davewil/issue/ENG-374). Raised 2026-09-15 on resolving
 [ticket 77](77-what-goes-on-the-wire.md)
 Blocked by: —
 
@@ -244,6 +244,27 @@ It is asked once, as **Q16 of [ticket 78](78-the-decode-direction.md)'s round 8*
 program and compiler delta. Q12 there (where an absent key is blamed) depends on it. The answers
 are recorded there and here.
 
+**Answered 2026-10-09 (David): yes.** The record is
+
+```csharp
+ValidationError { Path: list<string>, Expected: string,
+                  Reason: :not_json | :missing | :unknown_key | :duplicate_key | :mismatch }
+```
+
+- `:mismatch`: the value at `Path` is not of the type `Expected` names. Every error built before
+  this amendment is one of these.
+- `:missing`: no key at `Path`; `Expected` is the type the key should hold (ticket 78 Q12).
+- `:unknown_key`: a key at `Path` that an exact type does not name.
+- `:not_json` and `:duplicate_key`: built by `FromJson<T>` alone, at `Path = []`.
+
+`ValidateAs<T>` builds the first three. Under `ToJson<ValidationError>` the reason goes on the
+wire as its name, a string, by ticket 78 Q9. `found` stays fog: nothing here echoes the offending
+value. What `Expected` holds for each reason other than `:mismatch` and `:missing` is ticket 78's
+round 9.
+
+Compiler delta: the stratum-two entry gains `Reason`; `error_expr/1` in `bs_emit` takes the reason
+at each site that builds one; `LANGUAGE.md`'s renderings and `CONTEXT.md`'s entry gain the field.
+
 ## Decisions entry
 
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
@@ -268,4 +289,10 @@ are recorded there and here.
   from the module. Cost: one test file, five renderings in `LANGUAGE.md`, the F-file. The
   corpus and the audition packet are untouched. Unbuilt —
   [ENG-379](https://linear.app/davewil/issue/ENG-379), F49; `found` stays fog.
+  **Amended 2026-10-09**, reopened on one point by
+  [the JSON-decoding prior-art review](research/78-json-decode-prior-art.md): the record gains
+  **`Reason: :not_json | :missing | :unknown_key | :duplicate_key | :mismatch`**, so a handler
+  matches the kind of failure in a clause head instead of comparing `Expected` strings.
+  `ValidateAs<T>` builds `:mismatch`, `:missing` and `:unknown_key`; `FromJson<T>` adds the other
+  two. `found` stays fog.
 ```

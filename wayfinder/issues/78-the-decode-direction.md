@@ -805,6 +805,113 @@ Recommended: **yes.** What an absent tag reports follows Q12.
 exact type is named (Q16); what an absent tag reports (Q12, Q19); what bytes that are not UTF-8
 report (Q16); what 25f's `(:malformed, …)` carries (Q12, Q16).
 
+**Answered 2026-10-09 (David): all six as recommended.**
+
+- **Q15 yes.** JSON with a repeated key is refused, always, with no switch.
+- **Q16 yes.** `ValidationError` gains `Reason: :not_json | :missing | :unknown_key |
+  :duplicate_key | :mismatch`. Ticket 79 carries the amendment.
+- **Q12 yes.** An absent required key is blamed at its own path, with `Reason = :missing`; the
+  first absent key in declaration order.
+- **Q17: one error.** Ticket 15 stands, and records what a later list-returning form would need.
+- **Q18 yes.** Under `FromJson`, a `float` position reads a JSON integer that has an exact float.
+  `ValidateAs` over a BEAM term is unchanged, and an `int` position still refuses `1.0`. Q10's
+  *"it converts nothing `ValidateAs` does not"* no longer holds: this is the one exception.
+- **Q19 yes.** A union whose map members share a key of disjoint string-literal types is
+  validated by that key first: an unknown tag is blamed at the tag with the tags as `Expected`, a
+  known one validates against its member alone.
+
+## Round 9 — 2026-10-09: what each new reason reports
+
+Round 8 settled that the error has a `Reason` and where two of the failures point. What is left is
+the exact value for the cases round 8 listed as waiting. Each is one value, and none depends on
+another.
+
+**Q20. What does a repeated key report?**
+
+```csharp
+FromJson<W>("{\"a\":1,\"a\":\"x\"}")
+
+ValidationError { Path = [], Expected = "\"a\" once", Reason = :duplicate_key }
+```
+
+The decoder's callback is handed the key and not where the object sits, so `Path` is `[]` however
+deep the object is. `Expected` is the only place the key can go.
+
+Compiler delta: none beyond Q15's; the `object_push` that raises carries the key.
+
+Recommended: **as written.** The alternative, `Expected = "JSON"`, loses the key.
+
+**Q21. Is an unknown key under an exact type named?**
+
+```csharp
+type W = { "a": int }
+
+FromJson<W>("{\"a\":1,\"b\":2}")
+
+// today
+ValidationError { Path = [], Expected = "{ \"a\": int }" }
+
+// asked
+ValidationError { Path = ["[\"b\"]"], Expected = "\"a\"", Reason = :unknown_key }
+```
+
+`Path` is the key that should not be there. `Expected` is the keys the type names, joined as a
+union when there are several, which is the form Q19 gives an unknown tag. With several unknown
+keys, the first in the term's key order is reported (Q17).
+
+Compiler delta: an exact field-set validator with one map member, on a size mismatch its guard
+would have refused, finds the first key outside its own and returns the error there. `ValidateAs`
+shares it.
+
+Recommended: **yes.**
+
+**Q22. What does an absent tag report?**
+
+```csharp
+FromJson<AnswerWire>("{\"choice\":\"x\"}")
+
+ValidationError { Path = ["[\"type\"]"], Expected = "\"choice\" | \"score\"", Reason = :missing }
+```
+
+It is Q12 applied to the key Q19 reads first: the tag is a required key of every member.
+
+Compiler delta: none beyond Q12's and Q19's.
+
+Recommended: **as written.**
+
+**Q23. What do bytes that are not UTF-8 report?**
+
+```csharp
+FromJson<W>(bytes)      // a body holding the byte 0xFF
+
+ValidationError { Path = [], Expected = "JSON", Reason = :not_json }
+```
+
+The same value as any other text that is not JSON. Pydantic and serde do this; msgspec and
+Python's `json` raise a second, unrelated exception for it, which a caller then forgets to catch.
+
+Compiler delta: none. OTP's decoder already refuses the byte under the catch that is there.
+
+Recommended: **as written.**
+
+**Q24. What does 25f's `:malformed` carry?**
+
+```csharp
+type EvalError = … | (:malformed, ValidationError)
+
+// {"answers":{}} before F69
+(:error, (:malformed, "model"))
+
+// under rounds 8 and 9
+(:error, (:malformed, ValidationError { Path = ["[\"model\"]"], Expected = "string", Reason = :missing }))
+```
+
+Compiler delta: none. The exemplar keeps the record F69's rewrite gave it; its replay's malformed
+case asserts the value above.
+
+Recommended: **keep the record.** It now says everything the string did, and a caller can match
+on it.
+
 ## Decisions entry
 
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
@@ -835,8 +942,12 @@ report (Q16); what 25f's `(:malformed, …)` carries (Q12, Q16).
   [ENG-410](https://linear.app/davewil/issue/ENG-410). **Amended 2026-10-09 (round 7)**, after F69
   built Q10: an open type is a `FromJson` target though `ToJson` refuses to write one (Q11), and
   `FromJson<T>` takes a `binary` (Q13, [ENG-611](https://linear.app/davewil/issue/ENG-611)).
-  Round 8 is open: six questions raised by
-  [the prior-art review](research/78-json-decode-prior-art.md), two of them reopening tickets 15
-  and 79.
+  **Amended 2026-10-09 (round 8)**, on [the prior-art review](research/78-json-decode-prior-art.md):
+  JSON with a repeated key is refused (Q15); `ValidationError` gains a `Reason`
+  ([79](issues/79-validationerror-as-a-record.md), Q16) and an absent required key is blamed at
+  its own path as `:missing` (Q12); one error, not a list ([15](issues/15-error-model.md), Q17);
+  under `FromJson` a `float` position reads a JSON integer, the one conversion `ValidateAs` does
+  not make (Q18); a union tagged by a string-literal key is validated by that key first (Q19).
+  Round 9 is open: the exact value each new reason reports.
 ```
 
