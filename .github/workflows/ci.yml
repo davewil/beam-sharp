@@ -694,6 +694,18 @@ jobs:
         working-directory: compiler
         run: ./bin/check-validation-reason.sh
 
+      # F71 / ENG-617. Six stubs: the first value kept, the last value kept,
+      # a repeat refused without its key, a repeat refused only where its
+      # values differ, text after the value dropped, and whitespace after
+      # the value refused.
+      - name: The duplicate-key gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-duplicate-key.sh --self-test
+
+      - name: '`FromJson` refuses a repeated key, and text after the value'
+        working-directory: compiler
+        run: ./bin/check-duplicate-key.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

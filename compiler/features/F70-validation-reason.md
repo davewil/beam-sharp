@@ -71,7 +71,8 @@ $ bsc Intake Read '"nope"'
 - A position whose type has several map members, a `map<K, V>` among them, is reported
   as before: the whole type at the position, as `:mismatch`. ENG-618 changes that for a
   tagged union.
-- `:duplicate_key` is in the type and built by nothing yet (ENG-617).
+- `:duplicate_key` is in the type and was built by nothing here; [F71](F71-duplicate-key.md)
+  builds it.
 - `ValidateAs<T>` reports `:mismatch`, `:missing` and `:unknown_key` as `FromJson<T>` does.
 - A hand-built `ValidationError` names all three fields.
 

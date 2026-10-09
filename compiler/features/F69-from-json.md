@@ -37,7 +37,8 @@ Parse(body) -> FromJson<ReplyWire>(body)
   decoded term. It converts what `ValidateAs` converts and nothing else: an
   absent key at an `option<T>` field is `:nothing` (F61), `null` stays `:null`.
 - Text that is not JSON is a value, not a crash: a `ValidationError` with
-  `Path = []` and `Expected = "JSON"`.
+  `Path = []` and `Expected = "JSON"`. Since [F71](F71-duplicate-key.md) the
+  decode refuses a repeated key too.
 - `T` must be ground, and must be a target `ValidateAs<T>` accepts: no arrow,
   no collapse, no pair of members a validator cannot tell apart.
 - A `T` holding a record, at any depth, is refused at the call with

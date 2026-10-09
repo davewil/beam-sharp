@@ -1808,6 +1808,7 @@ validator_forms({Roots, Jsons, Texts, Table}) ->
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
     ++ [json_form(maps:get(Ty, Table), maps:get(Ty, StrictTable)) || Ty <- Jsons]
     ++ [text_form(maps:get(Ty, Table)) || Ty <- Texts]
+    ++ [F || Texts =/= [], F <- decode_forms()]
     ++ [F || lists:any(fun({Ty, _}) -> exact_keyed(Ty) end, Ordered),
              F <- unknown_forms()]
     ++ [F || lists:any(fun({Ty, _}) ->
@@ -1844,27 +1845,95 @@ json_form(Name, Validator) ->
           {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash]}]}]}]}.
 
 %% Decode, then validate. Text that is not JSON is a value, as a term outside
-%% `T` is: a `ValidationError` at the top, expecting JSON. The decoder raises
-%% only `error`, and only the decode is under the catch.
+%% `T` is: a `ValidationError` at the top, expecting JSON.
 text_form(Name) ->
     XV = {var, ?A, 'Bs@x'},
     VV = {var, ?A, 'Bs@v'},
-    NotJson = {tuple, ?A,
-               [{atom, ?A, error},
-                {map, ?A,
-                 [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
-                  {map_field_assoc, ?A, {atom, ?A, 'Path'}, {nil, ?A}},
-                  {map_field_assoc, ?A, {atom, ?A, 'Expected'}, bin_str("JSON")},
-                  {map_field_assoc, ?A, {atom, ?A, 'Reason'}, {atom, ?A, not_json}}]}]},
+    EV = {var, ?A, 'Bs@er'},
     {function, ?A, text_name(Name), 1,
      [{clause, ?A, [XV], [],
-       [{'try', ?A,
-         [{call, ?A, {remote, ?A, {atom, ?A, json}, {atom, ?A, decode}}, [XV]}],
-         [{clause, ?A, [VV], [], [{call, ?A, {atom, ?A, root_name(Name)}, [VV]}]}],
-         [{clause, ?A,
-           [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}, {var, ?A, '_'}]}], [],
-           [NotJson]}],
-         []}]}]}.
+       [{'case', ?A, {call, ?A, {atom, ?A, decode_name()}, [XV]},
+         [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, VV]}], [],
+           [{call, ?A, {atom, ?A, root_name(Name)}, [VV]}]},
+          {clause, ?A, [EV], [], [EV]}]}]}]}.
+
+%%% ---------------------------------------------------------------------------
+%%% The decode under `FromJson` (F71)
+%%%
+%%% One per module that reads text. `json:decode/3` in place of `decode/1`,
+%%% for the one callback that sees a key arrive twice: `decode/1` keeps one
+%%% value and drops the other unvalidated, and which one differs between
+%%% parsers. The callbacks are handed a key and not where its object sits, so
+%%% a repeat is reported at the top, with the key in `Expected`.
+%%%
+%%% `decode/3` also hands back what it did not read, where `decode/1` refused
+%%% it, so a remainder that is not JSON's whitespace is refused here.
+%%% Rationale: compiler/features/F71-duplicate-key.md.
+%%% ---------------------------------------------------------------------------
+
+decode_name() -> 'bs@validate@decode'.
+push_name()   -> 'bs@validate@push'.
+blank_name()  -> 'bs@validate@blank'.
+repeat_tag()  -> 'bs@validate@repeat'.
+
+%% An error no path leads to: the decoder's, at the top.
+text_error(Expected, Reason) ->
+    {tuple, ?A,
+     [{atom, ?A, error},
+      {map, ?A,
+       [{map_field_assoc, ?A, {atom, ?A, 'Kind'}, {atom, ?A, 'ValidationError'}},
+        {map_field_assoc, ?A, {atom, ?A, 'Path'}, {nil, ?A}},
+        {map_field_assoc, ?A, {atom, ?A, 'Expected'}, Expected},
+        {map_field_assoc, ?A, {atom, ?A, 'Reason'}, {atom, ?A, Reason}}]}]}.
+
+decode_forms() ->
+    XV = {var, ?A, 'Bs@x'},
+    VV = {var, ?A, 'Bs@v'},
+    KV = {var, ?A, 'Bs@k'},
+    AV = {var, ?A, 'Bs@acc'},
+    RV = {var, ?A, 'Bs@rest'},
+    CV = {var, ?A, 'Bs@c'},
+    Any = {var, ?A, '_'},
+    Fun = fun(Args, Body) -> {'fun', ?A, {clauses, [{clause, ?A, Args, [], [Body]}]}} end,
+    Remote = fun(M, F, Args) -> {call, ?A, {remote, ?A, {atom, ?A, M}, {atom, ?A, F}}, Args} end,
+    %% Objects are built as maps, so a key already pushed is one lookup.
+    Decoders =
+        {map, ?A,
+         [{map_field_assoc, ?A, {atom, ?A, object_start}, Fun([Any], {map, ?A, []})},
+          {map_field_assoc, ?A, {atom, ?A, object_push},
+           {'fun', ?A, {function, push_name(), 3}}},
+          {map_field_assoc, ?A, {atom, ?A, object_finish},
+           Fun([VV, AV], {tuple, ?A, [VV, AV]})}]},
+    NotJson = text_error(bin_str("JSON"), not_json),
+    Once = {bin, ?A, [{bin_element, ?A, {string, ?A, "\""}, default, default},
+                      {bin_element, ?A, KV, default, [binary]},
+                      {bin_element, ?A, {string, ?A, "\" once"}, default, default}]},
+    Raised = fun(Reason) -> {tuple, ?A, [{atom, ?A, error}, Reason, Any]} end,
+    Space = [[{op, ?A, '=:=', CV, {integer, ?A, C}}] || C <- [$\s, $\t, $\n, $\r]],
+    [{function, ?A, decode_name(), 1,
+      [{clause, ?A, [XV], [],
+        [{'try', ?A,
+          [Remote(json, decode, [XV, {atom, ?A, ok}, Decoders])],
+          [{clause, ?A, [{tuple, ?A, [VV, Any, RV]}], [],
+            [{'case', ?A, {call, ?A, {atom, ?A, blank_name()}, [RV]},
+              [{clause, ?A, [{atom, ?A, true}], [], [{tuple, ?A, [{atom, ?A, ok}, VV]}]},
+               {clause, ?A, [{atom, ?A, false}], [], [NotJson]}]}]}],
+          [{clause, ?A, [Raised({tuple, ?A, [{atom, ?A, repeat_tag()}, KV]})], [],
+            [text_error(Once, duplicate_key)]},
+           {clause, ?A, [Raised(Any)], [], [NotJson]}],
+          []}]}]},
+     {function, ?A, push_name(), 3,
+      [{clause, ?A, [KV, VV, AV], [],
+        [{'case', ?A, Remote(maps, is_key, [KV, AV]),
+          [{clause, ?A, [{atom, ?A, true}], [],
+            [Remote(erlang, error, [{tuple, ?A, [{atom, ?A, repeat_tag()}, KV]}])]},
+           {clause, ?A, [{atom, ?A, false}], [], [Remote(maps, put, [KV, VV, AV])]}]}]}]},
+     {function, ?A, blank_name(), 1,
+      [{clause, ?A,
+        [{bin, ?A, [{bin_element, ?A, CV, default, default},
+                    {bin_element, ?A, RV, default, [binary]}]}],
+        Space, [{call, ?A, {atom, ?A, blank_name()}, [RV]}]},
+       {clause, ?A, [RV], [], [{op, ?A, '=:=', RV, {bin, ?A, []}}]}]}].
 
 %% `ToJson` converts nothing, so its guard must not fill an absent option key.
 %% A type that could fill gets a strict twin, emitted as validators were

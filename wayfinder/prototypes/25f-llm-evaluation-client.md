@@ -44,13 +44,15 @@ spec.bs: error: ParseSpec assigns Id a value Model does not accept
 F56 (2026-09-24, [ENG-403](https://linear.app/davewil/issue/ENG-403)) fixed that the same day: the
 tail after string-literal segments is now a `string`. With nothing else refused, the module builds
 to a `.beam` and
-[`25f_replay.erl`](25f_replay.erl) runs five cases through `Evaluate`:
+[`25f_replay.erl`](25f_replay.erl) runs six cases through `Evaluate` (five then; the repeated key
+came with F71, and the malformed row reads as F70 left it):
 
 | Case | What comes back |
 |---|---|
 | `typesafe:jev-latest`, ReqLLM's TypeSafe fixture | an `Evaluation` with three answers; `Decide` gives `Queue = :billing`, `Page = true` |
 | `openrouter:typesafe/jev-1.13`, ReqLLM's OpenRouter fixture (extra `id`, `provider`, `usage.cost`) | the same answers; the body sent carried `"provider":{"zdr":true}` |
-| OpenRouter, `200` with `{"answers":{}}`, ReqLLM's own malformed case | `(:error, (:malformed, e))`, `e` a `ValidationError` with `Path = []` and the whole of `ReplyWire` as `Expected` (friction 9) |
+| OpenRouter, `200` with `{"answers":{}}`, ReqLLM's own malformed case | `(:error, (:malformed, e))`, `e` a `ValidationError` with `Path = ["[\"model\"]"]`, `Expected = "string"` and `Reason = :missing`. Before F70 it was `Path = []` and the whole of `ReplyWire` (friction 9) |
+| OpenRouter, `200`, the fixture with `"model"` a second time | `(:error, (:malformed, e))`, `e` with `Path = []`, `Expected = "\"model\" once"` and `Reason = :duplicate_key`. Before F71 it was an `Evaluation` built from the first |
 | TypeSafe, `401` | `(:error, (:status, 401))` |
 | `anthropic:claude-haiku-4-5` | `(:error, (:unknown_model, …))`, and nothing was sent |
 

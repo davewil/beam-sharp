@@ -40,9 +40,18 @@ questions() ->
                         'Criteria' => [<<"low">>, <<"medium">>, <<"high">>]}},
      {<<"urgent">>, #{'Kind' => 'Support.Triage.YesNo', 'Instructions' => <<"Is this urgent?">>}}].
 
-serve(Status, Body) ->
+serve(Status, Body) -> serve_text(Status, iolist_to_binary(json:encode(Body))).
+
+serve_text(Status, Text) ->
     Self = self(),
-    fun(Req) -> Self ! {sent, Req}, {Status, iolist_to_binary(json:encode(Body))} end.
+    fun(Req) -> Self ! {sent, Req}, {Status, Text} end.
+
+%% A good reply with a second "model" after the first: the body a proxy that
+%% keeps the first value and a client that keeps the last would disagree on.
+repeated_model() ->
+    Good = iolist_to_binary(json:encode(openrouter())),
+    Open = binary:part(Good, 0, byte_size(Good) - 1),
+    <<Open/binary, ",\"model\":\"other/model\"}">>.
 
 run(Label, Spec, Send) ->
     R = 'Support.Triage':'Evaluate'(Send, <<"test-key">>, Spec, <<"Please refund me today">>, questions()),
@@ -72,6 +81,17 @@ main() ->
             io:format("malformed: ok~n");
         _ ->
             io:format("malformed: WRONG ~0p~n", [Malformed]),
+            halt(1)
+    end,
+    Repeated = run("openrouter, 200, \"model\" twice", <<"openrouter:typesafe/jev-1.13">>,
+                   serve_text(200, repeated_model())),
+    %% Ticket 78 Q20: the reply names "model" twice, and the error says so.
+    case Repeated of
+        {error, {malformed, #{'Kind' := 'ValidationError', 'Path' := [],
+                              'Expected' := <<"\"model\" once">>, 'Reason' := duplicate_key}}} ->
+            io:format("repeated: ok~n");
+        _ ->
+            io:format("repeated: WRONG ~0p~n", [Repeated]),
             halt(1)
     end,
     run("typesafe, 401", <<"typesafe:jev-latest">>, serve(401, #{<<"error">> => <<"bad key">>})),

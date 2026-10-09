@@ -2639,8 +2639,9 @@ key's wrong value, and one the path cannot spell is not named, the blame stoppin
 `:mismatch`. A record's `Kind` is asked about first: a map without it is `:missing` at `.Kind`,
 and one carrying another record's is `:mismatch` there. All of this is reported where the type at
 that position has one map member, a field set or a record; a union of several, a `map<K, V>`
-among them, is reported whole, at the union, as `:mismatch`. `:not_json` is `FromJson`'s. `:duplicate_key` is in the type and nothing builds it
-yet. A hand-built `ValidationError` names all three fields. **shipped** — F70.
+among them, is reported whole, at the union, as `:mismatch`. `:not_json` and
+`:duplicate_key` are `FromJson`'s, below. A hand-built `ValidationError` names all three fields.
+**shipped** — F70.
 <!-- decided by ticket 78 Q16, Q12 and Q21, and ticket 79 as reopened; built by F70 -->
 
 The bracket is admitted after **exactly five** compiler-known names — `ValidateAs<T>`,
@@ -2977,6 +2978,16 @@ and a clause on `Reason` tells them apart. It converts what
 `ValidateAs` converts and nothing more: an absent key at an `option<T>` field is `:nothing`, and
 `null` stays `:null`. **shipped** — F69.
 <!-- decided by ticket 78 Q10; built by F69 -->
+
+**JSON with a repeated key is refused, always.** `{"a":1,"a":"x"}` is `Path = []`,
+`Expected = "\"a\" once"` and `Reason = :duplicate_key`, whichever value is the wrong one, and
+when the two are equal. Parsers that accept a repeat disagree about which value they keep, so a
+body one service read one way would be read another way here; there is no form of the call that
+accepts one. The path is `[]` however deep the object sits, because the decoder knows the key and
+not where its object is, and the repeat is found before `T` is consulted, so it is reported for a
+key an open type does not name too. Text after the value is `:not_json`; whitespace after it is
+nothing. **shipped** — F71.
+<!-- decided by ticket 78 Q15 and Q20; built by F71 -->
 
 ```csharp
 module Replies2

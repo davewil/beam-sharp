@@ -327,6 +327,9 @@ run_stages \
   "A \`ValidationError\` carries its \`Reason\`, and a key is blamed at its own path" \
     "cd compiler && ./bin/check-validation-reason.sh --self-test && ./bin/check-validation-reason.sh" \
 \
+  "\`FromJson\` refuses a repeated key, and text after the value" \
+    "cd compiler && ./bin/check-duplicate-key.sh --self-test && ./bin/check-duplicate-key.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \
