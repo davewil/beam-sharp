@@ -913,8 +913,18 @@ Recommended: **keep the record.** It now says everything the string did, and a c
 on it.
 
 **Answered 2026-10-09 (David): all five as recommended.** The frontier is empty: no question waits
-on these. Nothing in rounds 8 and 9 is built except what F69 already did; the build issues are
-raised once David confirms the tree is complete.
+on these. David confirmed the tree complete the same day, and with it that an unknown tag (Q19),
+whose `Reason` was never asked, reports `:mismatch`: the key is there and its value is wrong.
+Nothing in rounds 8 and 9 is built. The build issues:
+
+- [ENG-615](https://linear.app/davewil/issue/ENG-615): `Reason`, and an absent or unknown key
+  blamed at its own path (Q16, Q12, Q21, Q24).
+- [ENG-617](https://linear.app/davewil/issue/ENG-617): a repeated key and trailing text refused
+  (Q15, Q20). Blocked by ENG-615.
+- [ENG-618](https://linear.app/davewil/issue/ENG-618): a tagged union validated by its tag first
+  (Q19, Q22). Blocked by ENG-615.
+- [ENG-616](https://linear.app/davewil/issue/ENG-616): a `float` position reads a JSON integer (Q18).
+- [ENG-611](https://linear.app/davewil/issue/ENG-611): `FromJson` over a `binary` (Q13, Q23).
 
 - **Q20.** A repeated key reports `Path = []`, `Expected = "\"a\" once"`, `Reason = :duplicate_key`.
 - **Q21.** An unknown key under an exact type is named: `Path` is the key, `Expected` the keys the
@@ -963,6 +973,10 @@ raised once David confirms the tree is complete.
   with the key in `Expected` (Q20); an unknown key under an exact type is blamed at that key with
   the type's keys as `Expected` (Q21); an absent tag is `:missing` at the tag's path (Q22); bytes
   that are not UTF-8 are `:not_json` like any other text that is not JSON (Q23); 25f's
-  `:malformed` keeps the record (Q24). Rounds 8 and 9 are decided and unbuilt.
+  `:malformed` keeps the record (Q24). Rounds 8 and 9 are decided and unbuilt: build issues
+  [ENG-615](https://linear.app/davewil/issue/ENG-615),
+  [ENG-616](https://linear.app/davewil/issue/ENG-616),
+  [ENG-617](https://linear.app/davewil/issue/ENG-617),
+  [ENG-618](https://linear.app/davewil/issue/ENG-618).
 ```
 
