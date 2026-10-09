@@ -527,6 +527,101 @@ stays a check on BEAM terms.
 
 The design tree has no open branch. **Confirmed as a whole by David, 2026-09-24.**
 
+## Round 7 — 2026-10-09: what building `FromJson<T>` found (asked after resolution)
+
+The ticket stays resolved. F69 ([ENG-410](https://linear.app/davewil/issue/ENG-410)) built Q10 and
+met four points it may not settle itself. They are numbered on from Q10 so they cannot collide
+with the rounds above. Each is independent of the other three; what hangs off each is named and
+waits for its answer.
+
+**Q11. Is an open type a `FromJson` target?**
+
+```csharp
+type ReplyWire = { "id": option<string>, "model": string, .. }
+
+public result<ReplyWire, ValidationError> Parse(string body)
+Parse(body) -> FromJson<ReplyWire>(body)
+```
+
+Q10's text says *"`T` is any type `ToJson` accepts"*, and Q3 has `ToJson` refuse an open type. Read
+to the letter, the program above, which is Q10's own, is refused. F69 compiles it, and still
+refuses `ToJson<ReplyWire>`.
+
+Compiler delta: none, it is built. Under the other answer, `unencodable/4` loses its direction for
+open members, and 25f's three wire types lose their `..` and refuse any reply with a key they do
+not name.
+
+Recommended: **yes, an open type is read.** Q3's reason for the refusal is that writing one
+publishes keys no type declares, which is about writing.
+
+**Q12. Is an absent required key blamed at its own path?**
+
+```csharp
+type ReplyWire = { "model": string, "answers": map<string, AnswerWire>, "usage": UsageWire, .. }
+
+Parse("{\"answers\":{}}")
+
+// today
+(:error, { Kind = :'ValidationError', Path = [], Expected = "{ \"model\": string, ... }" })   // 299 characters
+
+// asked
+(:error, { Kind = :'ValidationError', Path = ["[\"model\"]"], Expected = "string" })
+```
+
+No ticket decided this. F61 recorded what the validator already did: an absent required key is
+refused at the object, `Path = []`. 25f is the first exemplar to meet it, and its malformed case
+went from `(:malformed, "model")` to the first value above.
+
+Compiler delta: in `bs_emit`, a field-set validator with one map member checks each required key
+with `is_map_key` before its guard clause and returns the error at that key, the first absent one
+in declaration order. `ValidateAs`, `FromJson` and a record target share the validator, so all
+three change. F61.5 and the `ToJson` guard's crash path are re-read against it.
+
+Recommended: **yes, for a type with one field-set member.** Three things hang off a yes and are
+asked next: what a union of field sets does (`AnswerWire` with no `"confidence"`), whether several
+absent keys are reported as the first or as all, and what 25f's `(:malformed, …)` then carries.
+
+**Q13. Does `FromJson<T>` take a `binary`?**
+
+```csharp
+private result<Evaluation, EvalError> Parse(binary body)
+
+// today: Q10 says `string`, so the body is validated first
+Parse(body) -> (ValidateAs<string>(body) |?> FromJson<ReplyWire>()) switch { … }
+
+// asked
+Parse(body) -> FromJson<ReplyWire>(body) switch { … }
+```
+
+An HTTP body is a `binary`. `string` is `binary` refined by valid UTF-8, and the platform's decoder
+refuses text that is not UTF-8 itself, so the first stage checks what the second checks again.
+
+Compiler delta: `FromJson`'s `type_of` clause checks its argument against `binary` instead of
+`string`; a `string` still goes in, being a subset. One row of `STANDARD-ENVIRONMENT.md` and one
+paragraph of `LANGUAGE.md` change.
+
+Recommended: **yes.** Every string inside the result is still a `string`, because the validator
+checks each one. Hanging off a yes: whether bytes that are not UTF-8 are reported as
+`Expected = "JSON"` or told apart.
+
+**Q14. Does ENG-410 close on three clauses, with 25f's request side following its blockers?**
+
+```csharp
+// still in 25f's index.bs, for the request side
+type Json = map<term, term> | list<term> | binary | int | float | atom
+using :json { term encode(term value) }
+```
+
+Q10's delta ends *"the hand-written `Json` union and its `using` block go"*. They have not gone.
+`Body` on `ToJson<RequestWire>` needs a parameter of the recursive JSON value type, which hangs the
+compiler ([ENG-609](https://linear.app/davewil/issue/ENG-609)) and whose validator refuses every
+object ([ENG-552](https://linear.app/davewil/issue/ENG-552)), and a `map<string, QuestionWire>`
+built from pairs ([ENG-454](https://linear.app/davewil/issue/ENG-454)).
+
+Recommended: **close ENG-410**, and raise one build issue for the request side, blocked by those
+three, so the clause has a home. The two review findings F69 left (a hand-written dotted `Kind`
+called a record; the indiscriminable refusal not naming `FromJson`) are filed as defects.
+
 ## Decisions entry
 
 <!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
