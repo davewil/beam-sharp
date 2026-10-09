@@ -29,9 +29,9 @@ The answer has to be one rule for both guards, stated once. That includes the se
    - **Verified here (`probes/59/elision.out`):** the elision belongs to `erlc`, not to the language.
    - **Reproduced by reading:** `beam_ssa_type.erl:119-120` (exported functions start at `any`, local ones at `none`) and `:708-725` (`make_fun` hands the callee `any` arguments, so a captured private function keeps its test).
    - **Not elided:** the tag test. `Tot(Order o)` called from the already-tagged `Handle(Order o)` still carries `map_get`/`is_eq_exact` in the optimised beam.
-5. **Ticket 18 contradicts itself.** The intake note, "Constraints from ticket 12" (`18-boundary-defence.md:194`), says: *"Restricting omission to non-exported functions is not an alternative — a foreign value entering through an exported function reaches private ones unchallenged."* §4 (`:817`) and §1 (`:439-441`) say the opposite. Both are resolved text.
+5. **Ticket 18 (CORRECTED by the verifier: this is a misreading, do not rely on it).** The verifier found the `:194` paragraph is about omitting the failure arm and is conditional on there being no exported guard, so it agrees with §4 rather than contradicting it. The original reading follows, kept for the record: The intake note, "Constraints from ticket 12" (`18-boundary-defence.md:194`), says: *"Restricting omission to non-exported functions is not an alternative — a foreign value entering through an exported function reaches private ones unchallenged."* §4 (`:817`) and §1 (`:439-441`) say the opposite. Both are resolved text.
 6. **F24 is itself a precedent against the "private is already checked" premise.** F24 §6 found that a private `Tag(int x)` helper behind a union-narrowing guard returned `:foo` from a `public int` ("Privacy is what makes it silent"). That was fixed at the narrowing site, not by guarding the private function.
-7. **"Exported" is stated in three more places.** `CONTEXT.md:397` ("Boundary guard ... on an exported function's parameter"), `LANGUAGE.md:3638`, and 26 §1 ("every exported function taking a record"). A decision touches all of them.
+7. **"Exported" is stated in three more places.** `CONTEXT.md:398` (heading at :397) ("Boundary guard ... on an exported function's parameter"), `LANGUAGE.md:3638`, and 26 §1 ("every exported function taking a record"). A decision touches all of them.
 8. **The private tag test is unpinned, and the private kind test is pinned.** Run (`probes/59/eunit.out`) against `records_tests`, `boundary_kind_tests` and `boundary_range_tests` (34 tests):
 
    | emitter | result |
@@ -51,7 +51,7 @@ The answer has to be one rule for both guards, stated once. That includes the se
   - (c) `public` or address-taken
   - Ask this alone first. S2 to S4 follow mechanically.
 - **S2. Is the answer one rule for both guards?** Yes by the ticket's own demand, so this collapses into S1. The only live variant is "tag follows S1(b), kind stays S1(a)", which is today's status quo and is what the ticket calls indefensible.
-- **S3 (follows S1).** If the answer widens or narrows, the *text* has to change in one place and the others have to follow: 18 §4 sentence, 18 §1 "interior pays nothing", `CONTEXT.md:397`, `LANGUAGE.md:3638`, F24 §2/§3, F37.5, F3.9, the two pinned tests, and the F24.6/F37.5 scenarios. A feature may not decide this; it implements it (`CLAUDE.md`, "tickets decide, features build").
+- **S3 (follows S1).** If the answer widens or narrows, the *text* has to change in one place and the others have to follow: 18 §4 sentence, 18 §1 "interior pays nothing", `CONTEXT.md:398` (heading at :397), `LANGUAGE.md:3638`, F24 §2/§3, F37.5, F3.9, the two pinned tests, and the F24.6/F37.5 scenarios. A feature may not decide this; it implements it (`CLAUDE.md`, "tickets decide, features build").
 - **S4 (independent, not this ticket's).** Projection guards (46 §4, owed in F24 §5 and F37 "What this does not build") would test a record field or tuple element at the exported boundary. That closes the record-in-record and field-float paths. It cannot close list elements, which 46 §4 excludes as O(n). So S4 shrinks what S1(a) leaves open but does not remove it.
 - **S5 (follows S1(c) only).** Whether function-local analysis (18 §4 "the standing constraint") survives: option (c) makes a function's emitted guard depend on a *different* function elsewhere in the module that takes its address.
 
@@ -127,7 +127,7 @@ Emitter E (guard if public or address-taken):
 | kind test, private `int` called from `List.Map(xs, Get/1)` | +5 | |
 | kind test, private `int` reached only from a guarded exported caller | **+0** | `erlc` elided it |
 
-- **26a's +14 reproduced exactly on OTP 25** (`26a-rerun.out`). The emitted B# test is +12 against 26a's hand-written +14.
+- **26a's +14 reproduced exactly on OTP 25** (`26a-rerun.out`). The emitted B# test is +12 against 26a's hand-written +14; the verifier found the 12-vs-14 gap is a harness artefact (the same hand-written guard compiles to +12), not a discrepancy in the claim.
 - **`.beam` file deltas** include debug info and 4-byte padding, so they run +36 to +80 bytes; use the Code column. The ticket's "+3-5 bytes `is_integer`" holds (+5).
 
 **Corpus effect of B** (`corpus.out`, `corpus-survive.out`; the compiling examples, 22 modules; `Signalbox` fails inside OTP 25's `core` pass under base too): 77 public and 12 private functions. B adds 19 `is_integer`/`is_float` tests to the *emitted abstract code* of the corpus (its private functions, reached from 15 local call sites). **0 survive in the optimised beam** (47 vs 47); `erlc` removed all of them. The control, module `Chain` with a captured private function, shows B > base (3 vs 2), so the probe can see a surviving test. No private function in the compiling corpus takes a record: the tag asymmetry currently costs and protects nothing there.
@@ -139,7 +139,7 @@ OTP 25 JIT, x86-64, shared host (load average 4 to 8). Figures are ns per iterat
 | workload | base | A (no private tag test) | B (kind on private) | read |
 |---|---|---|---|---|
 | W5: one tag test per iteration | 23.8 | **15.5** | 24.9 | tag test costs **about 8 ns/call**, well outside the floor (base vs `BenchBas2`: 0.0) |
-| W1: two tag tests per iteration | 47.6 | **15.9** | 50.0 | about 32 ns; not 2 x W5 and not explained |
+| W1: two tag tests per iteration | 47.6 | **15.9** | 50.0 | about 32 ns. **Explained by the verifier:** three tag tests run per iteration, not two (each of the two clause heads repeats the guard, plus `GetA`'s), so ≈3 × 8–10 ns |
 | W2: private int loop, caller proven | 4.24 | 4.60 | 4.06 | kind test elided; B vs base -0.19 |
 | W3: private fn mapped over a list (unknown callers) | 13.0 | 13.1 | 13.5 | B vs base +0.47; floor 0.83: **below noise, no claim** |
 | W4: private loop, unknown-typed seed | 4.18 | 4.51 | 3.93 | B vs base -0.25: **below noise, no claim** |
@@ -155,7 +155,7 @@ The 8 ns figure for the tag test is larger than ticket 26's "the tag itself cost
   - A `%Order{}` pattern on a `defp` head raised `FunctionClauseError` for a forged struct through all of: a nested map field, `&priv/1` mapped over a list, and an escaped `&priv/1`.
   - A `defp` with no pattern returned the forged struct's `total` (`{:ok, 100}`).
   - In Elixir the author-written check on the private head is what stops the forged value. Elixir 1.14 has no type checker, so nothing is inferred.
-- **Elm**: not executed. `elm make` needs `package.elm-lang.org`, which is unreachable (`elm/elm-try.out`). The repo's `wayfinder/research/18-elm-port-validation.md` is the only source: Elm checks at the port door, and the language has no private/public distinction that affects checking. UNVERIFIED-NOT-EXECUTED.
+- **Elm**: not executed. `elm make` needs `package.elm-lang.org`, which is unreachable (`elm/elm-try.out`). The repo's `wayfinder/research/18-elm-port-validation.md` is the only source for 'Elm checks at the port door'. (An earlier draft also said Elm has no private/public distinction; the verifier found that is not in the cited file, so it is withdrawn.) UNVERIFIED-NOT-EXECUTED.
 - **Gleam**: not installed, UNVERIFIED-NOT-EXECUTED. From the repo only: `prototypes/10c_gleam_forge.erl` shows a bad tag is caught by the clause head and a bad payload is not; `prototypes/18c_gleam_ffi_trust.gleam` shows `@external` is trusted. No claim is made about Gleam `pub` versus private.
 
 ## 5. The options
@@ -189,7 +189,7 @@ Totals(os) -> List.Map(os, Inner/1)   // same, per element
 {ok, _} when not Public -> {Pat, []};      % first clause of guard_one/7's record branch
 ```
 
-Plus: `CONTEXT.md:397` and 26 §1's "every exported function" become true as written; the comment in `bs_emit` is already right.
+Plus: `CONTEXT.md:398` (heading at :397) and 26 §1's "every exported function" become true as written; the comment in `bs_emit` is already right.
 
 **Measured:** 34 existing tests still pass. Saves 12 Code bytes and about 8 ns on every call into a private record function (OTP 25). Four silent paths open (4.2), none of them exercised by any test today.
 
@@ -210,7 +210,7 @@ private int Twice(int n)
 Twice(n) -> n * 2
 ```
 
-**Compiler delta** (patch B): delete `when Public` from `guard_one`'s `none` branch and drop the `none -> {Pat, []}` fallback, then remove the `Public` parameter from `clause`/`boundary_guards` (it becomes unused: B leaves it as a warning). Rewrite the `bs_emit.erl` comments that say exported-only (`:159-162`, `:330-333`, and the `IntOnly` note in `clause/4` that ties omission to "a checked B# call site does when it is private"). Fix the two tests that pin the opposite (`boundary_kind_tests.erl:88`, `boundary_range_tests.erl:122`), their F24.6/F37.5 scenarios and F24 §2/§3, F37.5. Amend 18 §4's sentence and §1's "pay nothing", `CONTEXT.md:397`, `LANGUAGE.md:3638`. No change to the analysis: still function-local, so a guard moves only when its own function is edited.
+**Compiler delta** (patch B): delete `when Public` from `guard_one`'s `none` branch and drop the `none -> {Pat, []}` fallback, then remove the `Public` parameter from `clause`/`boundary_guards` (it becomes unused: B leaves it as a warning). Rewrite the `bs_emit.erl` comments that say exported-only (`:159-162`, `:330-333`, and the `IntOnly` note in `clause/4` that ties omission to "a checked B# call site does when it is private"). Fix the two tests that pin the opposite (`boundary_kind_tests.erl:88`, `boundary_range_tests.erl:122`), their F24.6/F37.5 scenarios and F24 §2/§3, F37.5. Amend 18 §4's sentence and §1's "pay nothing", `CONTEXT.md:398` (heading at :397), `LANGUAGE.md:3638`. No change to the analysis: still function-local, so a guard moves only when its own function is edited.
 
 **Measured:** every hole in 4.2/4.3 closed (`forge.out`/`kinds.out`/`nest.out`, emitter B). Code +5 per `int` parameter and +12 per record parameter *when not elided*. On the compiling corpus 19 added tests (in the abstract code of its 12 private functions, reached from 15 local call sites) become 0 after `erlc` (`corpus-survive.out`). Kind-test time is below the noise floor (4.7). Not elided: the private tag test; the status quo already pays that.
 
@@ -230,9 +230,9 @@ The same program as Option 2. `Inner/1` and `Double/1` are address-taken, so the
 
 **Option 2: one rule, every function.**
 
-1. It is the only option that closes every path the probes found, without a new analysis, so 18 §4's function-local property survives. Option 3 does not close them, and breaks that property.
+1. It is the only option that closes every path *into a private guarded function* that the probes found (verifier: direct projection of a nested wrong-tag record passes under every variant, and a right tag with a wrong field type passes even on stock), without a new analysis, so 18 §4's function-local property survives. Option 3 does not close them, and breaks that property.
 2. The recorded cost is small where measured: Code bytes are exact; the kind test is elided by `erlc` when callers are proven (0 of 19 corpus additions survived) and unresolved against noise otherwise; the tag test already costs what it costs today.
-3. The text it rewrites (18 §4, 18 §1 "interior pays nothing") was already contradicted inside ticket 18 (`:194`), and one of its two premises, "every call site is a checked call site", is the one F24 §6 already had to patch.
+3. The text it rewrites (18 §4, 18 §1 "interior pays nothing") was **not** contradicted inside ticket 18 (the earlier claim about `:194` was a misreading, see §2.5), but one of its two premises, "every call site is a checked call site", is the one F24 §6 already had to patch.
 
 What would change my mind: a hot private loop, on OTP 28, that is reached from a caller `erlc` cannot type (a list element or a field) and pays a kind test per iteration at a resolvable cost. W4 is the closest I got and it was below the floor.
 
@@ -243,8 +243,13 @@ Ask S1 on its own, as a program: Option 1 versus Option 2 on `Totals([forged])` 
 - **OTP 28** (the repo's pin) is not installed; everything ran on OTP 25. `beam_ssa_type` elision and the generic `map_get` guard form are OTP-version-specific. The 8 ns tag cost and the elision rows must be re-run on 28.
 - **Gleam**: not installed; no Gleam claim made beyond what repo files record. **Elm**: package download blocked.
 - **Diagnostic columns** from the scratch build are wrong (lexer shim). Parser, checker and emitter are unchanged, but the shim means compile-time diagnostics were not compared.
-- **Machine and timing:** shared host, load average 4 to 8, `+S 1`, x86-64 JIT. Differences below about 1 ns are within the floor. W1 (about 32 ns for two tests, against about 8 for one) is not explained and I did not chase it.
+- **Machine and timing:** shared host, load average 4 to 8, `+S 1`, x86-64 JIT. Differences below about 1 ns are within the floor. W1 is explained: three tag tests per iteration, not two (verifier). Kind-test timing is not 'below noise' across the board: in 11 paired runs B is +0.34 ns on W3 and +2.65 ns on W5 and consistently −0.3 ns on W2/W4 (probably code layout), so treat kind-test cost as small and unresolved, not zero.
 - **Corpus:** 22 modules compile (`Signalbox` fails inside OTP 25's `core` pass under the *base* emitter too). `compiler/examples/exemplars/` does not compile (its README says so), so call-site counts there are a grep heuristic (`exemplar-static.out`: 30 public, 64 private, 10 private functions take a declared record parameter, about 7 textual call sites to the record-taking ones that I could attribute; the regex misses multi-line signatures).
 - **Not run:** the full suite or the gates (`./bin/verify.sh`, the two-run rule). Only three test modules, by hand, because `rebar3` does not work here. The two failing tests under B are an expected consequence; nothing was fixed.
 - **JIT native code size** of the guards: unmeasured (18a §1b failed the same way).
 - **Whether a function-level `Name/N` scan is sound for `fnames`** (option 3): the patch is a probe, not a design. It was not checked against the qualified (`{q,...}`) or imported cases.
+
+
+## Verifier corrections (2026-10-09)
+
+See `artifacts/verification/59-verification.md`. Applied above: the ticket 18 misreading, W1, kind-test noise, the scope of 'closes every path', the 12/14 byte note, the Elm sentence and the CONTEXT.md line. Not applied: `beam_ssa_type.erl` line numbers are off by about 1 to 8 in this brief; re-open the file before citing a line.
