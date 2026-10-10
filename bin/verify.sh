@@ -333,6 +333,9 @@ run_stages \
   "A union tagged by a string-literal key is validated by that key first" \
     "cd compiler && ./bin/check-tagged-union.sh --self-test && ./bin/check-tagged-union.sh" \
 \
+  "Under \`FromJson\`, a \`float\` position reads a JSON integer" \
+    "cd compiler && ./bin/check-float-reads-integer.sh --self-test && ./bin/check-float-reads-integer.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

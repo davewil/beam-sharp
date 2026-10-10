@@ -720,6 +720,19 @@ jobs:
         working-directory: compiler
         run: ./bin/check-tagged-union.sh
 
+      # F73 / ENG-616. Nine stubs: an integer at a float refused, accepted
+      # and handed back an integer, converted under a key and not at the
+      # top, converted nowhere beneath the first object, rounded where no
+      # float equals it, an `int` reading `1.0`, `ValidateAs` converting
+      # too, `int | float` handing back a float, and the exemplar alone wrong.
+      - name: The float-reads-integer gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-float-reads-integer.sh --self-test
+
+      - name: Under FromJson, a float position reads a JSON integer
+        working-directory: compiler
+        run: ./bin/check-float-reads-integer.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

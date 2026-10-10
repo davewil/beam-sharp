@@ -53,6 +53,14 @@ repeated_model() ->
     Open = binary:part(Good, 0, byte_size(Good) - 1),
     <<Open/binary, ",\"model\":\"other/model\"}">>.
 
+%% A good reply as a JavaScript sender writes it: the department answer's
+%% confidence of 1.0 is the text `1`. Written as text, because `json:encode/1`
+%% would be handed an Erlang integer and that is not what is under test.
+whole_confidence() ->
+    Good = iolist_to_binary(json:encode(openrouter())),
+    [Before, After] = binary:split(Good, <<"\"confidence\":0.8">>),
+    <<Before/binary, "\"confidence\":1", After/binary>>.
+
 run(Label, Spec, Send) ->
     R = 'Support.Triage':'Evaluate'(Send, <<"test-key">>, Spec, <<"Please refund me today">>, questions()),
     Sent = receive {sent, Q} -> Q after 0 -> none end,
@@ -107,6 +115,22 @@ main() ->
             io:format("unknown tag: ok~n");
         _ ->
             io:format("unknown tag: WRONG ~0p~n", [Tri]),
+            halt(1)
+    end,
+    Whole = run("openrouter, 200, a confidence written as 1", <<"openrouter:typesafe/jev-1.13">>,
+                serve_text(200, whole_confidence())),
+    %% Ticket 78 Q18: JavaScript writes 1.0 as 1, and the answer holds the float.
+    case Whole of
+        #{'Kind' := 'Support.Triage.Evaluation', 'Answers' := Answers} ->
+            case lists:keyfind(<<"department">>, 1, Answers) of
+                {_, #{'Kind' := 'Support.Triage.Chosen', 'Confidence' := 1.0}} ->
+                    io:format("whole number: ok~n");
+                _ ->
+                    io:format("whole number: WRONG ~0p~n", [Whole]),
+                    halt(1)
+            end;
+        _ ->
+            io:format("whole number: WRONG ~0p~n", [Whole]),
             halt(1)
     end,
     run("typesafe, 401", <<"typesafe:jev-latest">>, serve(401, #{<<"error">> => <<"bad key">>})),

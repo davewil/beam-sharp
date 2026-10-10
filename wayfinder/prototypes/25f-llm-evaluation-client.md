@@ -44,8 +44,9 @@ spec.bs: error: ParseSpec assigns Id a value Model does not accept
 F56 (2026-09-24, [ENG-403](https://linear.app/davewil/issue/ENG-403)) fixed that the same day: the
 tail after string-literal segments is now a `string`. With nothing else refused, the module builds
 to a `.beam` and
-[`25f_replay.erl`](25f_replay.erl) runs seven cases through `Evaluate` (five then; the repeated key
-came with F71, the unknown answer type with F72, and the malformed row reads as F70 left it):
+[`25f_replay.erl`](25f_replay.erl) runs eight cases through `Evaluate` (five then; the repeated key
+came with F71, the unknown answer type with F72, the whole-number confidence with F73, and the
+malformed row reads as F70 left it):
 
 | Case | What comes back |
 |---|---|
@@ -54,6 +55,7 @@ came with F71, the unknown answer type with F72, and the malformed row reads as 
 | OpenRouter, `200` with `{"answers":{}}`, ReqLLM's own malformed case | `(:error, (:malformed, e))`, `e` a `ValidationError` with `Path = ["[\"model\"]"]`, `Expected = "string"` and `Reason = :missing`. Before F70 it was `Path = []` and the whole of `ReplyWire` (friction 9) |
 | OpenRouter, `200`, the fixture with `"model"` a second time | `(:error, (:malformed, e))`, `e` with `Path = []`, `Expected = "\"model\" once"` and `Reason = :duplicate_key`. Before F71 it was an `Evaluation` built from the first |
 | OpenRouter, `200`, the `department` answer with `"type":"tri"` | `(:error, (:malformed, e))`, `e` with `Path = ["[\"answers\"]", "[\"department\"]", "[\"type\"]"]`, `Expected = "\"choice\" \| \"noul\" \| \"score\""` and `Reason = :mismatch`. Before F72 it was the whole of `AnswerWire` at `["answers"]["department"]` |
+| OpenRouter, `200`, the `department` answer's `"confidence"` written `1` | an `Evaluation` whose `department` answer is `Chosen { Choice = "billing", Confidence = 1.0 }`. Before F73 the wire type had to say `int \| float` there, or the reply was refused expecting `float` |
 | TypeSafe, `401` | `(:error, (:status, 401))` |
 | `anthropic:claude-haiku-4-5` | `(:error, (:unknown_model, …))`, and nothing was sent |
 
@@ -131,9 +133,9 @@ type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, Valida
 // adds `id`, `provider` and `usage.cost`, and each answer carries more than
 // this program reads.
 type UsageWire  = { "input_tokens": int, "output_tokens": int, .. }
-type AnswerWire = { "type": "choice", "choice": string, "confidence": int | float, .. }
-                | { "type": "score", "score": int | float, "confidence": int | float, .. }
-                | { "type": "noul", "noul": int | float, .. }
+type AnswerWire = { "type": "choice", "choice": string, "confidence": float, .. }
+                | { "type": "score", "score": float, "confidence": float, .. }
+                | { "type": "noul", "noul": float, .. }
 type ReplyWire  = { "model": string, "answers": map<string, AnswerWire>, "usage": UsageWire, .. }
 
 // What the model is shown, and what `json:encode/1` takes.
@@ -299,18 +301,12 @@ Tokens({ "input_tokens": i, "output_tokens": o }) -> Usage { InputTokens = i, Ou
 // The wire's `type` names the answer. `noul` is the boolean.
 private Answer One(AnswerWire a)
 
-One({ "type": "choice", "choice": c, "confidence": p }) -> Chosen { Choice = c, Confidence = Widen(p) }
-One({ "type": "score", "score": s, "confidence": p })   -> Scored { Score = Widen(s), Confidence = Widen(p) }
-One({ "type": "noul", "noul": p })                      -> Likely { Probability = Widen(p) }
-
-// JSON writes 1.0 as 1, so a probability arrives as either part.
-private float Widen(int | float n)
-
-Widen(int i)   -> Float.FromInt(i)
-Widen(float f) -> f
+One({ "type": "choice", "choice": c, "confidence": p }) -> Chosen { Choice = c, Confidence = p }
+One({ "type": "score", "score": s, "confidence": p })   -> Scored { Score = s, Confidence = p }
+One({ "type": "noul", "noul": p })                      -> Likely { Probability = p }
 ```
 
-**This was where 101 lines were; it is 20.** As first written, each value was read in two steps,
+**This was where 101 lines were; it is 16** (20 until F73 removed `Widen`)**.** As first written, each value was read in two steps,
 `:maps.find` for the key and a `ValidateAs` for the type, and most of the file passed failures
 along by hand (frictions 2, 3 and 4). Now `FromJson<ReplyWire>` has checked every key and value
 before `Decode` is called, so `Tokens` and `One` are total: a clause head per object, no failure
@@ -322,9 +318,10 @@ only way to walk a `map<K, V>` today is OTP's `maps:to_list`, whose declared ret
 more than `list<term>`. So the pairs are validated a second time to get their type back. See
 friction 9.
 
-`Widen` still reads well. JSON writes `1.0` as `1`, so `confidence` can decode as an `int`. The
-wire type says `int | float`, and F53's type prefix takes the union apart in two clauses with no
-catch-all.
+`Widen` is gone (F73, 2026-10-10). JSON writes `1.0` as `1`, so a `confidence` can arrive as an
+integer. Until F73 the wire type said `int | float` at each such key and a four-line `Widen` took
+the union apart with F53's type prefix. Under `FromJson` a `float` position now reads the integer
+as the float equal to it, so the wire type says `float` and `One` copies what it is given.
 
 ---
 
@@ -549,7 +546,8 @@ this is a related failure with a different cause.
 
 Recorded because 25a–25e had no floats, and this protocol is full of them: every probability,
 confidence and score. F51's `float`, `Float.FromInt` and a float guard (`l.Probability >= 0.8`)
-covered all of it. The one wrinkle, `1` versus `1.0` on the wire, is `Widen`, which is four lines.
+covered all of it. The one wrinkle, `1` versus `1.0` on the wire, was `Widen`, four lines, until
+F73 had `FromJson` read the integer at a `float` position.
 
 ### 9. What the 2026-10-09 rewrite found
 

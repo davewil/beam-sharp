@@ -41,9 +41,9 @@ type EvalError = (:unknown_model, string) | (:status, int) | (:malformed, Valida
 // adds `id`, `provider` and `usage.cost`, and each answer carries more than
 // this program reads.
 type UsageWire  = { "input_tokens": int, "output_tokens": int, .. }
-type AnswerWire = { "type": "choice", "choice": string, "confidence": int | float, .. }
-                | { "type": "score", "score": int | float, "confidence": int | float, .. }
-                | { "type": "noul", "noul": int | float, .. }
+type AnswerWire = { "type": "choice", "choice": string, "confidence": float, .. }
+                | { "type": "score", "score": float, "confidence": float, .. }
+                | { "type": "noul", "noul": float, .. }
 type ReplyWire  = { "model": string, "answers": map<string, AnswerWire>, "usage": UsageWire, .. }
 
 // What the model is shown, and what `json:encode/1` takes.

@@ -2989,9 +2989,28 @@ A reply with no `id` comes back with `"id" => :nothing`, one with an `id` keeps 
 returns `result<T, ValidationError>`. Text that is not JSON is the failure too, with `Path = []`,
 `Expected = "JSON"` and `Reason = :not_json`, so one arm answers a bad parse and a wrong shape,
 and a clause on `Reason` tells them apart. It converts what
-`ValidateAs` converts and nothing more: an absent key at an `option<T>` field is `:nothing`, and
-`null` stays `:null`. **shipped** — F69.
+`ValidateAs` converts, an absent key at an `option<T>` field to `:nothing`, and one thing more,
+below; `null` stays `:null`. **shipped** — F69.
 <!-- decided by ticket 78 Q10; built by F69 -->
+
+**A `float` position reads a JSON integer.** JSON has one number type and JavaScript writes `1.0`
+as `1`, so the same sender writes `0.5` and `1` at one key. Under `FromJson`, an integer where the
+type holds floats is the float equal to it: `{"price":1}` read as `{ "price": float }` is
+`{ "price" = 1.0 }`, at any depth. An integer the type holds as an integer stays one, so
+`int | float` given `1` is `1`. An integer no float equals, `9007199254740993` being the first, is
+refused expecting the position's type, and an `int` position still refuses `1.0`. This is the one
+conversion `FromJson` makes that `ValidateAs` does not: in a term a program built, `1` is an `int`
+because the program said so, and `ValidateAs<float>` refuses it. **shipped** — F73.
+<!-- decided by ticket 78 Q18; built by F73 -->
+
+```csharp
+module Quotes
+
+type Quote = { "price": float }
+
+public result<Quote, ValidationError> Parse(string body)
+Parse(body) -> FromJson<Quote>(body)
+```
 
 **JSON with a repeated key is refused, always.** `{"a":1,"a":"x"}` is `Path = []`,
 `Expected = "\"a\" once"` and `Reason = :duplicate_key`, whichever value is the wrong one, and

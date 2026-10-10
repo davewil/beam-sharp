@@ -970,7 +970,7 @@ expr({e_call, L, F, As}, C)   ->
 %% Rationale: compiler/features/F18-validate-as.md.
 expr({e_inst, L, 'ValidateAs', [TypeExpr], [Arg]}, C) ->
     Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
-    {_Roots, _Jsons, _Texts, Table} = maps:get(validators, C),
+    {_Checks, _Jsons, _Texts, Table} = maps:get(validators, C),
     {call, L, {atom, L, root_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% `ParseAtom<T>(s)` is emitted inline rather than as a generated function: the
@@ -1004,7 +1004,7 @@ expr({e_inst, L, 'ParseAtom', [TypeExpr], [Arg]}, C) ->
 %% Rationale: compiler/features/F50-to-json.md.
 expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
     Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
-    {_Roots, _Jsons, _Texts, Table} = maps:get(validators, C),
+    {_Checks, _Jsons, _Texts, Table} = maps:get(validators, C),
     {call, L, {atom, L, json_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% `FromJson<T>(s)` is a bare local call to the decoder generated for `T`: the
@@ -1013,7 +1013,7 @@ expr({e_inst, L, 'ToJson', [TypeExpr], [Arg]}, C) ->
 %% Rationale: compiler/features/F69-from-json.md.
 expr({e_inst, L, 'FromJson', [TypeExpr], [Arg]}, C) ->
     Ty = bs_check:resolve(TypeExpr, maps:get(env, C)),
-    {_Roots, _Jsons, _Texts, Table} = maps:get(validators, C),
+    {_Checks, _Jsons, _Texts, Table} = maps:get(validators, C),
     {call, L, {atom, L, text_name(maps:get(Ty, Table))}, [expr(Arg, C)]};
 
 %% A qualified call is a remote call; the module atom is already the
@@ -1634,12 +1634,11 @@ validator_table(Fns, Env) ->
     Nodes = inst_nodes(Fns),
     Texts = lists:usort([bs_check:resolve(TE, Env)
                          || {e_inst, _, 'FromJson', [TE], [_]} <- Nodes]),
-    %% A `FromJson<T>` ends in the root a `ValidateAs<T>` would call.
-    Roots = lists:usort(Texts ++ [bs_check:resolve(TE, Env)
-                                  || {e_inst, _, 'ValidateAs', [TE], [_]} <- Nodes]),
+    Checks = lists:usort([bs_check:resolve(TE, Env)
+                          || {e_inst, _, 'ValidateAs', [TE], [_]} <- Nodes]),
     Jsons = lists:usort([bs_check:resolve(TE, Env)
                          || {e_inst, _, 'ToJson', [TE], [_]} <- Nodes]),
-    {Roots, Jsons, Texts, close_over(Roots ++ Jsons, #{})}.
+    {Checks, Jsons, Texts, close_over(lists:usort(Texts ++ Checks) ++ Jsons, #{})}.
 
 %% Obligations can occur anywhere in an expression; walk all term children.
 inst_nodes(T) when is_tuple(T) ->
@@ -1831,22 +1830,35 @@ tag_of(_) -> none.
 %% `term` needs no validator; the checker rejects `ValidateAs<term>`.
 checked(Ty) -> not bs_types:is_subtype(bs_types:term(), Ty).
 
-validator_forms({Roots, Jsons, Texts, Table}) ->
+validator_forms({Checks, Jsons, Texts, Table}) ->
     Ordered = lists:sort(fun({_, A}, {_, B}) -> A =< B end, maps:to_list(Table)),
     Conv = converting(Table),
-    %% A validator that can fill is emitted only where `ValidateAs` reaches
-    %% it; `ToJson` reaches its strict twin instead.
-    Filling = reach([R || R <- Roots, lists:member(R, Conv)], Conv, []),
-    {Strict, StrictTable} = strict_table(Jsons, Conv, Table),
-    lists:append([validator_form(Ty, Name, Table, Conv)
-                  || {Ty, Name} <- Ordered,
-                     not lists:member(Ty, Conv) orelse lists:member(Ty, Filling)])
-    ++ lists:append([validator_form(Ty, maps:get(Ty, StrictTable), StrictTable, [])
+    {Strict, StrictTable} = twin_table(Jsons, Conv, Table, fun strict_name/1),
+    %% `FromJson` reaches a wire twin where an integer may be read as a float.
+    Reading = reading(Table),
+    {Wire, WireTable} = twin_table(Texts, Reading, Table, fun wire_name/1),
+    %% A shared validator is emitted only where something calls it: a root
+    %% with no twin, or a twin whose child has none. So one that can fill is
+    %% emitted where `ValidateAs` or `FromJson` reaches it and not for
+    %% `ToJson`, which reaches its strict twin instead.
+    Rooted = lists:usort(Checks ++ (Texts -- Wire)),
+    Shared = reach(Rooted ++ (Jsons -- Strict)
+                   ++ [C || Twins <- [Strict, Wire], T <- Twins,
+                            C <- children(T), not lists:member(C, Twins)],
+                   maps:keys(Table), []),
+    lists:append([validator_form(Ty, Name, Table, Conv, term)
+                  || {Ty, Name} <- Ordered, lists:member(Ty, Shared)])
+    ++ lists:append([validator_form(Ty, maps:get(Ty, StrictTable), StrictTable, [], term)
                      || {Ty, _} <- Ordered, lists:member(Ty, Strict)])
-    ++ [root_form(maps:get(Ty, Table)) || Ty <- Roots]
+    ++ lists:append([validator_form(Ty, maps:get(Ty, WireTable), WireTable,
+                                    lists:usort(Conv ++ Reading), wire)
+                     || {Ty, _} <- Ordered, lists:member(Ty, Wire)])
+    ++ [root_form(maps:get(Ty, Table)) || Ty <- Rooted]
+    ++ [root_form(maps:get(Ty, WireTable)) || Ty <- Texts, lists:member(Ty, Wire)]
     ++ [json_form(maps:get(Ty, Table), maps:get(Ty, StrictTable)) || Ty <- Jsons]
-    ++ [text_form(maps:get(Ty, Table)) || Ty <- Texts]
+    ++ [text_form(maps:get(Ty, Table), maps:get(Ty, WireTable)) || Ty <- Texts]
     ++ [F || Texts =/= [], F <- decode_forms()]
+    ++ [exact_form() || Wire =/= []]
     ++ [F || lists:any(fun({Ty, _}) -> exact_keyed(Ty) end, Ordered),
              F <- unknown_forms()]
     ++ [F || lists:any(fun({Ty, _}) ->
@@ -1883,8 +1895,9 @@ json_form(Name, Validator) ->
           {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, EV]}], [], [Crash]}]}]}]}.
 
 %% Decode, then validate. Text that is not JSON is a value, as a term outside
-%% `T` is: a `ValidationError` at the top, expecting JSON.
-text_form(Name) ->
+%% `T` is: a `ValidationError` at the top, expecting JSON. `Validator` is the
+%% type's wire twin where it has one (F73).
+text_form(Name, Validator) ->
     XV = {var, ?A, 'Bs@x'},
     VV = {var, ?A, 'Bs@v'},
     EV = {var, ?A, 'Bs@er'},
@@ -1892,7 +1905,7 @@ text_form(Name) ->
      [{clause, ?A, [XV], [],
        [{'case', ?A, {call, ?A, {atom, ?A, decode_name()}, [XV]},
          [{clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, VV]}], [],
-           [{call, ?A, {atom, ?A, root_name(Name)}, [VV]}]},
+           [{call, ?A, {atom, ?A, root_name(Validator)}, [VV]}]},
           {clause, ?A, [EV], [], [EV]}]}]}]}.
 
 %%% ---------------------------------------------------------------------------
@@ -1994,14 +2007,17 @@ decode_forms() ->
 %% children could fill too and the shared validators where they cannot. So
 %% an absent key under `ToJson` is blamed where it is missing, as before.
 %% Rationale: compiler/features/F61-absent-option-key.md.
-strict_table(Jsons, Conv, Table) ->
-    Strict = reach([J || J <- Jsons, lists:member(J, Conv)], Conv, []),
-    {Strict, maps:map(fun(Ty, Name) ->
-                              case lists:member(Ty, Strict) of
-                                  true  -> strict_name(Name);
-                                  false -> Name
-                              end
-                      end, Table)}.
+%%
+%% `twin_table/4` is shared with F73's wire twins: the types among `Set`
+%% that `Roots` reach, and the table with those renamed.
+twin_table(Roots, Set, Table, Rename) ->
+    Twins = reach([R || R <- Roots, lists:member(R, Set)], Set, []),
+    {Twins, maps:map(fun(Ty, Name) ->
+                             case lists:member(Ty, Twins) of
+                                 true  -> Rename(Name);
+                                 false -> Name
+                             end
+                     end, Table)}.
 
 reach([], _Conv, Seen) -> lists:reverse(Seen);
 reach([Ty | Rest], Conv, Seen) ->
@@ -2012,6 +2028,59 @@ reach([Ty | Rest], Conv, Seen) ->
     end.
 
 strict_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@s").
+
+%%% ---------------------------------------------------------------------------
+%%% A float position reads a JSON integer (F73)
+%%%
+%%% Ticket 78 Q18. JSON has one number type and JavaScript writes `1.0` as
+%%% `1`, so under `FromJson` an integer the type does not hold as an integer
+%%% is read as the float equal to it, where the type holds that float. An
+%%% integer no float equals is refused, expecting the type. `ValidateAs` and
+%%% `ToJson` make no such conversion: in a term a program built, `1` is an
+%%% `int` because the program said so.
+%%%
+%%% So a type that could read an integer this way, or holds one that could,
+%%% gets a wire twin where `FromJson` reaches it, as F61's fills get a strict
+%%% twin under `ToJson`. A twin returns its children's values, rebuilt.
+%%% Rationale: compiler/features/F73-float-reads-integer.md.
+%%% ---------------------------------------------------------------------------
+
+wire_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@w").
+exact_name()    -> 'bs@validate@exact'.
+
+%% Floats, and some integer left for one of them to be read from.
+reads_integer(#{ints := Is, floats := Fl}) ->
+    Fl =/= {finite, []} andalso Is =/= [{neg_inf, pos_inf}].
+
+reading(Table) ->
+    Tys = maps:keys(Table),
+    grow(Tys, [Ty || Ty <- Tys, reads_integer(bs_types:unfold(Ty))]).
+
+%% After the type's own `int` clauses, so an integer it holds stays one.
+read_clauses(term, _Ty, _Err) -> [];
+read_clauses(wire, Ty = #{floats := Fl}, Err) ->
+    FV = {var, ?A, 'Bs@fl'},
+    [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_integer, [?VV])]],
+      [{'case', ?A, {call, ?A, {atom, ?A, exact_name()}, [?VV]},
+        [{clause, ?A, [FV], float_guards(FV, Fl), [{tuple, ?A, [{atom, ?A, ok}, FV]}]},
+         {clause, ?A, [{var, ?A, '_'}], [], [Err]}]}]}
+     || reads_integer(Ty)].
+
+%% The float equal to an integer, or `none`: `float/1` rounds to the nearest
+%% and raises past the largest, and neither is the integer that was written.
+exact_form() ->
+    IV = {var, ?A, 'Bs@i'},
+    FV = {var, ?A, 'Bs@fl'},
+    Any = {var, ?A, '_'},
+    {function, ?A, exact_name(), 1,
+     [{clause, ?A, [IV], [],
+       [{'try', ?A,
+         [guard_call(float, [IV])],
+         [{clause, ?A, [FV], [[{op, ?A, '=:=', guard_call(trunc, [FV]), IV}]], [FV]},
+          {clause, ?A, [Any], [], [{atom, ?A, none}]}],
+         [{clause, ?A, [{tuple, ?A, [{atom, ?A, error}, Any, Any]}], [],
+           [{atom, ?A, none}]}],
+         []}]}]}.
 
 %%% --- Reserved qualifier operations ---
 %%%
@@ -2085,13 +2154,13 @@ walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 
 %% Errors name the binder; traversal uses its unfolding. Recursive positions
 %% retain the same `mu` node registered in `Table`, enabling calls back here.
-validator_form(Ty, Name, Table, Conv) ->
+validator_form(Ty, Name, Table, Conv, Mode) ->
     Err = error_expr(Ty),
     Body = bs_types:unfold(Ty),
     %% A strict twin is emitted with an empty `Conv`, so it gets no attempts.
     Fills = [M || lists:member(Ty, Conv), M <- fillable_members(Body)],
     Keyed = keyed_member(Body),
-    Clauses = ty_clauses(Body, Name, Table, Conv, Err)
+    Clauses = ty_clauses(Body, Name, Table, Conv, Err, Mode)
               ++ [keys_clause(Name) || Keyed =/= none]
               ++ [fill_clause(Name) || Fills =/= [], Keyed =:= none]
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
@@ -2339,7 +2408,7 @@ fill_form({Kind, Fs}, I, Name) ->
          [{clause, ?A, [MV], [Present ++ Tags ++ [Absent] ++ Exact], [Retry]},
           {clause, ?A, [{var, ?A, '_'}], [], [Next(FV)]}]}]}]}.
 
-ty_clauses(Ty, Name, Table, Conv, Err) ->
+ty_clauses(Ty, Name, Table, Conv, Err, Mode) ->
     #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
       bins := Bs, opaques := Os, funs := Fs} = Ty,
     %% The checker rejects arrows: function types cannot be recovered at
@@ -2348,6 +2417,7 @@ ty_clauses(Ty, Name, Table, Conv, Err) ->
     atom_clauses(As)
     ++ int_clauses(Is)
     ++ float_clauses(Fl)
+    ++ read_clauses(Mode, Ty, Err)
     ++ bin_clauses(lists:sort(Bs), Err)
     ++ [{clause, ?A, [{var, ?A, '_'}], [[guard_call(opaque_bif(O), [?VV])]], [ok_expr()]}
         || O <- Os]
@@ -2365,13 +2435,16 @@ atom_clauses({cofinite, Excluded}) ->
 int_clauses(Ranges) -> [int_clause(R) || R <- Ranges].
 
 %% Use `float_form/2` for literal comparisons to preserve signed zero.
-float_clauses({finite, Fs}) ->
-    [{clause, ?A, [{var, ?A, '_'}], [[{op, ?A, '=:=', ?VV, float_form(?A, F)}]], [ok_expr()]}
-     || F <- Fs];
-float_clauses({cofinite, Excluded}) ->
-    Tests = [guard_call(is_float, [?VV])
-             | [{op, ?A, '=/=', ?VV, float_form(?A, E)} || E <- Excluded]],
-    [{clause, ?A, [{var, ?A, '_'}], [Tests], [ok_expr()]}].
+float_clauses({finite, []}) -> [];
+float_clauses(Fl) ->
+    [{clause, ?A, [{var, ?A, '_'}], float_guards(?VV, Fl), [ok_expr()]}].
+
+%% The guard under which `V` is one of the type's floats, where it has any.
+float_guards(V, {finite, Fs}) ->
+    [[{op, ?A, '=:=', V, float_form(?A, F)}] || F <- Fs];
+float_guards(V, {cofinite, Excluded}) ->
+    [[guard_call(is_float, [V])
+      | [{op, ?A, '=/=', V, float_form(?A, E)} || E <- Excluded]]].
 
 int_clause({Lo, Hi}) ->
     Tests = [guard_call(is_integer, [?VV])]

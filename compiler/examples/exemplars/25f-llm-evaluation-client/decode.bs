@@ -25,13 +25,7 @@ Tokens({ "input_tokens": i, "output_tokens": o }) -> Usage { InputTokens = i, Ou
 // The wire's `type` names the answer. `noul` is the boolean.
 private Answer One(AnswerWire a)
 
-One({ "type": "choice", "choice": c, "confidence": p }) -> Chosen { Choice = c, Confidence = Widen(p) }
-One({ "type": "score", "score": s, "confidence": p })   -> Scored { Score = Widen(s), Confidence = Widen(p) }
-One({ "type": "noul", "noul": p })                      -> Likely { Probability = Widen(p) }
-
-// JSON writes 1.0 as 1, so a probability arrives as either part.
-private float Widen(int | float n)
-
-Widen(int i)   -> Float.FromInt(i)
-Widen(float f) -> f
+One({ "type": "choice", "choice": c, "confidence": p }) -> Chosen { Choice = c, Confidence = p }
+One({ "type": "score", "score": s, "confidence": p })   -> Scored { Score = s, Confidence = p }
+One({ "type": "noul", "noul": p })                      -> Likely { Probability = p }
 
