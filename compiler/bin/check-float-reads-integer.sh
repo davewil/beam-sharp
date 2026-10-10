@@ -29,6 +29,10 @@
 #   S1  (F73.9) `{ "v": float } | { "v": int }` given `1`: the integer `1`.
 #       Red under `first_reader`, which hands the value to the first member
 #       that can read it, ahead of one that holds it as it is.
+#   S2  (F73.9) `{ "v": float, "w": option<int> } | { "v": int, "w":
+#       option<int>, "k": option<int> }` given `{"v":1}`: the second member,
+#       its keys filled and `1` an integer. Red under `first_filler`, which
+#       fills the first member and reads `1` as its float.
 #   R8  exemplar 25f, whose answers are typed `float`, served a reply that
 #       writes a confidence as `1`: the answer holds `1.0`. Red under
 #       `refused` and under `exemplar_only`.
@@ -40,7 +44,7 @@ BSC="$HERE/_build/default/bin/bsc"
 EXEMPLAR="$HERE/examples/exemplars/25f-llm-evaluation-client"
 REPLAY="$HERE/../wayfinder/prototypes/25f_replay.erl"
 
-CASES="R1 R2 R3 R4 R5 R6 R7 R9 S1 R8"
+CASES="R1 R2 R3 R4 R5 R6 R7 R9 S1 S2 R8"
 
 call() { # the function and its argument
   case "$1" in
@@ -53,6 +57,7 @@ call() { # the function and its argument
     R7) echo 'ReadEither "{\"n\":1}"' ;;
     R9) echo 'ReadMixed "{\"price\":2}"' ;;
     S1) echo 'ReadSplit "{\"v\":1}"' ;;
+    S2) echo 'ReadFilled "{\"v\":1}"' ;;
   esac
 }
 
@@ -72,6 +77,7 @@ expected_value() {
     R7) echo '{"n" = 1}' ;;
     R9) echo '{"note" = :nothing, "price" = 2.0}' ;;
     S1) echo '{"v" = 1}' ;;
+    S2) echo '{"k" = :nothing, "v" = 1, "w" = :nothing}' ;;
     R8) echo 'whole number: ok' ;;
   esac
 }
@@ -105,7 +111,9 @@ probe() {
     printf 'type Whole = { "a": int }\n'
     printf 'type Either = { "n": int | float }\n'
     printf 'type Mixed = { "price": float, "note": option<string> }\n'
-    printf 'type Split = { "v": float } | { "v": int }\n\n'
+    printf 'type Split = { "v": float } | { "v": int }\n'
+    printf 'type Filled = { "v": float, "w": option<int> }\n'
+    printf '            | { "v": int, "w": option<int>, "k": option<int> }\n\n'
     printf 'public result<F, ValidationError> Read(string body)\n'
     printf 'Read(body) -> FromJson<F>(body)\n\n'
     printf 'public result<float, ValidationError> ReadFloat(string body)\n'
@@ -118,6 +126,8 @@ probe() {
     printf 'ReadEither(body) -> FromJson<Either>(body)\n\n'
     printf 'public result<Split, ValidationError> ReadSplit(string body)\n'
     printf 'ReadSplit(body) -> FromJson<Split>(body)\n\n'
+    printf 'public result<Filled, ValidationError> ReadFilled(string body)\n'
+    printf 'ReadFilled(body) -> FromJson<Filled>(body)\n\n'
     printf 'public result<Mixed, ValidationError> ReadMixed(string body)\n'
     printf 'ReadMixed(body) -> FromJson<Mixed>(body)\n\n'
     printf 'public result<Mixed, ValidationError> CheckMixed(term t)\n'
@@ -131,7 +141,7 @@ probe() {
     printf 'Loose() -> { "price" = 1 }\n'
   } > "$dir/Prices/prices.bs"
   (cd "$dir" &&
-     for v in R1 R2 R3 R4 R5 R6 R7 R9 S1; do
+     for v in R1 R2 R3 R4 R5 R6 R7 R9 S1 S2; do
        fn="$(call "$v" | cut -d' ' -f1)"
        arg="$(call "$v" | cut -s -d' ' -f2-)"
        if [ -n "$arg" ]; then
@@ -151,7 +161,7 @@ probe() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — eleven defects and one correct form.
+# --self-test — twelve defects and one correct form.
 #
 #   refused          an integer at a float is refused, as before F73
 #   unconverted      the integer is accepted and handed back an integer
@@ -164,6 +174,8 @@ probe() {
 #   uncalled         a validator is emitted that nothing calls
 #   first_reader     of two members, one reading the value is asked before
 #                    one holding it
+#   first_filler     the same, where the members are tried by filling their
+#                    absent option keys
 #   exemplar_only    every probe is right and the exemplar is not
 #
 # Each but `refused` and `uncalled` is wrong on one case alone, and is
@@ -185,7 +197,7 @@ if [ "${1:-}" = "--self-test" ]; then
   G1="$(expected_value R1)"; G2="$(expected_value R2)"; G3="$(expected_value R3)"
   G4="$(expected_value R4)"; G5="$(expected_value R5)"; G6="$(expected_value R6)"
   G7="$(expected_value R7)"; G9="$(expected_value R9)"
-  GS="$(expected_value S1)"
+  GS="$(expected_value S1)"; GT="$(expected_value S2)"
   WARN='compile: prices.bs:0: Warning: function bs@validate@1/2 is unused
 '
   G8="== openrouter, 200, a confidence written as 1
@@ -193,22 +205,24 @@ $(expected_value R8)"
   BAD8='== openrouter, 200, a confidence written as 1
 whole number: WRONG {error,{malformed,#{}}}'
 
-  stub good            "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$G8"
+  stub good            "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$G8"
   stub refused         "$G4" "$(ve '"float"' '[]')" \
-                       "$(ve '"float"' '["["all"]", "[0]"]')" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$BAD8"
-  stub unconverted     '{"price" = 1}' "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$G8"
-  stub fields_only     "$G1" "$(ve '"float"' '[]')" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$G8"
+                       "$(ve '"float"' '["["all"]", "[0]"]')" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$BAD8"
+  stub unconverted     '{"price" = 1}' "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$G8"
+  stub fields_only     "$G1" "$(ve '"float"' '[]')" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$G8"
   stub shallow         "$G1" "$G2" "$(ve '"float"' '["["all"]", "[0]"]')" \
-                       "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$G8"
+                       "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$G8"
   stub rounds          "$G1" "$G2" "$G3" '{"price" = 9.007199254740992e15}' \
-                       "$G5" "$G6" "$G7" "$G9" "$GS" "$G8"
-  stub int_reads_float "$G1" "$G2" "$G3" "$G4" '{"a" = 1}' "$G6" "$G7" "$G9" "$GS" "$G8"
-  stub validate_too    "$G1" "$G2" "$G3" "$G4" "$G5" "$G1" "$G7" "$G9" "$GS" "$G8"
-  stub always_float    "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" '{"n" = 1.0}' "$G9" "$GS" "$G8"
+                       "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$G8"
+  stub int_reads_float "$G1" "$G2" "$G3" "$G4" '{"a" = 1}' "$G6" "$G7" "$G9" "$GS" "$GT" "$G8"
+  stub validate_too    "$G1" "$G2" "$G3" "$G4" "$G5" "$G1" "$G7" "$G9" "$GS" "$GT" "$G8"
+  stub always_float    "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" '{"n" = 1.0}' "$G9" "$GS" "$GT" "$G8"
   stub uncalled        "$WARN$G1" "$WARN$G2" "$WARN$G3" "$WARN$G4" "$WARN$G5" "$WARN$G6" \
-                       "$WARN$G7" "$WARN$G9" "$WARN$GS" "$G8"
-  stub first_reader    "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" '{"v" = 1.0}' "$G8"
-  stub exemplar_only   "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$BAD8"
+                       "$WARN$G7" "$WARN$G9" "$WARN$GS" "$WARN$GT" "$G8"
+  stub first_reader    "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" '{"v" = 1.0}' "$GT" "$G8"
+  stub first_filler    "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" \
+                       '{"v" = 1.0, "w" = :nothing}' "$G8"
+  stub exemplar_only   "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7" "$G9" "$GS" "$GT" "$BAD8"
 
   only() { # stub, the one case it must be red on
     if [ "$(judge "$W/$1" | cut -d: -f1 | tr '\n' ' ')" = "$2 " ]; then
@@ -225,7 +239,7 @@ whole number: WRONG {error,{malformed,#{}}}'
   # What it got spans two lines here, so the cases are read off the lines
   # that open a complaint.
   if [ "$(judge "$W/uncalled" | grep -o '^[RS][0-9]: wanted' | cut -d: -f1 | tr '\n' ' ')" \
-       = "R1 R2 R3 R4 R5 R6 R7 R9 S1 " ]; then
+       = "R1 R2 R3 R4 R5 R6 R7 R9 S1 S2 " ]; then
     echo "  ok red on uncalled, at every probe"
   else
     echo "  x SELF-TEST: 'uncalled' was not red at every probe"; fail=1
@@ -238,6 +252,7 @@ whole number: WRONG {error,{malformed,#{}}}'
   only validate_too R6
   only always_float R7
   only first_reader S1
+  only first_filler S2
   only exemplar_only R8
   if [ -n "$(judge "$W/good")" ]; then
     echo "  x SELF-TEST: the CORRECT set of outputs was rejected -"; judge "$W/good"; fail=1
@@ -245,7 +260,7 @@ whole number: WRONG {error,{malformed,#{}}}'
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: eleven defects seen, correct form accepted"
+  echo "self-test passed: twelve defects seen, correct form accepted"
   exit 0
 fi
 

@@ -1840,21 +1840,23 @@ validator_forms({Checks, Jsons, Texts, Table}) ->
     WireTable = Twinned#{shared => Table},
     %% A shared validator is emitted only where something calls it: a root
     %% with no twin, a twin whose child has none, or a wire twin trying its
-    %% alternatives as they are (`tries/2`). So one that can fill is
+    %% alternatives or its fills as they are (`tries/2`, `fill_clause/3`). So
+    %% one that can fill is
     %% emitted where `ValidateAs` or `FromJson` reaches it and not for
     %% `ToJson`, which reaches its strict twin instead.
     Rooted = lists:usort(Checks ++ (Texts -- Wire)),
     Shared = reach(Rooted ++ (Jsons -- Strict)
                    ++ [C || Twins <- [Strict, Wire], T <- Twins,
                             C <- children(T), not lists:member(C, Twins)]
-                   ++ [C || T <- Wire, C <- tried(T)],
+                   ++ [C || T <- Wire, C <- tried(T)]
+                   ++ [T || T <- Wire, fills_in_turn(T)],
                    maps:keys(Table), []),
-    lists:append([validator_form(Ty, Name, Table, Conv, term)
+    lists:append([validator_form(Ty, Name, Table, Conv)
                   || {Ty, Name} <- Ordered, lists:member(Ty, Shared)])
-    ++ lists:append([validator_form(Ty, maps:get(Ty, StrictTable), StrictTable, [], term)
+    ++ lists:append([validator_form(Ty, maps:get(Ty, StrictTable), StrictTable, [])
                      || {Ty, _} <- Ordered, lists:member(Ty, Strict)])
     ++ lists:append([validator_form(Ty, maps:get(Ty, WireTable), WireTable,
-                                    lists:usort(Conv ++ Reading), wire)
+                                    lists:usort(Conv ++ Reading))
                      || {Ty, _} <- Ordered, lists:member(Ty, Wire)])
     ++ [root_form(maps:get(Ty, Table)) || Ty <- Rooted]
     ++ [root_form(maps:get(Ty, WireTable)) || Ty <- Texts, lists:member(Ty, Wire)]
@@ -2061,14 +2063,16 @@ reading(Table) ->
     grow(Tys, [Ty || Ty <- Tys, reads_integer(bs_types:unfold(Ty))]).
 
 %% After the type's own `int` clauses, so an integer it holds stays one.
-read_clauses(term, _Ty, _Err) -> [];
-read_clauses(wire, Ty = #{floats := Fl}, Err) ->
+%% Only a wire twin's table carries `shared`, the table its twins were
+%% renamed from.
+read_clauses(#{shared := _}, Ty = #{floats := Fl}, Err) ->
     FV = {var, ?A, 'Bs@fl'},
     [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_integer, [?VV])]],
       [{'case', ?A, {call, ?A, {atom, ?A, exact_name()}, [?VV]},
         [{clause, ?A, [FV], float_guards(FV, Fl), [{tuple, ?A, [{atom, ?A, ok}, FV]}]},
          {clause, ?A, [{var, ?A, '_'}], [], [Err]}]}]}
-     || reads_integer(Ty)].
+     || reads_integer(Ty)];
+read_clauses(_Table, _Ty, _Err) -> [].
 
 %% The float equal to an integer, or `none`: `float/1` rounds to the nearest
 %% and raises past the largest, and neither is the integer that was written.
@@ -2158,16 +2162,16 @@ walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 
 %% Errors name the binder; traversal uses its unfolding. Recursive positions
 %% retain the same `mu` node registered in `Table`, enabling calls back here.
-validator_form(Ty, Name, Table, Conv, Mode) ->
+validator_form(Ty, Name, Table, Conv) ->
     Err = error_expr(Ty),
     Body = bs_types:unfold(Ty),
     %% A strict twin is emitted with an empty `Conv`, so it gets no attempts;
     %% a wire twin with the types that fill and the types that read (F73).
     Fills = [M || lists:member(Ty, Conv), M <- fillable_members(Body)],
     Keyed = keyed_member(Body),
-    Clauses = ty_clauses(Body, Name, Table, Conv, Err, Mode)
+    Clauses = ty_clauses(Body, Name, Table, Conv, Err)
               ++ [keys_clause(Name) || Keyed =/= none]
-              ++ [fill_clause(Name) || Fills =/= [], Keyed =:= none]
+              ++ [fill_clause(Ty, Name, Table) || Fills =/= [], Keyed =:= none]
               ++ [{clause, ?A, [{var, ?A, '_'}], [], [Err]}],
     Fn = {function, ?A, Name, 2,
           [{clause, ?A, [?VV, ?VP], [], [{'case', ?A, ?VV, Clauses}]}]},
@@ -2363,9 +2367,26 @@ grow(Tys, Conv) ->
 
 fill_name(Name, I) -> list_to_atom(atom_to_list(Name) ++ "@fill" ++ integer_to_list(I)).
 
-fill_clause(Name) ->
-    {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
-     [{call, ?A, {atom, ?A, fill_name(Name, 1)}, [?VV, ?VP, {atom, ?A, none}]}]}.
+%% Under a wire twin (F73) the type's shared validator makes its attempts
+%% first, so a member that holds the value once filled answers before one
+%% that must also read an integer as a float, as in `tries/2`.
+fill_clause(Ty, Name, Table) ->
+    Attempts = {call, ?A, {atom, ?A, fill_name(Name, 1)}, [?VV, ?VP, {atom, ?A, none}]},
+    OV = {var, ?A, 'Bs@ao'},
+    Body = case Table of
+               #{shared := Shared} ->
+                   {'case', ?A, {call, ?A, {atom, ?A, maps:get(Ty, Shared)}, [?VV, ?VP]},
+                    [pass_ok(OV),
+                     {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}]}], [],
+                      [Attempts]}]};
+               _ -> Attempts
+           end,
+    {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [Body]}.
+
+%% Whether `fill_clause/3` is emitted for `Ty`.
+fills_in_turn(Ty) ->
+    Body = bs_types:unfold(Ty),
+    fillable_members(Body) =/= [] andalso keyed_member(Body) =:= none.
 
 %% Attempt I carries the first failure it has seen; once every attempt has
 %% declined or failed, that failure is the answer, or this node's if none ran.
@@ -2413,7 +2434,7 @@ fill_form({Kind, Fs}, I, Name) ->
          [{clause, ?A, [MV], [Present ++ Tags ++ [Absent] ++ Exact], [Retry]},
           {clause, ?A, [{var, ?A, '_'}], [], [Next(FV)]}]}]}]}.
 
-ty_clauses(Ty, Name, Table, Conv, Err, Mode) ->
+ty_clauses(Ty, Name, Table, Conv, Err) ->
     #{atoms := As, ints := Is, floats := Fl, tuples := Ts, maps := Ms,
       bins := Bs, opaques := Os, funs := Fs} = Ty,
     %% The checker rejects arrows: function types cannot be recovered at
@@ -2422,7 +2443,7 @@ ty_clauses(Ty, Name, Table, Conv, Err, Mode) ->
     atom_clauses(As)
     ++ int_clauses(Is)
     ++ float_clauses(Fl)
-    ++ read_clauses(Mode, Ty, Err)
+    ++ read_clauses(Table, Ty, Err)
     ++ bin_clauses(lists:sort(Bs), Err)
     ++ [{clause, ?A, [{var, ?A, '_'}], [[guard_call(opaque_bif(O), [?VV])]], [ok_expr()]}
         || O <- Os]

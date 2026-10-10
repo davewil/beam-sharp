@@ -17,6 +17,8 @@ src() ->
     "type Split = { \"v\": float } | { \"v\": int }\n"
     "type SplitOpen = { \"a\": int, .. } | { \"a\": float, .. }\n"
     "type Pair = { \"v\": float, \"w\": float } | { \"v\": int, \"w\": float }\n"
+    "type Filled = { \"v\": float, \"w\": option<int> }\n"
+    "            | { \"v\": int, \"w\": option<int>, \"k\": option<int> }\n"
     "type Whole = { \"a\": int }\n"
     "type Either = { \"n\": int | float }\n"
     "type Pct = int where value >= 0 and value <= 100\n"
@@ -41,6 +43,8 @@ src() ->
     "ReadSplitOpen(body) -> FromJson<list<SplitOpen>>(body)\n"
     "public result<Pair, ValidationError> ReadPair(string body)\n"
     "ReadPair(body) -> FromJson<Pair>(body)\n"
+    "public result<Filled, ValidationError> ReadFilled(string body)\n"
+    "ReadFilled(body) -> FromJson<Filled>(body)\n"
     "public result<Whole, ValidationError> ReadWhole(string body)\n"
     "ReadWhole(body) -> FromJson<Whole>(body)\n"
     "public result<Either, ValidationError> ReadEither(string body)\n"
@@ -180,3 +184,10 @@ a_member_that_must_read_a_float_is_still_found_test() ->
     M = prices(),
     ?assertMatch(#{<<"w">> := 2.0}, M:'ReadPair'(<<"{\"v\":1,\"w\":2}">>)),
     ?assertEqual(#{<<"v">> => 1, <<"w">> => 2.5}, M:'ReadPair'(<<"{\"v\":1,\"w\":2.5}">>)).
+
+%% The same where members are tried by filling their absent option keys.
+an_integer_a_filled_member_holds_is_not_read_as_a_float_test() ->
+    M = prices(),
+    ?assertEqual(#{<<"k">> => nothing, <<"v">> => 1, <<"w">> => nothing},
+                 M:'ReadFilled'(<<"{\"v\":1}">>)),
+    ?assertEqual(#{<<"v">> => 1.5, <<"w">> => nothing}, M:'ReadFilled'(<<"{\"v\":1.5}">>)).
