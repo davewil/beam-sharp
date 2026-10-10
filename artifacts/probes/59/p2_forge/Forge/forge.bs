@@ -1,0 +1,41 @@
+module Forge
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Wrapper { Inner: Order }
+
+// the private function every route below ends in
+int Cents(Order o)
+Cents(o) -> o.Total * 100
+
+// route A: a wide `term`, validated into the record
+public int ViaTerm(term t)
+ViaTerm(t) -> ViaTerm2(ValidateAs<Order>(t))
+
+int ViaTerm2(result<Order, ValidationError> r)
+ViaTerm2((:error, e)) -> -1
+ViaTerm2(o)           -> Cents(o)
+
+// route B: a union parameter, narrowed by naming the record
+public int ViaUnion(Order | Invoice x)
+ViaUnion(Order o)   -> Cents(o)
+ViaUnion(Invoice i) -> 0
+
+// route C: a record one level down. The boundary guards Wrapper's own tag.
+public int ViaField(Wrapper w)
+ViaField(w) -> Cents(w.Inner)
+
+// route D: a list element
+public int ViaList(list<Order> os)
+ViaList([o, ..rest]) -> Cents(o)
+ViaList([])          -> 0
+
+// CONTROLS. The same two routes with the private helper factored away. No
+// record-typed parameter receives the forged value, so no tag test exists
+// anywhere on the path, under any option.
+public int DirectField(Wrapper w)
+DirectField({ Inner: i }) -> i.Total * 100
+
+public int DirectList(list<Order> os)
+DirectList([o, ..rest]) -> o.Total * 100
+DirectList([])          -> 0

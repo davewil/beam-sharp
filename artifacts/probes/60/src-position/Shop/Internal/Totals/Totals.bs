@@ -1,0 +1,5 @@
+module Shop.Internal.Totals
+
+// Public, because every module under Shop may name it. The path says who.
+public int Recompute(int cents)
+Recompute(cents) -> cents + 100

@@ -1,0 +1,53 @@
+diff --git a/compiler/src/bs_check.erl b/compiler/src/bs_check.erl
+index f62e7a0..5ef25cc 100644
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -330,6 +330,7 @@ declared(Sources, World, Expect, Mode) ->
+     %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
+     %% `error_members/1`, which requires non-recursive members.
+     foreign_rets_decidable(Decls, Env),
++    foreign_modules_available(Decls),
+     %% Scan bodies for `ToJson<T>` and `FromJson<T>` refusals: `--api` does
+     %% not type bodies.
+     wire_form_refused(Decls ++ implementation_clauses(Decls), Env),
+@@ -625,6 +626,14 @@ callees(Decls, Env, Imports) ->
+     maps:merge(maps:get(qual, Imports, #{}),
+                maps:from_list(Local ++ Foreign)).
+ 
++%%% Foreign modules must be on the code path (ticket 52 prototype).
++foreign_modules_available(Decls) ->
++    _ = [case code:which(Mod) of
++             non_existing -> erlang:error({foreign_module_unavailable, L, Mod});
++             _            -> ok
++         end || {foreign, L, Mod, _Sigs} <- Decls],
++    ok.
++
+ %%% Foreign returns
+ %%% A foreign return must be decidable by one O(1) BEAM guard. Parameters are
+ %%% established by their producers and are not checked by this pass. Recursive
+diff --git a/compiler/src/bs_diag.erl b/compiler/src/bs_diag.erl
+index 0938e13..3fef075 100644
+--- a/compiler/src/bs_diag.erl
++++ b/compiler/src/bs_diag.erl
+@@ -569,6 +569,9 @@ built(Path, {foreign_ret_beyond_one_guard, Line, Mod, Fun, Type, Why, Name, Fiel
+     #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
+       line => Line, module => bs_types:atom_str(Mod), function => Fun,
+       type => Type, why => Why, name => Name, fields => Fields, at => At};
++built(Path, {foreign_module_unavailable, Line, Mod}) ->
++    #{tag => foreign_module_unavailable, severity => error, file => Path,
++      line => Line, module => bs_types:atom_str(Mod)};
+ built(Path, {unknown_generic, N}) ->
+     #{tag => unknown_generic, severity => error, file => Path, type => N};
+ built(Path, {generic_arity, N, Want, Got}) ->
+@@ -1905,6 +1908,11 @@ message(#{tag := foreign_ret_beyond_one_guard, module := Mod, function := Fun,
+     {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
+      placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
+                         beyond_edit(Why, At, Type, Name, Fields)]};
++message(#{tag := foreign_module_unavailable, module := Mod} = D) ->
++    {placed(D) ++ "error: the module ~s is not on the code path~n"
++     "  `using` declares a call into it, and nothing here can load it. If it is~n"
++     "  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.~n",
++     placed_args(D) ++ [Mod]};
+ message(#{tag := unknown_generic, file := P, type := N}) ->
+     {"~s: error: no type named ~s takes a type argument~n"
+      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"

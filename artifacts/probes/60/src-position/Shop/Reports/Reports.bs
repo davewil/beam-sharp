@@ -1,0 +1,6 @@
+module Shop.Reports
+
+using Shop.Internal.Totals
+
+public int Summary(int cents)
+Summary(cents) -> Recompute(cents)

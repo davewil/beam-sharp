@@ -1,0 +1,9 @@
+module AppWrong
+
+using :'Elixir.Fakeel' in :fakeerl {
+    binary greet(binary n)
+}
+
+public binary Hi(binary n)
+
+Hi(n) -> :'Elixir.Fakeel'.greet(n)

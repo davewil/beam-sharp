@@ -1,0 +1,6 @@
+module Web.NsHandler
+
+using Shop.Internal
+
+public int NsHandle(int cents)
+NsHandle(cents) -> Recompute(cents)

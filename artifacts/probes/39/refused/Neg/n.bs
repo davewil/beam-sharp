@@ -1,0 +1,7 @@
+module Neg
+
+// A negative lower bound, which Spin's `step` (-1..1) would need.
+type Step = int where value >= -1 and value <= 1
+
+public Step Id(Step s)
+Id(s) -> s

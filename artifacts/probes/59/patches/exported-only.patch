@@ -1,0 +1,11 @@
+--- a/compiler/src/bs_emit.erl	2026-10-10 23:10:38.090572938 +0000
++++ b/compiler/src/bs_emit.erl	2026-10-10 23:11:23.237591848 +0000
+@@ -274,6 +274,8 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        {ok, _} when not Public ->
++            {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

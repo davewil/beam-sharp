@@ -1,0 +1,51 @@
+module Bench
+
+record Order { Id: int, Total: int }
+
+int Step(Order o)
+Step(o) -> o.Total
+
+int Inc(int n)
+Inc(n) -> n + 1
+
+public int RunRec(Order o)
+RunRec(o) -> Step(o)
+
+public int RunInt(int n)
+RunInt(n) -> Inc(n)
+
+public int DirectRec(Order o)
+DirectRec(o) -> o.Total
+
+public int DirectInt(int n)
+DirectInt(n) -> n + 1
+
+// the exported twin of Step / Inc: its guard is paid on every call
+public int StepPub(Order o)
+StepPub(o) -> o.Total
+
+public int IncPub(int n)
+IncPub(n) -> n + 1
+
+public int RunRecPub(Order o)
+RunRecPub(o) -> StepPub(o)
+
+public int RunIntPub(int n)
+RunIntPub(n) -> IncPub(n)
+
+// Eight calls per entry, so the guard's share of one iteration is eight times
+// larger than a single call's and can rise above the loop's own noise.
+public int Run8Rec(Order o)
+Run8Rec(o) -> Step(o) + Step(o) + Step(o) + Step(o) + Step(o) + Step(o) + Step(o) + Step(o)
+
+public int Run8RecPub(Order o)
+Run8RecPub(o) -> StepPub(o) + StepPub(o) + StepPub(o) + StepPub(o) + StepPub(o) + StepPub(o) + StepPub(o) + StepPub(o)
+
+public int Run8Direct(Order o)
+Run8Direct(o) -> o.Total + o.Total + o.Total + o.Total + o.Total + o.Total + o.Total + o.Total
+
+public int Run8Int(int n)
+Run8Int(n) -> Inc(n) + Inc(n) + Inc(n) + Inc(n) + Inc(n) + Inc(n) + Inc(n) + Inc(n)
+
+public int Run8IntPub(int n)
+Run8IntPub(n) -> IncPub(n) + IncPub(n) + IncPub(n) + IncPub(n) + IncPub(n) + IncPub(n) + IncPub(n) + IncPub(n)

@@ -1,0 +1,485 @@
+
+
+######## tool versions
+OTP 28 erts 16.4
+Elixir 1.20.4 (compiled with Erlang/OTP 27)
+rebar 3.27.1 on Erlang/OTP 28 Erts 16.4
+gleam 1.19.1
+elm 0.19.3
+Linux 6.18.44-fc-v114 x86_64
+repo HEAD a5af573
+scratch /tmp/claude-0/work-52/clean2
+
+
+######## 0. fixtures: a real mix app (Elixir-style .app) and a real rebar3 app, built locally
+Generated fakeel app
+{application,fakeel,[{modules,['Elixir.Fakeel','Elixir.Fakeel.Application']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,logger]},{description,"fakeel"},{registered,[]},{vsn,"0.1.0"},{mod,{'Elixir.Fakeel.Application',[]}}]}.
+[0m
+{application,fakeerl,
+             [{description,"fake"},
+              {vsn,"0.2.0"},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {modules,[fakeerl_lib]}]}.
+
+
+######## 1. THE TICKET'S CLAIM: compile succeeds with nothing promised; a different ERL_LIBS gives run-time error:undef
+--- UseEl, ERL_LIBS = elixir + fakeel            (control: reachable)
+"hello bob"
+exit=0
+--- UseEl, ERL_LIBS = elixir only                (the ticket's case)
+crashed: error:undef
+exit=1
+--- UseEl, compile only, ERL_LIBS unset          (see exit=)
+exit=0
+--- UseErl, ERL_LIBS = fakeerl                   (control)
+8
+exit=0
+--- UseErl, ERL_LIBS unset
+crashed: error:undef
+exit=1
+--- UseMissing: a module that exists nowhere, compile only
+exit=0
+--- UseCrypto: an OTP module, ERL_LIBS unset     (control: needs no dependency)
+8
+exit=0
+--- what the spec says about ERL_LIBS / the code path (count of lines mentioning it):
+LANGUAGE.md: 0
+README.md: 0
+compiler/README.md: 0
+--- does bsc emit an .app (anything naming an application)? files written for UseEl:
+UseEl.abstr
+UseEl.beam
+
+
+######## 2. what each cheap check says (checks.escript), three code paths
+== ERL_LIBS unset
+ERL_LIBS=false
+
+[Elixir-style app (mix)]  module 'Elixir.Fakeel'  app fakeel
+  code:which(M)            = non_existing
+  code:lib_dir(A)          = {error,bad_name}
+  application:load(A)      = {error,{"no such file or directory",
+                                     "fakeel.app"}}
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {error,nofile}
+  app owning M (get_application, after load/ensure) = undefined
+
+[rebar3 app]  module fakeerl_lib  app fakeerl
+  code:which(M)            = non_existing
+  code:lib_dir(A)          = {error,bad_name}
+  application:load(A)      = {error,{"no such file or directory",
+                                     "fakeerl.app"}}
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {error,nofile}
+  app owning M (get_application, after load/ensure) = undefined
+
+[Elixir stdlib]  module 'Elixir.String'  app elixir
+  code:which(M)            = non_existing
+  code:lib_dir(A)          = {error,bad_name}
+  application:load(A)      = {error,{"no such file or directory",
+                                     "elixir.app"}}
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {error,nofile}
+  app owning M (get_application, after load/ensure) = undefined
+
+[OTP app, NIF]  module crypto  app crypto
+  code:which(M)            = "$OTP/lib/crypto-5.8.3/ebin/crypto.beam"
+  code:lib_dir(A)          = "$OTP/lib/crypto-5.8.3"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,crypto}
+  app owning M (get_application, after load/ensure) = {ok,crypto}
+
+[OTP: module name /= app name]  module httpc  app inets
+  code:which(M)            = "$OTP/lib/inets-9.6.2/ebin/httpc.beam"
+  code:lib_dir(A)          = "$OTP/lib/inets-9.6.2"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,httpc}
+  app owning M (get_application, after load/ensure) = {ok,inets}
+
+[OTP stdlib]  module lists  app stdlib
+  code:which(M)            = "$OTP/lib/stdlib-7.3/ebin/lists.beam"
+  code:lib_dir(A)          = "$OTP/lib/stdlib-7.3"
+  application:load(A)      = {error,{already_loaded,stdlib}}
+  module_loaded before ens = true
+  code:ensure_loaded(M)    = {module,lists}
+  app owning M (get_application, after load/ensure) = {ok,stdlib}
+
+[ets: a module one might assume lives in erts]  module ets  app erts
+  code:which(M)            = "$OTP/lib/stdlib-7.3/ebin/ets.beam"
+  code:lib_dir(A)          = "$OTP/lib/erts-16.4"
+  application:load(A)      = ok
+  module_loaded before ens = true
+  code:ensure_loaded(M)    = {module,ets}
+  app owning M (get_application, after load/ensure) = {ok,stdlib}
+
+[preloaded]  module erlang  app erts
+  code:which(M)            = preloaded
+  code:lib_dir(A)          = "$OTP/lib/erts-16.4"
+  application:load(A)      = {error,{already_loaded,erts}}
+  module_loaded before ens = true
+  code:ensure_loaded(M)    = {module,erlang}
+  app owning M (get_application, after load/ensure) = {ok,erts}
+
+[missing]  module no_such_mod  app no_such_app
+  code:which(M)            = non_existing
+  code:lib_dir(A)          = {error,bad_name}
+  application:load(A)      = {error,{"no such file or directory",
+                                     "no_such_app.app"}}
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {error,nofile}
+  app owning M (get_application, after load/ensure) = undefined
+
+== ERL_LIBS = elixir + fakeel + fakeerl
+ERL_LIBS="/tmp/claude-0/mm/root/envs/beam/lib/elixir/lib:/tmp/claude-0/work-52/clean2/fakeel/_build/dev/lib:/tmp/claude-0/work-52/clean2/fakeerl/_build/default/lib"
+
+[Elixir-style app (mix)]  module 'Elixir.Fakeel'  app fakeel
+  code:which(M)            = "$WORK/fakeel/_build/dev/lib/fakeel/ebin/Elixir.Fakeel.beam"
+  code:lib_dir(A)          = "$WORK/fakeel/_build/dev/lib/fakeel"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,'Elixir.Fakeel'}
+  app owning M (get_application, after load/ensure) = {ok,fakeel}
+
+[rebar3 app]  module fakeerl_lib  app fakeerl
+  code:which(M)            = "$WORK/fakeerl/_build/default/lib/fakeerl/ebin/fakeerl_lib.beam"
+  code:lib_dir(A)          = "$WORK/fakeerl/_build/default/lib/fakeerl"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,fakeerl_lib}
+  app owning M (get_application, after load/ensure) = {ok,fakeerl}
+
+[Elixir stdlib]  module 'Elixir.String'  app elixir
+  code:which(M)            = "/tmp/claude-0/mm/root/envs/beam/lib/elixir/lib/elixir/ebin/Elixir.String.beam"
+  code:lib_dir(A)          = "/tmp/claude-0/mm/root/envs/beam/lib/elixir/lib/elixir"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,'Elixir.String'}
+  app owning M (get_application, after load/ensure) = {ok,elixir}
+
+[OTP app, NIF]  module crypto  app crypto
+  code:which(M)            = "$OTP/lib/crypto-5.8.3/ebin/crypto.beam"
+  code:lib_dir(A)          = "$OTP/lib/crypto-5.8.3"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,crypto}
+  app owning M (get_application, after load/ensure) = {ok,crypto}
+
+[OTP: module name /= app name]  module httpc  app inets
+  code:which(M)            = "$OTP/lib/inets-9.6.2/ebin/httpc.beam"
+  code:lib_dir(A)          = "$OTP/lib/inets-9.6.2"
+  application:load(A)      = ok
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {module,httpc}
+  app owning M (get_application, after load/ensure) = {ok,inets}
+
+[OTP stdlib]  module lists  app stdlib
+  code:which(M)            = "$OTP/lib/stdlib-7.3/ebin/lists.beam"
+  code:lib_dir(A)          = "$OTP/lib/stdlib-7.3"
+  application:load(A)      = {error,{already_loaded,stdlib}}
+  module_loaded before ens = true
+  code:ensure_loaded(M)    = {module,lists}
+  app owning M (get_application, after load/ensure) = {ok,stdlib}
+
+[ets: a module one might assume lives in erts]  module ets  app erts
+  code:which(M)            = "$OTP/lib/stdlib-7.3/ebin/ets.beam"
+  code:lib_dir(A)          = "$OTP/lib/erts-16.4"
+  application:load(A)      = ok
+  module_loaded before ens = true
+  code:ensure_loaded(M)    = {module,ets}
+  app owning M (get_application, after load/ensure) = {ok,stdlib}
+
+[preloaded]  module erlang  app erts
+  code:which(M)            = preloaded
+  code:lib_dir(A)          = "$OTP/lib/erts-16.4"
+  application:load(A)      = {error,{already_loaded,erts}}
+  module_loaded before ens = true
+  code:ensure_loaded(M)    = {module,erlang}
+  app owning M (get_application, after load/ensure) = {ok,erts}
+
+[missing]  module no_such_mod  app no_such_app
+  code:which(M)            = non_existing
+  code:lib_dir(A)          = {error,bad_name}
+  application:load(A)      = {error,{"no such file or directory",
+                                     "no_such_app.app"}}
+  module_loaded before ens = false
+  code:ensure_loaded(M)    = {error,nofile}
+  app owning M (get_application, after load/ensure) = undefined
+
+
+######## 3. does a module name determine its application? (module_app.escript; corpus = OTP + Elixir distribution + the 2 fakes)
+apps with a .app file on the path: 42
+apps whose .app `modules` list /= beams in ebin: 3
+  (name, listed-but-no-beam, beam-but-unlisted), first 8: [{erts,0,3},
+                                                           {diameter,0,8},
+                                                           {asn1,0,21}]
+apps with `{modules, []}` but beams present: []
+distinct beam modules: 1761; in more than one app dir: 0 []
+module->app by name rule (M == A, M = A_*, or Elixir first segment snake_cased == A): 590 hit, 1171 miss of 1761
+  sample misses: [{inet_epmd_socket,kernel},
+                  {core_scan,compiler},
+                  {group,kernel},
+                  {wxPreviewControlBar,wx},
+                  {'Elixir.MatchError',elixir},
+                  {httpc_handler_sup,inets},
+                  {wxGraphicsPath,wx},
+                  {yeccparser,parsetools},
+                  {edlin_context,stdlib},
+                  {mod_range,inets},
+                  {cdv_term_cb,observer},
+                  {wxHtmlEasyPrinting,wx}]
+  apps containing at least one miss: 25 of 42
+Elixir modules only: 141 hit, 274 miss: [{'Elixir.Access',elixir},
+                                         {'Elixir.Agent',elixir},
+                                         {'Elixir.Agent.Server',elixir},
+                                         {'Elixir.Application',elixir},
+                                         {'Elixir.ArgumentError',elixir},
+                                         {'Elixir.ArithmeticError',elixir}]
+app from code:which path (dir name minus -vsn): [{crypto,"crypto"},
+                                                 {httpc,"inets"},
+                                                 {'Elixir.String',"elixir"},
+                                                 {fakeerl_lib,"fakeerl"},
+                                                 {'Elixir.Fakeel',"fakeel"}]
+
+--- app named by directory name vs by the .app beside the beam, incl. a loose -pa dir
+crypto         by-directory-name crypto     by-.app-beside-beam crypto
+httpc          by-directory-name inets      by-.app-beside-beam inets
+fakeerl_lib    by-directory-name fakeerl    by-.app-beside-beam fakeerl
+loose_mod      by-directory-name clean2     by-.app-beside-beam unknown
+
+
+######## 4. what the checks cost (cost_one.escript x 15 fresh VMs; microseconds; 200 warm calls each)
+pathlen 43
+check              cold_med cold_min cold_max   warm_med  (microseconds; n=15 fresh VMs)
+app_load_missing       1120      784     4578         16
+app_load_present        232      166     2485          1
+ensure_missing           70       48       98         13
+ensure_present          702      514    10917          0
+lib_dir_missing           5        3       10          1
+lib_dir_present           6        5       11          2
+which_missing           154      105      949         12
+which_present            89       50     1360         11
+
+
+######## 5. what this repo's own B# text names (repo_foreign.sh; bare OTP path)
+== examples+aoc (.bs on disk): 21 using-blocks naming 9 distinct modules
+    not loadable on a bare OTP path: 1 of 9 distinct
+    [epgsql]
+== fixtures (.bs): 0 using-blocks naming 0 distinct modules
+    not loadable on a bare OTP path: 0 of 0 distinct
+    []
+== eunit sources (inline B#): 60 using-blocks naming 15 distinct modules
+    not loadable on a bare OTP path: 7 of 15 distinct
+    [users_db,trees,session_store,store,m,analytics_db,accounts_db]
+== docs (LANGUAGE/TOUR/STANDARD-ENVIRONMENT): 20 using-blocks naming 5 distinct modules
+    not loadable on a bare OTP path: 1 of 5 distinct
+    [analytics_db]
+
+--- per file: which application owns each foreign block's module
+Foreign/foreign.bs                             [kernel,erts]
+Interop/interop.bs                             [erts,stdlib,stdlib]
+Label/label.bs                                 [erts]
+Names/names.bs                                 [erts]
+exemplars/25d-database-querying/index.bs       [not_on_path,stdlib]
+exemplars/25e-dynamic-web-page/index.bs        [erts,stdlib]
+exemplars/25f-llm-evaluation-client/index.bs   [stdlib,erts,stdlib]
+exemplars/25g-jev-server/jev_index.bs          [erts]
+exemplars/25g-jev-server/triage_crash.bs       [erts]
+exemplars/25g-jev-server/triage_index.bs       [stdlib,stdlib]
+files with a foreign block: 10; of those, an application named by 2+ blocks in one file: 3
+
+
+######## 6a. Gleam: gleam build, @external to a module in no dependency; undeclared transitive import; absent path dependency; .app produced
+--- @external(erlang, "no_such_mod", ...) with no dependencies
+  Resolving versions
+  Compiling proj
+   Compiled in 0.55s
+build exit=0
+   Compiled in 0.47s
+    Running proj.main
+[31;1mruntime error[39m: Erlang error[0m
+
+A function was called but it did not exist.
+
+--- GLEAM import of a module whose package is only transitive
+The module `lib2` is being imported, but `lib2`, the package it belongs to,
+is not a direct dependency of your package.
+In a future version of Gleam this may become a compile error.
+    gleam add lib2
+   Compiled in 0.61s
+   Compiled in 0.61s
+--- GLEAM's emitted p2.app (applications come from gleam.toml):
+{application, p2, [
+    {vsn, "1.0.0"},
+    {applications, [lib1]},
+    {description, ""},
+    {modules, [p2]},
+    {registered, []}
+]}.
+--- GLEAM dependency declared, absent
+  Resolving versions
+error: File IO failure
+
+An error occurred while trying to canonicalise this file:
+
+    /tmp/claude-0/work-52/clean2/gl/proj/../ghost
+--- GLEAM hex dependency (network blocked here)
+  Resolving versions
+error: Dependency resolution failed
+
+An error occurred while choosing the version of gleam_stdlib: error sending
+request for url (https://repo.hex.pm/packages/gleam_stdlib)
+
+
+######## 6b. Elixir: mix compile of a consumer that calls Fakeel (a) with it only on ERL_LIBS, (b) declared as a dep
+--- (a) ERL_LIBS has fakeel, mix.exs does not
+    warning: Fakeel.greet/1 is undefined (module Fakeel is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    warning: NoSuch.Mod.f/1 is undefined (module NoSuch.Mod is not available or is yet to be defined)
+Generated cons app
+--- (b) fakeel declared: path dep, ERL_LIBS unset
+Generated fakeel app
+    warning: NoSuch.Mod.f/1 is undefined (module NoSuch.Mod is not available or is yet to be defined)
+Generated cons app
+--- the application list mix wrote from the declaration:
+{application,cons,[{modules,['Elixir.Cons']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,logger,fakeel]},{description,"cons"},{registered,[]},{vsn,"0.1.0"}]}.
+
+
+######## 6c. Erlang: erlc -behaviour on an absent module; rebar3 xref with/without the dep on the path; systools on a declared-but-absent app
+bh/bh.erl:2:2: Warning: behaviour no_such_behaviour undefined
+%    2| -behaviour(no_such_behaviour).
+erlc exit=0
+--- rebar3 xref, fakeerl on ERL_LIBS (not in applications, not in deps)
+xref warnings: 0
+--- rebar3 xref, ERL_LIBS unset
+[0m[0;31m===> [1msrc/ercons.erl:3: Warning: ercons:go/0 calls undefined function fakeerl_lib:twice/1 (Xref)
+--- systools:make_script, an app whose .app 'applications' names an absent app
+{error,systools_make,{undefined_applications,[ghostapp]}}
+--- the OTP sources read (line numbers are in the brief)
+1330:            St1 = add_behaviour_warning(Anno, {undefined_behaviour, B}, St0),
+
+
+######## 6d. Elm: elm make (package registry is blocked here; reports honestly how far it gets)
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/json" dependency your elm.json file. It helps me handle
+flags and ports.
+...
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+
+
+######## 7. PROTOTYPE: build a copy of the repo with proto-v1.diff (module must load) then proto-v2.diff (adds 'in :app')
+--- yecc conflicts, base grammar:
+/home/user/beam-sharp/compiler/src/bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+{ok,"/tmp/claude-0/work-52/clean2/yc_base.erl"}
+[0m/tmp/claude-0/work-52/clean2/proto/compiler/src/bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+/tmp/claude-0/work-52/clean2/proto/compiler/src/bs_parser.yrl:none: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+=== V1: module must be loadable  (diff: 16 added / 0 removed lines)
+--- UseEl  ERL_LIBS unset
+UseEl/useel.bs:3:1: error: the module :'Elixir.Fakeel' is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+exit=1
+--- UseErl  ERL_LIBS unset
+UseErl/useerl.bs:3:1: error: the module :fakeerl_lib is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+exit=1
+--- UseMissing  ERL_LIBS unset
+UseMissing/usemissing.bs:3:1: error: the module :no_such_mod is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+exit=1
+--- UseCrypto  ERL_LIBS unset
+exit=0
+--- --api (reports a module's signatures, builds nothing), dependency absent:  HEAD vs this build
+module UseMissing
+int G(int)
+HEAD exit=0
+UseMissing/usemissing.bs:3:1: error: the module :no_such_mod is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+prototype exit=1
+--- controls: present
+"hello bob"
+8
+
+--- V1 spelled with an app: must be a syntax error (control: grammar not yet changed)
+AppOk/appok.bs:3:24: error: syntax error before: in
+[0m/tmp/claude-0/work-52/clean2/proto/compiler/src/bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+/tmp/claude-0/work-52/clean2/proto/compiler/src/bs_parser.yrl:none: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+=== V2: V1 + 'using :M in :app'  (diff: 65 added / 5 removed lines)
+--- UseEl  ERL_LIBS unset
+UseEl/useel.bs:3:1: error: the module :'Elixir.Fakeel' is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+exit=1
+--- UseErl  ERL_LIBS unset
+UseErl/useerl.bs:3:1: error: the module :fakeerl_lib is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+exit=1
+--- UseMissing  ERL_LIBS unset
+UseMissing/usemissing.bs:3:1: error: the module :no_such_mod is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+exit=1
+--- UseCrypto  ERL_LIBS unset
+exit=0
+--- --api (reports a module's signatures, builds nothing), dependency absent:  HEAD vs this build
+module UseMissing
+int G(int)
+HEAD exit=0
+UseMissing/usemissing.bs:3:1: error: the module :no_such_mod is not on the code path
+  `using` declares a call into it, and nothing here can load it. If it is
+  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.
+prototype exit=1
+--- controls: present
+"hello bob"
+8
+--- yecc conflicts, prototype grammar:
+/tmp/claude-0/work-52/clean2/proto/compiler/src/bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+{ok,"/tmp/claude-0/work-52/clean2/yc_proto.erl"}
+--- AppOk
+exit=0
+--- AppWrong
+AppWrong/appwrong.bs:3:1: error: :'Elixir.Fakeel' is not in the application `fakeerl`
+  it is in `fakeel`
+exit=1
+--- AppAbsent
+AppAbsent/appabsent.bs:3:1: error: the application `req` is not on the code path
+  `using :'Elixir.Req' in :req` needs its ebin directory; put the directory that
+  holds `req/ebin` on ERL_LIBS before compiling.
+exit=1
+--- AppTypo
+AppTypo/apptypo.bs:3:1: error: :fakeerl_libb is not in the application `fakeerl`
+  the application is on the path and has no such module
+exit=1
+--- OtpOk
+exit=0
+--- OtpWrong
+OtpWrong/otpwrong.bs:3:1: error: :ets is not in the application `erts`
+  it is in `stdlib`
+exit=1
+--- a module in a loose -pa dir with no .app (owner unverifiable): accepted, and it runs
+8
+
+
+######## 8. compile-time cost of the prototype checks (CPU ms per bsc run, 25 runs each; ERL_LIBS has the deps)
+HEAD bsc          UseEl: cpu ms: min 433  median 519  max 636  (n=25)
+HEAD bsc          UseEl again (noise floor of the line above): cpu ms: min 427  median 480  max 548  (n=25)
+V2 prototype bsc  UseEl: cpu ms: min 421  median 476  max 580  (n=25)
+HEAD bsc          Interop (3 foreign blocks): cpu ms: min 430  median 506  max 614  (n=25)
+V2 prototype bsc  Interop (3 foreign blocks): cpu ms: min 424  median 505  max 589  (n=25)
+
+done
+RUN_FINISHED

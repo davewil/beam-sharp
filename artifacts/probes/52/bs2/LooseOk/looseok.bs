@@ -1,0 +1,9 @@
+module LooseOk
+
+using :fakeerl_lib in :fakeerl {
+    int twice(int n)
+}
+
+public int Dbl(int n)
+
+Dbl(n) -> :fakeerl_lib.twice(n)

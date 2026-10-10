@@ -1,0 +1,5 @@
+{:docs_v1, _, _, _, moduledoc, _, _} = Code.fetch_docs(Shop.Orders.Internal)
+IO.inspect(moduledoc, label: "moduledoc of Shop.Orders.Internal")
+{:docs_v1, _, _, _, m2, _, _} = Code.fetch_docs(Shop.Orders)
+IO.inspect(m2, label: "moduledoc of Shop.Orders")
+IO.inspect(Web.Handler.handle(5), label: "Web.Handler.handle(5), a caller outside Shop, compiled with no diagnostic")

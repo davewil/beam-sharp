@@ -1,0 +1,6 @@
+module Shop.Orders
+
+using Shop.Internal.Totals
+
+public int Total(int cents)
+Total(cents) -> Recompute(cents)

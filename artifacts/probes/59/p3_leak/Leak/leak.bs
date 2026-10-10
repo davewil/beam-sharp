@@ -1,0 +1,36 @@
+module Leak
+
+record Counter { N: int }
+
+// private, int-typed: F24 emits no kind test here (exported only)
+int Bump(int n)
+Bump(n) -> n + 1
+
+// the boundary tests Counter's tag; the field N is "one projection deep"
+public int ViaField(Counter c)
+ViaField(c) -> Bump(c.N)
+
+// a tuple element
+public int ViaTuple((int, int) p)
+ViaTuple((a, b)) -> Bump(a)
+
+// a list element (46 §4: not guarded through a collection, by decision)
+public int ViaList(list<int> xs)
+ViaList([x, ..rest]) -> Bump(x)
+ViaList([])          -> 0
+
+// control: the same helper made public carries its own is_integer
+public int BumpPub(int n)
+BumpPub(n) -> n + 1
+
+// CONTROLS. The same three routes with the private helper factored away:
+// no int-typed parameter receives the value, so no is_integer exists.
+public int DirectField(Counter c)
+DirectField(c) -> c.N + 1
+
+public int DirectTuple((int, int) p)
+DirectTuple((a, b)) -> a + 1
+
+public int DirectList(list<int> xs)
+DirectList([x, ..rest]) -> x + 1
+DirectList([])          -> 0

@@ -1,0 +1,9 @@
+module OtpWrong
+
+using :ets in :erts {
+    list<term> lookup(atom tab, term key)
+}
+
+public list<term> Rows(atom tab, term key)
+
+Rows(tab, key) -> :ets.lookup(tab, key)

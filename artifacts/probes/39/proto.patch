@@ -1,0 +1,30 @@
+diff --git a/compiler/src/bs_emit.erl b/compiler/src/bs_emit.erl
+index cac5c8e..5fd5ef9 100644
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -76,6 +76,7 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+                              ++ [{type_atoms_name(), 0}]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
++    ++ inline_attr(Fns, Behaviours)
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+     ++ rec_type_attrs(Fns, Env)
+@@ -91,6 +92,17 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
+     ++ validator_forms(Validators)
+     ++ reserved_forms(Fns).
+ 
++%% PROTOTYPE (ticket 39 brief): BSC_INLINE=all emits `-compile(inline)`;
++%% BSC_INLINE=private emits `-compile({inline, [private functions]})`.
++inline_attr(Fns, Behaviours) ->
++    case os:getenv("BSC_INLINE") of
++        "all" -> [{attribute, ?A, compile, inline}];
++        "private" ->
++            [{attribute, ?A, compile,
++              {inline, [{name(F, Behaviours), arity(F)} || F <- Fns, not is_public(F)]}}];
++        _ -> []
++    end.
++
+ %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
+ %% have no path to attribute to; no attribute is emitted for them.
+ %% The context names the file being emitted: a position is unique only within

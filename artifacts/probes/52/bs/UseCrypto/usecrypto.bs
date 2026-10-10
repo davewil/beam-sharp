@@ -1,0 +1,13 @@
+module UseCrypto
+
+using :crypto {
+    binary strong_rand_bytes(int n)
+}
+
+using :erlang {
+    int byte_size(binary b)
+}
+
+public int Len(int n)
+
+Len(n) -> :erlang.byte_size(:crypto.strong_rand_bytes(n))

@@ -1,0 +1,6 @@
+module Web.Handler
+
+using Shop.Totals
+
+public int Handle(int cents)
+Handle(cents) -> Recompute(cents)

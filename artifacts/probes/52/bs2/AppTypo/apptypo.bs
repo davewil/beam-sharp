@@ -1,0 +1,9 @@
+module AppTypo
+
+using :fakeerl_libb in :fakeerl {
+    int twice(int n)
+}
+
+public int Dbl(int n)
+
+Dbl(n) -> :fakeerl_libb.twice(n)

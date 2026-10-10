@@ -1,0 +1,29 @@
+module Guard
+
+record Order { Id: int, Total: int }
+
+type Octet = int where value >= 0 and value <= 255
+
+// record: exported then private
+public int PubRec(Order o)
+PubRec(o) -> o.Total
+
+int PrivRec(Order o)
+PrivRec(o) -> o.Total
+
+// int: exported then private
+public int PubInt(int n)
+PubInt(n) -> n + 1
+
+int PrivInt(int n)
+PrivInt(n) -> n + 1
+
+// refined: exported then private
+public int PubOct(Octet n)
+PubOct(n) -> n + 1
+
+int PrivOct(Octet n)
+PrivOct(n) -> n + 1
+
+public int Run(Order o, Octet n)
+Run(o, n) -> PrivRec(o) + PrivInt(n) + PrivOct(n)

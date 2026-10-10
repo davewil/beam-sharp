@@ -1,0 +1,8 @@
+module Shop.Totals
+
+// Public, but only to the modules named here. Nothing in the path says so.
+friend Shop.Orders
+friend Shop.Billing
+
+public int Recompute(int cents)
+Recompute(cents) -> cents + 100

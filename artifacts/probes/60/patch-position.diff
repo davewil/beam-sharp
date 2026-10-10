@@ -1,0 +1,65 @@
+diff --git a/compiler/src/bs_check.erl b/compiler/src/bs_check.erl
+index f62e7a0..1de77f1 100644
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -497,14 +497,32 @@ import_env(Decls, Self, World, Mode) ->
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case {reach(M, Self), Mode} of
++                {{hidden, Parent}, strict} -> erlang:error({not_visible, M, Self, Parent, L});
++                _                          -> add_module_import(M, World, Acc)
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, [C || C <- Children, reach(C, Self) =:= ok], Acc)
++            end
++    end.
++
++%% PROTOTYPE (ticket 60, option "position"): a module whose path has an
++%% `Internal` segment may be named only by modules under the segment's parent.
++reach(M, Self) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}     -> ok;
++        {Parent, _} ->
++            Mine = string:split(atom_to_list(Self), ".", all),
++            case lists:prefix(Parent, Mine) of
++                true  -> ok;
++                false -> {hidden, list_to_atom(lists:flatten(lists:join(".", Parent)))}
+             end
+     end.
+ 
+diff --git a/compiler/src/bs_diag.erl b/compiler/src/bs_diag.erl
+index 0938e13..9b03416 100644
+--- a/compiler/src/bs_diag.erl
++++ b/compiler/src/bs_diag.erl
+@@ -657,6 +657,9 @@ built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible, Mod, Self, Parent, Line}) ->
++    #{tag => not_visible, severity => error, file => Path, line => Line,
++      module => Mod, importer => Self, scope => Parent};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,11 @@ message(#{tag := ambiguous_call, file := P, line := L, column := C, name := Name
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible, file := P, line := L, column := C, module := Mod,
++          importer := Self, scope := Parent}) ->
++    {"~s:~p:~p: error: ~s cannot name ~s~n"
++     "  an `Internal` module is visible only under ~s.~n",
++     [P, L, C, Self, Mod, Parent]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

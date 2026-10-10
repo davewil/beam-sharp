@@ -1,0 +1,110 @@
+
+######## tool versions
+erlang OTP 28, erts 16.4
+Setting httpc proxy: scheme=https_proxy host="127.0.0.1" port=41857 no_proxy=["localhost",
+                                                                              "127.0.0.1",
+                                                                              "::1",
+                                                                              "127.0.0.0/8",
+                                                                              "0.0.0.0/8",
+                                                                              "::",
+                                                                              "169.254.0.0/16",
+                                                                              "api.anthropic.com",
+                                                                              "api-staging.anthropic.com",
+                                                                              "api-pr-preview.anthropic.com",
+                                                                              "mcp-proxy.anthropic.com",
+                                                                              "mcp-proxy-staging.anthropic.com",
+                                                                              "registry.npmjs.org",
+                                                                              "jsr.io",
+                                                                              "npm.jsr.io",
+                                                                              "pypi.org",
+                                                                              "files.pythonhosted.org",
+                                                                              "index.crates.io",
+                                                                              "proxy.golang.org",
+                                                                              "host.docker.internal",
+                                                                              "10.0.0.0/8",
+                                                                              "172.16.0.0/12",
+                                                                              "192.168.0.0/16",
+                                                                              "100.64.0.0/10",
+                                                                              ".svc.cluster.local",
+                                                                              "*.svc.cluster.local"]
+rebar 3.27.1 on Erlang/OTP 28 Erts 16.4
+Elixir 1.20.4 (compiled with Erlang/OTP 27)
+gleam 1.19.1
+0.19.3
+go version go1.24.7 linux/amd64
+repo HEAD a5af573 F73: the second review's finding: members tried by filling keep an integer one of 
+
+######## 1. TODAY, bsc at HEAD: any module names any public function (and --api cannot tell client API from helper)
+module Shop.Orders
+
+// The client API: what a caller outside Shop is meant to use.
+public int Total(int cents)
+Total(cents) -> Recompute(cents)
+
+// A helper. It is public only because Shop.Billing, a sibling, needs it.
+public int Recompute(int cents)
+Recompute(cents) -> cents + 100
+--- Shop.Billing (sibling) and Web.Handler (outside Shop) both compile and run:
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc -o /tmp/claude-0/probe60.WSIxr4/o --src-root /tmp/claude-0/probe60.WSIxr4/p/src /tmp/claude-0/probe60.WSIxr4/p/src/Shop/Billing Invoice 5
+105
+[rc=0]
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc -o /tmp/claude-0/probe60.WSIxr4/o --src-root /tmp/claude-0/probe60.WSIxr4/p/src /tmp/claude-0/probe60.WSIxr4/p/src/Web/Handler Handle 5
+105
+[rc=0]
+--- what the boundary manifest (ticket 24 s2) sees:
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc --api --src-root /tmp/claude-0/probe60.WSIxr4/p/src /tmp/claude-0/probe60.WSIxr4/p/src/Shop/Orders
+module Shop.Orders
+int Recompute(int)
+int Total(int)
+[rc=0]
+--- the same helper left private (the default) so that Web.Handler cannot reach it:
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc --src-root /tmp/claude-0/probe60.WSIxr4/p/src-private /tmp/claude-0/probe60.WSIxr4/p/src-private/Shop/Billing
+/tmp/claude-0/probe60.WSIxr4/p/src-private/Shop/Billing/Billing.bs:6:19: error: Invoice calls Recompute/1, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+[rc=1]
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc --api --src-root /tmp/claude-0/probe60.WSIxr4/p/src-private /tmp/claude-0/probe60.WSIxr4/p/src-private/Shop/Orders
+module Shop.Orders
+int Total(int)
+[rc=0]
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc --src-root /tmp/claude-0/probe60.WSIxr4/p/src-private /tmp/claude-0/probe60.WSIxr4/p/src-private/Shop/Orders Recompute 5
+bsc: Recompute is private in Shop.Orders
+  it is defined, and not exported, so it cannot be called from
+  outside its module. Mark it `public` to run it directly.
+[rc=2]
+--- emitted code: a helper that siblings may call must be exported, hence guarded (F24; ticket 18 s5: one entry label)
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc -o /tmp/claude-0/probe60.WSIxr4/o-pub --src-root /tmp/claude-0/probe60.WSIxr4/p/src /tmp/claude-0/probe60.WSIxr4/p/src/Shop/Orders
+[rc=0]
+$ /home/user/beam-sharp/compiler/_build/default/bin/bsc -o /tmp/claude-0/probe60.WSIxr4/o-priv --src-root /tmp/claude-0/probe60.WSIxr4/p/src-private /tmp/claude-0/probe60.WSIxr4/p/src-private/Shop/Orders
+[rc=0]
+-- public Recompute:
+exports: [{'Recompute',1},
+          {'Total',1},
+          {bs@type_atoms,0},
+          {module_info,0},
+          {module_info,1}]
+'Recompute'/1:
+    {line,2}
+    {label,5}
+    {func_info,{atom,'Shop.Orders'},{atom,'Recompute'},1}
+    {label,6}
+    {test,is_integer,{f,5},[{x,0}]}
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}
+    return
+-- private Recompute:
+exports: [{'Total',1},{bs@type_atoms,0},{module_info,0},{module_info,1}]
+'Recompute'/1:
+    {line,2}
+    {label,5}
+    {func_info,{atom,'Shop.Orders'},{atom,'Recompute'},1}
+    {label,6}
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,100}],{x,0}}
+    return
+--- grep: any trace of a who-may-name-me construct in the compiler, the spec, the tickets
+/home/user/beam-sharp/wayfinder/issues/22-how-opinionated.md:133:(`bs_check.erl:407-425`), and there is no `internal`, `friend`, `sealed` or `visible_
+/home/user/beam-sharp/wayfinder/issues/05-csharp-functional-inventory.md:66:C# needs them because a type's methods are sealed inside its declaration â
+/home/user/beam-sharp/wayfinder/issues/16-ad-hoc-polymorphism.md:436:because a type's methods are sealed inside its declaration â€” you cannot add to 
+[grep done; hits above are prose uses, not constructs]
+
+######## 2. PROTOTYPES, built from a clean clone of HEAD plus the patch
+patch-position.diff: 27 lines added, 2 removed, files: 2

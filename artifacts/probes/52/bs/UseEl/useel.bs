@@ -1,0 +1,9 @@
+module UseEl
+
+using :'Elixir.Fakeel' {
+    binary greet(binary n)
+}
+
+public binary Hi(binary n)
+
+Hi(n) -> :'Elixir.Fakeel'.greet(n)

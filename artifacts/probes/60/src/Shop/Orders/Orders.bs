@@ -1,0 +1,9 @@
+module Shop.Orders
+
+// The client API: what a caller outside Shop is meant to use.
+public int Total(int cents)
+Total(cents) -> Recompute(cents)
+
+// A helper. It is public only because Shop.Billing, a sibling, needs it.
+public int Recompute(int cents)
+Recompute(cents) -> cents + 100

@@ -1,0 +1,17 @@
+module OtpOk
+
+using :httpc in :inets {
+    term request(binary url)
+}
+
+using :lists in :stdlib {
+    int sum(list<int> xs)
+}
+
+using :erlang in :erts {
+    int system_time(atom unit)
+}
+
+public int Now()
+
+Now() -> :erlang.system_time(:second)

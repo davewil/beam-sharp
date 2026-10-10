@@ -1,0 +1,122 @@
+diff --git a/compiler/src/bs_check.erl b/compiler/src/bs_check.erl
+index f62e7a0..77b7cd5 100644
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -497,17 +497,29 @@ import_env(Decls, Self, World, Mode) ->
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case {may_name(M, Self, World), Mode} of
++                {false, strict} -> erlang:error({not_visible, M, Self, L});
++                _               -> add_module_import(M, World, Acc)
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, [C || C <- Children, may_name(C, Self, World)], Acc)
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60, option "written"): a module with `friend` lines may be
++%% named only by the modules those lines list (and by itself).
++may_name(M, Self, World) ->
++    case maps:get(friends, maps:get(M, World, #{}), []) of
++        []      -> true;
++        Friends -> Self =:= M orelse lists:member(Self, Friends)
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+diff --git a/compiler/src/bs_diag.erl b/compiler/src/bs_diag.erl
+index 0938e13..7cd2670 100644
+--- a/compiler/src/bs_diag.erl
++++ b/compiler/src/bs_diag.erl
+@@ -657,6 +657,9 @@ built(Path, {ambiguous_call, Name, Arity, Mods, Line}) ->
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible, Mod, Self, Line}) ->
++    #{tag => not_visible, severity => error, file => Path, line => Line,
++      module => Mod, importer => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,11 @@ message(#{tag := ambiguous_call, file := P, line := L, column := C, name := Name
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible, file := P, line := L, column := C, module := Mod,
++          importer := Self}) ->
++    {"~s:~p:~p: error: ~s cannot name ~s~n"
++     "  ~s lists its `friend` modules and ~s is not one of them.~n",
++     [P, L, C, Self, Mod, Mod, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"
+diff --git a/compiler/src/bs_lexer.xrl b/compiler/src/bs_lexer.xrl
+index 22ccfbd..f968038 100644
+--- a/compiler/src/bs_lexer.xrl
++++ b/compiler/src/bs_lexer.xrl
+@@ -42,6 +42,7 @@ module                  : {token, {'module', TokenLoc}}.
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++friend                  : {token, {'friend', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+diff --git a/compiler/src/bs_parser.yrl b/compiler/src/bs_parser.yrl
+index 6007624..b04e1eb 100644
+--- a/compiler/src/bs_parser.yrl
++++ b/compiler/src/bs_parser.yrl
+@@ -20,12 +20,12 @@ Nonterminals
+   guard guard_expr
+   body binding
+   expr expr_low expr_list elist_items assign_fields assign_field
+-  switch_arms switch_arm modpath using_decl visibility call
++  switch_arms switch_arm modpath using_decl friend_decl visibility call
+   block_clauses block_clause implements_decl impl_clauses impl_for
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'friend' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -103,6 +103,7 @@ decl -> foreign_decl : '$1'.
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> friend_decl : '$1'.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+@@ -183,6 +184,8 @@ foreign_sig -> type_expr lident '(' params ')' :
+ %% name, like the foreign form above; the two are one construct, told apart
+ %% by the token class of what follows `using` (ticket 41 §1).
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
++%% PROTOTYPE ticket 60, option "written".
++friend_decl -> 'friend' modpath : {friend, line('$1'), modatom('$2')}.
+ 
+ %% --- module -----------------------------------------------------------------
+ %% A module's atom is its full dotted path, because a record tag is minted as
+diff --git a/compiler/src/bsc.erl b/compiler/src/bsc.erl
+index ac04766..6d91882 100644
+--- a/compiler/src/bsc.erl
++++ b/compiler/src/bsc.erl
+@@ -237,6 +237,7 @@ build([{Dir, Sources, Mod} | Rest], Opts, World, Acc) ->
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     friends => [F || {friend, _, F} <- Decls],
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to

@@ -1,0 +1,9 @@
+module AppAbsent
+
+using :'Elixir.Req' in :req {
+    term new(list<(atom, term)> opts)
+}
+
+public term Mk()
+
+Mk() -> :'Elixir.Req'.new([])

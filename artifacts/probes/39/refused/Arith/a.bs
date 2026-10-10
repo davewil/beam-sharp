@@ -1,0 +1,8 @@
+module Arith
+
+type Digit = int where value >= 0 and value <= 99
+type Wide  = int where value >= 0 and value <= 198
+
+// Does the checker add intervals? 0..99 + 0..99 is 0..198.
+public Wide Add(Digit a, Digit b)
+Add(a, b) -> a + b

@@ -1,0 +1,12 @@
+=== base: rebar3 eunit (observed this session, run in /tmp/claude-0/work-60base, sequential)
+  All 1434 tests passed.
+real	10m13.167s
+=== position: rebar3 eunit (observed this session, run in /tmp/claude-0/work-60, sequential)
+  All 1434 tests passed.
+real	8m14.732s
+=== written: rebar3 eunit (observed this session, run in /tmp/claude-0/work-60w, sequential)
+  All 1434 tests passed.
+real	6m31.769s
+=== position, written: bin/check-diagnostics.sh
+diagnostics: ok (both)
+(first attempt ran two eunit suites in parallel on 4 cores: a 5s test timed out, 'One or more tests were cancelled'. Discarded; the sequential runs above are the result.)

@@ -1,0 +1,9 @@
+module UseMissing
+
+using :no_such_mod {
+    int f(int n)
+}
+
+public int G(int n)
+
+G(n) -> :no_such_mod.f(n)

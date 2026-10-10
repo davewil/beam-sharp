@@ -1,0 +1,9 @@
+module UseErl
+
+using :fakeerl_lib {
+    int twice(int n)
+}
+
+public int Dbl(int n)
+
+Dbl(n) -> :fakeerl_lib.twice(n)

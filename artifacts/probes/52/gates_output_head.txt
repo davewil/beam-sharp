@@ -1,0 +1,36 @@
+=== check-diagnostics
+==> a diagnostic that names a line names a column
+    ok — every rendered position names both halves
+==> the JSON channel round-trips the term
+    ok — 13 terms round-trip
+
+diagnostics: ok
+exit=0  (3 s)
+=== check-examples
+  ok        Signalbox
+  ok        Stats
+  ok        Stream
+  ok        Wire
+
+28 example modules compile
+exit=0  (3 s)
+=== check-language
+143 blocks: 141 ok, 0 wrong, 2 illustrative; 2 replayed after an edit
+4 sections deliberately ungated:
+  no-gate      16. How it compiles -- the compilation pipeline and its artefacts; there is no B# program here to compile
+  no-gate      17. Using the compiler -- shell transcripts of bsc and ibs; cli_tests and repl_tests drive both
+  no-gate      18. What is actually built -- a status table; check-status-claims.sh scans this document for claims about the subjects it can probe, and reads no row as a row
+  no-gate      19. Open questions -- questions not yet answered; nothing in this section is built
+exit=0  (14 s)
+=== check-tour
+  ok        69 commands replayed, 4 of them after an edit the document names
+
+the published page against the file
+
+  ok        the page was published from this exact file
+
+exit=0  (8 s)
+=== check-exemplar-frontier
+every exemplar stops where FRONTIER says it does (7 measured)
+exit=0  (5 s)
+finished

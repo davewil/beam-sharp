@@ -1,0 +1,7 @@
+module NegControl
+
+// Control for refused/Neg: the same refinement with non-negative bounds.
+type Step = int where value >= 0 and value <= 2
+
+public Step Id(Step s)
+Id(s) -> s

@@ -1,0 +1,145 @@
+diff --git a/compiler/src/bs_check.erl b/compiler/src/bs_check.erl
+index f62e7a0..bfdec4b 100644
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -330,6 +330,7 @@ declared(Sources, World, Expect, Mode) ->
+     %% Refuse undecidable foreign returns before `foreign_wrappers/2` calls
+     %% `error_members/1`, which requires non-recursive members.
+     foreign_rets_decidable(Decls, Env),
++    foreign_modules_available(Decls),
+     %% Scan bodies for `ToJson<T>` and `FromJson<T>` refusals: `--api` does
+     %% not type bodies.
+     wire_form_refused(Decls ++ implementation_clauses(Decls), Env),
+@@ -620,11 +621,43 @@ callees(Decls, Env, Imports) ->
+              || {signature, SL, N, R, Ps, _, TV} <- Decls],
+     Foreign = [{{f, Mod, N, length(Ps)},
+                 at_loc(L, fun() -> sig(Ps, R, Env) end)}
+-               || {foreign, _, Mod, Sigs} <- Decls,
++               || {foreign, _, Mod, Sigs, _} <- Decls,
+                   {foreign_sig, L, N, R, Ps} <- Sigs],
+     maps:merge(maps:get(qual, Imports, #{}),
+                maps:from_list(Local ++ Foreign)).
+ 
++%%% Foreign modules must be on the code path (ticket 52 prototype).
++foreign_modules_available(Decls) ->
++    _ = [foreign_available(L, Mod, App) || {foreign, L, Mod, _Sigs, App} <- Decls],
++    ok.
++
++foreign_available(L, Mod, App) ->
++    case {code:which(Mod), App} of
++        {non_existing, none} ->
++            erlang:error({foreign_module_unavailable, L, Mod});
++        {non_existing, _} ->
++            case code:lib_dir(App) of
++                {error, _} -> erlang:error({foreign_app_unavailable, L, Mod, App});
++                _          -> erlang:error({foreign_module_not_in_app, L, Mod, App, none})
++            end;
++        {_, none} -> ok;
++        {Path, _} ->
++            case owner_app(Path) of
++                App -> ok;
++                unknown -> ok;
++                Other -> erlang:error({foreign_module_not_in_app, L, Mod, App, Other})
++            end
++    end.
++
++%% The owner is the application whose .app file sits beside the beam; a loose
++%% directory with no .app has no owner (`unknown`) and is not refused.
++owner_app(preloaded) -> erts;
++owner_app(Path) when is_list(Path) ->
++    case filelib:wildcard(filename:join(filename:dirname(Path), "*.app")) of
++        [F | _] -> list_to_atom(filename:basename(F, ".app"));
++        []      -> unknown
++    end.
++
+ %%% Foreign returns
+ %%% A foreign return must be decidable by one O(1) BEAM guard. Parameters are
+ %%% established by their producers and are not checked by this pass. Recursive
+@@ -638,7 +671,7 @@ callees(Decls, Env, Imports) ->
+ 
+ foreign_rets_decidable(Decls, Env) ->
+     _ = [foreign_ret_decidable(L, Mod, N, R, Env)
+-         || {foreign, _, Mod, Sigs} <- Decls,
++         || {foreign, _, Mod, Sigs, _} <- Decls,
+             {foreign_sig, L, N, R, _Ps} <- Sigs],
+     ok.
+ 
+@@ -1062,7 +1095,7 @@ positionless(_)               -> false.
+ foreign_wrappers(Decls, Env) ->
+     maps:from_list(
+       [{{Mod, N, length(Ps)}, #{wrapped => wraps(Ty, Env), ret => Ty}}
+-       || {foreign, _, Mod, Sigs} <- Decls,
++       || {foreign, _, Mod, Sigs, _} <- Decls,
+           {foreign_sig, _L, N, R, Ps} <- Sigs,
+           Ty <- [resolve(R, Env)]]).
+ 
+@@ -1100,7 +1133,7 @@ collapse_decl({signature, L, N, Ret, Params, _, TV}, Env0) ->
+     collapse_ty(Ret, Env, L, root(N)),
+     lists:foreach(fun({param, T, P}) -> collapse_ty(T, Env, L, seg(root(N), P))
+                   end, Params);
+-collapse_decl({foreign, _, _Mod, Sigs}, Env) ->
++collapse_decl({foreign, _, _Mod, Sigs, _}, Env) ->
+     lists:foreach(
+       fun({foreign_sig, L, N, Ret, Ps}) ->
+               collapse_ty(Ret, Env, L, root(N)),
+diff --git a/compiler/src/bs_diag.erl b/compiler/src/bs_diag.erl
+index 0938e13..18cda54 100644
+--- a/compiler/src/bs_diag.erl
++++ b/compiler/src/bs_diag.erl
+@@ -569,6 +569,15 @@ built(Path, {foreign_ret_beyond_one_guard, Line, Mod, Fun, Type, Why, Name, Fiel
+     #{tag => foreign_ret_beyond_one_guard, severity => error, file => Path,
+       line => Line, module => bs_types:atom_str(Mod), function => Fun,
+       type => Type, why => Why, name => Name, fields => Fields, at => At};
++built(Path, {foreign_module_unavailable, Line, Mod}) ->
++    #{tag => foreign_module_unavailable, severity => error, file => Path,
++      line => Line, module => bs_types:atom_str(Mod)};
++built(Path, {foreign_app_unavailable, Line, Mod, App}) ->
++    #{tag => foreign_app_unavailable, severity => error, file => Path,
++      line => Line, module => bs_types:atom_str(Mod), app => App};
++built(Path, {foreign_module_not_in_app, Line, Mod, App, Owner}) ->
++    #{tag => foreign_module_not_in_app, severity => error, file => Path,
++      line => Line, module => bs_types:atom_str(Mod), app => App, owner => Owner};
+ built(Path, {unknown_generic, N}) ->
+     #{tag => unknown_generic, severity => error, file => Path, type => N};
+ built(Path, {generic_arity, N, Want, Got}) ->
+@@ -1905,6 +1914,24 @@ message(#{tag := foreign_ret_beyond_one_guard, module := Mod, function := Fun,
+     {placed(D) ++ "error: ~s.~s returns `~s`, which one guard cannot decide~n~s~s",
+      placed_args(D) ++ [Mod, Fun, Type, beyond_why(Why, Name),
+                         beyond_edit(Why, At, Type, Name, Fields)]};
++message(#{tag := foreign_module_unavailable, module := Mod} = D) ->
++    {placed(D) ++ "error: the module ~s is not on the code path~n"
++     "  `using` declares a call into it, and nothing here can load it. If it is~n"
++     "  a dependency, put its `ebin` on ERL_LIBS (or the path) before compiling.~n",
++     placed_args(D) ++ [Mod]};
++message(#{tag := foreign_app_unavailable, module := Mod, app := App} = D) ->
++    {placed(D) ++ "error: the application `~s` is not on the code path~n"
++     "  `using ~s in :~s` needs its ebin directory; put the directory that~n"
++     "  holds `~s/ebin` on ERL_LIBS before compiling.~n",
++     placed_args(D) ++ [App, Mod, App, App]};
++message(#{tag := foreign_module_not_in_app, module := Mod, app := App, owner := Owner} = D) ->
++    {placed(D) ++ "error: ~s is not in the application `~s`~n"
++     "  ~s~n",
++     placed_args(D) ++ [Mod, App,
++        case Owner of
++            none -> "the application is on the path and has no such module";
++            _    -> "it is in `" ++ atom_to_list(Owner) ++ "`"
++        end]};
+ message(#{tag := unknown_generic, file := P, type := N}) ->
+     {"~s: error: no type named ~s takes a type argument~n"
+      "  the standard environment has `list<T>`, `option<T>` and `result<T, E>`;~n"
+diff --git a/compiler/src/bs_parser.yrl b/compiler/src/bs_parser.yrl
+index 6007624..1fd3d96 100644
+--- a/compiler/src/bs_parser.yrl
++++ b/compiler/src/bs_parser.yrl
+@@ -168,7 +168,10 @@ behaviour_decl -> 'behaviour' uident : {behaviour, line('$1'), value('$2')}.
+ %% site is `:ets.lookup(t, k)`. The declaration attaches types to the name
+ %% Erlang already has; nothing is renamed and no case mapping exists.
+ foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+-    {foreign, line('$1'), value('$2'), '$4'}.
++    {foreign, line('$1'), value('$2'), '$4', none}.
++%% Ticket 52 prototype: `using :'Elixir.Req' in :req { ... }` names the application.
++foreign_decl -> 'using' atom_lit 'in' atom_lit '{' foreign_sigs '}' :
++    {foreign, line('$1'), value('$2'), '$6', value('$4')}.
+ 
+ foreign_sigs -> foreign_sig              : ['$1'].
+ foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].

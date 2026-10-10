@@ -1,0 +1,9 @@
+module AppOk
+
+using :'Elixir.Fakeel' in :fakeel {
+    binary greet(binary n)
+}
+
+public binary Hi(binary n)
+
+Hi(n) -> :'Elixir.Fakeel'.greet(n)

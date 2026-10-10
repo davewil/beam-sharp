@@ -1,0 +1,7 @@
+module Web.Handler
+
+using Shop.Orders
+
+// Reaches past the client API to the helper. Nothing today says it may not.
+public int Handle(int cents)
+Handle(cents) -> Recompute(cents)
