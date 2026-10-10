@@ -694,11 +694,11 @@ jobs:
         working-directory: compiler
         run: ./bin/check-validation-reason.sh
 
-      # F71 / ENG-617. Eight stubs: the first value kept, the last value kept,
+      # F71 / ENG-617. Nine stubs: the first value kept, the last value kept,
       # a repeat refused without its key, a repeat refused only where its
       # values differ, text after the value dropped, whitespace after the
-      # value refused, and one each wrong on the nested case alone and on
-      # the exemplar alone.
+      # value refused, and one each wrong on the nested case alone, on
+      # the exemplar alone and on an object that never closes alone.
       - name: The duplicate-key gate proves it can fail
         working-directory: compiler
         run: ./bin/check-duplicate-key.sh --self-test

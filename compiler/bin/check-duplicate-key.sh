@@ -20,6 +20,9 @@
 #       and drops what follows it.
 #   D5  `{"a":1}` then a space: the value. Red under `strict_end`, which
 #       refuses any remainder at all.
+#   D7  `{"a":1,"a":"x",`, a repeat in an object that never closes:
+#       `:not_json`. Red under `on_arrival`, which complains the moment the
+#       second key arrives and so reports a repeat in text that is not JSON.
 #   D6  exemplar 25f, served a good reply with `"model"` a second time:
 #       `(:malformed, e)` with `e` naming `"model"`. Red under `first_wins`
 #       and `last_wins`, which hand back an evaluation.
@@ -31,7 +34,7 @@ BSC="$HERE/_build/default/bin/bsc"
 EXEMPLAR="$HERE/examples/exemplars/25f-llm-evaluation-client"
 REPLAY="$HERE/../wayfinder/prototypes/25f_replay.erl"
 
-CASES="D1 D2 D3 D4 D5 D6"
+CASES="D1 D2 D3 D4 D5 D7 D6"
 
 call() { # the function and its argument
   case "$1" in
@@ -40,6 +43,7 @@ call() { # the function and its argument
     D3) echo 'Read "{\"a\":1,\"a\":1}"' ;;
     D4) echo 'Read "{\"a\":1} x"' ;;
     D5) echo 'Read "{\"a\":1} "' ;;
+    D7) echo 'Read "{\"a\":1,\"a\":\"x\","' ;;
   esac
 }
 
@@ -50,7 +54,7 @@ ve() { # expected, path, reason
 expected_value() {
   case "$1" in
     D1|D2|D3) ve '""a" once"' '[]' duplicate_key ;;
-    D4)       ve '"JSON"' '[]' not_json ;;
+    D4|D7)    ve '"JSON"' '[]' not_json ;;
     D5)       echo '{"a" = 1}' ;;
     D6)       echo 'repeated: ok' ;;
   esac
@@ -86,7 +90,7 @@ probe() {
     printf 'ReadAll(body) -> FromJson<list<W>>(body)\n'
   } > "$dir/Repeat/repeat.bs"
   (cd "$dir" &&
-     for v in D1 D2 D3 D4 D5; do
+     for v in D1 D2 D3 D4 D5 D7; do
        fn="$(call "$v" | cut -d' ' -f1)"
        arg="$(call "$v" | cut -d' ' -f2-)"
        "$BSC" Repeat "$fn" "$arg" > "$v.out" 2>&1 || true
@@ -102,7 +106,7 @@ probe() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — eight defects and one correct form.
+# --self-test — nine defects and one correct form.
 #
 #   first_wins    the first value is kept, as `json:decode/1` kept it
 #   last_wins     the last value is kept and validated
@@ -112,6 +116,8 @@ probe() {
 #   strict_end    whitespace after the value is refused
 #   top_only      a repeat is seen in the outermost object alone, so D2 is
 #                 the only case that is wrong
+#   on_arrival    a repeat is reported when the second key arrives, so D7 is
+#                 the only case that is wrong
 #   exemplar_only every probe is right and the exemplar still hands back an
 #                 evaluation, so D6 is the only case that is wrong
 # ---------------------------------------------------------------------------
@@ -119,7 +125,7 @@ if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   fail=0
 
-  stub() { # name, then an output per case D1..D6
+  stub() { # name, then an output per case, in the order of CASES
     local d="$W/$1"; shift
     mkdir -p "$d"
     local i=1 v
@@ -136,18 +142,19 @@ $(expected_value D6)"
   BAD6='== openrouter, 200, "model" twice
 repeated: WRONG #{}'
 
-  stub good         "$G1" "$G1" "$G1" "$G4" "$G5" "$G6"
-  stub first_wins   "$ONE" "$LIST" "$ONE" "$G4" "$G5" "$BAD6"
+  stub good         "$G1" "$G1" "$G1" "$G4" "$G5" "$G4" "$G6"
+  stub first_wins   "$ONE" "$LIST" "$ONE" "$G4" "$G5" "$G4" "$BAD6"
   stub last_wins    "$(ve '"int"' '["["a"]"]' mismatch)" '[{"a" = 1}, {"a" = 2}]' \
-                    "$ONE" "$G4" "$G5" "$BAD6"
-  stub no_key       "$G4" "$G4" "$G4" "$G4" "$G5" "$BAD6"
-  stub unequal_only "$G1" "$G1" "$ONE" "$G4" "$G5" "$G6"
-  stub prefix       "$G1" "$G1" "$G1" "$ONE" "$G5" "$G6"
-  stub strict_end   "$G1" "$G1" "$G1" "$G4" "$G4" "$G6"
-  stub top_only     "$G1" "$LIST" "$G1" "$G4" "$G5" "$G6"
-  stub exemplar_only "$G1" "$G1" "$G1" "$G4" "$G5" "$BAD6"
+                    "$ONE" "$G4" "$G5" "$G4" "$BAD6"
+  stub no_key       "$G4" "$G4" "$G4" "$G4" "$G5" "$G4" "$BAD6"
+  stub unequal_only "$G1" "$G1" "$ONE" "$G4" "$G5" "$G4" "$G6"
+  stub prefix       "$G1" "$G1" "$G1" "$ONE" "$G5" "$G4" "$G6"
+  stub strict_end   "$G1" "$G1" "$G1" "$G4" "$G4" "$G4" "$G6"
+  stub top_only     "$G1" "$LIST" "$G1" "$G4" "$G5" "$G4" "$G6"
+  stub on_arrival   "$G1" "$G1" "$G1" "$G4" "$G5" "$G1" "$G6"
+  stub exemplar_only "$G1" "$G1" "$G1" "$G4" "$G5" "$G4" "$BAD6"
 
-  for bad in first_wins last_wins no_key unequal_only prefix strict_end top_only exemplar_only; do
+  for bad in first_wins last_wins no_key unequal_only prefix strict_end top_only exemplar_only on_arrival; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -157,6 +164,8 @@ repeated: WRONG #{}'
   # The two single-case stubs must be red for their own case and no other.
   [ "$(judge "$W/top_only" | cut -d: -f1)" = "D2" ] \
     || { echo "  x SELF-TEST: 'top_only' was not red on D2 alone"; fail=1; }
+  [ "$(judge "$W/on_arrival" | cut -d: -f1)" = "D7" ] \
+    || { echo "  x SELF-TEST: 'on_arrival' was not red on D7 alone"; fail=1; }
   [ "$(judge "$W/exemplar_only" | cut -d: -f1)" = "D6" ] \
     || { echo "  x SELF-TEST: 'exemplar_only' was not red on D6 alone"; fail=1; }
   if [ -n "$(judge "$W/good")" ]; then
@@ -165,7 +174,7 @@ repeated: WRONG #{}'
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: eight defects seen, correct form accepted"
+  echo "self-test passed: nine defects seen, correct form accepted"
   exit 0
 fi
 

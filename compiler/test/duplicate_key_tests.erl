@@ -112,7 +112,7 @@ whitespace_around_the_value_is_accepted_test() ->
 whitespace_json_does_not_name_is_text_test() ->
     ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1}\f">>)).
 
-%% Text that stops inside the second value never pushes it.
+%% Text that stops inside the second value is not an object yet.
 text_that_ends_inside_a_repeat_is_not_json_test() ->
     ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":">>)).
 
@@ -121,8 +121,7 @@ text_that_ends_inside_a_repeat_is_not_json_test() ->
 %% An object that never closes is not JSON, whatever it repeated.
 a_repeat_in_an_object_that_never_closes_is_not_json_test() ->
     ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":\"x\",">>)),
-    ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":\"x\",\"c\":3">>)),
-    ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":2">>)).
+    ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":\"x\",\"c\":3">>)).
 
 %% With two repeats, the one reported is in the object that closes first.
 of_two_repeats_the_object_that_closes_first_is_reported_test() ->

@@ -47,8 +47,8 @@ $ bsc Repeat Read '"{\"a\":1} "'
   that accepts it.
 - It is refused whichever value is the wrong one, when the two are equal, and when the
   key is one an open type does not name.
-- `Path` is `[]` however deep the object sits: the decoder's callback is handed the key
-  and not where its object is.
+- `Path` is `[]` however deep the object sits: the decoder's callback is handed an
+  object's pairs and not where the object is.
 - The same key in two different objects is not a repeat.
 - Two spellings of one key are one key: `"a"` and `"\u0061"` repeat each other.
 - The repeat is found during the decode, before `T` is consulted, so it is reported
@@ -106,19 +106,21 @@ built; point 3 was changed the same day.
    is `:duplicate_key` for `"b"`. Reporting `:missing` for `"a"` first would mean keeping
    one of the two values, validating a map known to be wrong, and reporting the repeat
    only if that passed. Recommended: keep.
-3. **The check costs time on every decode, and need not.** Measured in microseconds per
+3. **The check cost time on every decode, and need not.** Measured in microseconds per
    decode, for `json:decode/1` (F69), this build, and a form that lets the decoder collect
    an object's pairs and compares their count with the finished map's size when the object
    closes:
 
-   | Body | F69 | as built | checked at the end |
+   | Body | F69 | the first build | checked at the end |
    |---|---|---|---|
    | 25f's reply, 442 bytes | 13.2 | 16.6 | 13.4 |
    | 20,000 rows of 4 keys, 1.1 MB | 44,226 | 46,668 | 44,003 |
    | one object of 300,000 keys, 4.6 MB | 108,935 | 295,579 | 107,058 |
 
    Two things differ for a program. Text that repeats a key and never closes the object,
-   `{"a":1,"a":2`, is `:not_json` where this build says `:duplicate_key`. With two repeats
+   `{"a":1,"a":"x",`, is `:not_json` where the first build said `:duplicate_key`. (Put to
+   David as `{"a":1,"a":2`, which the first build already called `:not_json`: the decoder
+   registers a pair only at the next `,` or `}`. The review caught it.) With two repeats
    in one body, the one reported is the one whose object closes first. Recommended:
    change to the check at the end.
 4. **The decode is one generated function per module**, where ENG-617 says `text_form`
@@ -149,10 +151,11 @@ Before the build, `duplicate_key_tests` failed 9 of 14; the five that passed are
 F71.6, which F69's `decode/1` already satisfied and which the move to `decode/3` must not
 lose. `check-duplicate-key.sh` was red on D1, D2, D3 and D6: the first three printed the
 value with the first `"a"` kept, and D6 printed a whole `Evaluation` for the reply with two
-models. Its `--self-test` sees eight defects (`first_wins`, `last_wins`, `no_key`,
-`unequal_only`, `prefix`, `strict_end`, `top_only`, `exemplar_only`) and accepts the correct outputs. F71.7 is D6:
+models. Its `--self-test` sees nine defects (`first_wins`, `last_wins`, `no_key`,
+`unequal_only`, `prefix`, `strict_end`, `top_only`, `exemplar_only`, `on_arrival`) and accepts the correct outputs. F71.7 is D6:
 `wayfinder/prototypes/25f_replay.erl` serves the reply and prints `repeated: ok`.
 
 For the change to the check at the close, on 2026-10-10: F71.8's four tests were added
 first, and two of them failed on the first build, the unclosed object and the inner
-object's key.
+object's key. The gate's D7 came after the change, at the review's prompting, and was
+then seen red against the first build's emitter.

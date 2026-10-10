@@ -1871,7 +1871,8 @@ text_form(Name) ->
 %%% a map smaller than its pairs held a repeat, and only then are the pairs
 %%% walked for the key. Looking each key up as it arrived cost 1.26 times
 %%% `decode/1` on a 442-byte reply and 2.7 times on one wide object; this
-%%% costs what `decode/1` does.
+%%% measured the same as `decode/1`. Both were timed on this logic written
+%%% by hand, not on the generated function.
 %%%
 %%% `decode/3` also hands back what it did not read, where `decode/1` refused
 %%% it, so a remainder that is not JSON's whitespace is refused here.
@@ -1880,7 +1881,7 @@ text_form(Name) ->
 
 decode_name() -> 'bs@validate@decode'.
 finish_name() -> 'bs@validate@finish'.
-recur_name()  -> 'bs@validate@recur'.
+repeated_name() -> 'bs@validate@repeated'.
 blank_name()  -> 'bs@validate@blank'.
 repeat_tag()  -> 'bs@validate@repeat'.
 
@@ -1894,7 +1895,9 @@ decode_forms() ->
     AV = {var, ?A, 'Bs@acc'},
     RV = {var, ?A, 'Bs@rest'},
     CV = {var, ?A, 'Bs@c'},
-    MV = {var, ?A, 'Bs@m'},
+    PV = {var, ?A, 'Bs@pairs'},
+    OV = {var, ?A, 'Bs@obj'},
+    SV = {var, ?A, 'Bs@seen'},
     Any = {var, ?A, '_'},
     Remote = fun(M, F, Args) -> {call, ?A, {remote, ?A, {atom, ?A, M}, {atom, ?A, F}}, Args} end,
     Decoders =
@@ -1919,27 +1922,27 @@ decode_forms() ->
             [text_error(Once, duplicate_key)]},
            {clause, ?A, [Raised(Any)], [], [NotJson]}],
           []}]}]},
-     %% `Bs@v` is the object's pairs, last first; `Bs@acc` is the decoder's own.
+     %% The pairs arrive last first; `Bs@acc` is the decoder's own, handed back.
      {function, ?A, finish_name(), 2,
-      [{clause, ?A, [VV, AV], [],
-        [{match, ?A, MV, Remote(maps, from_list, [VV])},
-         {'case', ?A, {op, ?A, '=:=', Remote(erlang, map_size, [MV]),
-                       Remote(erlang, length, [VV])},
-          [{clause, ?A, [{atom, ?A, true}], [], [{tuple, ?A, [MV, AV]}]},
+      [{clause, ?A, [PV, AV], [],
+        [{match, ?A, OV, Remote(maps, from_list, [PV])},
+         {'case', ?A, {op, ?A, '=:=', Remote(erlang, map_size, [OV]),
+                       Remote(erlang, length, [PV])},
+          [{clause, ?A, [{atom, ?A, true}], [], [{tuple, ?A, [OV, AV]}]},
            {clause, ?A, [{atom, ?A, false}], [],
             [Remote(erlang, error,
                     [{tuple, ?A,
                       [{atom, ?A, repeat_tag()},
-                       {call, ?A, {atom, ?A, recur_name()},
-                        [Remote(lists, reverse, [VV]), {map, ?A, []}]}]}])]}]}]}]},
+                       {call, ?A, {atom, ?A, repeated_name()},
+                        [Remote(lists, reverse, [PV]), {map, ?A, []}]}]}])]}]}]}]},
      %% The first key, in the order the text gave them, to arrive a second time.
-     {function, ?A, recur_name(), 2,
-      [{clause, ?A, [{cons, ?A, {tuple, ?A, [KV, Any]}, RV}, MV], [],
-        [{'case', ?A, Remote(maps, is_key, [KV, MV]),
+     {function, ?A, repeated_name(), 2,
+      [{clause, ?A, [{cons, ?A, {tuple, ?A, [KV, Any]}, RV}, SV], [],
+        [{'case', ?A, Remote(maps, is_key, [KV, SV]),
           [{clause, ?A, [{atom, ?A, true}], [], [KV]},
            {clause, ?A, [{atom, ?A, false}], [],
-            [{call, ?A, {atom, ?A, recur_name()},
-              [RV, Remote(maps, put, [KV, {nil, ?A}, MV])]}]}]}]}]},
+            [{call, ?A, {atom, ?A, repeated_name()},
+              [RV, Remote(maps, put, [KV, {atom, ?A, true}, SV])]}]}]}]}]},
      {function, ?A, blank_name(), 1,
       [{clause, ?A,
         [{bin, ?A, [{bin_element, ?A, CV, default, default},
