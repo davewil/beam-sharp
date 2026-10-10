@@ -2997,7 +2997,7 @@ below; `null` stays `:null`. **shipped** — F69.
 as `1`, so the same sender writes `0.5` and `1` at one key. Under `FromJson`, an integer where the
 type holds floats is the float equal to it: `{"price":1}` read as `{ "price": float }` is
 `{ "price" = 1.0 }`, at any depth. An integer the type holds as an integer stays one, so
-`int | float` given `1` is `1`. An integer no float equals, `9007199254740993` being the first, is
+`int | float` given `1` is `1`, and so is `{ "v": int } | { "v": float }` given `{"v":1}`. An integer no float equals, `9007199254740993` being the first, is
 refused expecting the position's type, and an `int` position still refuses `1.0`. This is the one
 conversion `FromJson` makes that `ValidateAs` does not: in a term a program built, `1` is an `int`
 because the program said so, and `ValidateAs<float>` refuses it. **shipped** — F73.
