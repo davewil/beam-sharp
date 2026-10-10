@@ -8,7 +8,7 @@ REPO=$(cd "$HERE/../../.." && pwd)
 source /tmp/claude-0/env.sh
 BSC=$REPO/compiler/_build/default/bin/bsc
 S=$(mktemp -d /tmp/claude-0/probe60.XXXXXX)
-cp -r "$HERE" "$S/p"; P=$S/p
+cp -r "$HERE" "$S/p"; P=$S/p; cd "$S"
 hdr() { printf '\n######## %s\n' "$*"; }
 run() { echo "\$ $*"; "$@"; echo "[rc=$?]"; }
 
@@ -47,7 +47,7 @@ PB=$S/proto-position/compiler/_build/default/bin/bsc
 WB=$S/proto-written/compiler/_build/default/bin/bsc
 hdr "2a. option POSITION: a module under an Internal segment is nameable only from under its parent"
 cat "$P/src-position/Shop/Internal/Totals/Totals.bs"
-for m in Shop/Orders Shop/Billing Shop/Reports Web/Handler Web/NsHandler; do echo "-- $m"; run "$PB" -o "$S/o" --src-root "$P/src-position" "$P/src-position/$m"; done
+for m in Shop/Orders Shop/Billing Shop/Reports Web/Handler Web/NsHandler Shop/OrdersTests OrdersTests; do echo "-- $m"; run "$PB" -o "$S/o" --src-root "$P/src-position" "$P/src-position/$m"; done
 echo "-- control: the UNPATCHED bsc accepts the refused one"
 run "$BSC" -o "$S/o" --src-root "$P/src-position" "$P/src-position/Web/Handler" Handle 5
 echo "-- what --api says about the two modules"
@@ -73,7 +73,7 @@ import json
 d=json.load(open('$S/g/iface.json'))
 for m,v in sorted(d['modules'].items()): print('package-interface module', m, 'functions', sorted(v['functions']))
 print('(lib/internal/helper and lib.also_hidden, marked internal, are absent from the interface/docs)')" )
-echo "-- control: remove the dependency's import and see the project still runs, so the build above is a real build"
+echo "-- the program that names lib/internal/helper and lib.also_hidden also runs"
 ( cd "$S/g/app" && gleam run 2>&1 | tail -n 2 )
 
 hdr "5. ELIXIR @moduledoc false (installed Elixir has beams only, no .ex sources)"

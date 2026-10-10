@@ -1,0 +1,7 @@
+module Shop.OrdersTests
+
+using Shop.Internal.Totals
+
+// An agent-written test aimed at the helper, living under Shop.
+public int RecomputeAddsAHundred()
+RecomputeAddsAHundred() -> Recompute(1)

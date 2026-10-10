@@ -1,0 +1,7 @@
+module OrdersTests
+
+using Shop.Internal.Totals
+
+// The same test, living at the top of the tree.
+public int RecomputeAddsAHundred()
+RecomputeAddsAHundred() -> Recompute(1)

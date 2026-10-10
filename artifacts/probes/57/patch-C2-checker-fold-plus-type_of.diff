@@ -1,0 +1,60 @@
+diff --git a/compiler/src/bs_check.erl b/compiler/src/bs_check.erl
+index f62e7a0..617529e 100644
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -2886,6 +2886,10 @@ type_of({e_float, _, F}, _S, _C) -> {bs_types:float_lit(F), []};
+ %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
++type_of({e_neg, _, E} = Neg, _S, _C) when element(1, E) =:= e_int ->
++    %% Patch C2: a negated integer literal is the point type, as `5` is.
++    {ok, K} = const_int(Neg),
++    {bs_types:range(K, K), []};
+ type_of({e_neg, L, E}, S, C) ->
+     {Ty, D} = type_of(E, S, C),
+     case operand_verdict(Ty, C) of
+@@ -5012,18 +5016,37 @@ alternatives(Cmp) ->
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++%% Patch C: fold a literal-integer side (`-5`, `-(5)`, `2 + 3`) to a literal.
++comparison({e_op, L, Op, A, B}) ->
++    comparison1({e_op, L, Op, fold_int(A), fold_int(B)});
++comparison(E) -> comparison1(E).
++
++fold_int(E) ->
++    case const_int(E) of {ok, K} -> {e_int, element(2, E), K}; error -> E end.
++
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_neg, _, E}) ->
++    case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int({e_op, _, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_int(A), const_int(B)} of
++        {{ok, X}, {ok, Y}} ->
++            {ok, case Op of '+' -> X + Y; '-' -> X - Y; '*' -> X * Y end};
++        _ -> error
++    end;
++const_int(_) -> error.
++
++comparison1({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
++comparison1({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison1({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison1({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+ %% F68: a string literal is compared as an atom literal is.
+-comparison({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
++comparison1({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {include, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
++comparison1({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {exclude, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison(_) ->
++comparison1(_) ->
+     unknown.
+ 
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
