@@ -2639,10 +2639,24 @@ key's wrong value, and one the path cannot spell is not named, the blame stoppin
 `:mismatch`. A record's `Kind` is asked about first: a map without it is `:missing` at `.Kind`,
 and one carrying another record's is `:mismatch` there. All of this is reported where the type at
 that position has one map member, a field set or a record; a union of several, a `map<K, V>`
-among them, is reported whole, at the union, as `:mismatch`. `:not_json` and
+among them, is reported whole, at the union, as `:mismatch`, unless a key tells its members
+apart, below. `:not_json` and
 `:duplicate_key` are `FromJson`'s, below. A hand-built `ValidationError` names all three fields.
 **shipped** — F70.
 <!-- decided by ticket 78 Q16, Q12 and Q21, and ticket 79 as reopened; built by F70 -->
+
+**A union told apart by a string-literal key is validated by that key first.** Where every map
+member of a union has one key holding nothing but string literals, and no literal is in two of
+them, that key is the union's tag: `"type"` in `{ "type": "choice", "choice": string, .. } |
+{ "type": "score", "score": int, .. }`. A map whose tag names a member is validated against that
+member alone, so `{ "type" = "score", "score" = "x" }` is `Path = ["[\"score\"]"]`,
+`Expected = "int"`, and everything above about one map member applies inside it. A tag no member
+names is `:mismatch` at the tag, `Path = ["[\"type\"]"]`, and `Expected` is the tags,
+`"\"choice\" | \"score\""`. A map with no tag is `:missing` there, with the same `Expected`. The
+tag is found from the types and written nowhere else; with two keys that would serve, the first
+in key order is read. A member that is not a map, `:null` beside the two above, is accepted as
+it was. **shipped** — F72.
+<!-- decided by ticket 78 Q19 and Q22; built by F72 -->
 
 The bracket is admitted after **exactly five** compiler-known names — `ValidateAs<T>`,
 `ParseAtom<T>`, `ToJson<T>`, `FromJson<T>` and `ToExistingAtom` — and after nothing else, which is

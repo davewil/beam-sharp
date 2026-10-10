@@ -94,6 +94,21 @@ main() ->
             io:format("repeated: WRONG ~0p~n", [Repeated]),
             halt(1)
     end,
+    Tri = run("openrouter, 200, an answer of type \"tri\"", <<"openrouter:typesafe/jev-1.13">>,
+              serve(200, (openrouter())#{<<"answers">> =>
+                                             #{<<"department">> => #{<<"type">> => <<"tri">>}}})),
+    %% Ticket 78 Q19: the answer's tag names no member, and the error says so.
+    case Tri of
+        {error, {malformed, #{'Kind' := 'ValidationError',
+                              'Path' := [<<"[\"answers\"]">>, <<"[\"department\"]">>,
+                                         <<"[\"type\"]">>],
+                              'Expected' := <<"\"choice\" | \"noul\" | \"score\"">>,
+                              'Reason' := mismatch}}} ->
+            io:format("unknown tag: ok~n");
+        _ ->
+            io:format("unknown tag: WRONG ~0p~n", [Tri]),
+            halt(1)
+    end,
     run("typesafe, 401", <<"typesafe:jev-latest">>, serve(401, #{<<"error">> => <<"bad key">>})),
     run("unknown provider", <<"anthropic:claude-haiku-4-5">>, serve(200, typesafe())),
     halt(0).

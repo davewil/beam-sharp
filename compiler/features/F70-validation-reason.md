@@ -69,8 +69,8 @@ $ bsc Intake Read '"nope"'
   any other: absent it is `:missing`, and holding another atom it is `:mismatch`, both at
   that key. Another record is so reported as another record, whatever else it lacks.
 - A position whose type has several map members, a `map<K, V>` among them, is reported
-  as before: the whole type at the position, as `:mismatch`. ENG-618 changes that for a
-  tagged union.
+  as before: the whole type at the position, as `:mismatch`. [F72](F72-tagged-union.md) changes that for
+  a tagged union.
 - `:duplicate_key` is in the type and was built by nothing here; [F71](F71-duplicate-key.md)
   builds it.
 - `ValidateAs<T>` reports `:mismatch`, `:missing` and `:unknown_key` as `FromJson<T>` does.

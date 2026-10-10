@@ -330,6 +330,9 @@ run_stages \
   "\`FromJson\` refuses a repeated key, and text after the value" \
     "cd compiler && ./bin/check-duplicate-key.sh --self-test && ./bin/check-duplicate-key.sh" \
 \
+  "A union tagged by a string-literal key is validated by that key first" \
+    "cd compiler && ./bin/check-tagged-union.sh --self-test && ./bin/check-tagged-union.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

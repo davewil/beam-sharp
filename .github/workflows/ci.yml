@@ -707,6 +707,18 @@ jobs:
         working-directory: compiler
         run: ./bin/check-duplicate-key.sh
 
+      # F72 / ENG-618. Seven stubs: the whole union at the object, the first
+      # member asked whatever the tag says, an absent tag called a mismatch,
+      # the tag read only at the top, a non-map member sent to the tag, a
+      # union with no tag blamed at a key, and the exemplar alone wrong.
+      - name: The tagged-union gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-tagged-union.sh --self-test
+
+      - name: A union tagged by a string-literal key is validated by that key first
+        working-directory: compiler
+        run: ./bin/check-tagged-union.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

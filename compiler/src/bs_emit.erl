@@ -1696,7 +1696,8 @@ map_children(Members) ->
                                                    K =/= Fixed,
                                                    checked(maps:get(K, Fs))];
                       {alts, Ms}            -> [member_ty(M) || M <- Ms];
-                      {any, Ms}             -> [member_ty(M) || M <- Ms]
+                      {any, Ms}             -> [member_ty(M) || M <- Ms];
+                      {lit, _Key, Tagged}   -> [member_ty(M) || {_Strs, M} <- Tagged]
                   end || Case <- map_cases(Members)]).
 
 map_key({Kind, Fs})     -> {Kind, lists:sort(maps:keys(Fs))}.
@@ -1726,7 +1727,48 @@ arity_case(Ps) ->
 %% Records and domains are disjoint on `Kind`. Untagged brace maps beside
 %% domains use alternatives with blame at this node: keys alone cannot pick a
 %% candidate, even when key types would distinguish the members.
+%%
+%% Ahead of all of that, `lit`: members that agree on one key holding string
+%% literals, no literal in two of them, are told apart by that key's value and
+%% by nothing else. Each is validated by its own validator, so what is wrong
+%% inside the member the key names is blamed inside it (ticket 78 Q19).
 map_cases(Members) ->
+    case literal_tag(Members) of
+        {Key, Tagged} -> [{lit, Key, Tagged}];
+        none          -> shape_cases(Members)
+    end.
+
+%% The first key, in key order, that every member has, holds nothing but
+%% string literals in each, and shares no literal between two. A `map<K, V>`
+%% member has no keys to agree on.
+literal_tag(Members) when length(Members) < 2 -> none;
+literal_tag(Members) ->
+    case lists:all(fun({dom, _, _}) -> false; (_) -> true end, Members) of
+        false -> none;
+        true  ->
+            Common = lists:foldl(fun({_, Fs}, Acc) -> [K || K <- Acc, maps:is_key(K, Fs)] end,
+                                 lists:sort(maps:keys(element(2, hd(Members)))), tl(Members)),
+            literal_tag(Common, Members)
+    end.
+
+literal_tag([], _Members) -> none;
+literal_tag([K | Rest], Members) ->
+    Sets = [literals(maps:get(K, Fs)) || {_, Fs} <- Members],
+    All = lists:append([S || S <- Sets, S =/= none]),
+    case not lists:member(none, Sets) andalso length(lists:usort(All)) =:= length(All) of
+        true  -> {K, lists:zip(Sets, Members)};
+        false -> literal_tag(Rest, Members)
+    end.
+
+%% The strings of a type that is string literals and nothing else.
+literals(#{bins := [{finite, Strs}]} = Ty) ->
+    case Ty#{bins => []} =:= bs_types:none() of
+        true  -> Strs;
+        false -> none
+    end;
+literals(_) -> none.
+
+shape_cases(Members) ->
     {Doms, Named} = lists:partition(fun({dom, _, _}) -> true; (_) -> false end,
                                     Members),
     %% Closed members must precede open ones: an open pattern would shadow
@@ -2051,7 +2093,10 @@ validator_form(Ty, Name, Table, Conv) ->
     Err = error_expr(Ty),
     Body = bs_types:unfold(Ty),
     %% A strict twin is emitted with an empty `Conv`, so it gets no attempts.
-    Fills = [M || lists:member(Ty, Conv), M <- fillable_members(Body)],
+    %% A union told apart by a literal key hands each map to one member, and
+    %% that member's validator makes its own attempts.
+    Fills = [M || lists:member(Ty, Conv), not literal_tagged(Body),
+                  M <- fillable_members(Body)],
     Keyed = keyed_member(Body),
     Clauses = ty_clauses(Body, Name, Table, Conv, Err)
               ++ [keys_clause(Name) || Keyed =/= none]
@@ -2101,6 +2146,9 @@ pass_ok(V) -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, V]}], [], [{tuple, ?A, 
 %%% absent option key, which the fill attempts take. With several map
 %%% members, a `map<K, V>` among them, there is no one member to ask about.
 %%% Rationale: compiler/features/F70-validation-reason.md.
+
+literal_tagged(#{maps := top}) -> false;
+literal_tagged(#{maps := Ms})  -> literal_tag(Ms) =/= none.
 
 keyed_member(#{maps := [M = {Kind, _}]}) when Kind =:= closed; Kind =:= open -> M;
 keyed_member(_) -> none.
@@ -2658,7 +2706,27 @@ key_forms() ->
 map_clauses(top, _Name, _Table, _Conv, _Err) ->
     [{clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [ok_expr()]}];
 map_clauses(Members, Name, Table, Conv, Err) ->
-    [map_case(C, Name, Table, Conv, Err) || C <- map_cases(Members)].
+    lists:append([case C of
+                      {lit, Key, Tagged} -> lit_clauses(Key, Tagged, Table);
+                      _                  -> [map_case(C, Name, Table, Conv, Err)]
+                  end || C <- map_cases(Members)]).
+
+%% One clause per literal, handing the map to the member that literal names
+%% and returning what it returns, filled or not. Then a map whose tag names
+%% no member, and a map with no tag: both blamed at the tag, expecting the
+%% tags. A member's validator has one map member, so F70 names its keys.
+lit_clauses(Key, Tagged, Table) ->
+    Tags = bs_types:to_string(bs_types:union([bs_types:str_lit(S)
+                                              || {Strs, _} <- Tagged, S <- Strs])),
+    At = fun(Reason) ->
+                 error_at({cons, ?A, bin_str(field_seg(Key)), ?VP}, Tags, Reason)
+         end,
+    Holding = fun(Value) -> {map, ?A, [{map_field_exact, ?A, key_lit(Key, ?A), Value}]} end,
+    [{clause, ?A, [Holding(key_lit(S, ?A))], [],
+      [{call, ?A, {atom, ?A, maps:get(member_ty(M), Table)}, [?VV, ?VP]}]}
+     || {Strs, M} <- Tagged, S <- Strs]
+    ++ [{clause, ?A, [Holding({var, ?A, '_'})], [], [At(mismatch)]},
+        {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]], [At(missing)]}].
 
 %% Domain maps exclude `Kind`; only non-`term` keys or values need a walk.
 map_case({one, none, {dom, K, V}}, Name, _Table, Conv, _Err) ->
