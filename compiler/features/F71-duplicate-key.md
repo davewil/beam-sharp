@@ -86,6 +86,40 @@ $ bsc Repeat Read '"{\"a\":1} "'
 - **Text that ends inside the second value is `:not_json`.** The key is pushed once its
   value has been read, so `{"a":1,"a":` never reaches the push.
 
+## Four points put to David — 2026-10-10
+
+Each with what the build does, what the other answer would do, and a recommendation.
+Nothing here is changed until he answers.
+
+1. **A repeated key holding `"` is written raw.** `{"a\"b":1,"a\"b":2}` reports
+   `Expected = ""a"b" once"`; escaped as the type prints it would be `""a\"b" once"`. In
+   the same module a named key's path segment is escaped and an unknown key's is raw. The
+   other answer is one generated escape function, called here, where F70 names an unknown
+   key and where F43 names a map entry. Recommended: keep raw; changing all three places
+   is its own issue.
+2. **A repeat is reported before a wrong shape.** `{"b":1,"b":2}` against `{ "a": int }`
+   is `:duplicate_key` for `"b"`. Reporting `:missing` for `"a"` first would mean keeping
+   one of the two values, validating a map known to be wrong, and reporting the repeat
+   only if that passed. Recommended: keep.
+3. **The check costs time on every decode, and need not.** Measured in microseconds per
+   decode, for `json:decode/1` (F69), this build, and a form that lets the decoder collect
+   an object's pairs and compares their count with the finished map's size when the object
+   closes:
+
+   | Body | F69 | as built | checked at the end |
+   |---|---|---|---|
+   | 25f's reply, 442 bytes | 13.2 | 16.6 | 13.4 |
+   | 20,000 rows of 4 keys, 1.1 MB | 44,226 | 46,668 | 44,003 |
+   | one object of 300,000 keys, 4.6 MB | 108,935 | 295,579 | 107,058 |
+
+   Two things differ for a program. Text that repeats a key and never closes the object,
+   `{"a":1,"a":2`, is `:not_json` where this build says `:duplicate_key`. With two repeats
+   in one body, the one reported is the one whose object closes first. Recommended:
+   change to the check at the end.
+4. **The decode is one generated function per module**, where ENG-617 says `text_form`
+   calls the decoder *"under the catch that is already there"*. No program can tell the
+   two apart. Recommended: keep.
+
 ## Scenarios
 
 | Id | Program | Expected |
