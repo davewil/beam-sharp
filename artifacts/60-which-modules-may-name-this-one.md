@@ -70,7 +70,7 @@ bsc --api Shop.Internal.Totals  -> int Recompute(int)
 
 - **Compiler delta.** One function, `reach/2`, in `bs_check.erl`, called from `add_import/7` (`:498`) in `strict` mode, and a
   `not_visible` descriptor plus message clause in `bs_diag.erl`. No parser, lexer, emitter or world-entry change, because the
-  rule needs only `M` and `Self`, which `add_import` already has. 27 lines added, 2 removed, 2 files.
+  rule needs only `M` and `Self`, which `add_import` already has. 28 lines added, 2 removed, 2 files (`git apply --numstat`; run.sh's grep skipped a blank line).
 - **Existing suite.** `rebar3 eunit`: 1434 passed on unpatched HEAD and 1434 on the patch. `bin/check-diagnostics.sh`: ok
   (it requires every minted tag to have a `message/1` clause, which is why the diag lines are not optional). Wall times
   (10m13s, 8m14s) differ by more than the patch could cause, so they are noise, not a speed claim.
@@ -114,7 +114,7 @@ bsc --api Shop.Totals  -> int Recompute(int)        (the manifest does not know 
 
 - **Compiler delta.** A new keyword: `friend` in `bs_lexer.xrl`, `friend_decl` in `bs_parser.yrl`, a `friends`
   field in the `World` entry built in `bsc.erl`, `may_name/3` in `bs_check.erl` called from `add_import` and from the namespace
-  branch, `not_visible` in `bs_diag.erl`. 28 lines added, 4 removed, 5 files. `rebar3 eunit` 1434 passed (so no
+  branch, `not_visible` in `bs_diag.erl`. 29 lines added, 4 removed, 5 files. `rebar3 eunit` 1434 passed (so no
   corpus program uses `friend` as an identifier); `check-diagnostics.sh` ok.
 - **What it buys that A does not.** The permission is greppable in the callee and survives moving a directory. It can name a
   module in another tree (a test module, a sibling application), which a path rule cannot. The helper may keep its place in
@@ -150,7 +150,7 @@ A's shape, not for B's, but it is one language.
 
 Option A. It is derived from the layout F15 already makes meaningful, adds no keyword and no list that rots, and it is the
 only option whose behaviour on a *new* sibling (`Shop.Reports` accepted without anyone editing anything) is right. It also
-answers 24's classification without a manifest change, because the helper is a different module. Take C instead if you judge
+answers 24's classification only in part: the helper is a different module, but `--api Shop.Internal.Totals` still lists `Recompute` as public, so the manifest is unchanged (verifier finding). Take C instead if you judge
 that a helper forced `public` by a sibling is rare enough: the 24 premise that motivated this ticket is weaker than it reads.
 
 If you choose A, the follow-ups are small and separate: whether the directory is spelled `Internal`, the namespace-import hint,
@@ -176,3 +176,11 @@ and whether a function-level form is wanted.
 - `artifacts/probes/60/gates.sh` — `rebar3 eunit` and `check-diagnostics.sh` on HEAD and both patched clones. Slow.
 - Every control is in the output: unpatched bsc accepts the program A refuses, unpatched bsc refuses B's syntax, `Shop.Reports` and
   `Shop.OrdersTests` are the "should be accepted" cases beside the refused ones.
+
+## Verifier corrections (artifacts/verification/60.md)
+
+- Gleam `internal_modules`: the brief's own app printed nothing and had no control. The verifier's rebuild prints a value from `mylib/internal/secret` (4242) with no warning, identically with `internal_modules` removed, and a misspelled import fails, so the import is really resolved. The conclusion stands; the brief's probe is weaker than the verifier's.
+- 'Reports added later' is not a before/after: `Shop.Reports` is in the source tree from the start of the probe.
+- Option B is fail-open: with the `friend` lines removed `Web/Handler` compiles and prints 105 (run by the verifier, not in run.sh).
+- Ticket 41 section 5 already uses `Internal/` as a sub-module name and F15 corrects that gloss; relevant to the spelling of option A.
+- Bench: the median delta (~8 ms per 5M calls) is below the 35-38 ms noise floor, and inlining was not checked.
