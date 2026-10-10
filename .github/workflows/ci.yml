@@ -720,11 +720,12 @@ jobs:
         working-directory: compiler
         run: ./bin/check-tagged-union.sh
 
-      # F73 / ENG-616. Nine stubs: an integer at a float refused, accepted
+      # F73 / ENG-616. Ten stubs: an integer at a float refused, accepted
       # and handed back an integer, converted under a key and not at the
       # top, converted nowhere beneath the first object, rounded where no
       # float equals it, an `int` reading `1.0`, `ValidateAs` converting
-      # too, `int | float` handing back a float, and the exemplar alone wrong.
+      # too, `int | float` handing back a float, a validator emitted that
+      # nothing calls, and the exemplar alone wrong.
       - name: The float-reads-integer gate proves it can fail
         working-directory: compiler
         run: ./bin/check-float-reads-integer.sh --self-test

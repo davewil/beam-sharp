@@ -14,6 +14,9 @@ src() ->
     "type Tagged = { \"t\": \"a\", \"v\": float } | { \"t\": \"b\", \"v\": string }\n"
     "type Shapes = { \"a\": float } | { \"b\": float }\n"
     "type Alts = { \"v\": float } | { \"v\": string }\n"
+    "type Split = { \"v\": float } | { \"v\": int }\n"
+    "type SplitOpen = { \"a\": int, .. } | { \"a\": float, .. }\n"
+    "type Pair = { \"v\": float, \"w\": float } | { \"v\": int, \"w\": float }\n"
     "type Whole = { \"a\": int }\n"
     "type Either = { \"n\": int | float }\n"
     "type Pct = int where value >= 0 and value <= 100\n"
@@ -32,6 +35,12 @@ src() ->
     "ReadAlts(body) -> FromJson<Alts>(body)\n"
     "public result<float | string, ValidationError> ReadEitherTop(string body)\n"
     "ReadEitherTop(body) -> FromJson<float | string>(body)\n"
+    "public result<Split, ValidationError> ReadSplit(string body)\n"
+    "ReadSplit(body) -> FromJson<Split>(body)\n"
+    "public result<list<SplitOpen>, ValidationError> ReadSplitOpen(string body)\n"
+    "ReadSplitOpen(body) -> FromJson<list<SplitOpen>>(body)\n"
+    "public result<Pair, ValidationError> ReadPair(string body)\n"
+    "ReadPair(body) -> FromJson<Pair>(body)\n"
     "public result<Whole, ValidationError> ReadWhole(string body)\n"
     "ReadWhole(body) -> FromJson<Whole>(body)\n"
     "public result<Either, ValidationError> ReadEither(string body)\n"
@@ -150,3 +159,24 @@ an_integer_the_type_does_not_name_is_read_as_the_float_test() ->
     M = prices(),
     ?assertEqual(#{<<"n">> => 50}, M:'ReadSmall'(<<"{\"n\":50}">>)),
     ?assertEqual(#{<<"n">> => 200.0}, M:'ReadSmall'(<<"{\"n\":200}">>)).
+
+%%% F73.9 — `int | float` written as two members keeps the integer too
+
+%% Members tried in turn are each asked for the value as it is before any is
+%% asked to read it as a float, whichever is written first.
+an_integer_one_member_holds_is_not_read_as_another_members_float_test() ->
+    M = prices(),
+    ?assertEqual(#{<<"v">> => 1}, M:'ReadSplit'(<<"{\"v\":1}">>)),
+    ?assertEqual(#{<<"v">> => 1.5}, M:'ReadSplit'(<<"{\"v\":1.5}">>)),
+    ?assertEqual(#{<<"v">> => 9007199254740993},
+                 M:'ReadSplit'(<<"{\"v\":9007199254740993}">>)),
+    ?assertEqual([#{<<"a">> => 1}, #{<<"a">> => 0.5, <<"x">> => 2}],
+                 M:'ReadSplitOpen'(<<"[{\"a\":1},{\"a\":0.5,\"x\":2}]">>)).
+
+%% Where no member holds the value as it is, one that can read it does. Which
+%% of two that both can is the compiler's order of the members, so only what
+%% both agree on is asserted.
+a_member_that_must_read_a_float_is_still_found_test() ->
+    M = prices(),
+    ?assertMatch(#{<<"w">> := 2.0}, M:'ReadPair'(<<"{\"v\":1,\"w\":2}">>)),
+    ?assertEqual(#{<<"v">> => 1, <<"w">> => 2.5}, M:'ReadPair'(<<"{\"v\":1,\"w\":2.5}">>)).

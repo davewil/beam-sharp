@@ -1836,15 +1836,18 @@ validator_forms({Checks, Jsons, Texts, Table}) ->
     {Strict, StrictTable} = twin_table(Jsons, Conv, Table, fun strict_name/1),
     %% `FromJson` reaches a wire twin where an integer may be read as a float.
     Reading = reading(Table),
-    {Wire, WireTable} = twin_table(Texts, Reading, Table, fun wire_name/1),
+    {Wire, Twinned} = twin_table(Texts, Reading, Table, fun wire_name/1),
+    WireTable = Twinned#{shared => Table},
     %% A shared validator is emitted only where something calls it: a root
-    %% with no twin, or a twin whose child has none. So one that can fill is
+    %% with no twin, a twin whose child has none, or a wire twin trying its
+    %% alternatives as they are (`tries/2`). So one that can fill is
     %% emitted where `ValidateAs` or `FromJson` reaches it and not for
     %% `ToJson`, which reaches its strict twin instead.
     Rooted = lists:usort(Checks ++ (Texts -- Wire)),
     Shared = reach(Rooted ++ (Jsons -- Strict)
                    ++ [C || Twins <- [Strict, Wire], T <- Twins,
-                            C <- children(T), not lists:member(C, Twins)],
+                            C <- children(T), not lists:member(C, Twins)]
+                   ++ [C || T <- Wire, C <- tried(T)],
                    maps:keys(Table), []),
     lists:append([validator_form(Ty, Name, Table, Conv, term)
                   || {Ty, Name} <- Ordered, lists:member(Ty, Shared)])
@@ -2008,10 +2011,10 @@ decode_forms() ->
 %% an absent key under `ToJson` is blamed where it is missing, as before.
 %% Rationale: compiler/features/F61-absent-option-key.md.
 %%
-%% `twin_table/4` is shared with F73's wire twins: the types among `Set`
-%% that `Roots` reach, and the table with those renamed.
-twin_table(Roots, Set, Table, Rename) ->
-    Twins = reach([R || R <- Roots, lists:member(R, Set)], Set, []),
+%% `twin_table/4` is shared with F73's wire twins: the types in `Among`
+%% that `Roots` reach through it, and the table with those renamed.
+twin_table(Roots, Among, Table, Rename) ->
+    Twins = reach([R || R <- Roots, lists:member(R, Among)], Among, []),
     {Twins, maps:map(fun(Ty, Name) ->
                              case lists:member(Ty, Twins) of
                                  true  -> Rename(Name);
@@ -2019,12 +2022,13 @@ twin_table(Roots, Set, Table, Rename) ->
                              end
                      end, Table)}.
 
-reach([], _Conv, Seen) -> lists:reverse(Seen);
-reach([Ty | Rest], Conv, Seen) ->
+%% Every type reached from the first argument without leaving `Among`.
+reach([], _Among, Seen) -> lists:reverse(Seen);
+reach([Ty | Rest], Among, Seen) ->
     case lists:member(Ty, Seen) of
-        true  -> reach(Rest, Conv, Seen);
-        false -> reach([C || C <- children(Ty), lists:member(C, Conv)] ++ Rest,
-                       Conv, [Ty | Seen])
+        true  -> reach(Rest, Among, Seen);
+        false -> reach([C || C <- children(Ty), lists:member(C, Among)] ++ Rest,
+                       Among, [Ty | Seen])
     end.
 
 strict_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@s").
@@ -2157,7 +2161,8 @@ walker_name(Name) -> list_to_atom(atom_to_list(Name) ++ "@e").
 validator_form(Ty, Name, Table, Conv, Mode) ->
     Err = error_expr(Ty),
     Body = bs_types:unfold(Ty),
-    %% A strict twin is emitted with an empty `Conv`, so it gets no attempts.
+    %% A strict twin is emitted with an empty `Conv`, so it gets no attempts;
+    %% a wire twin with the types that fill and the types that read (F73).
     Fills = [M || lists:member(Ty, Conv), M <- fillable_members(Body)],
     Keyed = keyed_member(Body),
     Clauses = ty_clauses(Body, Name, Table, Conv, Err, Mode)
@@ -2504,7 +2509,7 @@ tuple_case({one, Fixed, P}, Table, Conv, _Err) ->
 tuple_case({alts, Ps}, Table, Conv, Err) ->
     Wilds = [{var, ?A, '_'} || _ <- hd(Ps)],
     {clause, ?A, [{tuple, ?A, Wilds}], [],
-     [alternatives([bs_types:tuple(P) || P <- Ps], Table, Conv, Err)]}.
+     [alternatives(tries([bs_types:tuple(P) || P <- Ps], Table), Conv, Err)]}.
 
 slot(Slot, Slot, Ty, _Prefix) ->
     {tag, A} = tag_of(Ty),
@@ -2802,7 +2807,7 @@ map_case({one, none, {dom, K, V}}, Name, _Table, Conv, _Err) ->
     {clause, ?A, [{var, ?A, '_'}], Guard, [Body]};
 map_case({any, Ms}, _Name, Table, Conv, Err) ->
     {clause, ?A, [{var, ?A, '_'}], [[guard_call(is_map, [?VV])]],
-     [alternatives([member_ty(M) || M <- Ms], Table, Conv, Err)]};
+     [alternatives(tries([member_ty(M) || M <- Ms], Table), Conv, Err)]};
 map_case({one, Fixed, {Kind, Fs}}, _Name, Table, Conv, _Err) ->
     Pairs = [{K, maps:get(K, Fs)} || K <- lists:sort(maps:keys(Fs))],
     Slots = [map_slot(K, Fixed, T, I) || {I, {K, T}} <- indexed(Pairs)],
@@ -2822,7 +2827,7 @@ map_case({alts, Ms = [{Kind, Fs} | _]}, _Name, Table, Conv, Err) ->
     Pat  = {map, ?A, [{map_field_exact, ?A, key_lit(K, ?A), {var, ?A, '_'}}
                       || K <- Keys]},
     {clause, ?A, [Pat], closed_guard(Kind, length(Keys)),
-     [alternatives([member_ty(M) || M <- Ms], Table, Conv, Err)]}.
+     [alternatives(tries([member_ty(M) || M <- Ms], Table), Conv, Err)]}.
 
 map_slot(Key, Key, Ty, _I) ->
     {tag, A} = tag_of(Ty),
@@ -2861,18 +2866,35 @@ chain([{SubTy, Value, Segment, Slot} | Rest], Table, Conv, Rebuild, N, Outs) ->
 %% Discard failed alternatives' paths: they describe shapes the value was never
 %% required to have. Blame this node if every alternative fails. An
 %% alternative that may be filled answers with the value it returned.
-alternatives([], _Table, _Conv, Err) -> Err;
-alternatives([Ty | Rest], Table, Conv, Err) ->
+alternatives([], _Conv, Err) -> Err;
+alternatives([{Ty, Validator} | Rest], Conv, Err) ->
     OV = {var, ?A, 'Bs@ao'},
     Ok = case lists:member(Ty, Conv) of
              true  -> pass_ok(OV);
              false -> {clause, ?A, [{tuple, ?A, [{atom, ?A, ok}, {var, ?A, '_'}]}], [],
                        [ok_expr()]}
          end,
-    {'case', ?A, {call, ?A, {atom, ?A, maps:get(Ty, Table)}, [?VV, ?VP]},
+    {'case', ?A, {call, ?A, {atom, ?A, Validator}, [?VV, ?VP]},
      [Ok,
       {clause, ?A, [{tuple, ?A, [{atom, ?A, error}, {var, ?A, '_'}]}], [],
-       [alternatives(Rest, Table, Conv, Err)]}]}.
+       [alternatives(Rest, Conv, Err)]}]}.
+
+%% Each alternative with the validator to ask. Under a wire twin (F73) every
+%% alternative is asked for the value as it is, by its shared validator,
+%% before any is asked to read an integer as a float: `{ "v": int } |
+%% { "v": float }` holds `1` as it is, whichever member is asked first.
+tries(Tys, Table = #{shared := Shared}) ->
+    [{Ty, maps:get(Ty, Shared)} || Ty <- Tys]
+    ++ [{Ty, maps:get(Ty, Table)} || Ty <- Tys, maps:get(Ty, Table) =/= maps:get(Ty, Shared)];
+tries(Tys, Table) ->
+    [{Ty, maps:get(Ty, Table)} || Ty <- Tys].
+
+%% The types `alternatives/3` is handed at `Ty`.
+tried(Ty) ->
+    #{tuples := Ts, maps := Ms} = bs_types:unfold(Ty),
+    [bs_types:tuple(P) || Ts =/= top, {alts, Ps} <- tuple_cases(Ts), P <- Ps]
+    ++ [member_ty(M) || Ms =/= top, {Kind, Members} <- map_cases(Ms),
+                        Kind =:= alts orelse Kind =:= any, M <- Members].
 
 %% Unchecked components use `_` to avoid unused-variable warnings.
 component_var(Prefix, I, Ty) ->

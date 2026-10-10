@@ -131,6 +131,7 @@ and at `["all"][0]`. The other five print what they printed before.
 | F73.4 | `{ "a": int }` given `1.0` | refused expecting `int`, as before |
 | F73.5 | `ValidateAs<F>` over a term holding `1`; over one holding `1.0`; a `list<float>` holding `1` | refused expecting `float`; returned; refused at `["all"][0]` |
 | F73.6 | `int \| float` given `1`, `1.5`, `9007199254740993`; a refined `int` beside `float`, given an integer inside it and one outside | `1`, `1.5`, the integer; the integer, and the float |
+| F73.8 | one type with a `float` and an `option<string>` key under `FromJson`, `ValidateAs` and `ToJson` in one module, read from `{"price":2}` | the key filled and the float read, and the build prints nothing else |
 | F73.7 | exemplar 25f, its answers typed `float`, served a reply whose `department` confidence is written `1` | an `Evaluation` whose `department` answer is `Chosen` with `Confidence = 1.0` |
 
 ## Done when
@@ -144,8 +145,16 @@ Before the build, `float_reads_integer_tests` failed 9 of 13; the four that pass
 the ones that assert nothing changed (the 401-digit integer of F73.3, F73.4, F73.5 and
 the first test of F73.6). `check-float-reads-integer.sh` was red on R1, R2, R3 and R8:
 the first three refused expecting `float`, and the replay had no such case to print. Its
-`--self-test` sees nine defects (`refused`, `unconverted`, `fields_only`, `shallow`,
-`rounds`, `int_reads_float`, `validate_too`, `always_float`, `exemplar_only`), all but
-the first each required to be red on one case alone, and accepts the correct outputs.
+`--self-test` sees ten defects (`refused`, `unconverted`, `fields_only`, `shallow`,
+`rounds`, `int_reads_float`, `validate_too`, `always_float`, `uncalled`, `exemplar_only`),
+all but `refused` and `uncalled` each required to be red on one case alone, and accepts
+the correct outputs.
+
+R9 came from the review, which found that no test could see a validator emitted and
+never called: eunit's helper drops the build's warnings. R9 puts one type under
+`FromJson`, `ValidateAs` and `ToJson` in the probe's module, and every probe's output is
+compared whole. With the emission rule changed to emit a root for every `FromJson` type,
+the gate was red on all eight probes, each opening with `Warning: function
+bs@validate@10/2 is unused`.
 F73.7 is R8: `wayfinder/prototypes/25f_replay.erl` serves the reply and prints
 `whole number: ok`.
