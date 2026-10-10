@@ -42,6 +42,8 @@ echo "-- whole-module line counts (Sign/Size differ in clause order, they run 4,
 escript "$S/disasm.escript" "$E/bench_erl.beam" all | wc -l; escript "$S/disasm.escript" "$E/Day01.beam" all | wc -l
 echo "-- why bsc's Wrap is bigger than Erlang's wrap before optimisation (abstract code, erl_pp):"
 for pair in "bench_erl.beam wrap" "Day01.beam Wrap"; do set -- $pair; erl -noshell -eval '{ok,{_,[{abstract_code,{_,AC}}]}}=beam_lib:chunks("'"$S"'/dbg/'$1'",[abstract_code]),[io:format("~s",[erl_pp:form(F)])||F={function,_,N,1,_}<-AC, atom_to_list(N)=:="'$2'"],halt().'; done
+echo "-- compile options recorded in each beam (Elixir/Gleam sources are not installed; this probes their binaries):"
+erl -noshell -eval '[begin {ok,{_,[{compile_info,CI}]}}=beam_lib:chunks("'"$E"'/"++M++".beam",[compile_info]), io:format("~-16s ~p~n",[M,proplists:get_value(options,CI)]) end || M <- ["bench_erl","Elixir.BenchEx","bench_gleam","Day01"]], halt().'
 echo "-- Gleam's emitted source carries:"; erl -noshell -eval '{ok,{_,[{abstract_code,{_,AC}}]}}=beam_lib:chunks("'"$E"'/bench_gleam.beam",[abstract_code]),[io:format("~s",[erl_pp:form(F)])||F={attribute,_,compile,_}<-AC],halt().'
 
 hdr "4. variants (mkvariants.escript) and the timing harness: $VMS fresh VMs x $ROUNDS round-robin rounds"

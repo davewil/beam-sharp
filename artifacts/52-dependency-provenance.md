@@ -15,8 +15,9 @@ with its noise floor next to it.
 | `[external: elixir, app: req] using ...` | **Not the current surface.** Ticket 32's attribute spelling was superseded: the shipped form is `using :'Elixir.Req' { ... }` (`compiler/src/bs_parser.yrl:170`) and the grammar has no attribute syntax. Ticket 106 (resolved) adds a per-entry `= :'get!'` alias, unbuilt. I use `in :req` below as a placeholder spelling |
 | "the spec cannot see the dependency" | **True, and wider:** `ERL_LIBS` appears 0 times in `LANGUAGE.md`, `README.md`, `compiler/README.md`. `bsc` writes `UseEl.beam` and `UseEl.abstr`, no `.app` |
 
-Side finding: `LANGUAGE.md:3116` says of `using :"Elixir.Enum"` that "quoted atoms are not lexed yet". `using :'Elixir.Fakeel'` lexed, compiled
-and ran above. The sentence is stale.
+Side finding: `LANGUAGE.md:3116` says of `using :"Elixir.Enum"` that "quoted atoms are not lexed yet". The verifier compiled the double-quoted form
+and got `syntax error before: ':'`; only the single-quoted `using :'Elixir.Fakeel'` lexes, compiles and runs. So the sentence is not simply stale:
+the single-quoted spelling the ticket uses works and the double-quoted one the doc names does not.
 
 Already decided, so not re-asked: 51 (no build tool; `ERL_LIBS` is the mechanism), 32 and 106 (`using` is the foreign declaration;
 entries may bind names), 41 (`LANGUAGE.md:157`: "a file's `using` lines are its dependency list", and 41 section 1 point 3 adds
@@ -84,7 +85,7 @@ Compiler delta (concrete):
   generator), so no new reserved word. yecc conflicts before 6 shift/reduce, after 6 (the repo's 47c method; the 6 are pre-existing).
 - `{foreign, L, Mod, Sigs}` becomes a 5-tuple with the application or `none`: 4 match sites, all in `bs_check.erl` (lines 623, 641, 1065, 1103).
 - `bs_check:foreign_available/3`, called beside `foreign_rets_decidable` (`bs_check.erl:332`), ownership read from the `.app` file beside
-  the beam (`owner_app/1`); `bs_diag` gains two tags. **Prototype: 65 added / 5 removed lines.** Not built: tree-sitter
+  the beam (`owner_app/1`); `bs_diag` gains two tags. **Prototype: 68 added / 5 removed lines** (`git apply --numstat`; an earlier count of 65 skipped blank lines). Not built: tree-sitter
   (`editor/tree-sitter-beam-sharp/grammar.js`), the vscode and sublime grammars, `LANGUAGE.md` section 11, an F-file.
 - Existing tests: with this patch (hard errors) the eunit suite is **1434 passed, 0 failed**, same count as HEAD (HEAD: 7m20s whole;
   prototype run per module because the load made eunit's 5 s timeout cancel runs, `eunit_output_prototype.txt`). That green is partly
@@ -110,7 +111,7 @@ undeclared module differently:
 | Erlang/OTP | `.app.src` `applications` | `erlc` never checks a remote call. The one place it reads the code path is `-behaviour`: `Warning: behaviour no_such_behaviour undefined` (`erl_lint.erl:1330`, a try/catch around `behaviour_info`). `rebar3 xref`: warns `calls undefined function fakeerl_lib:twice/1` only when the dep is *off* the path; with it on `ERL_LIBS` and undeclared, **0 warnings**. `systools:make_script` on an app listing an absent one: `{error,systools_make,{undefined_applications,[ghostapp]}}` |
 | Elm 0.19.3 | `elm.json` | UNMEASURED beyond one fact: `elm make` validates `elm.json` first ("MISSING DEPENDENCY elm/json") and then needs `package.elm-lang.org`, which is blocked, so I could not see its handling of an undeclared import |
 
-What this means for B#: for a source reference to an absent or undeclared module every neighbour *warns* (systools errors, but only for a
+What this means for B#: for a source reference to an absent or undeclared module every neighbour *warns* (inference from the probes, not itself probed as a cause; systools errors, but only for a
 declared-but-absent application at release time). And the property that makes `ERL_LIBS`-only reach work for `bsc` (51) is one Mix does not honour. B# is the only one of the five with no manifest *and* nothing in the source.
 Closest in-source analogue: Gleam's per-module `import` check, which finds the owning package from the manifest and tells the
 author which one to `gleam add`. Under B the equivalent is the `in :req` text itself.
@@ -134,7 +135,7 @@ No module sat in two application directories on this path.
 Cost, fresh VM each (15 VMs, microseconds, median / min / max):
 `which` present 89 / 50 / 1360, absent 154 / 105 / 949; `lib_dir` 6 / 5 / 11; `application:load` absent 1120 / 784 / 4578 (it scans the
 whole path); `ensure_loaded` present 702 / 514 / 10917. Whole-`bsc` CPU, 25 runs: HEAD `UseEl` median 519 ms, HEAD again 480 ms (the
-noise floor: 40 ms), prototype 476 ms; `Interop` (3 blocks) HEAD 506, prototype 505. **The check costs less than the noise floor.**
+noise floor, 2-39 ms across runs), prototype 476 ms; `Interop` (3 blocks) HEAD 506, prototype 505. **The check costs less than the noise floor** (whole-`bsc` timing only; no positive control showing the harness would see a slower check).
 
 **The cost that matters is not time, it is hermeticity.** A check that reads the code path makes whether a source *compiles* depend on
 the machine. Measured on the prototype: `bsc --api UseMissing` (reports signatures, "nothing built") exits 0 on HEAD and exits 1
@@ -146,7 +147,7 @@ warns. A name in the source is hermetic; a check against it is not.
 
 **Option B, name only, and nothing else decided with it.** The reason: it is the only choice that puts the dependency in
 the file, which 41 already promised ("in the file, checkable") and the handoff needs; the module name cannot stand in
-for it (33% on the corpus I could build, and wrong in the direction a stranger cannot guess). It costs one grammar arm
+for it (33% on the OTP-plus-Elixir corpus I could build, 590 of 1761 by a snake-case regex and 626 by a plain one, so weak support; the rule is still wrong in the direction a stranger cannot guess). It costs one grammar arm
 and zero new conflicts. I would not decide the check in the same breath: the measured trap (a hard error turns the spec's own gate red
 and makes `--api` environment-dependent) says the check is a separate question with an answer closer to "warning, or only when
 a function is run" than to "error". The unconsumed-name risk is real: make `bsc --api` print the applications a module needs
@@ -160,7 +161,7 @@ a function is run" than to "error". The unconsumed-name risk is real: make `bsc 
 3. **Severity of the check.** Hard error: `check-language` 141/0 -> 139/2, `--api` becomes machine-dependent, exemplar 25d (`:epgsql`) can no longer be checked without it installed.
 4. **Ownership is only checkable when the `.app` is beside the beam.** A loose `-pa` dir has no owner; the prototype accepts it
    (`LooseOk` ran `8`), so the check has a hole.
-5. **Version:** the `.app` carries `vsn` and `application:get_key` reads it, but a constraint is resolution; 51 and `scope.md` keep it out. Not prototyped.
+5. **Version:** the `.app` carries `vsn` and `application:get_key` reads it, but a constraint is resolution; 51 keeps it out. Not prototyped.
 
 ## 7. UNMEASURED
 
@@ -177,7 +178,7 @@ fake applications, reruns every table above and rebuilds the prototype in a scra
 `proto-v2.diff` (V1 plus `in :app`). Controls beside each result: the reachable case beside the unreachable, OTP beside the dependency,
 the correct application beside the wrong one, HEAD beside the prototype, a loose directory beside a standard layout.
 Separately, because they take 20+ minutes: `eunit_by_module.sh <compiler dir>` and `gates.sh <compiler dir>` (outputs
-`eunit_output_prototype.txt`, `gates_output_prototype.txt`, `gates_output_head.txt`; HEAD's full `rebar3 eunit`: 1434 passed in 7m20s).
+`eunit_output_prototype.txt`, `gates_output_prototype.txt` (a `tail -6`: it holds `exit=1` only; the 141/0 vs 139/2 counts come from the verifier's rerun, `verification/52.md`), `gates_output_head.txt`; HEAD's full `rebar3 eunit`: 1434 passed in 7m20s).
 
 Probe fixes on the way: the first `checks.escript` mislabelled `ets` as an erts module (it is stdlib; relabelled); `short/1` printed nested
 iolists; `mk.escript` had a printf escaping bug; the loose-directory probe first copied the wrong beam; `repo_foreign.sh` counted an
