@@ -707,7 +707,8 @@ jobs:
         working-directory: compiler
         run: ./bin/check-duplicate-key.sh
 
-      # F72 / ENG-618. Seven stubs: the whole union at the object, the first
+      # F72 / ENG-618. Eight stubs: the whole union at the object, an unknown
+      # tag blamed without the tags, the first
       # member asked whatever the tag says, an absent tag called a mismatch,
       # the tag read only at the top, a non-map member sent to the tag, a
       # union with no tag blamed at a key, and the exemplar alone wrong.

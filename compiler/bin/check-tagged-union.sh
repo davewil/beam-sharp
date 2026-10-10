@@ -117,9 +117,11 @@ probe() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — seven defects and one correct form.
+# --self-test — eight defects and one correct form.
 #
 #   whole_union    the union is reported at the object, as before F72
+#   untold         an unknown tag is blamed at the tag, expecting `string`,
+#                  so the tags that would have been accepted are not told
 #   first_member   the first member is asked whatever the tag says
 #   no_missing     an absent tag is called a mismatch
 #   top_only       the tag is read only where the union is the whole value
@@ -127,7 +129,7 @@ probe() {
 #   always_tag     a union with no tag blames a key anyway
 #   exemplar_only  every probe is right and the exemplar is not
 #
-# Each of the last five is wrong on one case alone, and is required to be.
+# Each but `whole_union` is wrong on one case alone, and is required to be.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -153,6 +155,7 @@ unknown tag: WRONG {error,{malformed,#{}}}'
   stub good          "$G1" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7"
   stub whole_union   "$WHOLE" "$WHOLE" "$WHOLE" \
                      "$(ve "$UNION" '["["answers"]", "["q"]"]' mismatch)" "$G5" "$G6" "$BAD7"
+  stub untold        "$(ve '"string"' '["["type"]"]' mismatch)" "$G2" "$G3" "$G4" "$G5" "$G6" "$G7"
   stub first_member  "$G1" "$(ve '"string"' '["["choice"]"]' missing)" "$G3" "$G4" "$G5" "$G6" "$G7"
   stub no_missing    "$G1" "$G2" "$G1" "$G4" "$G5" "$G6" "$G7"
   stub top_only      "$G1" "$G2" "$G3" \
@@ -173,6 +176,7 @@ unknown tag: WRONG {error,{malformed,#{}}}'
   else
     echo "  ok red on whole_union"
   fi
+  only untold T1
   only first_member T2
   only no_missing T3
   only top_only T4
@@ -185,7 +189,7 @@ unknown tag: WRONG {error,{malformed,#{}}}'
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: seven defects seen, correct form accepted"
+  echo "self-test passed: eight defects seen, correct form accepted"
   exit 0
 fi
 

@@ -1,6 +1,6 @@
 # F72 — a union tagged by a string-literal key is validated by that key first
 
-**Status**      **in progress** — built 2026-10-10, 20 tests in `tagged_union_tests`;
+**Status**      **in progress** — built 2026-10-10, 21 tests in `tagged_union_tests`;
                 closing it is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q19 and Q22.
                 Decides nothing; see *What the build found*
@@ -48,7 +48,7 @@ Before this feature all four were the whole union, at `[]` for the first three a
 ## The rule
 
 - A union's map members have a **tag** when there are two or more of them, none is a
-  `map<K, V>`, and one key is in every member, holds nothing but string literals in each,
+  `map<K, V>` or a record, and one key is in every member, holds nothing but string literals in each,
   and has no literal in two of them. With several such keys, the first in key order is the
   tag.
 - A map whose tag is a literal one member names is validated against that member and no
@@ -67,9 +67,11 @@ Before this feature all four were the whole union, at `[]` for the first three a
 - A union with no tag is reported as before: the whole union at its position.
 - `ValidateAs<T>`, `FromJson<T>` and `ToJson<T>`'s guard share one validator, so all
   three read the tag first.
-- No value is accepted that was refused before, and none refused that was accepted: a
-  member requires its own literal at the tag, so the tag already decided which member a
-  map could inhabit.
+- A record's tag is `Kind`. Records were already told apart by it and blamed inside the
+  record it names, and F70 asks about it first; a union with a record among its map
+  members is validated as before.
+- No value that was accepted is refused. Some that were refused are accepted: see the
+  first point under *What the build found*.
 
 ## What changed
 
@@ -81,7 +83,10 @@ Before this feature all four were the whole union, at `[]` for the first three a
 - `bs_emit:map_children/1` registers each tagged member as a child, so each has a
   validator of its own. A member is one field set, so F70's `…@k` function and F61's fill
   attempts are generated for it as for any single field set.
-- `bs_emit:validator_form/4` makes no fill attempts at a tagged union: the member does.
+- The fill attempts F61 generates at a union are still generated at a tagged one and are
+  never reached: every map is taken by the tag's clauses first, and the member makes its
+  own attempts. The review found the guard that left them out was covered by no test, and
+  it changed nothing a program can see, so it was removed.
 
 ## What the build found
 
@@ -92,10 +97,21 @@ Before this feature all four were the whole union, at `[]` for the first three a
 - **A member's tag may be several literals.** `{ "t": "a" | "b", .. } | { "t": "c", .. }`
   has a tag, and `"a"` and `"b"` both name the first member. The issue's words, *"string
   literals no two members share"*, cover it; its examples have one literal each.
-- **Records can be told apart this way too.** Two records that share a field of disjoint
-  string literals are dispatched on that field, and the member's validator then asks about
-  `Kind` as F70 has it. `FromJson` refuses a record, so this is reachable under
-  `ValidateAs` and `ToJson` alone.
+- **A member short an absent option key was refused, and is now filled.** Found by the
+  review, which ran 408,000 calls through this build and the one before it. With
+  `{ "a": "x", "t": "p", "o": option<int> } | { "a": "y", "t": "q" }`, the text
+  `{"a":"x","t":"p"}` was `:mismatch` at `["a"]` expecting `"y"`: with `"o"` absent the map
+  had the second member's keys, that member's clause took it and failed it, and the
+  attempt that fills `"o"` was never made. It is now `{ "a" = "x", "o" = :nothing,
+  "t" = "p" }`, which is what F61 says. 138 of the review's calls changed this way, each a
+  member short an option key, and none changed the other way. No `ToJson` call changed
+  between writing and crashing.
+- **The first build dispatched records on a shared literal field**, ahead of `Kind`. The
+  review pointed out that `LANGUAGE.md` says a record's `Kind` is asked about first, and
+  ENG-618's examples are field sets. Records are left to `Kind`, as before.
+- **Before this feature a tagged union was not always reported whole.** The four inputs
+  under *The program* were. Two closed members with different keys were already told
+  apart by their keys, so some wrong values were already blamed inside a member.
 - **No existing test or gate assertion changed.** The suite's other 1,397 tests passed
   unmodified.
 
@@ -113,7 +129,8 @@ Before this feature all four were the whole union, at `[]` for the first three a
 | F72.8 | `ValidateAs<AnswerWire>` over the same terms | the same values |
 | F72.9 | `ToJson` over an exact tagged union: a member; a member short a key | the JSON; a crash naming the key as `:missing` |
 | F72.10 | `{ "a": int } \| { "b": int }`; `{ "t": "a", .. } \| { "t": string, .. }` | the whole union at `[]`, as before, both |
-| F72.12 | two keys that would both serve; a member named by `"a" \| "b"`; two records sharing a literal field, under `ValidateAs` | the first in key order is the tag; either literal names the member; the field picks the record, which then asks about `Kind` |
+| F72.12 | two keys that would both serve; a member named by `"a" \| "b"`; two records sharing a literal field, under `ValidateAs` | the first in key order is the tag; either literal names the member; `Kind` picks the record, as before |
+| F72.13 | a member short an absent `option<int>` key whose other keys are the second member's keys | the member, the key filled with `:nothing` |
 | F72.11 | exemplar 25f, served a reply whose `department` answer has `"type":"tri"` | `(:error, (:malformed, ValidationError { Path = ["[\"answers\"]", "[\"department\"]", "[\"type\"]"], Expected = "\"choice\" \| \"noul\" \| \"score\"", Reason = :mismatch }))` |
 
 ## Done when
@@ -123,12 +140,12 @@ and `./bin/verify.sh` is green twice from a clean clone.
 
 ## Evidence — 2026-10-10
 
-Before the build, `tagged_union_tests` failed 13 of its first 17 (F72.12's three came
-after it); the four that passed are the ones
+Before the build, `tagged_union_tests` failed 13 of its first 17 (F72.12's three and
+F72.13's one came after it); the four that passed are the ones
 that assert nothing changed (F72.2, the non-map value of F72.4, and F72.10).
 `check-tagged-union.sh` was red on T1, T2, T3, T4 and T7: each printed the whole union,
 and T7 the three-member `AnswerWire` at `["answers"]["department"]`. Its `--self-test` sees
-seven defects (`whole_union`, `first_member`, `no_missing`, `top_only`, `maps_only`,
-`always_tag`, `exemplar_only`), the last six each required to be red on one case alone, and
+eight defects (`whole_union`, `untold`, `first_member`, `no_missing`, `top_only`, `maps_only`,
+`always_tag`, `exemplar_only`), all but the first each required to be red on one case alone, and
 accepts the correct outputs. F72.11 is T7: `wayfinder/prototypes/25f_replay.erl` serves the
 reply and prints `unknown tag: ok`.

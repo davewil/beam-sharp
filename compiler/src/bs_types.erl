@@ -18,7 +18,7 @@
 -export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 %% Signature inference uses the union of types at a tuple position.
 -export([tuple_comp/3]).
--export([binary_top/0, string/0, str_lit/1, widen_strs/1]).
+-export([binary_top/0, string/0, str_lit/1, only_str_lits/1, widen_strs/1]).
 %% F60: a process, a reference and a port, opaque to the type language.
 -export([opaque/1]).
 %% F60: the compiler-known named views of the tuples OTP sends.
@@ -232,6 +232,14 @@ string() -> (none())#{bins => [utf8]}.
 
 %% One string, as a type. Source literals are lexer-validated UTF-8.
 str_lit(S) when is_binary(S) -> (none())#{bins => [{finite, [S]}]}.
+
+%% The strings of a type that is string literals and nothing else, or `none`.
+only_str_lits(#{bins := [{finite, Strs}]} = Ty) ->
+    case Ty#{bins => []} =:= none() of
+        true  -> Strs;
+        false -> none
+    end;
+only_str_lits(_) -> none.
 
 %% Every set of string literals, at any depth, read as `string`. A signature
 %% offered for what a body returns says `string` for `"bad"`, as an author

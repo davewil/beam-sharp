@@ -203,15 +203,37 @@ a_member_may_be_named_by_several_literals_test() ->
     ?assertEqual(validation_error([<<"[\"t\"]">>], <<"\"a\" | \"b\" | \"c\"">>, mismatch),
                  M:'ReadSeveral'(<<"{\"t\":\"d\"}">>)).
 
-%% Two records sharing a literal field: the field picks the record, and the
-%% record's own validator then asks about `Kind` (F70).
-records_sharing_a_literal_field_are_told_apart_by_it_test() ->
+%% A record's tag is `Kind`. Two records sharing a literal field are told
+%% apart by `Kind` as they were, and the field is an ordinary field.
+records_sharing_a_literal_field_are_still_told_apart_by_kind_test() ->
     M = build_and_load(more_src(), 'TuMore'),
     Circle = #{'Kind' => 'TuMore.Circle', 'Shape' => <<"circle">>, 'R' => 1},
     ?assertEqual(Circle, M:'CheckShape'(Circle)),
     ?assertEqual(validation_error([<<".R">>], <<"int">>, mismatch),
                  M:'CheckShape'(Circle#{'R' := <<"x">>})),
-    ?assertEqual(validation_error([<<".Kind">>], <<":'TuMore.Circle'">>, missing),
-                 M:'CheckShape'(#{'Shape' => <<"circle">>, 'R' => 1})),
-    ?assertEqual(validation_error([<<".Shape">>], <<"\"circle\" | \"rect\"">>, mismatch),
-                 M:'CheckShape'(Circle#{'Shape' := <<"tri">>})).
+    ?assertEqual(validation_error([<<".Shape">>], <<"\"circle\"">>, mismatch),
+                 M:'CheckShape'(Circle#{'Shape' := <<"rect">>})),
+    ?assertMatch({error, #{'Path' := [], 'Reason' := mismatch}},
+                 M:'CheckShape'(#{'Shape' => <<"circle">>, 'R' => 1})).
+
+%%% F72.13 — a member short an absent option key is that member, whatever
+%%% the keys it does have look like
+
+fills_src() ->
+    "module TuFills\n"
+    "type T = { \"a\": \"x\", \"t\": \"p\", \"o\": option<int> } | { \"a\": \"y\", \"t\": \"q\" }\n"
+    "type U = { \"t\": \"c\" } | { \"t\": \"d\", \"z\": option<int>, .. }\n"
+    "public result<T, ValidationError> ReadT(string body)\n"
+    "ReadT(body) -> FromJson<T>(body)\n"
+    "public result<U, ValidationError> ReadU(string body)\n"
+    "ReadU(body) -> FromJson<U>(body)\n".
+
+%% Before F72 both were refused: with `"o"` absent the map had the other
+%% member's keys, so that member's clause took it and failed it, and the
+%% attempt that fills `"o"` was never made.
+an_absent_option_key_is_filled_though_the_rest_fits_another_member_test() ->
+    M = build_and_load(fills_src(), 'TuFills'),
+    ?assertEqual(#{<<"a">> => <<"x">>, <<"t">> => <<"p">>, <<"o">> => nothing},
+                 M:'ReadT'(<<"{\"a\":\"x\",\"t\":\"p\"}">>)),
+    ?assertEqual(#{<<"t">> => <<"d">>, <<"z">> => nothing}, M:'ReadU'(<<"{\"t\":\"d\"}">>)),
+    ?assertEqual(#{<<"t">> => <<"c">>}, M:'ReadU'(<<"{\"t\":\"c\"}">>)).

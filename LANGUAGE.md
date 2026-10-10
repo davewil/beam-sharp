@@ -2655,7 +2655,7 @@ names is `:mismatch` at the tag, `Path = ["[\"type\"]"]`, and `Expected` is the 
 `"\"choice\" | \"score\""`. A map with no tag is `:missing` there, with the same `Expected`. The
 tag is found from the types and written nowhere else; with two keys that would serve, the first
 in key order is read. A member that is not a map, `:null` beside the two above, is accepted as
-it was. **shipped** — F72.
+it was. Records are not told apart this way: `Kind` is their tag. **shipped** — F72.
 <!-- decided by ticket 78 Q19 and Q22; built by F72 -->
 
 The bracket is admitted after **exactly five** compiler-known names — `ValidateAs<T>`,
