@@ -1,6 +1,6 @@
 # F71 — `FromJson` refuses a repeated key, and text after the value
 
-**Status**      **in progress** — built 2026-10-09, 14 tests in `duplicate_key_tests`;
+**Status**      **in progress** — built 2026-10-09, 18 tests in `duplicate_key_tests`;
                 closing it is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q15 and Q20.
                 Decides nothing; see *What the build found*
@@ -60,11 +60,13 @@ $ bsc Repeat Read '"{\"a\":1} "'
 
 - `bs_emit:text_form/1` no longer decodes. It calls `bs@validate@decode/1`, emitted once
   into a module that reads text, and hands what that returns to the root validator.
-- `bs_emit:decode_forms/0` is that function and its two helpers. It calls `json:decode/3`
-  where F69 called `decode/1`, with three callbacks: an object starts as an empty map,
-  `bs@validate@push/3` raises on a key the map already holds and adds it otherwise, and
-  the finished map is the value. The raise carries the key, under the catch that already
-  turned the decoder's errors into `:not_json`.
+- `bs_emit:decode_forms/0` is that function and its three helpers. It calls `json:decode/3`
+  where F69 called `decode/1`, with one callback, `object_finish`. The decoder collects an
+  object's pairs as `decode/1` does. `bs@validate@finish/2` builds the map when the object
+  closes, and a map smaller than its pairs held a repeat. Only then does
+  `bs@validate@recur/2` walk the pairs in the text's order for the first key to arrive a
+  second time, and the raise carries it, under the catch that already turned the decoder's
+  errors into `:not_json`.
 - `decode/3` returns the text it did not read, where `decode/1` refused it.
   `bs@validate@blank/1` accepts a remainder made of JSON's four whitespace bytes and
   nothing else.
@@ -78,18 +80,21 @@ $ bsc Repeat Read '"{\"a\":1} "'
   is `:duplicate_key` for `"b"`, not `:missing` for `"a"`, and a repeated key in text read
   as `int` is `:duplicate_key`, not a mismatch. Q15 says always, and the decode runs
   first.
-- **The first repeat in the text is the one reported**, since the decode stops there.
-- **Large objects decode more slowly.** The review measured a 300,000-key object, 3.2 MB,
-  at 862 ms through the generated function against 148 ms through `json:decode/1`. The
-  cost is one map insertion per key, which is how the push knows a key has been seen. A
-  reply of ordinary size was not measured.
-- **Text that ends inside the second value is `:not_json`.** The key is pushed once its
-  value has been read, so `{"a":1,"a":` never reaches the push.
+- **An object is checked when it closes** (David, 2026-10-10, point 3 below). Text that
+  repeats a key and never closes the object, `{"a":1,"a":"x",`, is `:not_json`. With
+  repeats in two objects, the one reported is in the object that closes first:
+  `{"x":1,"x":2,"in":{"a":1,"a":2}}` names `"a"`. Within one object it is the first key to
+  arrive a second time.
+- **The check costs nothing measurable.** The first build looked each key up in a map as
+  it arrived, and the review measured that at several times `decode/1` on one very wide
+  object. The table under point 3 has the figures for both forms; they were taken on the
+  same logic written by hand in Erlang, not on the generated function.
 
 ## Four points put to David — 2026-10-10
 
-Each with what the build does, what the other answer would do, and a recommendation.
-Nothing here is changed until he answers.
+Each with what the first build did, what the other answer would do, and a recommendation.
+**Answered 2026-10-10 (David): all four as recommended.** Points 1, 2 and 4 stand as
+built; point 3 was changed the same day.
 
 1. **A repeated key holding `"` is written raw.** `{"a\"b":1,"a\"b":2}` reports
    `Expected = ""a"b" once"`; escaped as the type prints it would be `""a\"b" once"`. In
@@ -130,6 +135,7 @@ Nothing here is changed until he answers.
 | F71.4 | a `switch` arm on `ValidationError { Reason: :duplicate_key, Expected: e }` | binds `"\"a\" once"` |
 | F71.5 | `{"a":1} x`; two values; `12x`; a `0xFF` byte after the value; a form feed after it | `:not_json` |
 | F71.6 | whitespace before and after the value; `7` and `7\n` read as `int` | accepted |
+| F71.8 | `{"a":1,"a":"x",`; repeats in an outer and an inner object; two repeats in one object; a repeat then text after the value | `:not_json`; the inner object's key; the first to recur; `:duplicate_key` |
 | F71.7 | exemplar 25f, served a good reply with `"model"` a second time | `(:error, (:malformed, ValidationError { Path = [], Expected = "\"model\" once", Reason = :duplicate_key }))` |
 
 ## Done when
@@ -146,3 +152,7 @@ value with the first `"a"` kept, and D6 printed a whole `Evaluation` for the rep
 models. Its `--self-test` sees eight defects (`first_wins`, `last_wins`, `no_key`,
 `unequal_only`, `prefix`, `strict_end`, `top_only`, `exemplar_only`) and accepts the correct outputs. F71.7 is D6:
 `wayfinder/prototypes/25f_replay.erl` serves the reply and prints `repeated: ok`.
+
+For the change to the check at the close, on 2026-10-10: F71.8's four tests were added
+first, and two of them failed on the first build, the unclosed object and the inner
+object's key.

@@ -1861,10 +1861,17 @@ text_form(Name) ->
 %%% The decode under `FromJson` (F71)
 %%%
 %%% One per module that reads text. `json:decode/3` in place of `decode/1`,
-%%% for the one callback that sees a key arrive twice: `decode/1` keeps one
-%%% value and drops the other unvalidated, and which one differs between
-%%% parsers. The callbacks are handed a key and not where its object sits, so
-%%% a repeat is reported at the top, with the key in `Expected`.
+%%% for the one callback that sees an object's pairs before they are a map:
+%%% `decode/1` keeps one value of a repeated key and drops the other
+%%% unvalidated, and which one differs between parsers. The callback is
+%%% handed the pairs and not where their object sits, so a repeat is reported
+%%% at the top, with the key in `Expected`.
+%%%
+%%% The decoder collects the pairs as `decode/1` does. When the object closes,
+%%% a map smaller than its pairs held a repeat, and only then are the pairs
+%%% walked for the key. Looking each key up as it arrived cost 1.26 times
+%%% `decode/1` on a 442-byte reply and 2.7 times on one wide object; this
+%%% costs what `decode/1` does.
 %%%
 %%% `decode/3` also hands back what it did not read, where `decode/1` refused
 %%% it, so a remainder that is not JSON's whitespace is refused here.
@@ -1872,7 +1879,8 @@ text_form(Name) ->
 %%% ---------------------------------------------------------------------------
 
 decode_name() -> 'bs@validate@decode'.
-push_name()   -> 'bs@validate@push'.
+finish_name() -> 'bs@validate@finish'.
+recur_name()  -> 'bs@validate@recur'.
 blank_name()  -> 'bs@validate@blank'.
 repeat_tag()  -> 'bs@validate@repeat'.
 
@@ -1886,17 +1894,13 @@ decode_forms() ->
     AV = {var, ?A, 'Bs@acc'},
     RV = {var, ?A, 'Bs@rest'},
     CV = {var, ?A, 'Bs@c'},
+    MV = {var, ?A, 'Bs@m'},
     Any = {var, ?A, '_'},
-    Fun = fun(Args, Body) -> {'fun', ?A, {clauses, [{clause, ?A, Args, [], [Body]}]}} end,
     Remote = fun(M, F, Args) -> {call, ?A, {remote, ?A, {atom, ?A, M}, {atom, ?A, F}}, Args} end,
-    %% Objects are built as maps, so a key already pushed is one lookup.
     Decoders =
         {map, ?A,
-         [{map_field_assoc, ?A, {atom, ?A, object_start}, Fun([Any], {map, ?A, []})},
-          {map_field_assoc, ?A, {atom, ?A, object_push},
-           {'fun', ?A, {function, push_name(), 3}}},
-          {map_field_assoc, ?A, {atom, ?A, object_finish},
-           Fun([VV, AV], {tuple, ?A, [VV, AV]})}]},
+         [{map_field_assoc, ?A, {atom, ?A, object_finish},
+           {'fun', ?A, {function, finish_name(), 2}}}]},
     NotJson = text_error(bin_str("JSON"), not_json),
     Once = {bin, ?A, [{bin_element, ?A, {string, ?A, "\""}, default, default},
                       {bin_element, ?A, KV, default, [binary]},
@@ -1915,12 +1919,27 @@ decode_forms() ->
             [text_error(Once, duplicate_key)]},
            {clause, ?A, [Raised(Any)], [], [NotJson]}],
           []}]}]},
-     {function, ?A, push_name(), 3,
-      [{clause, ?A, [KV, VV, AV], [],
-        [{'case', ?A, Remote(maps, is_key, [KV, AV]),
-          [{clause, ?A, [{atom, ?A, true}], [],
-            [Remote(erlang, error, [{tuple, ?A, [{atom, ?A, repeat_tag()}, KV]}])]},
-           {clause, ?A, [{atom, ?A, false}], [], [Remote(maps, put, [KV, VV, AV])]}]}]}]},
+     %% `Bs@v` is the object's pairs, last first; `Bs@acc` is the decoder's own.
+     {function, ?A, finish_name(), 2,
+      [{clause, ?A, [VV, AV], [],
+        [{match, ?A, MV, Remote(maps, from_list, [VV])},
+         {'case', ?A, {op, ?A, '=:=', Remote(erlang, map_size, [MV]),
+                       Remote(erlang, length, [VV])},
+          [{clause, ?A, [{atom, ?A, true}], [], [{tuple, ?A, [MV, AV]}]},
+           {clause, ?A, [{atom, ?A, false}], [],
+            [Remote(erlang, error,
+                    [{tuple, ?A,
+                      [{atom, ?A, repeat_tag()},
+                       {call, ?A, {atom, ?A, recur_name()},
+                        [Remote(lists, reverse, [VV]), {map, ?A, []}]}]}])]}]}]}]},
+     %% The first key, in the order the text gave them, to arrive a second time.
+     {function, ?A, recur_name(), 2,
+      [{clause, ?A, [{cons, ?A, {tuple, ?A, [KV, Any]}, RV}, MV], [],
+        [{'case', ?A, Remote(maps, is_key, [KV, MV]),
+          [{clause, ?A, [{atom, ?A, true}], [], [KV]},
+           {clause, ?A, [{atom, ?A, false}], [],
+            [{call, ?A, {atom, ?A, recur_name()},
+              [RV, Remote(maps, put, [KV, {nil, ?A}, MV])]}]}]}]}]},
      {function, ?A, blank_name(), 1,
       [{clause, ?A,
         [{bin, ?A, [{bin_element, ?A, CV, default, default},

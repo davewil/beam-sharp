@@ -115,3 +115,25 @@ whitespace_json_does_not_name_is_text_test() ->
 %% Text that stops inside the second value never pushes it.
 text_that_ends_inside_a_repeat_is_not_json_test() ->
     ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":">>)).
+
+%%% F71.8 — an object is checked when it closes
+
+%% An object that never closes is not JSON, whatever it repeated.
+a_repeat_in_an_object_that_never_closes_is_not_json_test() ->
+    ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":\"x\",">>)),
+    ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":\"x\",\"c\":3">>)),
+    ?assertEqual(not_json(), (intake()):'Read'(<<"{\"a\":1,\"a\":2">>)).
+
+%% With two repeats, the one reported is in the object that closes first.
+of_two_repeats_the_object_that_closes_first_is_reported_test() ->
+    ?assertEqual(repeated(<<"a">>),
+                 (intake()):'ReadDeep'(<<"{\"x\":1,\"x\":2,\"in\":{\"a\":1,\"a\":2}}">>)).
+
+%% Within one object, the first key to arrive a second time.
+of_two_repeats_in_one_object_the_first_to_recur_is_reported_test() ->
+    ?assertEqual(repeated(<<"b">>),
+                 (intake()):'Read'(<<"{\"a\":1,\"b\":1,\"b\":2,\"a\":2}">>)).
+
+%% A repeat is still reported ahead of text after the value.
+a_repeat_is_reported_ahead_of_text_after_the_value_test() ->
+    ?assertEqual(repeated(<<"a">>), (intake()):'Read'(<<"{\"a\":1,\"a\":2} x">>)).
