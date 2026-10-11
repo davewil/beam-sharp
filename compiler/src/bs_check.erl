@@ -3035,8 +3035,9 @@ type_of({e_inst, L, 'ValidateAs', TypeArgs, Args}, S, C) ->
     end;
 %% FromJson is `json:decode` then ValidateAs, so its target meets the same
 %% refusals and its result is the same type. wire_form_refused/2 checks the
-%% wire form before body typing. The argument is the text, a `string`.
-%% Rationale: compiler/features/F69-from-json.md.
+%% wire form before body typing. The argument is the text, a `binary`: a body
+%% arrives as bytes and the decoder refuses the ones that are not UTF-8.
+%% Rationale: compiler/features/F69-from-json.md, F74-from-json-binary.md.
 type_of({e_inst, L, 'FromJson', TypeArgs, Args}, S, C) ->
     case {TypeArgs, Args, over_variable(TypeArgs, C)} of
         {_, _, [V | _]} ->
@@ -3045,7 +3046,7 @@ type_of({e_inst, L, 'FromJson', TypeArgs, Args}, S, C) ->
              D0 ++ [{error, L, C#ctx.fname,
                      {obligation_over_type_variable, 'FromJson', V}}]};
         {[TypeExpr], [_], []} ->
-            Text = bs_types:string(),
+            Text = bs_types:binary_top(),
             {ATys, D0} = expected_all(Args, [Text], S, C),
             validated(L, TypeExpr,
                       arg_diags(L, 'FromJson', Args, ATys, [Text], 1, C) ++ D0, C);

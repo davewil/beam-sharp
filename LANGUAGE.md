@@ -2985,13 +2985,14 @@ A reply with no `id` comes back with `"id" => :nothing`, one with an `id` keeps 
 
 ### `FromJson<T>` — JSON text to a wire value
 
-**`FromJson<T>(text)` is the platform's decoder, then `ValidateAs<T>`.** It takes a `string` and
+**`FromJson<T>(text)` is the platform's decoder, then `ValidateAs<T>`.** It takes a `binary`,
+so a `string` or an HTTP body as it arrived, and
 returns `result<T, ValidationError>`. Text that is not JSON is the failure too, with `Path = []`,
 `Expected = "JSON"` and `Reason = :not_json`, so one arm answers a bad parse and a wrong shape,
-and a clause on `Reason` tells them apart. It converts what
+and a clause on `Reason` tells them apart. Bytes that are not UTF-8 are text that is not JSON. It converts what
 `ValidateAs` converts, an absent key at an `option<T>` field to `:nothing`, and one thing more,
 below; `null` stays `:null`. **shipped** — F69.
-<!-- decided by ticket 78 Q10; built by F69 -->
+<!-- decided by ticket 78 Q10, the `binary` argument by Q13 and Q23; built by F69 and F74 -->
 
 **A `float` position reads a JSON integer.** JSON has one number type and JavaScript writes `1.0`
 as `1`, so the same sender writes `0.5` and `1` at one key. Under `FromJson`, an integer where the

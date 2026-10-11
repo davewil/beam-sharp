@@ -336,6 +336,9 @@ run_stages \
   "Under \`FromJson\`, a \`float\` position reads a JSON integer" \
     "cd compiler && ./bin/check-float-reads-integer.sh --self-test && ./bin/check-float-reads-integer.sh" \
 \
+  "\`FromJson\` takes a \`binary\`, and bytes that are not UTF-8 are not JSON" \
+    "cd compiler && ./bin/check-from-json-binary.sh --self-test && ./bin/check-from-json-binary.sh" \
+\
   "The valve stops on the fixed pair, and a narrowing stage does not widen it" \
     "cd compiler && ./bin/check-valve.sh --self-test && ./bin/check-valve.sh" \
 \

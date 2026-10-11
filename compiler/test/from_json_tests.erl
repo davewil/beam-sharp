@@ -182,9 +182,10 @@ a_type_variable_is_refused_test() ->
     ?assertMatch([#{tag := obligation_over_type_variable, obligation := 'FromJson'}],
                  [D || D = #{severity := error} <- Descs]).
 
-the_text_must_be_a_string_test() ->
+%% A `binary` was refused here until F74; `from_json_binary_tests` has the rest.
+the_text_must_be_a_binary_test() ->
     Src = "module FjArg\n"
-          "public result<int, ValidationError> Read(binary body)\n"
+          "public result<int, ValidationError> Read(int body)\n"
           "Read(body) -> FromJson<int>(body)\n",
     {1, Descs} = published(Src),
     ?assertMatch([#{tag := arg_not_accepted}], [D || D = #{severity := error} <- Descs]).

@@ -736,6 +736,19 @@ jobs:
         working-directory: compiler
         run: ./bin/check-float-reads-integer.sh
 
+      # F74 / ENG-611. Seven stubs: a `binary` argument refused, a `string`
+      # one refused in its place, bytes that are not UTF-8 crashing the
+      # call, the same reported as `ValidateAs<string>` reported them, the
+      # piped form still checked against `string`, an argument no longer
+      # checked at all, and the exemplar alone wrong.
+      - name: The from-json-binary gate proves it can fail
+        working-directory: compiler
+        run: ./bin/check-from-json-binary.sh --self-test
+
+      - name: FromJson takes a binary, and bytes that are not UTF-8 are not JSON
+        working-directory: compiler
+        run: ./bin/check-from-json-binary.sh
+
       # F30 / ENG-279. Four of the gate's five defects pass the headline: a
       # build that keys the short-circuit on the stage's declared parameter
       # type compiles every positive scenario and fails on V6 alone, which is

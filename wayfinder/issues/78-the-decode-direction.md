@@ -628,7 +628,8 @@ Q11 yes, Q13 yes, Q14 yes. Q12 moves to round 8.**
 - **Q11.** An open type is a `FromJson` target. `ToJson` still refuses to write one. Q10's sentence
   *"`T` is any type `ToJson` accepts"* is corrected by this: `T` is any type `ToJson` accepts, or an
   open one.
-- **Q13.** `FromJson<T>` takes a `binary`. Unbuilt: its build issue is
+- **Q13.** `FromJson<T>` takes a `binary`. Built 2026-10-11 as
+  [F74](../../compiler/features/F74-from-json-binary.md),
   [ENG-611](https://linear.app/davewil/issue/ENG-611).
 - **Q14.** ENG-410 is closed on three clauses. 25f's request side is
   [ENG-612](https://linear.app/davewil/issue/ENG-612), blocked by ENG-609, ENG-552 and ENG-454. The

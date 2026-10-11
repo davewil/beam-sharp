@@ -61,6 +61,10 @@ whole_confidence() ->
     [Before, After] = binary:split(Good, <<"\"confidence\":0.8">>),
     <<Before/binary, "\"confidence\":1", After/binary>>.
 
+%% A reply whose "model" holds a byte no UTF-8 text has. The object around it
+%% is well formed, so only the decoder's own check of the string refuses it.
+not_utf8() -> <<"{\"model\":\"", 255, "\",\"answers\":{}}">>.
+
 run(Label, Spec, Send) ->
     R = 'Support.Triage':'Evaluate'(Send, <<"test-key">>, Spec, <<"Please refund me today">>, questions()),
     Sent = receive {sent, Q} -> Q after 0 -> none end,
@@ -131,6 +135,18 @@ main() ->
             end;
         _ ->
             io:format("whole number: WRONG ~0p~n", [Whole]),
+            halt(1)
+    end,
+    Bytes = run("openrouter, 200, a byte that is not UTF-8", <<"openrouter:typesafe/jev-1.13">>,
+                serve_text(200, not_utf8())),
+    %% Ticket 78 Q13 and Q23: the body goes to FromJson as it arrived, and
+    %% bytes that are not UTF-8 are text that is not JSON.
+    case Bytes of
+        {error, {malformed, #{'Kind' := 'ValidationError', 'Path' := [],
+                              'Expected' := <<"JSON">>, 'Reason' := not_json}}} ->
+            io:format("not utf-8: ok~n");
+        _ ->
+            io:format("not utf-8: WRONG ~0p~n", [Bytes]),
             halt(1)
     end,
     run("typesafe, 401", <<"typesafe:jev-latest">>, serve(401, #{<<"error">> => <<"bad key">>})),

@@ -23,7 +23,7 @@ Read((status, _))                                       -> (:error, (:status, st
 
 private result<Evaluation, EvalError> Parse(binary body)
 
-Parse(body) -> (ValidateAs<string>(body) |?> FromJson<ReplyWire>()) switch {
+Parse(body) -> FromJson<ReplyWire>(body) switch {
     (:error, e) => (:error, (:malformed, e)),
     reply       => Decode(reply)
 }

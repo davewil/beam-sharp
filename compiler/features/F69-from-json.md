@@ -33,6 +33,7 @@ Parse(body) -> FromJson<ReplyWire>(body)
 ## The rule
 
 - `FromJson<T>(text)` takes a `string` and returns `result<T, ValidationError>`.
+  Since [F74](F74-from-json-binary.md) it takes a `binary`, which a `string` is.
 - It is the platform's `json:decode`, then what `ValidateAs<T>` does to the
   decoded term. It converts what `ValidateAs` converts and nothing else: an
   absent key at an `option<T>` field is `:nothing` (F61), `null` stays `:null`.
@@ -90,7 +91,7 @@ record refusal alone. Reported to David with the build.
 | F69.5 | one exact `T` under `ToJson`, `FromJson` and `ValidateAs`; `body \|> FromJson<T>()` | what `ToJson` wrote, `FromJson` reads; an extra key is refused |
 | F69.6 | `FromJson<Order>`; a record under `"usage"` in a list; `{ Kind: :invoice, .. }` | `undecodable_member`, `record`, `path = []`; `path = ["usage"][_]`; compiles |
 | F69.7 | a tuple field; `binary`; `map<string, term>`; an arrow field; `list<pid>`; each one's prose; an open type read, then written | `tuple`, `binary`, `term`, `arrow`, `opaque`; the member, its path and what to read instead; read; `unencodable_member`, `open_map` |
-| F69.8 | `FromJson<T>` over a type variable; a `binary` argument; two type arguments; `A \| B` open and untagged | `obligation_over_type_variable`; `arg_not_accepted`; `obligation_arity`; `validate_indiscriminable` |
+| F69.8 | `FromJson<T>` over a type variable; an `int` argument (a `binary` one until [F74](F74-from-json-binary.md)); two type arguments; `A \| B` open and untagged | `obligation_over_type_variable`; `arg_not_accepted`; `obligation_arity`; `validate_indiscriminable` |
 | F69.9 | `int Read(string s) -> FromJson<int>(s)` | `return_not_declared` |
 | F69.10 | the record refusal's prose | names the function, the record, its path and ticket 78 Q4 |
 | F69.11 | the record program under `bsc --api` | refused, rc 1 |
@@ -100,7 +101,7 @@ record refusal alone. Reported to David with the build.
 - Reading a record back from JSON: deferred by ticket 78 Q4, requirements in
   the ticket.
 - `FromJson` over a `binary`. Q10 said `string`; ticket 78 Q13 changed that on
-  2026-10-09 and [ENG-611](https://linear.app/davewil/issue/ENG-611) builds it.
+  2026-10-09 and [F74](F74-from-json-binary.md) built it.
 - Which key an absent required key is blamed at. It was `[]`, as F61 recorded; F70
   blames the key (ticket 78 Q12).
 - A type no JSON can inhabit for a reason other than the refusals above: an

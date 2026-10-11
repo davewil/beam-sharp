@@ -44,9 +44,9 @@ spec.bs: error: ParseSpec assigns Id a value Model does not accept
 F56 (2026-09-24, [ENG-403](https://linear.app/davewil/issue/ENG-403)) fixed that the same day: the
 tail after string-literal segments is now a `string`. With nothing else refused, the module builds
 to a `.beam` and
-[`25f_replay.erl`](25f_replay.erl) runs eight cases through `Evaluate` (five then; the repeated key
-came with F71, the unknown answer type with F72, the whole-number confidence with F73, and the
-malformed row reads as F70 left it):
+[`25f_replay.erl`](25f_replay.erl) runs nine cases through `Evaluate` (five then; the repeated key
+came with F71, the unknown answer type with F72, the whole-number confidence with F73, the byte
+that is not UTF-8 with F74, and the malformed row reads as F70 left it):
 
 | Case | What comes back |
 |---|---|
@@ -56,6 +56,7 @@ malformed row reads as F70 left it):
 | OpenRouter, `200`, the fixture with `"model"` a second time | `(:error, (:malformed, e))`, `e` with `Path = []`, `Expected = "\"model\" once"` and `Reason = :duplicate_key`. Before F71 it was an `Evaluation` built from the first |
 | OpenRouter, `200`, the `department` answer with `"type":"tri"` | `(:error, (:malformed, e))`, `e` with `Path = ["[\"answers\"]", "[\"department\"]", "[\"type\"]"]`, `Expected = "\"choice\" \| \"noul\" \| \"score\""` and `Reason = :mismatch`. Before F72 it was the whole of `AnswerWire` at `["answers"]["department"]` |
 | OpenRouter, `200`, the `department` answer's `"confidence"` written `1` | an `Evaluation` whose `department` answer is `Chosen { Choice = "billing", Confidence = 1.0 }`. Before F73 the wire type had to say `int \| float` there, or the reply was refused expecting `float` |
+| OpenRouter, `200`, a body whose `"model"` holds the byte `0xFF` | `(:error, (:malformed, e))`, `e` with `Path = []`, `Expected = "JSON"` and `Reason = :not_json`. Before F74 `Parse` validated the body as a `string` first, and `e` was that stage's: `Expected = "string"`, `Reason = :mismatch` |
 | TypeSafe, `401` | `(:error, (:status, 401))` |
 | `anthropic:claude-haiku-4-5` | `(:error, (:unknown_model, …))`, and nothing was sent |
 
@@ -259,15 +260,15 @@ Read((status, _))                                       -> (:error, (:status, st
 
 private result<Evaluation, EvalError> Parse(binary body)
 
-Parse(body) -> (ValidateAs<string>(body) |?> FromJson<ReplyWire>()) switch {
+Parse(body) -> FromJson<ReplyWire>(body) switch {
     (:error, e) => (:error, (:malformed, e)),
     reply       => Decode(reply)
 }
 ```
 
-`Parse` is two checks and one arm for both failures. `FromJson` takes a `string` and an HTTP body
-is a `binary`, so `ValidateAs<string>` goes first; both fail with a `ValidationError`, so the
-valve joins them and `(:malformed, e)` carries whichever it was.
+`Parse` is one check and one arm. An HTTP body is a `binary`, and `FromJson` takes one (F74,
+2026-10-11): bytes that are not UTF-8 are refused by the decoder as text that is not JSON. Until
+then `FromJson` took a `string`, and `Parse` put `ValidateAs<string>(body) |?>` in front of it.
 
 The valve fits the outer chain. `ParseSpec` fails as a value, and `Call` is declared over `Model`,
 not `result<Model, EvalError>`, because `|?>` has already removed the failure (§8). That is
@@ -591,11 +592,11 @@ at `.Model`; an absent required key at `[]`); this is the first exemplar to meet
 
 - Unasked: whether an absent required key is blamed at its own path.
 
-**`FromJson` takes a `string`, and a body is a `binary`.** `Parse` validates the body as a
-`string` first. It is one stage in a valve, and both failures are a `ValidationError`, so it costs
+**`FromJson` took a `string`, and a body is a `binary`.** `Parse` validated the body as a
+`string` first. It was one stage in a valve, and both failures are a `ValidationError`, so it cost
 no arm.
 
-- Unasked. Ticket 78 Q10 says `FromJson<T>(string)`.
+- Asked as ticket 78 Q13 and answered yes; built as F74 (2026-10-11), and the stage is gone.
 
 ## What this says to the tickets ticket 25 serves
 
