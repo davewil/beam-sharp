@@ -1546,7 +1546,7 @@ $ bsc --src-root examples examples/Names Registered "\"zzz_no_such_name\""
 :false
 ```
 
-`ToExistingAtom` is the fourth codegen obligation and the one written **bare**: its result is
+`ToExistingAtom` is a codegen obligation too, and the one written **bare**: its result is
 fixed, so there is no type to choose and no bracket to write. It lowers to Erlang's safe
 spelling of the question — `binary_to_existing_atom`, the long name, with its `badarg` caught —
 and to nothing else, so a string built at run time still cannot grow the atom table through it.
@@ -1570,7 +1570,71 @@ the type declares. So every emitted module exports one function the author did n
 them. It is the compiler's: `bs@` cannot be spelled in B#, and neither the REPL's banner nor `bsc`
 offers it.
 
-<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39; ticket 67, F54; ticket 10 §6.2, ticket 87, F55 -->
+### One step earlier: the text itself
+
+`Decode` was handed a term, so something had already parsed it. Most of the time what arrives
+is text: an HTTP body, a line from a socket. `examples/Stream/stream.bs` reads the events of a
+streaming API, and its wire types are written as the JSON is:
+
+```
+type Start = { "type": "content_block_start", "index": int, .. }
+type Delta = { "type": "content_block_delta", "index": int, .. }
+type Stop  = { "type": "message_stop", .. }
+type Ping  = { "type": "ping", .. }
+
+type Event = Start | Delta | Stop | Ping
+
+public result<Event, ValidationError> Parse(string text)
+
+Parse(text) -> FromJson<Event>(text)
+```
+
+A key in quotes is a string key, which is what a JSON object has. `"ping"` in type position is
+the one string it spells, as `:ping` is the one atom. The trailing `..` leaves the object
+open: a key the type does not name is allowed and kept.
+
+```
+$ bsc --src-root examples examples/Stream Parse '"{\"type\":\"ping\",\"n\":1}"'
+{"n" = 1, "type" = "ping"}
+$ bsc --src-root examples examples/Stream Parse '"{\"type\":"'
+(:error, {Kind = :'ValidationError', Expected = "JSON", Path = [], Reason = :not_json})
+$ bsc --src-root examples examples/Stream Parse '"{\"type\":\"pong\"}"'
+(:error, {Kind = :'ValidationError', Expected = ""content_block_delta" | "content_block_start" | "message_stop" | "ping"", Path = ["["type"]"], Reason = :mismatch})
+$ bsc --src-root examples examples/Stream Parse '"{\"n\":1}"'
+(:error, {Kind = :'ValidationError', Expected = ""content_block_delta" | "content_block_start" | "message_stop" | "ping"", Path = ["["type"]"], Reason = :missing})
+$ bsc --src-root examples examples/Stream Parse '"{\"type\":\"content_block_start\",\"index\":\"0\"}"'
+(:error, {Kind = :'ValidationError', Expected = "int", Path = ["["index"]"], Reason = :mismatch})
+$ bsc --src-root examples examples/Stream Parse '"{\"type\":\"ping\",\"type\":\"message_stop\"}"'
+(:error, {Kind = :'ValidationError', Expected = ""type" once", Path = [], Reason = :duplicate_key})
+```
+
+**`FromJson<T>` is the platform's JSON decoder, then what `ValidateAs<T>` does.** It is a
+codegen obligation like the others: one decoder generated per concrete `T`, and a plain local
+call at the site. Text that is not JSON fails as a wrong shape does, with a `ValidationError`,
+so `Parse` has one failure arm and `Reason` says which kind it was. Those six lines show four
+of the five reasons.
+
+**The tag is read first.** Every member of `Event` holds a different literal at `"type"`, and
+the compiler finds that from the types; nothing marks the key as a tag. So an event this module
+does not declare is blamed at `["type"]`, with the tags that would have been accepted, and a
+`content_block_start` with a bad `"index"` is blamed at `["index"]`. Without a tag the error
+could only be the whole union at the object.
+
+**A repeated key is refused, always.** JSON parsers disagree about which of two values for one
+key wins, and a message that two programs read differently is how a check in one is bypassed in
+the other. There is no option that accepts it.
+
+Two more things `FromJson` does that the transcripts do not show. Its argument is a `binary`,
+which a `string` is, so an HTTP body goes in as it arrived, and bytes that are not UTF-8 are
+`:not_json`. And JSON has one number type, where JavaScript writes `1.0` as `1`: a position
+whose type holds floats reads a JSON integer as the float equal to it. That is the one
+conversion `FromJson` makes that `ValidateAs` does not, because in a term a program built, `1`
+is an `int` on purpose.
+
+The other direction is `ToJson<T>`, and it is stricter about what it will write: an open type
+is read and not written, since writing one would publish keys no type declares.
+
+<!-- ticket 11 §2, ticket 15 §2, ticket 18, ticket 27 §8, F18; ticket 10 §4 and §5, F39; ticket 67, F54; ticket 10 §6.2, ticket 87, F55; ticket 78, F68, F69, F70, F71, F72, F73, F74 -->
 
 ---
 

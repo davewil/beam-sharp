@@ -24,7 +24,18 @@
 # evidence here that is not self-reported.
 
 url       https://claude.ai/code/artifact/40f71cf4-d5d3-4b71-882c-ad73f630a03c
-sha256    3b860c86c68d24f4754d767939cfd6e9b63c4c689e76397b1c34a7f4c10bf210
+sha256    3ce2228736b54593ce30fdf9866b3bf9754c67f6b3bcda4e871d254b7808c8c3
+verified  2026-10-11 (chapter 15 teaches `FromJson`) — the chapter gained a closing section, *One
+          step earlier: the text itself*, quoting `examples/Stream/stream.bs`'s four event types
+          and `Parse`, with six transcripts: an event read, text that is not JSON, an unknown tag,
+          an absent tag, a wrong value inside a named member, and a repeated key. The prose says
+          the tag is read first, a repeated key is always refused, the argument is a `binary`,
+          and a float position reads a JSON integer (F69 to F74). `ToExistingAtom` is no longer
+          called the fourth obligation. No capability row changed, so the appendix's 66 stands.
+          Parts 1 to 3 were green and part 4 red against the old stamp before the republish. The
+          live page (version 33) was read back first and had no such section; read back after
+          (version 34), it carries the heading, the block and the transcripts.
+
 verified  2026-10-09 (for F70, `Reason` on `ValidationError`, ENG-615) — chapter 15's third Intake
           transcript gained `Reason = :mismatch`, which is what `bsc` prints now, and the
           paragraph under it says the record carries a reason, with an absent field `:missing`
