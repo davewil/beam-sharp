@@ -1,0 +1,34 @@
+##	A. dot-call spellings
+A1 plain	:Shop.New(1)
+A2 quoted	:Shop."New"(1)
+A3 charlist	:Shop.'New'(1)
+A4 var recv	m = :Shop; m."New"(1)
+A5 pipe	1 |> :Shop."New"()
+A6 no-parens	:Shop."New" 1
+##	B. apply / dynamic
+B1 apply/3	apply(:Shop, :New, [1])
+B2 Kernel.apply	Kernel.apply(:Shop, :New, [1])
+B3 :erlang.apply	:erlang.apply(:Shop, :New, [1])
+B4 apply/2 fun	apply(Function.capture(:Shop, :New, 1), [1])
+B5 Module.safe	Module.safe_concat([:Shop]) |> then(&apply(&1, :New, [1]))
+##	C. captures
+C1 &M.F/1	(&:Shop.New/1).(1)
+C2 &M."F"/1	(&:Shop."New"/1).(1)
+C3 Function.capture	Function.capture(:Shop, :New, 1).(1)
+C4 fn wrapper	(fn x -> :Shop."New"(x) end).(1)
+C5 Enum.map cap	Enum.map([1,2], &:Shop."New"/1)
+##	D. raw AST (what a macro would produce)
+D1 AST dot	Code.eval_quoted({{:., [], [:Shop, :New]}, [], [1]}) |> elem(0)
+D2 unquote	Code.eval_quoted(quote do: :Shop.unquote(:New)(1)) |> elem(0)
+##	E. controls (must differ)
+E1 lowercase	:Shop.new(1)
+E2 missing fn	:Shop."Nope"(1)
+E3 syntax junk	:Shop.(
+##	G. the ticket's own table of spellings (reproduced), then module-path variants
+T1 ticket :"BSharp.Shop".New	:"BSharp.Shop".New(1)
+T2 ticket :"Shop.Reports".Restate	:"Shop.Reports".Restate(1)
+T3 ticket :"Elixir.Shop".New	:"Elixir.Shop".New(1)
+T4 dotted mod + quoted fn	:"Shop.Reports"."Restate"(3)
+T5 Elixir alias Shop.New	Shop.New(1)
+T6 import quoted	import(:Shop, only: ["New": 1]); "New"(1)
+

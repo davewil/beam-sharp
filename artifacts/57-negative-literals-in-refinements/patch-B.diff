@@ -1,0 +1,22 @@
+diff -ru /home/user/beam-sharp/compiler/src/bs_check.erl src-B/bs_check.erl
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-11 23:03:24.353823739 +0000
++++ src-B/bs_check.erl	2026-10-11 23:10:41.475621358 +0000
+@@ -5024,9 +5024,18 @@
+     {V, {include, bs_types:str_lit(iolist_to_binary(S))}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {exclude, bs_types:str_lit(iolist_to_binary(S))}};
++%% A comparand that is a constant integer expression, not only a bare literal.
++comparison({e_op, _, Op, {e_var, _, V}, K0}) ->
++    case const_int(K0) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, K0, {e_var, _, V}}) ->
++    case const_int(K0) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison(_) ->
+     unknown.
+ 
++const_int({e_int, _, N}) -> {ok, N};
++const_int({e_neg, _, E}) -> case const_int(E) of {ok, N} -> {ok, -N}; error -> error end;
++const_int(_)             -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

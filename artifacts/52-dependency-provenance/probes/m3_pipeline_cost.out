@@ -1,0 +1,17 @@
+### deps present, ERL_LIBS = libA + elixir
+/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/m3_pipeline_cost.escript:31:35: Warning: 'catch ...' is deprecated; please use 'try ... catch ... end' instead.
+Compile directive 'nowarn_deprecated_catch' can be used to suppress
+warnings in selected modules.
+%   31|       {US, _} = timer:tc(fun() -> catch bsc:file_to_dir(Src, Dir) end), US
+%     |                                   ^
+
+check result (deps present): {ok,[elixir,erldep,exdep]}
+check, 3 declarations: first call 8317 us (cold: includes first code:where_is_file/which); warm median 533 us, min 384, p95 1087 (n=2000)
+components (warm):
+  code:where_is_file("exdep.app")  [is the app on the path]    median 8 us (min 7)
+  code:which(Mod)                     [is the module on the pa median 14 us (min 8)
+  filelib:wildcard(dirname(Beam)/*.app) [who owns the module:  median 37 us (min 23)
+  basename(dirname(dirname(Beam)))      [owner by DIRECTORY na median 5 us (min 4)
+bsc: error: line {1,1}: application `nosuchapp` (for :erldep) is not on the code path (ERL_LIBS=/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/libA:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib)
+negative control (absent app) -> fail
+whole bsc:file_to_dir on DeclA (parse+check+emit+erlc, with the check inside), 20 runs: median 9567 us, min 6437, max 90373

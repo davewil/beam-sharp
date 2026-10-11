@@ -1,0 +1,15 @@
+scanned 1321 beams under /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/erlang/lib
+exports starting with an uppercase letter: 19
+  {diameter_types,'Address',3}
+  {diameter_types,'DiameterIdentity',3}
+  {diameter_types,'DiameterURI',3}
+  {diameter_types,'Float32',3}
+  {diameter_types,'Float64',3}
+  {diameter_types,'IPFilterRule',3}
+  {diameter_types,'Integer32',3}
+  {diameter_types,'Integer64',3}
+  {diameter_types,'OctetString',3}
+  {diameter_types,'QoSFilterRule',3}
+  {diameter_types,'Time',3}
+  {diameter_types,'UTF8String',3}
+control: total exports scanned 46001

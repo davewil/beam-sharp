@@ -1,0 +1,4 @@
+name = "app4"
+version = "1.0.0"
+target = "erlang"
+[dependencies]

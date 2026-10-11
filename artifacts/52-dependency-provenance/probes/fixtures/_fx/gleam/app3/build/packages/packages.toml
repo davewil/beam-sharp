@@ -1,0 +1,4 @@
+[packages]
+dep3 = "0.1.0"
+
+[git]

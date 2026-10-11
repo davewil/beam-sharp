@@ -1,0 +1,4 @@
+module Ty3
+
+public int Poke(Shop.Orders.Thing t)
+Poke(t) -> 1

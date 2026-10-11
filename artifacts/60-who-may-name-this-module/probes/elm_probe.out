@@ -1,0 +1,10 @@
+0.19.0
+-- HTTP PROBLEM ----------------------------------------------------------------
+
+The following HTTP request failed:
+
+    <https://package.elm-lang.org/all-packages>
+
+Here is the error message I was able to extract:
+
+exit=1  (non-zero because of HTTP 403 from the proxy, NOT because of the exposing rule: nothing about Elm visibility was observed)

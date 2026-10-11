@@ -1,0 +1,51 @@
+== 1. module that exists nowhere
+--- [nowhere] deps=[]
+    warning: Nonexistent.Mod.go/1 is undefined (module Nonexistent.Mod is not available or is yet to be defined)
+    │
+  2 │   def f, do: Nonexistent.Mod.go(1)
+    │                              ~
+    │
+    └─ lib/c.ex:2:30: C.f/0
+
+
+== 2. dep app exists on disk but is NOT listed in deps (reach it via ERL_LIBS)
+--- [unlisted] deps=[]
+    warning: ExDep.shout/1 is undefined (module ExDep is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+  2 │   def f, do: ExDep.shout("x")
+    │                    ~
+    │
+    └─ lib/c.ex:2:20: C.f/0
+
+
+== 3. dep listed as a path dependency (control: no warning expected)
+--- [listed] deps=[{:exdep, path: "PROBES/fixtures/_fx/src/exdep"}]
+==> exdep
+==> c
+
+== 4. dep listed, function that does not exist in it
+--- [listed_badfun] deps=[{:exdep, path: "PROBES/fixtures/_fx/src/exdep"}]
+==> exdep
+==> c
+    warning: ExDep.nope/1 is undefined or private
+    │
+  2 │   def f, do: ExDep.nope("x")
+    │                    ~
+    │
+    └─ lib/c.ex:2:20: C.f/0
+
+
+== 5. NEGATIVE CONTROL: Elixir stdlib module (app :elixir, never listed) must be silent
+--- [stdlib] deps=[]
+
+== 6. mix.exs for case 3 (the declaration lives in the project file, not in the source)
+defmodule C.MixProject do
+  use Mix.Project
+  def project, do: [app: :c, version: "0.1.0", deps: deps()]
+  def application, do: [extra_applications: [:logger]]
+  defp deps, do: [{:exdep, path: "PROBES/fixtures/_fx/src/exdep"}]
+end
+== 7. what mix wrote to the compiled .app of case 3 (applications key records the dep for runtime)
+{application,c,[{modules,['Elixir.C']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,logger,exdep]},{description,"c"},{registered,[]},{vsn,"0.1.0"}]}.
+== 8. is anything about deps recorded INSIDE the compiled c.beam? (chunks/attributes)
+[{vsn,[53490551033694929207493925986207829086]}]

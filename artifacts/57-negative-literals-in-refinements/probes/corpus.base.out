@@ -1,0 +1,36 @@
+# ticket's five rows
+!! R1_ge_neg5             refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the che
+!! R2_neg5_and_5          refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the 
+!! R3_1_or_neg1           refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the c
+ok R4_le3_or_ge10         accepted (want accepted) 
+ok R5_ne0                 accepted (want accepted) 
+# controls the ticket omits
+!! C1_gt_neg1             refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the che
+!! C2_ge_paren5           refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the c
+!! C3_ge_0minus5          refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the 
+!! C4_neg5_le_value       refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate t
+!! C5_ge_neg0             refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the che
+!! C6_eq_neg5             refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the che
+!! C7_ne_neg5             refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the che
+!! C8_neg_neg5            refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the ch
+!! C9_space               refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the check
+ok C10_hex                accepted (want accepted) 
+!! C11_neg_hex            refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the ch
+!! C12_big                refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the checke
+!! C13_2plus3             refused  (want accepted) a.bs:2:1: error: this refinement is not a predicate the che
+ok C14_pos_paren          accepted (want accepted) 
+# negative controls: must stay REFUSED under any fold
+ok N1_value_ge_value      refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate 
+ok N2_ge_x_plus_1         refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the
+ok N3_ge_n                refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checke
+ok N4_ge_call             refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the che
+ok N5_float               refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the check
+# float
+ok F1_float_neg           refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the c
+# patterns
+ok P1_rel_neg             accepted (want accepted) 
+ok P2_lit_neg             accepted (want accepted) 
+ok P3_rel_paren           refused  (want refused ) a.bs:4:10: error: syntax error before: '('
+# guards
+!! G1_guard_neg           refused  (want accepted) a.bs:2:13: error: Sign is not exhaustive
+ok G2_guard_neg_exhaust   accepted (want accepted) 

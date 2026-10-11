@@ -1,0 +1,6 @@
+module Ty
+
+using Shop.Reports
+
+public int Poke(Shop.Orders.Thing t)
+Poke(t) -> 1

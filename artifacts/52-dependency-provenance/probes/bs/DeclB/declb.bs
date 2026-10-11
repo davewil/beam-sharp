@@ -1,0 +1,23 @@
+// Option B: once per module.
+[app: exdep, app: erldep, app: elixir] module DeclB
+
+using :'Elixir.ExDep' {
+    binary shout(binary s)
+}
+
+using :erldep {
+    int double(int n)
+}
+
+using :'Elixir.String' {
+    binary upcase(binary s)
+}
+
+public binary ViaExDep(binary s)
+ViaExDep(s) -> :'Elixir.ExDep'.shout(s)
+
+public int ViaErl(int n)
+ViaErl(n) -> :erldep.double(n)
+
+public int Pure(int n)
+Pure(n) -> n + 1

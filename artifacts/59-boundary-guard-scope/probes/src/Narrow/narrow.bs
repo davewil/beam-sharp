@@ -1,0 +1,10 @@
+module Narrow
+
+record Order { Id: int, Total: int }
+
+public int Entry(term t)
+Entry(Order o) -> Inner(o)
+Entry(_)       -> 0
+
+int Inner(Order o)
+Inner(o) -> o.Total

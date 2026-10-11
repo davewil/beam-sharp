@@ -1,0 +1,64 @@
+expr                               -5.                          => {op,1,'-',
+                                                                    {integer,
+                                                                     1,5}}
+expr                               - 5.                         => {op,1,'-',
+                                                                    {integer,
+                                                                     1,5}}
+expr                               -(5).                        => {op,1,'-',
+                                                                    {integer,
+                                                                     1,5}}
+expr                               -(-5).                       => {op,1,'-',
+                                                                    {op,1,
+                                                                     '-',
+                                                                     {integer,
+                                                                      1,5}}}
+expr                               0-5.                         => {op,1,'-',
+                                                                    {integer,
+                                                                     1,0},
+                                                                    {integer,
+                                                                     1,5}}
+expr                               -0.                          => {op,1,'-',
+                                                                    {integer,
+                                                                     1,0}}
+pattern                            -5                           => {op,1,'-',
+                                                                    {integer,
+                                                                     1,5}}
+pattern                            -(5)                         => {op,1,'-',
+                                                                    {integer,
+                                                                     1,5}}
+pattern                            - 5                          => {op,1,'-',
+                                                                    {integer,
+                                                                     1,5}}
+guard                              X >= -5                      => {op,1,
+                                                                    '>=',
+                                                                    {var,1,
+                                                                     'X'},
+                                                                    {op,1,
+                                                                     '-',
+                                                                     {integer,
+                                                                      1,5}}}
+guard                              X >= 0-5                     => {op,1,
+                                                                    '>=',
+                                                                    {var,1,
+                                                                     'X'},
+                                                                    {op,1,
+                                                                     '-',
+                                                                     {integer,
+                                                                      1,0},
+                                                                     {integer,
+                                                                      1,5}}}
+type -5..5                         {attribute,1,type,
+                                    {t,
+                                     {type,1,range,
+                                      [{op,1,'-',{integer,1,5}},
+                                       {integer,1,5}]},
+                                     []}}
+partial_eval({op,1,-,{integer,1,5}}) = {integer,1,-5}
+partial_eval(2+3)                  = {integer,1,5}
+compile:forms -> ok
+control, parse of (1+N)..5 : ok
+control, lint of non-constant range bound: {error,
+                                            [{"nofile",
+                                              [{1,erl_lint,
+                                                {type_syntax,range}}]}],
+                                            []}

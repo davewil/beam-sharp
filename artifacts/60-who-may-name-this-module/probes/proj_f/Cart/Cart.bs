@@ -1,0 +1,26 @@
+module Cart
+
+behaviour GenServer
+
+type Request = :get | (:add, int)
+type Reply   = (:reply, int, int)
+
+public (:ok, int) Init(int seed)
+Init(seed) -> (:ok, seed)
+
+public Reply HandleCall(Request request, term from, int state)
+HandleCall(:get, from, state)      -> (:reply, Recompute(state), state)
+HandleCall((:add, n), from, state) -> (:reply, state + n, state + n)
+
+type Cast    = :reset
+type NoReply = (:noreply, int)
+public NoReply HandleCast(Cast msg, int state)
+HandleCast(:reset, state) -> (:noreply, 0)
+
+// client API
+public int Total(int state)
+Total(state) -> Recompute(state)
+
+// ticket 24's 'unclassified' helper: neither client API nor callback
+private int Recompute(int state)
+Recompute(state) -> state * 1

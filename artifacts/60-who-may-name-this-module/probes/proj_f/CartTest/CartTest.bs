@@ -1,0 +1,7 @@
+module CartTest
+
+using Cart
+
+// (1) the easy target the ticket worries about
+public int TestsHelper(int s)
+TestsHelper(s) -> Recompute(s)

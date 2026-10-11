@@ -1,0 +1,4 @@
+module Kw
+
+internal int X(int n)
+X(n) -> n

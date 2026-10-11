@@ -1,0 +1,10 @@
+module Nest
+
+record Order { Id: int, Total: int }
+record Batch { Name: int, First: Order }
+
+public int Entry(Batch b)
+Entry(b) -> Inner(b.First)
+
+int Inner(Order o)
+Inner(o) -> o.Total

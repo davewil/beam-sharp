@@ -1,0 +1,67 @@
+gleam 1.19.1
+== 1. a project with NO dependencies and an @external to a module that exists nowhere
+     Resolving versions
+     Compiling app1
+      Compiled in 0.47s
+   gleam build exit=0
+-- run it
+   error:undef {nonexistent_mod,f,[1],[]}
+-- the .app gleam wrote (what the build records about dependencies):
+   {application, app1, [
+       {vsn, "1.0.0"},
+       {applications, []},
+       {description, ""},
+       {modules, [app1]},
+       {registered, []}
+   ]}.
+
+== 2. NEGATIVE CONTROL: same shape, @external to a module that exists (erlang:abs)
+     Resolving versions
+     Compiling app2
+      Compiled in 0.40s
+   gleam build exit=0
+
+== 3. a LOCAL path dependency (hex is unreachable): gleam.toml [dependencies] and what the .app gets
+     Resolving versions
+         Added dep3 v0.1.0
+     Compiling dep3
+     Compiling app3
+      Compiled in 0.41s
+   exit=0
+   {application, app3, [
+       {vsn, "1.0.0"},
+       {applications, [dep3]},
+       {description, ""},
+       {modules, [app3]},
+       {registered, []}
+   ]}.
+
+== 4. importing a Gleam module whose package is NOT in [dependencies]
+     Resolving versions
+     Compiling app4
+   error: Unknown module
+     ┌─ PROBES/fixtures/_fx/gleam/app4/src/app4.gleam:1:1
+     │
+   1 │ import dep3
+     │ ^^^^^^^^^^^
+   
+   No module has been found with the name `dep3`.
+   
+   error: Unknown module
+     ┌─ PROBES/fixtures/_fx/gleam/app4/src/app4.gleam:2:24
+     │
+   2 │ pub fn main() -> Int { dep3.id(7) }
+     │                        ^^^^
+   
+   No module has been found with the name `dep3`.
+   
+   exit=1
+
+== 5. a hex version constraint, network blocked here: what does the toml accept and where does it fail?
+     Resolving versions
+   error: Dependency resolution failed
+   
+   An error occurred while choosing the version of gleam_stdlib: error sending
+   request for url (https://repo.hex.pm/packages/gleam_stdlib)
+   
+   exit=1

@@ -1,0 +1,6 @@
+module ElsewherePriv
+
+using Shop.Orders
+
+public int Poke(int n)
+Poke(n) -> Hidden(n)

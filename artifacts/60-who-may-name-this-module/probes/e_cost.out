@@ -1,0 +1,10 @@
+repo rev 019533d; 4 cpus
+### warm: in one VM, 60 timed compiles of examples/Shop/Reports (2 using lines, 2 modules) after 5 warm-ups, microseconds
+base  median=12701 min=10233 p90=25851 max=80226  (n=60)
+A     median=14292 min=11496 p90=22163 max=32199  (n=60)
+B     median=11834 min=10114 p90=23666 max=34555  (n=60)
+C     median=23185 min=11478 p90=40554 max=106785  (n=60)
+### cold: 30 separate 'bsc' process launches each (includes VM boot), milliseconds
+base  median=366 min=272 p90=452 max=520 (n=30)
+A     median=367 min=279 p90=513 max=565 (n=30)
+B     median=420 min=291 p90=515 max=595 (n=30)

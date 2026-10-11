@@ -1,0 +1,6 @@
+module Shop.Orders.Total
+
+using Shop.Orders.Internal.Pricing
+
+public int Total(int n)
+Total(n) -> RecomputeTotal(n)

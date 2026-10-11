@@ -1,0 +1,18 @@
+OTP 29, compiler ebin /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/62/csrc-ebin
+N     mode              beam B exports   ExpT B   Code B   AtU8 B | compile ms:  median     min     max
+1     none                1176       4       52       93       74 | compile ms:     7.3     3.2    11.5   (code mem +2568 B)
+1     forward             1268       5       64      106       89 | compile ms:     5.1     4.0     8.4   (code mem +1696 B)
+1     forward_nospec      1264       5       64      106       89 | compile ms:     3.7     3.4     7.0   (code mem +1312 B)
+1     dup                 1256       5       64      116       89 | compile ms:     3.8     3.6     8.2   (code mem +1360 B)
+10    none                2040      13      160      314      202 | compile ms:     8.0     7.1    21.4   (code mem +5552 B)
+10    forward             2680      23      280      485      353 | compile ms:    12.0     8.9    16.6   (code mem +5928 B)
+10    forward_nospec      2624      23      280      485      353 | compile ms:    10.5     8.4    17.8   (code mem +3688 B)
+10    dup                 2728      23      280      585      353 | compile ms:    10.5     9.4    18.3   (code mem +4312 B)
+50    none                5956      53      640     1465      802 | compile ms:    20.9    20.2    31.8   (code mem +20432 B)
+50    forward             9008     103     1240     2315     1593 | compile ms:    32.7    30.0    51.1   (code mem +24808 B)
+50    forward_nospec      8740     103     1240     2315     1593 | compile ms:    29.5    26.3    38.5   (code mem +14248 B)
+50    dup                 9368     103     1240     2885     1593 | compile ms:    36.1    33.5    45.5   (code mem +17432 B)
+200   none               21504     203     2440     5815     3154 | compile ms:    85.8    76.1   111.7   (code mem +76232 B)
+200   forward            32984     403     4840     9215     6547 | compile ms:   127.3   119.5   148.1   (code mem +95608 B)
+200   forward_nospec     32352     403     4840     9215     6547 | compile ms:   122.1   112.0   167.1   (code mem +53848 B)
+200   dup                34860     403     4840    11585     6547 | compile ms:   150.1   138.3   275.0   (code mem +66640 B)

@@ -1,0 +1,9 @@
+module Fwd
+
+record Order { Id: int, Total: int }
+
+public int Entry(term t)
+Entry(t) -> Inner(t)
+
+int Inner(Order o)
+Inner(o) -> o.Total

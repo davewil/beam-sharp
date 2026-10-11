@@ -1,0 +1,49 @@
+################ VARIANT A: callee lists friends (module-level 'friend Shop.Reports')
+friend Shop.Reports
+--- Shop/Reports  [listed friend (expect clean)]
+--- Other  [using Shop.Orders from an unlisted module]
+Other/Other.bs:3:1: error: Shop.Orders may not be named from this module
+  Shop.Orders lists who may name it: Shop.Reports
+  add this module to its `friend` list, or move the call to one that is listed.
+--- Ns  [namespace 'using Shop' then Orders.RecomputeTotal]
+Ns/Ns.bs:6:18: error: Shop.Orders may not be named from this module
+  Shop.Orders lists who may name it: Shop.Reports
+  add this module to its `friend` list, or move the call to one that is listed.
+--- Ty  [type position, Shop.Orders reachable transitively]
+Ty/Ty.bs:5:12: error: Shop.Orders.Thing names Shop.Orders, and Shop.Orders lists who may name it: Shop.Reports
+--- TyNs  [type position through a namespace import]
+TyNs/TyNs.bs:5:12: error: Shop.Orders declares no type named Thing
+  a qualified type is spelled as the module that declares it spells
+  it: a `record` or `type` line in Shop.Orders.
+--- CONTROL: the same programs under the UNMODIFIED compiler, friend file removed (all must compile clean)
+--- base Other
+--- base Ns
+--- base Ty
+--- base TyNs
+
+################ VARIANT B: path convention, an 'Internal' segment (no new syntax)
+--- Shop/Orders  [parent (expect clean)]
+--- Shop/Orders/Total  [descendant of the parent (expect clean)]
+--- Shop/Reports  [sibling subtree (expect error)]
+Shop/Reports/Reports.bs:3:1: error: Shop.Orders.Internal.Pricing may not be named from this module
+  a module under an `Internal` directory may be named only from Shop.Orders and the modules beneath it
+  move this module beneath that directory, or move the module out of `Internal`.
+--- NsB  [namespace using Shop.Orders.Internal from outside]
+NsB/NsB.bs:6:19: error: Shop.Orders.Internal.Pricing may not be named from this module
+  a module under an `Internal` directory may be named only from Shop.Orders and the modules beneath it
+  move this module beneath that directory, or move the module out of `Internal`.
+--- CONTROL: same Shop/Reports under the UNMODIFIED compiler
+
+################ VARIANT C: callbacks are unnameable by other modules (no new syntax, uses the behaviour table)
+--- CartTest2 names callback HandleCall
+CartTest2/CartTest2.bs:7:21: error: TestsCallback calls HandleCall/3, which Cart declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Cart, or move the call inside it.
+--- CartTest names private Recompute (unchanged F12 diagnostic)
+CartTest/CartTest.bs:7:19: error: TestsHelper calls Recompute/1, which Cart declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Cart, or move the call inside it.
+--- Cart itself still compiles and runs its client API
+6
+--- CONTROL: CartTest2 under the UNMODIFIED compiler
+(:reply, 7, 7)

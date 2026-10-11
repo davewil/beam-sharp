@@ -1,0 +1,21 @@
+gleam: gleam 1.19.1
+   ┌─ /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/62/work_03_gleam_calls_bsharp/gl/gleam_caller/src/caller.gleam:39:3
+   │
+39 │   display(res(True))
+   │   ^^^^^^^^^^^^^^^^^^ The Result value created here is unused
+Hint: If you are sure you don't need it you can assign it to `_`.
+   Compiled in 0.50s
+--- run caller:main() with the B# beams on the code path (no ERL_LIBS magic; plain -pa)
+#{'X'=>3,'Kind'=>'Abi.Point','Y'=>3}
+42
+7
+{2,<<"x">>}
+true
+1
+nothing
+1
+{error,bad}
+--- NEGATIVE CONTROL: same call with a wrong function name must fail at run time (Gleam cannot check it)
+error undef
+--- NEGATIVE CONTROL 2: without the B# beams on the path
+error undef

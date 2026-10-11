@@ -1,0 +1,25 @@
+=== patched compiler (aliases on)
+plain dot, snake      :Abi.new_http(41)                               42
+record via alias      :Abi.make_point(3)                              %{X: 3, Kind: :"Abi.Point", Y: 3}
+PascalCase still      :Abi."NewHTTP"(41)                              42
+import + bare call    import :Abi, only: [new_http: 1]; new_http(1)   2
+pipe                  41 |> :Abi.new_http()                           42
+capture               Enum.map([1,2], &:Abi.new_http/1)               [2, 3]
+NEGATIVE: no alias built:Abi.NoSuchAlias(1)                             RAISES SyntaxError
+module_info(:exports) count: 33
+
+=== CONTROL: stock compiler
+plain dot, snake      :Abi.new_http(41)                               RAISES UndefinedFunctionError
+record via alias      :Abi.make_point(3)                              RAISES UndefinedFunctionError
+PascalCase still      :Abi."NewHTTP"(41)                              42
+warning: cannot import :Abi.new_http/1 because it is undefined or private
+\x{2514}\x{2500} nofile:1
+
+error: undefined function new_http/1 (there is no such import)
+\x{2514}\x{2500} nofile:1
+
+import + bare call    import :Abi, only: [new_http: 1]; new_http(1)   RAISES CompileError
+pipe                  41 |> :Abi.new_http()                           RAISES UndefinedFunctionError
+capture               Enum.map([1,2], &:Abi.new_http/1)               RAISES UndefinedFunctionError
+NEGATIVE: no alias built:Abi.NoSuchAlias(1)                             RAISES SyntaxError
+module_info(:exports) count: 18

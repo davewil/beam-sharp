@@ -1,0 +1,78 @@
+--- a/bs_parser.yrl
++++ b/bs_parser.yrl
+@@ -10,7 +10,7 @@
+ Nonterminals
+   program decls decl
+   comp_quals comp_qual
+-  module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
++  module_decl dep_attrs dep_attr type_decl signature clause foreign_decl foreign_sigs foreign_sig
+   behaviour_decl record_decl field_decls field_decl open_field_decls
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+@@ -100,6 +100,10 @@
+ block_clause -> '(' patterns ')' guard '->' body :
+     {line('$1'), '$2', '$4', '$6'}.
+ decl -> foreign_decl : '$1'.
++%% PROTOTYPE (ticket 52, option A): `[external: elixir, app: req] using :'Elixir.Req' { .. }`.
++%% A decl may return a list; `program` flattens it, so the foreign decl is untouched.
++decl -> '[' dep_attrs ']' module_decl : [{requires, line('$1'), '$2', '*'}, '$4'].
++decl -> '[' dep_attrs ']' foreign_decl : [{requires, line('$1'), '$2', element(3, '$4')}, '$4'].
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
+@@ -170,6 +174,10 @@
+ foreign_decl -> 'using' atom_lit '{' foreign_sigs '}' :
+     {foreign, line('$1'), value('$2'), '$4'}.
+ 
++dep_attrs -> dep_attr                : ['$1'].
++dep_attrs -> dep_attr ',' dep_attrs  : ['$1' | '$3'].
++dep_attr -> lident ':' lident        : {value('$1'), value('$3')}.
++
+ foreign_sigs -> foreign_sig              : ['$1'].
+ foreign_sigs -> foreign_sig foreign_sigs : ['$1' | '$2'].
+ 
+--- a/bsc.erl
++++ b/bsc.erl
+@@ -782,7 +782,18 @@
+         _ -> error
+     end.
+ 
+-check_and_emit(Dir, Sources, Opts, World) ->
++check_and_emit(Dir, Sources0, Opts, World) ->
++    %% PROTOTYPE (ticket 52): consume the dependency declarations before the
++    %% checker sees the decl list, and check them against the live code path.
++    Reqs = [R || {_, Ds} <- Sources0, is_list(Ds), R <- Ds, element(1, R) =:= requires],
++    Sources = [{P, [D || D <- Ds, element(1, D) =/= requires]} || {P, Ds} <- Sources0],
++    Foreign = [{L, M} || {_, Ds} <- Sources, {foreign, L, M, _} <- Ds],
++    case bs_deps_proto:check(Reqs, Foreign) of
++        fail -> {error, check};
++        {ok, Apps} -> check_and_emit_1(Dir, Sources, Opts, World, Apps)
++    end.
++
++check_and_emit_1(Dir, Sources, Opts, World, Apps) ->
+     %% The checker raises conditions found while resolving types, below the
+     %% level that carries a line and a function name. They are caught here so
+     %% they reach the author as a diagnostic, not a stack trace.
+@@ -794,7 +805,7 @@
+             {error, check};
+         {ok, Module, Diags} ->
+             [report(P, D) || {P, D} <- Diags],
+-            emit(Dir, Opts, Module)
++            emit(Dir, Opts, Module#{requires => Apps})
+     catch
+         error:Reason when is_tuple(Reason) ->
+             case resolve_error(primary(Dir, Sources), Reason) of
+--- a/bs_emit.erl
++++ b/bs_emit.erl
+@@ -76,6 +76,11 @@
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+                              ++ [{type_atoms_name(), 0}]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
++    %% PROTOTYPE (ticket 52): the applications this module declared, once.
++    ++ case maps:get(requires, Module, []) of
++           []   -> [];
++           Reqs -> [{attribute, ?A, bs_deps, Reqs}]
++       end
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+     ++ rec_type_attrs(Fns, Env)

@@ -1,0 +1,37 @@
+### 1. does the literal -5 have the type -5..-5? (return into a negative refinement; type uses 0 so it is writable today)
+Neg/a.bs:6:1: error: Lit returns a value its signature does not declare
+Neg/a.bs:7:1: error: Paren returns a value its signature does not declare
+Neg/a.bs:8:1: error: Sub returns a value its signature does not declare
+
+### 2. ticket 38: provably-zero divisor is refused. Is -0 provably zero?
+Div/a.bs:7:14: error: the right-hand side of `/` in Bad3 is always zero
+
+### 3. runtime values (bsc PATH FUNCTION)
+Lit  -5
+Dbl  5
+Sp   -5
+D    -3
+R    -1
+M    -7
+Big  -99999999999999999999999
+F    -0.0
+
+### 4. emitted abstract form of -5 in an expression and in a guard
+{function,0,'Lit',0, [{clause,{3,1},[],[],[{op,{3,10},'-',{integer,{3,11},5}}]}]}. {attribute,0,spec, {{'Sign',1}, 
+ {op,{5,16}, '=<', {var,{5,14},'N'}, 
+
+### 5. guard with a negative literal and no catch-all (baseline: reported as non-exhaustive)
+Guard/a.bs:2:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(<= -1) -> ...
+-- same program with n < 0 (control: must be accepted on every build)
+(empty above = accepted)
+
+### 6. residual of a bounded signed domain
+subtract(-10..10, 0) prints: -10..-1 | 1..10
+Res/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never

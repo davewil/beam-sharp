@@ -1,0 +1,38 @@
+Exporting bindings from subexpressions other than block expressions is
+deprecated and may yield an error in a future version of Erlang/OTP.
+Please move the binding of 'R' out of the '=/='.
+=== base
+  boundary_kind_tests: failed=0    All 6 tests passed.
+  boundary_range_tests: failed=0    All 10 tests passed.
+  guard_kind_tests: failed=0    All 7 tests passed.
+  records_tests: failed=0    All 18 tests passed.
+  record_pattern_tests: failed=0    All 12 tests passed.
+  tagged_union_tests: failed=0    All 21 tests passed.
+  binary_tests: failed=0    All 32 tests passed.
+  map_validate_tests: failed=0    All 18 tests passed.
+  absent_option_tests: failed=0    All 19 tests passed.
+  switch_tests: failed=0    All 25 tests passed.
+=== notag
+  boundary_kind_tests: failed=0    All 6 tests passed.
+  boundary_range_tests: failed=0    All 10 tests passed.
+  guard_kind_tests: failed=0    All 7 tests passed.
+  records_tests: failed=0    All 18 tests passed.
+  record_pattern_tests: failed=0    All 12 tests passed.
+  tagged_union_tests: failed=0    All 21 tests passed.
+  binary_tests: failed=0    All 32 tests passed.
+  map_validate_tests: failed=0    All 18 tests passed.
+  absent_option_tests: failed=0    All 19 tests passed.
+  switch_tests: failed=0    All 25 tests passed.
+=== widen
+  boundary_kind_tests: failed=1    Failed: 1.  Skipped: 0.  Passed: 5.
+      boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+  boundary_range_tests: failed=1    Failed: 1.  Skipped: 0.  Passed: 9.
+      boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
+  guard_kind_tests: failed=0    All 7 tests passed.
+  records_tests: failed=0    All 18 tests passed.
+  record_pattern_tests: failed=0    All 12 tests passed.
+  tagged_union_tests: failed=0    All 21 tests passed.
+  binary_tests: failed=0    All 32 tests passed.
+  map_validate_tests: failed=0    All 18 tests passed.
+  absent_option_tests: failed=0    All 19 tests passed.
+  switch_tests: failed=0    All 25 tests passed.

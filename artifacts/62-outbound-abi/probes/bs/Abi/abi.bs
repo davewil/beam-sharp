@@ -1,0 +1,70 @@
+module Abi
+
+record Point { X: int, Y: int }
+
+public Point MakePoint(int x)
+
+MakePoint(x) -> Point{ X = x, Y = x }
+
+public option<int> MaybeInt(bool b)
+
+MaybeInt(true)  -> 1
+MaybeInt(false) -> :nothing
+
+public result<int, atom> Res(bool b)
+
+Res(true)  -> 1
+Res(false) -> (:error, :bad)
+
+public list<int> Nums(int n)
+
+Nums(n) -> [n, n]
+
+public (int, string) Pair(int n)
+
+Pair(n) -> (n, "x")
+
+public bool IsBig(int n)
+
+IsBig(n) when n > 9 -> true
+IsBig(n) when n <= 9 -> false
+
+public atom Tag(Point p)
+
+Tag(p) -> :point
+
+public int ParseURL(int n)
+
+ParseURL(n) -> n
+
+public int NewHTTP(int n)
+
+NewHTTP(n) -> n + 1
+
+public float Half(float f)
+
+Half(f) -> f / 2.0
+
+public int Count(map<atom, term> m)
+
+Count(_) -> 0
+
+type Colour = :red | :green
+
+public Colour Pick(bool b)
+
+Pick(true)  -> :red
+Pick(false) -> :green
+
+public binary Echo(binary b)
+
+Echo(b) -> b
+
+public option<result<int, atom>> Nest(bool b)
+
+Nest(true)  -> 1
+Nest(false) -> :nothing
+
+public (Point, list<Point>) Both(Point p)
+
+Both(p) -> (p, [p])

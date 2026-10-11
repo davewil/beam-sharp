@@ -1,0 +1,71 @@
+gleam: gleam 1.19.1
+
+=== 1. Gleam SOURCE: PascalCase variants, snake_case functions
+pub type Doc {
+  Order(id: Int, total: Int)
+  Invoice(id: Int)
+  PaidInFull
+  HttpError(code: Int)
+  NewHTTPThing
+}
+
+pub fn new_order(id: Int) -> Doc {
+  Order(id, 0)
+}
+
+pub fn parse_url(_s: String) -> Result(Int, String) {
+  Ok(1)
+}
+
+pub fn maybe(x: Bool) -> Result(Int, String) {
+  case x {
+    True -> Ok(1)
+    False -> Error("no")
+  }
+}
+
+=== 2. gleam build
+  Compiling shop
+   Compiled in 0.43s
+
+=== 3. what the .beam holds
+module: shop
+exports: [{'maybe',1},
+          {module_info,0},
+          {module_info,1},
+          {new_order,1},
+          {parse_url,1}]
+atoms:   [shop,new_order,order,parse_url,'maybe',false,true,module_info,
+          erlang,get_module_info]
+--- abstract code (erl_pp)
+-type doc() ::
+          {order, integer(), integer()} |
+          {invoice, integer()} |
+          paid_in_full |
+          {http_error, integer()} |
+          new_h_t_t_p_thing.
+new_order(Id) ->
+    {order, Id, 0}.
+parse_url(_) ->
+    {ok, 1}.
+'maybe'(X) ->
+    case X of
+        true ->
+            {ok, 1};
+        false ->
+            {error, <<"no"/utf8>>}
+    end.
+
+=== 4. NEGATIVE CONTROL: does Gleam downcase a PascalCase FUNCTION name, or refuse it?
+  Resolving versions
+error: Syntax error
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/62/work_02_gleam_emission/gl/gleam_bad/src/bad.gleam:1:8
+  │
+1 │ pub fn NewOrder(id: Int) -> Int {
+  │        ^^^^^^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+
+(a build that produced a beam would show up here:)
+ls: cannot access '/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/62/work_02_gleam_emission/gl/gleam_bad/build/dev/erlang/bad/ebin/*.beam': No such file or directory

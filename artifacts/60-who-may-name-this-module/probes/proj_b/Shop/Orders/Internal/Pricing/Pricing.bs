@@ -1,0 +1,4 @@
+module Shop.Orders.Internal.Pricing
+
+public int RecomputeTotal(int n)
+RecomputeTotal(n) -> n * 2

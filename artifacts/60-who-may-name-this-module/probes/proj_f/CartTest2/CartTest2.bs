@@ -1,0 +1,7 @@
+module CartTest2
+
+using Cart
+
+// (2) a callback is public (OTP needs the export) -- nothing stops a test naming it
+public Cart.Reply TestsCallback(int s)
+TestsCallback(s) -> HandleCall(:get, 0, s)

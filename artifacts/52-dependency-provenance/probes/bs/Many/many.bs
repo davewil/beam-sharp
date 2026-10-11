@@ -1,0 +1,53 @@
+// 12 using blocks drawing on 3 applications (synthetic, for the size probe)
+module Many
+
+using :'Elixir.Req' {
+    term f1(term x)
+}
+
+using :'Elixir.Jason' {
+    term f2(term x)
+}
+
+using :'Elixir.Finch' {
+    term f3(term x)
+}
+
+using :'Elixir.Req' {
+    term f4(term x)
+}
+
+using :'Elixir.Jason' {
+    term f5(term x)
+}
+
+using :'Elixir.Finch' {
+    term f6(term x)
+}
+
+using :'Elixir.Req' {
+    term f7(term x)
+}
+
+using :'Elixir.Jason' {
+    term f8(term x)
+}
+
+using :'Elixir.Finch' {
+    term f9(term x)
+}
+
+using :'Elixir.Req' {
+    term f10(term x)
+}
+
+using :'Elixir.Jason' {
+    term f11(term x)
+}
+
+using :'Elixir.Finch' {
+    term f12(term x)
+}
+
+public term Run(term x)
+Run(x) -> :'Elixir.Req'.f1(x)

@@ -1,0 +1,6 @@
+module TyNs
+
+using Shop
+
+public int Poke(Orders.Thing t)
+Poke(t) -> 1

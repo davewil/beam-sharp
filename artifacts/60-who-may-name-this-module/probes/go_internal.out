@@ -1,0 +1,7 @@
+go version go1.24.7 linux/amd64
+--- orders/total (a descendant of orders/) imports orders/internal/pricing: expect OK
+exit=0
+--- reports (a sibling subtree) imports it: expect refusal
+package example.com/shop/shop/reports
+	shop/reports/reports.go:3:8: use of internal package example.com/shop/shop/orders/internal/pricing not allowed
+exit=1

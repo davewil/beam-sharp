@@ -1,0 +1,38 @@
+### repo rev: 019533d
+
+### 1. grep for any who-may-name-me token in lexer/parser/checker (control: 'private' must match)
+internal    lexer:0 parser:0 checker:2
+friend      lexer:0 parser:0 checker:0
+sealed      lexer:0 parser:0 checker:0
+visible_to  lexer:0 parser:0 checker:0
+visibleto   lexer:0 parser:0 checker:0
+restricted  lexer:0 parser:1 checker:0
+private     lexer:1 parser:4 checker:6
+
+### 2. where is add_module_import now? (ticket cites add_module_import/5 at 407-425)
+498:add_import(L, M, Self, World, Known, Mode, Acc) ->
+500:        true  -> add_module_import(M, World, Acc);
+512:add_module_import(M, World, Acc) ->
+527:add_namespace_import(Prefix, Children, Acc) ->
+
+### 3. Elsewhere (unrelated top-level module) names Shop.Orders.RecomputeTotal via using -> expect NO error
+exit-ish: compiled files: Elsewhere.abstr Elsewhere.beam Shop.Orders.abstr Shop.Orders.beam 
+
+### 4. Qual: qualified call with NO using -> expect 'never imported' (so using is the only door)
+Qual/Qual.bs:4:23: error: Shop.Orders is called but never imported
+  add `using Shop.Orders` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+
+### 5. Ns: 'using Shop' (a NAMESPACE) then Orders.RecomputeTotal -> expect NO error (second door, add_namespace_import)
+Ns compiled: 1
+
+### 6. NEGATIVE CONTROL: private function from another module IS refused (the 'what' half works)
+ElsewherePriv/Priv.bs:6:12: error: Poke calls Hidden/1, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+
+### 7. 'internal' as a modifier
+Kw/Kw.bs:3:10: error: syntax error before: int
+
+### 8. A sibling FILE in Shop/Orders declaring 'module Shop.Orders' reaches a private function (F15 aggregate)
+5

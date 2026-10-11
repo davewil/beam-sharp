@@ -1,0 +1,13 @@
+### with the deps present (machine 1)
+beam 'Dep' imports modules: ['Elixir.ExDep','Elixir.String',erldep]
+  'Elixir.ExDep'     derive app via code:which -> ebin sibling .app: exdep   | naive lowercase guess: exdep
+  'Elixir.String'    derive app via code:which -> ebin sibling .app: elixir   | naive lowercase guess: string
+  erldep             derive app via code:which -> ebin sibling .app: erldep   | naive lowercase guess: erldep
+### NEGATIVE CONTROL: machine 2 (deps absent): derivation must fail, not guess
+beam 'Dep' imports modules: ['Elixir.ExDep','Elixir.String',erldep]
+  'Elixir.ExDep'     derive app via code:which -> ebin sibling .app: non_existing   | naive lowercase guess: exdep
+  'Elixir.String'    derive app via code:which -> ebin sibling .app: elixir   | naive lowercase guess: string
+  erldep             derive app via code:which -> ebin sibling .app: non_existing   | naive lowercase guess: erldep
+### orphan module (on -pa, no app) and a dir-without-.app: derive reports it honestly
+orphanmod -> []
+noappmod -> []

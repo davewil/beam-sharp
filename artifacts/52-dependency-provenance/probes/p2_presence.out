@@ -1,0 +1,97 @@
+### machine 1: ERL_LIBS has dep apps + Elixir; orphan dir on -pa
+code path entries mentioning FX: ["orphan","noappfile","ghostapp","exdep",
+                                  "erldep","dirname_mismatch","bareapp"]
+erlang app + its module
+    app=stdlib  lib_dir=../lib/erlang/lib/stdlib-8.1
+    which=../lib/erlang/lib/stdlib-8.1/ebin/lists.beam
+    where_is_file(App.app)=../lib/erlang/lib/stdlib-8.1/ebin/stdlib.app
+    application:load=already_loaded  .app-modules-lists-Mod=true
+elixir stdlib: String lives in app 'elixir'
+    app=elixir  lib_dir=../lib/elixir/lib/elixir
+    which=../lib/elixir/lib/elixir/ebin/Elixir.String.beam
+    where_is_file(App.app)=../lib/elixir/lib/elixir/ebin/elixir.app
+    application:load=ok  .app-modules-lists-Mod=true
+mix app on ERL_LIBS
+    app=exdep  lib_dir=_fx/libA/exdep
+    which=_fx/libA/exdep/ebin/Elixir.ExDep.beam
+    where_is_file(App.app)=_fx/libA/exdep/ebin/exdep.app
+    application:load=ok  .app-modules-lists-Mod=true
+erlc app on ERL_LIBS
+    app=erldep  lib_dir=_fx/libA/erldep
+    which=_fx/libA/erldep/ebin/erldep.beam
+    where_is_file(App.app)=_fx/libA/erldep/ebin/erldep.app
+    application:load=ok  .app-modules-lists-Mod=true
+WRONG app name, right module (ex_dep)
+    app=ex_dep  lib_dir={error,bad_name}
+    which=_fx/libA/exdep/ebin/Elixir.ExDep.beam
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+app name guessed from module (string) for Elixir.String
+    app=string  lib_dir={error,bad_name}
+    which=../lib/elixir/lib/elixir/ebin/Elixir.String.beam
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+module on -pa, in NO app
+    app=orphanmod  lib_dir={error,bad_name}
+    which=_fx/orphan/ebin/orphanmod.beam
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+ebin dir w/o .app on ERL_LIBS
+    app=noappfile  lib_dir=_fx/libA/noappfile
+    which=_fx/libA/noappfile/ebin/noappmod.beam
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+.app says modules=[] but beam present
+    app=bareapp  lib_dir=_fx/libA/bareapp
+    which=_fx/libA/bareapp/ebin/bareapp.beam
+    where_is_file(App.app)=_fx/libA/bareapp/ebin/bareapp.app
+    application:load=ok  .app-modules-lists-Mod=false
+.app lists a module whose beam is absent
+    app=ghostapp  lib_dir=_fx/libA/ghostapp
+    which=non_existing
+    where_is_file(App.app)=_fx/libA/ghostapp/ebin/ghostapp.app
+    application:load=ok  .app-modules-lists-Mod=true
+dir 'dirname_mismatch' holds app 'realname': ask by APP name
+    app=realname  lib_dir={error,bad_name}
+    which=_fx/libA/dirname_mismatch/ebin/realname.beam
+    where_is_file(App.app)=_fx/libA/dirname_mismatch/ebin/realname.app
+    application:load=ok  .app-modules-lists-Mod=true
+...ask by DIR name
+    app=dirname_mismatch  lib_dir=_fx/libA/dirname_mismatch
+    which=_fx/libA/dirname_mismatch/ebin/realname.beam
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+orphan: ask lib_dir by the parent DIR name 'orphan'
+    app=orphan  lib_dir=_fx/orphan
+    which=_fx/orphan/ebin/orphanmod.beam
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+nothing at all
+    app=nosuchapp  lib_dir={error,bad_name}
+    which=non_existing
+    where_is_file(App.app)=non_existing
+    application:load={err,"no such file or directory"}  .app-modules-lists-Mod=n_a
+preloaded module (erlang) / app erts
+    app=erts  lib_dir=../lib/erlang/lib/erts-17.1
+    which=preloaded
+    where_is_file(App.app)=../lib/erlang/lib/erts-17.1/ebin/erts.app
+    application:load=ok  .app-modules-lists-Mod=true
+
+loaded-from-memory module: code:which(inmem)=[]  code:is_loaded(inmem)=file  lib_dir(inmem)={error,
+                                                                                             bad_name}
+
+### machine 2 (NEGATIVE CONTROL: libB lacks the deps; same probe must now report absent): 
+elixir stdlib: String lives in app 'elixir'
+    app=elixir  lib_dir=../lib/elixir/lib/elixir
+    which=../lib/elixir/lib/elixir/ebin/Elixir.String.beam
+    where_is_file(App.app)=../lib/elixir/lib/elixir/ebin/elixir.app
+--
+mix app on ERL_LIBS
+    app=exdep  lib_dir={error,bad_name}
+    which=non_existing
+    where_is_file(App.app)=non_existing
+--
+erlc app on ERL_LIBS
+    app=erldep  lib_dir={error,bad_name}
+    which=non_existing
+    where_is_file(App.app)=non_existing

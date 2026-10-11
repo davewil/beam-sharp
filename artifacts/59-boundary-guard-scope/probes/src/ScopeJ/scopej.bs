@@ -1,0 +1,6 @@
+module ScopeJ
+
+// no private helper at all: the float is added inline
+public int Sum(list<int> xs)
+Sum([])          -> 0
+Sum([h, ..rest]) -> h + 1 + Sum(rest)

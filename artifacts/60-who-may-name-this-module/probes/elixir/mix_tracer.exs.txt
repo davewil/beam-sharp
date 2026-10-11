@@ -1,0 +1,25 @@
+defmodule Probe.Friends do
+  # A who-may-name-me rule written OUTSIDE the compiler, on the tracer hook.
+  # The table is data in the build file: callee module => modules allowed to call it.
+  @friends %{Shop.Orders => [Shop.Reports]}
+
+  def trace({kind, meta, mod, name, arity}, env)
+      when kind in [:remote_function, :remote_macro, :imported_function] do
+    case Map.fetch(@friends, mod) do
+      {:ok, allowed} ->
+        if env.module != mod and env.module not in allowed do
+          raise CompileError,
+            file: env.file,
+            line: meta[:line],
+            description: "#{inspect(env.module)} may not call #{inspect(mod)}.#{name}/#{arity}; friends: #{inspect(allowed)}"
+        end
+
+      :error ->
+        :ok
+    end
+
+    :ok
+  end
+
+  def trace(_event, _env), do: :ok
+end

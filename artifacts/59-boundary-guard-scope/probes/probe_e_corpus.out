@@ -1,0 +1,31 @@
+      1   (skipped exemplars under base: does not compile standalone)
+      1   (skipped exemplars under notag: does not compile standalone)
+      1   (skipped exemplars under widen: does not compile standalone)
+  Aliasing     functions=5   private=1    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Counter      functions=3   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Escalate     functions=2   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Fib          functions=3   private=2    private-with-tag-test=0   private-that-would-gain-kind-test=1 
+  Foreign      functions=7   private=1    private-with-tag-test=0   private-that-would-gain-kind-test=1 
+  Frame        functions=6   private=2    private-with-tag-test=0   private-that-would-gain-kind-test=2 
+  Intake       functions=15  private=13   private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Interop      functions=3   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Label        functions=7   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Ledger       functions=3   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Levels       functions=2   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Math         functions=4   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Names        functions=2   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Parcel       functions=3   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Pipeline     functions=11  private=5    private-with-tag-test=0   private-that-would-gain-kind-test=4 
+  Queue        functions=3   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Readings     functions=1   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Shop.Collect functions=3   private=1    private-with-tag-test=0   private-that-would-gain-kind-test=1 
+  Shop         functions=8   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Signalbox    functions=5   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Stats        functions=4   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Stream       functions=25  private=20   private-with-tag-test=0   private-that-would-gain-kind-test=0 
+  Wire         functions=3   private=0    private-with-tag-test=0   private-that-would-gain-kind-test=0 
+TOTAL functions=128 private=45 private-tag-tests=0 private-kind-tests-if-widened=9
+
+positive control (src/Scope has 1 private record fn + 1 private int fn; the census must see both):
+  Scope        functions=4   private=2    private-with-tag-test=1   private-that-would-gain-kind-test=1 
+TOTAL functions=4 private=2 private-tag-tests=1 private-kind-tests-if-widened=1

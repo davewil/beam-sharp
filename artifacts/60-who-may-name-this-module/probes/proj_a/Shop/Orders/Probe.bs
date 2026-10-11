@@ -1,0 +1,4 @@
+module Shop.Orders
+
+public int Probe(int n)
+Probe(n) -> Hidden(n)

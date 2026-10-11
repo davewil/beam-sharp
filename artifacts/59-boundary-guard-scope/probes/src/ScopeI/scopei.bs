@@ -1,0 +1,10 @@
+module ScopeI
+
+// private int helper called with a value the Erlang compiler cannot type
+// (an element of a list<int> parameter), so erlc cannot elide the widened test.
+public int Sum(list<int> xs)
+Sum([])          -> 0
+Sum([h, ..rest]) -> Bump(h) + Sum(rest)
+
+int Bump(int n)
+Bump(n) -> n + 1

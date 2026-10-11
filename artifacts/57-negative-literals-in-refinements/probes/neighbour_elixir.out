@@ -1,0 +1,18 @@
+expr        -5                             => {:-, [line: 1], [5]}
+expr        - 5                            => {:-, [line: 1], [5]}
+expr        -(5)                           => {:-, [line: 1], [5]}
+expr        -(-5)                          => {:-, [line: 1], [{:-, [line: 1], [5]}]}
+expr        0 - 5                          => {:-, [line: 1], [0, 5]}
+expr        -0                             => {:-, [line: 1], [0]}
+guard       def f(x) when x >= -5, do: x   => {:def, [line: 1], [{:when, [line: 1], [{:f, [line: 1], [{:x, [line: 1], nil}]}, {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}]}, [do: {:x, [line: 1], nil}]]}
+pattern     def f(-5), do: :a              => {:def, [line: 1], [{:f, [line: 1], [{:-, [line: 1], [5]}]}, [do: :a]]}
+pattern     case y do -5 -> :a end         => {:case, [line: 1], [{:y, [line: 1], nil}, [do: [{:->, [line: 1], [[{:-, [line: 1], [5]}], :a]}]]]}
+--- do they compile? (pattern with literal, guard with literal, guard with arithmetic)
+{:lit, :arith_guard, :other}
+--- the expanded (post-expansion) form of -5 in a pattern: folded?
+"fn -5 -> :a end"
+--- control: -x in a pattern must be refused
+error: cannot invoke remote function :erlang.-/1 inside a match
+\x{2514}\x{2500} nofile:1
+
+refused, as it should be

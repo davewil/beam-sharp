@@ -1,0 +1,3 @@
+-record(money, {
+    cents :: integer()
+}).

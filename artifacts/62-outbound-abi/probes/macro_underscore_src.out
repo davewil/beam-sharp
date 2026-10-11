@@ -1,0 +1,76 @@
+source file recorded in debug info: ["lib/macro.ex"]
+
+== camelize/1 defined at Elixir source line {2380, 7}
+camelize(<<>>) ->
+    <<>>;
+camelize(<<95/integer,_t@1/binary>>) ->
+    camelize(_t@1);
+camelize(<<_h@1/integer,_t@1/binary>>) ->
+    <<(to_upper_char(_h@1))/integer,(do_camelize(_t@1))/binary>>.
+
+
+== do_underscore/2 defined at Elixir source line {2331, 8}
+do_underscore(<<_h@1/integer,_t@1/integer,_rest@1/binary>>, _)
+    when
+        ((((_h@1 >= 65
+            andalso
+            _h@1 =< 90)
+           andalso
+           not (_t@1 >= 65
+                andalso
+                _t@1 =< 90))
+          andalso
+          not (_t@1 >= 48
+               andalso
+               _t@1 =< 57))
+         andalso
+         _t@1 /= 46)
+        andalso
+        _t@1 /= 95 ->
+    <<95/integer,
+      (to_lower_char(_h@1))/integer,
+      _t@1/integer,
+      (do_underscore(_rest@1, _t@1))/binary>>;
+do_underscore(<<_h@1/integer,_t@1/binary>>, _prev@1)
+    when
+        ((_h@1 >= 65
+          andalso
+          _h@1 =< 90)
+         andalso
+         not (_prev@1 >= 65
+              andalso
+              _prev@1 =< 90))
+        andalso
+        _prev@1 /= 95 ->
+    <<95/integer,
+      (to_lower_char(_h@1))/integer,
+      (do_underscore(_t@1, _h@1))/binary>>;
+do_underscore(<<46/integer,_t@1/binary>>, _) ->
+    <<47/integer,(underscore(_t@1))/binary>>;
+do_underscore(<<_h@1/integer,_t@1/binary>>, _) ->
+    <<(to_lower_char(_h@1))/integer,(do_underscore(_t@1, _h@1))/binary>>;
+do_underscore(<<>>, _) ->
+    <<>>.
+
+
+== underscore/1 defined at Elixir source line {2316, 7}
+underscore(_atom@1) when is_atom(_atom@1) ->
+    <<"Elixir.",_rest@1/binary>> = atom_to_binary(_atom@1),
+    underscore(_rest@1);
+underscore(<<_h@1/integer,_t@1/binary>>) ->
+    <<(to_lower_char(_h@1))/integer,(do_underscore(_t@1, _h@1))/binary>>;
+underscore(<<>>) ->
+    <<>>.
+
+
+== Macro.underscore behaviour, executed:
+  New              -> new
+  NewHTTP          -> new_http
+  ParseURL         -> parse_url
+  HTTPServer       -> http_server
+  XMLHttpRequest   -> xml_http_request
+  ToJson           -> to_json
+  Shop.Reports     -> shop/reports
+  V2Parse          -> v2_parse
+  Parse2D          -> parse2_d
+  OKResult         -> ok_result

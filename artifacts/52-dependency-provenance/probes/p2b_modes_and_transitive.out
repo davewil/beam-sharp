@@ -1,0 +1,22 @@
+### interactive VM (what bsc is): 
+mode=error
+lib_dir(exdep)="exdep"
+code:which('Elixir.ExDep')="Elixir.ExDep.beam"
+is_loaded before ensure_loaded=false
+ensure_loaded={module,'Elixir.ExDep'}  is_loaded after=file
+
+### embedded-mode VM (what a release is), same ERL_LIBS, plain erl -eval (the escript runs in interactive mode, so use erl directly)
+mode={ok,[["embedded"]]}
+lib_dir(exdep)={error,bad_name}
+which=non_existing
+ensure_loaded={error,embedded}
+
+### embedded-mode VM, NEGATIVE CONTROL: -pa the ebin explicitly (embedded mode honours -pa? it should then find it)
+which="FX/libA/exdep/ebin/Elixir.ExDep.beam"
+ensure_loaded={error,embedded}
+
+### transitive: exdep.app declares applications; are they present on machine 3 (no Elixir)?
+  kernel -> lib_dir "kernel-11.0.4"
+  stdlib -> lib_dir "stdlib-8.1"
+  elixir -> lib_dir bad_name
+  logger -> lib_dir bad_name

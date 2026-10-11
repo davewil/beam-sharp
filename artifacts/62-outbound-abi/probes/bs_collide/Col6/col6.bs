@@ -1,0 +1,5 @@
+module Col6
+
+public int new(int n)
+
+new(n) -> n

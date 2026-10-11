@@ -1,0 +1,44 @@
+probe_c_cost.erl:65:1: Warning: function order/2 is unused
+%   65| order(_M, Kind) -> #{'Id' => 1, 'Total' => 2, 'Kind' => Kind, 'A'=>1,'B'=>2,'C'=>3,'D'=>4,'E'=>5,'F'=>6,'G'=>7,'H'=>8}.
+%     | ^
+
+OTP 29, erts 17.1, JIT=jit
+
+== bytes  (Code chunk / .beam file / .beam stripped of debug_info)
+   One module = 1 public fn calling 1 private fn (+ 1 public/private int pair in Scope)
+   Scope   base    Code=161 file=1448 stripped=426
+   Scope   notag   Code=149 file=1420 stripped=418
+   Scope   widen   Code=161 file=1468 stripped=426
+   Scope: private TAG test = 12 Code bytes (stripped file 8);  private KIND test = 0 Code bytes (stripped file 0)
+   Scope8  base    Code=125 file=1304 stripped=379
+   Scope8  notag   Code=113 file=1272 stripped=370
+   Scope8  widen   Code=125 file=1304 stripped=379
+   Scope8: private TAG test = 12 Code bytes (stripped file 9);  private KIND test = 0 Code bytes (stripped file 0)
+   ScopeI  base    Code=142 file=1080 stripped=330
+   ScopeI  notag   Code=142 file=1080 stripped=330
+   ScopeI  widen   Code=147 file=1120 stripped=330
+   ScopeI: private TAG test = 0 Code bytes (stripped file 0);  private KIND test = 5 Code bytes (stripped file 0)
+   control (same beam twice): delta = 0
+
+== call time, ns/call: 10000000 calls per run, 15 runs, runs of the variants INTERLEAVED
+   timer:tc resolution: 1 us per run => 1e-6 s / 10000000 calls = 0.0001 ns/call (quantisation floor)
+
+   record(3 fields): PubRec -> private PrivRec (tag test lives in PrivRec)
+     base   min=17.735  median=18.631  max=22.218  ns/call
+     notag  min=13.641  median=14.809  max=20.325  ns/call
+     noise floor (base re-loaded, same beam) min=18.124 median=19.196 max=24.650
+
+   record(8 fields): PubRec -> private PrivRec
+     base   min=15.683  median=16.859  max=19.510  ns/call
+     notag  min=13.284  median=14.607  max=16.845  ns/call
+     noise floor (base re-loaded, same beam) min=16.117 median=16.817 max=18.739
+
+   int, erlc can prove the arg: PubInt -> private PrivInt
+     base   min=10.249  median=11.254  max=13.817  ns/call
+     widen  min=10.438  median=11.007  max=13.027  ns/call
+     noise floor (base re-loaded, same beam) min=10.170 median=11.769 max=17.582
+
+   int, erlc cannot prove the arg: Sum(list of 8 ints) -> private Bump(h) per element
+     base   min=50.001  median=52.057  max=61.329  ns/call
+     widen  min=50.356  median=53.377  max=58.782  ns/call
+     noise floor (base re-loaded, same beam) min=48.941 median=52.852 max=55.409

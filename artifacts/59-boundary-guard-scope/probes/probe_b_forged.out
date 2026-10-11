@@ -1,0 +1,53 @@
+### 0. what does bsc accept/refuse when an UNCHECKED value is handed to a private record fn?
+--- src/Fwd
+src/Fwd/fwd.bs:6:13: error: Entry hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    term
+  the clause to add here:
+--- src/Fwd2
+src/Fwd2/fwd2.bs:6:13: error: Entry hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    map<atom, term>
+  the clause to add here:
+--- src/Fwd3
+src/Fwd3/fwd3.bs:6:13: error: Entry hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    map<atom, term>
+  the clause to add here:
+--- src/Narrow
+src/Narrow/narrow.bs:6:19: error: Entry hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    { Kind: :'Narrow.Order' }
+  the clause to add here:
+
+### 1. nested record: Entry(Batch b) -> Inner(b.First), Inner private (Order o)
+[base] well-formed        : 9
+[base] wrong Kind, has Total: crashed: error:function_clause
+[base] wrong Kind, no Total : crashed: error:function_clause
+[notag] well-formed        : 9
+[notag] wrong Kind, has Total: 9
+[notag] wrong Kind, no Total : crashed: badkey :'Total'
+
+### 2. list<Order>: Entry(list<Order>) folds private Inner(Order o) over elements
+[base] well-formed          : 9
+[base] 2nd elem wrong Kind, has Total: crashed: error:function_clause
+[base] 2nd elem wrong Kind, no Total : crashed: error:function_clause
+[notag] well-formed          : 9
+[notag] 2nd elem wrong Kind, has Total: 14
+[notag] 2nd elem wrong Kind, no Total : crashed: badkey :'Total'
+
+### 3. CONTROL: the same forged nested value, but NO function boundary -- projected inline in the exported fn
+[base] inline projection of wrong-Kind nested value: 9
+[notag] inline projection of wrong-Kind nested value: 9
+(the answer is the same under today's emitter: the private tag test only fires if the nested value is handed on)
+
+### 4. The int mirror: Sum(list<int>) -> private Bump(int n), a float forged into the list
+[base] Sum [1, 2]   : 5
+[base] Sum [1, 1.5] : 4.5
+[widen] Sum [1, 2]   : 5
+[widen] Sum [1, 1.5] : crashed: error:function_clause
+(base: a function published list<int> -> int returns 4.5 -- ticket 18's outcome 3, reachable today through a private helper)
+
+### 5. CONTROL for 4: same float, NO private helper -- widening cannot reach it
+[base] ScopeJ.Sum [1, 1.5] (inline): 4.5
+[widen] ScopeJ.Sum [1, 1.5] (inline): 4.5

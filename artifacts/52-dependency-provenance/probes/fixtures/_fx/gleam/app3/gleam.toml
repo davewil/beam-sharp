@@ -1,0 +1,5 @@
+name = "app3"
+version = "1.0.0"
+target = "erlang"
+[dependencies]
+dep3 = { path = "../dep3" }

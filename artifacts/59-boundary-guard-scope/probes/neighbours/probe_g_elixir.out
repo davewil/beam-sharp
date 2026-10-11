@@ -1,0 +1,29 @@
+warning: the VM is running with native name encoding of latin1 which may cause Elixir to malfunction as it expects utf8. Please ensure your locale is set to UTF-8 (which can be verified by running "locale" in your shell) or set the ELIXIR_ERL_OPTIONS="+fnu" environment variable
+Elixir 1.20.4 (compiled with Erlang/OTP 27)
+warning: the VM is running with native name encoding of latin1 which may cause Elixir to malfunction as it expects utf8. Please ensure your locale is set to UTF-8 (which can be verified by running "locale" in your shell) or set the ELIXIR_ERL_OPTIONS="+fnu" environment variable
+pub(1.5) -> private guard runs?: %FunctionClauseError{
+  module: Priv,
+  function: :priv,
+  arity: 1,
+  kind: nil,
+  args: nil,
+  clauses: nil
+}
+pubg(1.5) -> exported guard: %FunctionClauseError{
+  module: Priv,
+  function: :pubg,
+  arity: 1,
+  kind: nil,
+  args: nil,
+  clauses: nil
+}
+tagged(forged kind) -> private tag pattern: %FunctionClauseError{
+  module: Priv,
+  function: :pricom,
+  arity: 1,
+  kind: nil,
+  args: nil,
+  clauses: nil
+}
+tagged(ok): 9
+control: no guard on defp, pub(1.5): 2.5

@@ -1,0 +1,9 @@
+module Scope8
+
+record Order8 { A: int, B: int, C: int, D: int, E: int, F: int, G: int, H: int }
+
+public int PubRec(Order8 o)
+PubRec(o) -> PrivRec(o)
+
+int PrivRec(Order8 o)
+PrivRec(o) -> o.H

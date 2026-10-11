@@ -1,0 +1,6 @@
+module NsB
+
+using Shop.Orders.Internal
+
+public int Poke(int n)
+Poke(n) -> Pricing.RecomputeTotal(n)

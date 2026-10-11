@@ -1,0 +1,9 @@
+// Option A: the app named exists on this machine, but it is not the app that owns the module.
+module WrongOwner
+
+[external: elixir, app: erldep] using :'Elixir.ExDep' {
+    binary shout(binary s)
+}
+
+public binary ViaExDep(binary s)
+ViaExDep(s) -> :'Elixir.ExDep'.shout(s)

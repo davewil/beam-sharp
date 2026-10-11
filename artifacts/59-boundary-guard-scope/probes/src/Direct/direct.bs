@@ -1,0 +1,11 @@
+module Direct
+
+record Order { Id: int, Total: int }
+record Batch { Name: int, First: Order }
+
+// no private function taking a record: the same forged nested value, projected inline
+public int Entry(Batch b)
+
+Entry(b) ->
+    var f = b.First
+    f.Total

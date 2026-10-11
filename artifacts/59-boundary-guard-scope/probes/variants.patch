@@ -1,0 +1,22 @@
+--- /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/59/variants/base/src/bs_emit.erl	2026-10-11 23:09:48.435237772 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/59/variants/notag/src/bs_emit.erl	2026-10-11 23:09:48.466412278 +0000
+@@ -275,7 +275,7 @@
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+-            case constrains_kind(Pat) of
++            case constrains_kind(Pat) orelse not Public of
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+--- /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/59/variants/base/src/bs_emit.erl	2026-10-11 23:09:48.435237772 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/59/variants/widen/src/bs_emit.erl	2026-10-11 23:09:48.467178713 +0000
+@@ -281,7 +281,7 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)

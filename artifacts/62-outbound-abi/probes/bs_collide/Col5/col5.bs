@@ -1,0 +1,13 @@
+module Col5
+
+public int Length(int n)
+
+Length(n) -> n
+
+public int Abs(int n)
+
+Abs(n) -> n
+
+public int Min(int a)
+
+Min(a) -> a

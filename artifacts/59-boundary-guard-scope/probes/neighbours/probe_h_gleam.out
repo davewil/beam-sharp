@@ -1,0 +1,35 @@
+   Compiled in 0.44s
+inner(O) ->
+    element(3, O).
+
+entry(B) ->
+    inner(element(3, B)).
+
+priv_int(N) ->
+    N + 1.
+
+pub_int(N) ->
+    priv_int(N).
+
+money(C) ->
+    {money, C}.
+
+cents(M) ->
+    element(2, M).
+
+pos(N) ->
+    case N of
+        X when X > 0 ->
+            X;
+        _ ->
+            0
+    end.
+
+--- count of guards (when ...) in the emitted functions:
+guarded clauses (any depth) per function: [{inner,0},
+                                           {entry,0},
+                                           {priv_int,0},
+                                           {pub_int,0},
+                                           {money,0},
+                                           {cents,0},
+                                           {pos,1}]

@@ -1,0 +1,42 @@
+--- base/bs_check.erl	2026-10-11 23:15:28.085599225 +0000
++++ C/bs_check.erl	2026-10-11 23:18:36.421576112 +0000
+@@ -511,7 +511,7 @@
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+-    Exports = maps:get(exports, Entry),
++    Exports = maps:without(callback_keys(Entry), maps:get(exports, Entry)),
+     Funs0 = maps:get(funs, Acc),
+     Funs = maps:fold(fun(K, _Sig, F) ->
+                              %% Collisions are errors only at use sites.
+@@ -535,12 +535,18 @@
+ 
+ %% Qualified keys match those resolved by `call/6`.
+ qual_table(World) ->
+-    maps:fold(fun(M, #{exports := Ex}, Acc) ->
++    maps:fold(fun(M, #{exports := Ex} = Entry, Acc) ->
+                       maps:fold(fun({N, A}, Sig, In) ->
+                                         In#{{q, M, N, A} => Sig}
+-                                end, Acc, Ex)
++                                end, Acc, maps:without(callback_keys(Entry), Ex))
+               end, #{}, World).
+ 
++%% Variant C: a behaviour callback is public for OTP's sake and unnameable by
++%% any other module. Reported as the private-function error.
++callback_keys(#{exports := Ex, behaviours := Bs}) ->
++    [K || {N, A} = K <- maps:keys(Ex), bs_otp:callback_name(N, A, Bs) =/= none];
++callback_keys(_) -> [].
++
+ %% Polymorphic templates use the same keys as `call/6`. A missing `polys` entry
+ %% means no polymorphic exports.
+ poly_table(World) ->
+@@ -555,7 +561,8 @@
+ private_table(World) ->
+     maps:fold(fun(M, Entry, Acc) ->
+                       maps:fold(fun({N, A}, _, In) -> In#{{q, M, N, A} => true} end,
+-                                Acc, maps:get(private, Entry, #{}))
++                                Acc, maps:merge(maps:get(private, Entry, #{}),
++                                                maps:from_list([{K, true} || K <- callback_keys(Entry)])))
+               end, #{}, World).
+ 
+ %% Only unambiguous imports reach the emitter. Drop locally declared names so

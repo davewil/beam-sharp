@@ -1,0 +1,38 @@
+== machine 1: ERL_LIBS has the dep apps AND the Elixir install ==
+--- [M1-exdep] ERL_LIBS='FX/libA:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep ViaExDep <<"hi">>
+    "HI"
+    exit=0
+--- [M1-erl] ERL_LIBS='FX/libA:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep ViaErl 21
+    42
+    exit=0
+--- [M1-stdlib] ERL_LIBS='FX/libA:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep ViaStdlib <<"hi">>
+    "HI"
+    exit=0
+== machine 2: a DIFFERENT ERL_LIBS: has Elixir, lacks the dep apps (the ticket's scenario) ==
+--- [M2-exdep] ERL_LIBS='FX/libB:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep ViaExDep <<"hi">>
+    crashed: error:undef
+    exit=1
+--- [M2-erl] ERL_LIBS='FX/libB:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep ViaErl 21
+    crashed: error:undef
+    exit=1
+--- [M2-stdlib] ERL_LIBS='FX/libB:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep ViaStdlib <<"hi">>
+    "HI"
+    exit=0
+== machine 3: ERL_LIBS has the dep apps but NOT Elixir (exdep's own dependency is missing) ==
+--- [M3-exdep] ERL_LIBS='FX/libA'  bsc bs/Dep ViaExDep <<"hi">>
+    crashed: error:undef
+    exit=1
+== NEGATIVE CONTROL: a function touching no foreign module, machine 2 (must succeed: compile did not fail, only the call site does) ==
+--- [M2-pure] ERL_LIBS='FX/libB:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib'  bsc bs/Dep Pure 41
+    42
+    exit=0
+== compile alone (no function named) on machine 2: does bsc complain at compile time? ==
+    exit=0  stderr+stdout shown above (empty = silent)
+    built: Dep.abstr
+    built: Dep.beam
+== the real stack, from an Erlang node on machine 2, calling the beam bsc just produced ==
+    {error,undef,{'Elixir.ExDep',shout,[<<"hi">>],[]}}
+    code:which('Elixir.ExDep') = non_existing
+== same beam on machine 1 (control: the undef disappears when the dep is present) ==
+    {ok,<<"HI">>}
+    code:which('Elixir.ExDep') = "/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/libA/exdep/ebin/Elixir.ExDep.beam"

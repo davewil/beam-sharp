@@ -1,0 +1,12 @@
+### cold: first call in a fresh VM, ERL_LIBS = libA + elixir (3 + ~8 app dirs)
+   cold first call lib_dir       n=25 median=    10.6 us  min=     9.7  max=    44.6
+   cold first call which         n=25 median=    19.0 us  min=    15.9  max=    30.6
+   cold first call where_is_app  n=25 median=     4.5 us  min=     4.0  max=     7.3
+   cold first call app_load      n=25 median=   198.7 us  min=   149.2  max=  1481.4
+### cold: ERL_LIBS = libA + elixir + 300 fake apps
+   cold first call lib_dir       n=25 median=    12.7 us  min=     9.9  max=    47.0
+   cold first call which         n=25 median=    20.6 us  min=    17.8  max=    39.0
+   cold first call where_is_app  n=25 median=     4.6 us  min=     4.2  max=    25.5
+   cold first call app_load      n=25 median=   191.8 us  min=   144.9  max=   361.5
+### warm (200k calls each)
+lib_dir(present app)                 2564.4 ns/call  (200000 calls, 512889 us total)

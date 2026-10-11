@@ -1,0 +1,9 @@
+module Fwd2
+
+record Order { Id: int, Total: int }
+
+public int Entry(map<atom, term> m)
+Entry(m) -> Inner(m)
+
+int Inner(Order o)
+Inner(o) -> o.Total

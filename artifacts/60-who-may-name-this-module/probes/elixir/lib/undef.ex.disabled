@@ -1,0 +1,3 @@
+defmodule UsesUndefined do
+  def a, do: Not.Defined.anything()
+end

@@ -1,0 +1,38 @@
+=== Dep (bsc -o: Dep.abstr Dep.beam ; real bsc beam = 1588 B)
+module /home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/size-Dep/Dep.abstr: 12 forms; foreign modules declared = 3
+V0 baseline (no attribute)                                      no-debug_info=   836 B (delta +0)   debug_info=  1468 B (delta +0)   attr term flat_size=0 words
+V1 one attr per using: -bs_dep({Mod,elixir,App})                no-debug_info=   976 B (delta +140)   debug_info=  1644 B (delta +176)   attr term flat_size=18 words
+V2 one attr per module, deduped apps: -bs_deps([App..])         no-debug_info=   876 B (delta +40)   debug_info=  1532 B (delta +64)   attr term flat_size=8 words
+V3 one attr per using, WITH version string                      no-debug_info=  1000 B (delta +164)   debug_info=  1684 B (delta +216)   attr term flat_size=57 words
+V4 attr per using, long names (control: big payload)            no-debug_info=  1096 B (delta +260)   debug_info=  1776 B (delta +308)   attr term flat_size=18 words
+compile:forms time (30 runs, us): V0 baseline (no attribute)                                 median=2409 min=1975 max=2764
+compile:forms time (30 runs, us): V1 one attr per using: -bs_dep({Mod,elixir,App})           median=2082 min=1948 max=3297
+compile:forms time (30 runs, us): V2 one attr per module, deduped apps: -bs_deps([App..])    median=2001 min=1922 max=2137
+beam_lib:chunks(Bin,[attributes]) without loading: [{bs_deps,
+                                                     [erldep,exdep,string]}]
+--- the first forms bsc emits (shape of the form the attribute joins):
+    %% coding: latin-1
+    {attribute,0,module,'Dep'}.
+    {attribute,0,export,
+               [{'ViaExDep',1},
+                {'ViaErl',1},
+                {'ViaStdlib',1},
+=== Many (bsc -o: Many.abstr Many.beam ; real bsc beam = 1100 B)
+module /home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/size-Many/Many.abstr: 6 forms; foreign modules declared = 12
+V0 baseline (no attribute)                                      no-debug_info=   600 B (delta +0)   debug_info=   976 B (delta +0)   attr term flat_size=0 words
+V1 one attr per using: -bs_dep({Mod,elixir,App})                no-debug_info=  1148 B (delta +548)   debug_info=  1580 B (delta +604)   attr term flat_size=72 words
+V2 one attr per module, deduped apps: -bs_deps([App..])         no-debug_info=   636 B (delta +36)   debug_info=  1036 B (delta +60)   attr term flat_size=8 words
+V3 one attr per using, WITH version string                      no-debug_info=  1256 B (delta +656)   debug_info=  1708 B (delta +732)   attr term flat_size=228 words
+V4 attr per using, long names (control: big payload)            no-debug_info=  1628 B (delta +1028)   debug_info=  2076 B (delta +1100)   attr term flat_size=72 words
+compile:forms time (30 runs, us): V0 baseline (no attribute)                                 median=934 min=828 max=1214
+compile:forms time (30 runs, us): V1 one attr per using: -bs_dep({Mod,elixir,App})           median=1152 min=832 max=3805
+compile:forms time (30 runs, us): V2 one attr per module, deduped apps: -bs_deps([App..])    median=948 min=831 max=4459
+beam_lib:chunks(Bin,[attributes]) without loading: [{bs_deps,
+                                                     [finch,jason,req]}]
+--- the first forms bsc emits (shape of the form the attribute joins):
+    %% coding: latin-1
+    {attribute,0,module,'Many'}.
+    {attribute,0,export,[{'Run',1},{bs@type_atoms,0}]}.
+    {function,0,bs@type_atoms,0,[{clause,0,[],[],[{nil,0}]}]}.
+    {attribute,0,file,
+               {"/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/bs/Many/many.bs",

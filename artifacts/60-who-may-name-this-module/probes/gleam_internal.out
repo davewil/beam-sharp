@@ -1,0 +1,54 @@
+gleam 1.19.1
+### 1. app (other package) imports lib/internal/secret and calls @internal lib.attr_internal
+  Compiling lib
+warning: Unused private function
+  ┌─ /tmp/tmp.W6EyXWCzu3/lib/src/lib/helper.gleam:8:1
+  │
+8 │ fn really_private(n: Int) -> Int {
+  │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ This private function is never used
+
+Hint: You can safely remove it.
+
+   Compiled in 0.45s
+gleam build exit=0
+app:main() = 16  (5*2 + 2*3 = 16 means BOTH the internal module and @internal fn were reached)
+
+### 2. what the package interface (docs/tooling) shows of lib
+module lib functions ['public_api'] types ['Visible']
+module lib/helper functions ['via_helper'] types []
+NOT listed: module lib/internal/secret, fn attr_internal, type HiddenType
+
+### 3. explicit internal_modules in gleam.toml, other package still imports it?
+  Resolving versions
+  Compiling lib
+warning: Unused private function
+  ┌─ /tmp/tmp.W6EyXWCzu3/lib/src/lib/helper.gleam:8:1
+  │
+8 │ fn really_private(n: Int) -> Int {
+  │ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ This private function is never used
+
+Hint: You can safely remove it.
+
+  Compiling app
+   Compiled in 0.54s
+exit=0
+
+### 4. NEGATIVE CONTROL: the compiler DOES enforce a non-pub function (so the probe could see an error)
+  Compiling app
+warning: Unused imported module
+  ┌─ /tmp/tmp.W6EyXWCzu3/app/src/app_ctl.gleam:1:1
+  │
+1 │ import lib/helper
+  │ ^^^^^^^^^^^^^^^^^ This imported module is never used
+
+Hint: You can safely remove it.
+
+error: Unknown module value
+  ┌─ /tmp/tmp.W6EyXWCzu3/app/src/app_ctl.gleam:4:10
+  │
+4 │   helper.really_private(1)
+  │          ^^^^^^^^^^^^^^ Did you mean `via_helper`?
+
+The module `lib/helper` does not have a `really_private` value.
+
+exit=1

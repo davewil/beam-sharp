@@ -1,0 +1,159 @@
+--- base/bs_check.erl	2026-10-11 23:15:28.085599225 +0000
++++ B/bs_check.erl	2026-10-11 23:18:14.593920985 +0000
+@@ -492,19 +492,21 @@
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+                 #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+                   polys => poly_table(World),
+-                  privates => private_table(World), imported => []},
++                  privates => private_table(World), imported => [],
++                  self => Self, mode => Mode, world => World},
+                 Imports).
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> may_name(L, M, Self, World, Mode),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, nameable(Children, Self, World, Mode), Acc)
+             end
+     end.
+ 
+@@ -524,7 +526,10 @@
+                       end, maps:get(types, Acc), maps:get(types, Entry, #{})),
+     Acc#{funs := Funs, types := Types, imported := [M | maps:get(imported, Acc)]}.
+ 
+-add_namespace_import(Prefix, Children, Acc) ->
++add_namespace_import(Prefix, {Children, Denied}, Acc0) ->
++    Acc = Acc0#{denied => lists:foldl(
++                    fun({C, Why}, D) -> D#{strip_prefix(Prefix, C) => {C, Why}, C => {C, Why}} end,
++                    maps:get(denied, Acc0, #{}), Denied)},
+     Mods0 = maps:get(mods, Acc),
+     Mods = lists:foldl(fun(Child, Ms) ->
+                                Short = strip_prefix(Prefix, Child),
+@@ -1045,6 +1050,7 @@
+ %% Explicit opt-in for errors that need an enclosing declaration's position.
+ positionless(unknown_type)    -> true;
+ positionless(ambiguous_type)  -> true;
++positionless(denied_type)     -> true;
+ positionless(unknown_builtin) -> true;
+ positionless(generic_arity)   -> true;
+ positionless(needs_type_args) -> true;
+@@ -1308,8 +1314,9 @@
+     #{};
+ imported_types(Imports, World) ->
+     Full = maps:fold(fun(M, Entry, Acc) ->
++                             Gate = type_gate(Imports, M, World),
+                              maps:fold(fun(N, T, In) ->
+-                                               In#{qualified(M, N) => T}
++                                               In#{qualified(M, N) => case Gate of true -> T; {false, W} -> {denied, M, W} end}
+                                        end, Acc, maps:get(types, Entry, #{}))
+                      end, #{}, World),
+     Short = maps:fold(fun(S, Ms, Acc) -> short_types(S, Ms, World, Acc) end,
+@@ -1319,6 +1326,9 @@
+                     end, maps:get(types, Imports)),
+     maps:merge(maps:merge(Short, Full), Bare).
+ 
++type_gate(#{mode := strict, self := Self}, M, World) -> allowed(Self, M, World);
++type_gate(_, _, _) -> true.
++
+ short_types(S, [M], World, Acc) ->
+     maps:fold(fun(N, T, In) -> In#{qualified(S, N) => T} end, Acc,
+               maps:get(types, maps:get(M, World), #{}));
+@@ -1841,6 +1851,7 @@
+                 %% are valid. Qualified names disambiguate.
+                 {ambiguous, Mods} ->
+                     erlang:error({ambiguous_type, N, Mods});
++                {denied, M, W} -> erlang:error({denied_type, M, N, W});
+                 T when is_map(T) -> T;
+                 Surface -> bs_types:mu(N, resolve(Surface, Env, [N | Seen]))
+             end
+@@ -4428,7 +4439,38 @@
+ require_imported(Mod, L, C) ->
+     case lists:member(Mod, maps:get(imported, C#ctx.imports, [])) of
+         true  -> Mod;
+-        false -> erlang:error({module_not_imported, Mod, L})
++        false -> case maps:get(Mod, maps:get(denied, C#ctx.imports, #{}), none) of
++                     {Full, Why} -> erlang:error({not_a_friend, Full, Why, L});
++                     none        -> erlang:error({module_not_imported, Mod, L})
++                 end
++    end.
++
++%%% Who may name a module (ticket 60 prototype, variant A: callee lists friends)
++may_name(_L, _M, _Self, _World, lenient) -> ok;
++may_name(L, M, Self, World, strict) ->
++    case allowed(Self, M, World) of
++        true       -> ok;
++        {false, W} -> erlang:error({not_a_friend, M, W, L})
++    end.
++
++nameable(Children, _Self, _World, lenient) -> {Children, []};
++nameable(Children, Self, World, strict) ->
++    Checked = [{C, allowed(Self, C, World)} || C <- Children],
++    {[C || {C, true} <- Checked], [{C, W} || {C, {false, W}} <- Checked]}.
++
++%% Variant B: no declaration. A module whose path has an `Internal` segment may be
++%% named only from the segment's parent and below.
++allowed(Self, M, _World) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}      -> true;
++        {Parent, _}  ->
++            P = string:join(Parent, "."),
++            case Parent =:= [] orelse atom_to_list(Self) =:= P
++                     orelse lists:prefix(P ++ ".", atom_to_list(Self)) of
++                true  -> true;
++                false -> {false, P ++ " and the modules beneath it"}
++            end
+     end.
+ 
+ qualified_name(Mod, Fun) ->
+--- base/bs_diag.erl	2026-10-11 23:15:28.085736959 +0000
++++ B/bs_diag.erl	2026-10-11 23:19:24.626774474 +0000
+@@ -550,6 +550,8 @@
+ built(Path, {type_module_not_imported, Mod, N}) ->
+     #{tag => type_module_not_imported, severity => error, file => Path,
+       module => Mod, type => N};
++built(Path, {denied_type, Mod, N, Why}) ->
++    #{tag => denied_type, severity => error, file => Path, type => N, module => Mod, rule => Why};
+ built(Path, {ambiguous_type, N, Mods}) ->
+     #{tag => ambiguous_type, severity => error, file => Path, type => N,
+       candidates => Mods,
+@@ -664,6 +666,9 @@
+ built(Path, {module_not_imported, Mod, Line}) ->
+     #{tag => module_not_imported, severity => error, file => Path, line => Line,
+       module => Mod};
++built(Path, {not_a_friend, Mod, Why, Line}) ->
++    #{tag => not_a_friend, severity => error, file => Path, line => Line,
++      module => Mod, rule => Why};
+ built(Path, {ambiguous_module, Short, Mods, Line}) ->
+     #{tag => ambiguous_module, severity => error, file => Path, line => Line,
+       module => Short, candidates => Mods};
+@@ -1864,6 +1869,9 @@
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+      "  and a type that skips them makes that list wrong.~n",
+      placed_args(D) ++ [Mod, N, Mod, Mod]};
++message(#{tag := denied_type, type := N, module := Mod, rule := Why} = D) ->
++    {placed(D) ++ "error: ~s names ~s, which may be named only from ~s~n",
++     placed_args(D) ++ [N, Mod, Why]};
+ message(#{tag := ambiguous_type, type := N, candidates := Mods} = D) ->
+     {placed(D) ++ "error: ~s is ambiguous — ~p imports declare it~n"
+      "  name one of these instead:~n"
+@@ -2080,6 +2088,11 @@
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+      "  and a call that skips them makes that list wrong.~n",
+      [P, L, C, Mod, Mod]};
++message(#{tag := not_a_friend, file := P, line := L, column := C, module := Mod, rule := Why}) ->
++    {"~s:~p:~p: error: ~s may not be named from this module~n"
++     "  a module under an `Internal` directory may be named only from ~s~n"
++     "  move this module beneath that directory, or move the module out of `Internal`.~n",
++     [P, L, C, Mod, Why]};
+ message(#{tag := ambiguous_module, file := P, line := L, column := C, module := Short,
+           candidates := Mods}) ->
+     {"~s:~p:~p: error: ~s is ambiguous — ~p namespaces hold a module of that name~n"

@@ -1,0 +1,229 @@
+--- base/bs_check.erl	2026-10-11 23:15:28.085599225 +0000
++++ A/bs_check.erl	2026-10-11 23:17:34.057698507 +0000
+@@ -10,7 +10,7 @@
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+--export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
++-export([friends_of/1, exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
+ %% The emitter publishes polymorphic signatures under the erased environment.
+ -export([polys_of/2, erased_env/2, type_source/1]).
+ %% F64: which records implement a protocol, for a dependent's World entry, and
+@@ -492,19 +492,21 @@
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+                 #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+                   polys => poly_table(World),
+-                  privates => private_table(World), imported => []},
++                  privates => private_table(World), imported => [],
++                  self => Self, mode => Mode, world => World},
+                 Imports).
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> may_name(L, M, Self, World, Mode),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, nameable(Children, Self, World, Mode), Acc)
+             end
+     end.
+ 
+@@ -524,7 +526,10 @@
+                       end, maps:get(types, Acc), maps:get(types, Entry, #{})),
+     Acc#{funs := Funs, types := Types, imported := [M | maps:get(imported, Acc)]}.
+ 
+-add_namespace_import(Prefix, Children, Acc) ->
++add_namespace_import(Prefix, {Children, Denied}, Acc0) ->
++    Acc = Acc0#{denied => lists:foldl(
++                    fun({C, Why}, D) -> D#{strip_prefix(Prefix, C) => {C, Why}, C => {C, Why}} end,
++                    maps:get(denied, Acc0, #{}), Denied)},
+     Mods0 = maps:get(mods, Acc),
+     Mods = lists:foldl(fun(Child, Ms) ->
+                                Short = strip_prefix(Prefix, Child),
+@@ -1045,6 +1050,7 @@
+ %% Explicit opt-in for errors that need an enclosing declaration's position.
+ positionless(unknown_type)    -> true;
+ positionless(ambiguous_type)  -> true;
++positionless(denied_type)     -> true;
+ positionless(unknown_builtin) -> true;
+ positionless(generic_arity)   -> true;
+ positionless(needs_type_args) -> true;
+@@ -1308,8 +1314,9 @@
+     #{};
+ imported_types(Imports, World) ->
+     Full = maps:fold(fun(M, Entry, Acc) ->
++                             Gate = type_gate(Imports, M, World),
+                              maps:fold(fun(N, T, In) ->
+-                                               In#{qualified(M, N) => T}
++                                               In#{qualified(M, N) => case Gate of true -> T; {false, W} -> {denied, M, W} end}
+                                        end, Acc, maps:get(types, Entry, #{}))
+                      end, #{}, World),
+     Short = maps:fold(fun(S, Ms, Acc) -> short_types(S, Ms, World, Acc) end,
+@@ -1319,6 +1326,9 @@
+                     end, maps:get(types, Imports)),
+     maps:merge(maps:merge(Short, Full), Bare).
+ 
++type_gate(#{mode := strict, self := Self}, M, World) -> allowed(Self, M, World);
++type_gate(_, _, _) -> true.
++
+ short_types(S, [M], World, Acc) ->
+     maps:fold(fun(N, T, In) -> In#{qualified(S, N) => T} end, Acc,
+               maps:get(types, maps:get(M, World), #{}));
+@@ -1841,6 +1851,7 @@
+                 %% are valid. Qualified names disambiguate.
+                 {ambiguous, Mods} ->
+                     erlang:error({ambiguous_type, N, Mods});
++                {denied, M, W} -> erlang:error({denied_type, M, N, W});
+                 T when is_map(T) -> T;
+                 Surface -> bs_types:mu(N, resolve(Surface, Env, [N | Seen]))
+             end
+@@ -4428,9 +4439,42 @@
+ require_imported(Mod, L, C) ->
+     case lists:member(Mod, maps:get(imported, C#ctx.imports, [])) of
+         true  -> Mod;
+-        false -> erlang:error({module_not_imported, Mod, L})
++        false -> case maps:get(Mod, maps:get(denied, C#ctx.imports, #{}), none) of
++                     {Full, Why} -> erlang:error({not_a_friend, Full, Why, L});
++                     none        -> erlang:error({module_not_imported, Mod, L})
++                 end
++    end.
++
++%%% Who may name a module (ticket 60 prototype, variant A: callee lists friends)
++may_name(_L, _M, _Self, _World, lenient) -> ok;
++may_name(L, M, Self, World, strict) ->
++    case allowed(Self, M, World) of
++        true       -> ok;
++        {false, W} -> erlang:error({not_a_friend, M, W, L})
++    end.
++
++nameable(Children, _Self, _World, lenient) -> {Children, []};
++nameable(Children, Self, World, strict) ->
++    Checked = [{C, allowed(Self, C, World)} || C <- Children],
++    {[C || {C, true} <- Checked], [{C, W} || {C, {false, W}} <- Checked]}.
++
++allowed(Self, M, World) ->
++    case maps:get(friends, maps:get(M, World), []) of
++        [] -> true;
++        Fr -> case Self =:= M orelse lists:any(fun(F) -> friend_match(F, Self) end, Fr) of
++                  true  -> true;
++                  false -> {false, friend_text(Fr)}
++              end
+     end.
+ 
++friend_match({F, exact}, Self)   -> F =:= Self;
++friend_match({F, subtree}, Self) -> Self =:= F orelse lists:prefix(atom_to_list(F) ++ ".", atom_to_list(Self)).
++
++friend_text(Fr) ->
++    string:join([atom_to_list(F) ++ case K of exact -> ""; subtree -> ".*" end || {F, K} <- Fr], ", ").
++
++friends_of(Decls) -> [{F, K} || {friend, _, F, K} <- Decls].
++
+ qualified_name(Mod, Fun) ->
+     list_to_atom(atom_to_list(Mod) ++ "." ++ atom_to_list(Fun)).
+ 
+--- base/bs_diag.erl	2026-10-11 23:15:28.085736959 +0000
++++ A/bs_diag.erl	2026-10-11 23:17:34.051665953 +0000
+@@ -550,6 +550,8 @@
+ built(Path, {type_module_not_imported, Mod, N}) ->
+     #{tag => type_module_not_imported, severity => error, file => Path,
+       module => Mod, type => N};
++built(Path, {denied_type, Mod, N, Why}) ->
++    #{tag => denied_type, severity => error, file => Path, type => N, module => Mod, rule => Why};
+ built(Path, {ambiguous_type, N, Mods}) ->
+     #{tag => ambiguous_type, severity => error, file => Path, type => N,
+       candidates => Mods,
+@@ -664,6 +666,9 @@
+ built(Path, {module_not_imported, Mod, Line}) ->
+     #{tag => module_not_imported, severity => error, file => Path, line => Line,
+       module => Mod};
++built(Path, {not_a_friend, Mod, Why, Line}) ->
++    #{tag => not_a_friend, severity => error, file => Path, line => Line,
++      module => Mod, rule => Why};
+ built(Path, {ambiguous_module, Short, Mods, Line}) ->
+     #{tag => ambiguous_module, severity => error, file => Path, line => Line,
+       module => Short, candidates => Mods};
+@@ -1864,6 +1869,9 @@
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+      "  and a type that skips them makes that list wrong.~n",
+      placed_args(D) ++ [Mod, N, Mod, Mod]};
++message(#{tag := denied_type, type := N, module := Mod, rule := Why} = D) ->
++    {placed(D) ++ "error: ~s names ~s, and ~s lists who may name it: ~s~n",
++     placed_args(D) ++ [N, Mod, Mod, Why]};
+ message(#{tag := ambiguous_type, type := N, candidates := Mods} = D) ->
+     {placed(D) ++ "error: ~s is ambiguous — ~p imports declare it~n"
+      "  name one of these instead:~n"
+@@ -2080,6 +2088,11 @@
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+      "  and a call that skips them makes that list wrong.~n",
+      [P, L, C, Mod, Mod]};
++message(#{tag := not_a_friend, file := P, line := L, column := C, module := Mod, rule := Why}) ->
++    {"~s:~p:~p: error: ~s may not be named from this module~n"
++     "  ~s lists who may name it: ~s~n"
++     "  add this module to its `friend` list, or move the call to one that is listed.~n",
++     [P, L, C, Mod, Mod, Why]};
+ message(#{tag := ambiguous_module, file := P, line := L, column := C, module := Short,
+           candidates := Mods}) ->
+     {"~s:~p:~p: error: ~s is ambiguous — ~p namespaces hold a module of that name~n"
+--- base/bs_lexer.xrl	2026-10-11 23:15:28.086574924 +0000
++++ A/bs_lexer.xrl	2026-10-11 23:16:13.560296775 +0000
+@@ -54,6 +54,7 @@
+ in                      : {token, {'in', TokenLoc}}.
+ %% Visibility is written on the signature, in C#'s words: `public` exports a
+ %% function and there is no separate export list (F12, ticket 40 §3).
++friend                  : {token, {'friend', TokenLoc}}.
+ public                  : {token, {'public',  TokenLoc}}.
+ private                 : {token, {'private', TokenLoc}}.
+ %% `record` declares a record type (ticket 26 §1).
+--- base/bs_parser.yrl	2026-10-11 23:15:28.086645951 +0000
++++ A/bs_parser.yrl	2026-10-11 23:16:13.560922536 +0000
+@@ -10,7 +10,7 @@
+ Nonterminals
+   program decls decl
+   comp_quals comp_qual
+-  module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
++  module_decl friend_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
+   behaviour_decl record_decl field_decls field_decl open_field_decls
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+@@ -25,7 +25,7 @@
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'friend' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -103,6 +103,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> friend_decl : '$1'.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+@@ -183,6 +184,8 @@
+ %% name, like the foreign form above; the two are one construct, told apart
+ %% by the token class of what follows `using` (ticket 41 §1).
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
++friend_decl -> 'friend' modpath : {friend, line('$1'), modatom('$2'), exact}.
++friend_decl -> 'friend' modpath '.' '*' : {friend, line('$1'), modatom('$2'), subtree}.
+ 
+ %% --- module -----------------------------------------------------------------
+ %% A module's atom is its full dotted path, because a record tag is minted as
+--- base/bsc.erl	2026-10-11 23:15:28.086507260 +0000
++++ A/bsc.erl	2026-10-11 23:16:13.552342116 +0000
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     friends => bs_check:friends_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to

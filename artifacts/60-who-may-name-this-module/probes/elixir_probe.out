@@ -1,0 +1,60 @@
+Elixir 1.20.4 (compiled with Erlang/OTP 27)
+### 1. Elsewhere calls Shop.Orders.recompute_total (@doc false in a @moduledoc false module) and old_total (@deprecated)
+Compiling 3 files (.ex)
+    warning: Shop.Orders.old_total/1 is deprecated. use apply_order/1
+    \x{2502}
+  4 \x{2502}   def old(n), do: Shop.Orders.old_total(n)
+    \x{2502}                               ~
+    \x{2502}
+    \x{2514}\x{2500} lib/elsewhere.ex:4:31: Elsewhere.old/1
+
+Generated probe app
+exit=0
+
+### 2. mix xref: the call graph is queryable, but it is a report, not a gate
+    warning: Shop.Orders.old_total/1 is deprecated. use apply_order/1
+    \x{2502}
+  4 \x{2502}   def old(n), do: Shop.Orders.old_total(n)
+    \x{2502}                               ~
+    \x{2502}
+    \x{2514}\x{2500} lib/elsewhere.ex:4:31: Elsewhere.old/1
+
+lib/elsewhere.ex (runtime)
+lib/reports.ex (runtime)
+exit=0
+
+### 3. NEGATIVE CONTROL: defp across modules (a warning, not an error, until escalated)
+Compiling 1 file (.ex)
+    warning: Shop.Orders.hidden/1 is undefined or private
+    \x{2502}
+  2 \x{2502}   def poke(n), do: Shop.Orders.hidden(n)
+    \x{2502}                                ~
+    \x{2502}
+exit=0  <- a WARNING, the build succeeds
+** (UndefinedFunctionError) function Shop.Orders.hidden/1 is undefined or private
+--- escalated with --warnings-as-errors:
+Compilation failed due to warnings while using the --warnings-as-errors option
+exit=1
+
+### 4. @compile {:no_warn_undefined, ...} only silences the undefined-module warning; it is not a visibility switch
+    warning: Shop.Orders.old_total/1 is deprecated. use apply_order/1
+    \x{2502}
+  4 \x{2502}   def old(n), do: Shop.Orders.old_total(n)
+    \x{2502}                               ~
+--
+    warning: Not.Defined.anything/0 is undefined (module Not.Defined is not available or is yet to be defined)
+    \x{2502}
+  2 \x{2502}   def a, do: Not.Defined.anything()
+--- with @compile {:no_warn_undefined, Not.Defined}:
+0
+
+### 5. a who-may-call-me rule via the compiler tracer hook (what the Boundary library is built on)
+Compiling 3 files (.ex)
+
+== Compilation error in file lib/elsewhere.ex ==
+** (CompileError) lib/elsewhere.ex:3: Elsewhere may not call Shop.Orders.recompute_total/1; friends: [Shop.Reports]
+exit=1
+--- remove the offending caller; the allowed friend (Shop.Reports) alone passes:
+Compiling 2 files (.ex)
+Generated probe app
+exit=0

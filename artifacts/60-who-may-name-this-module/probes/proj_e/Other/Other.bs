@@ -1,0 +1,6 @@
+module Other
+
+using Shop.Orders
+
+public int Poke(int n)
+Poke(n) -> RecomputeTotal(n)

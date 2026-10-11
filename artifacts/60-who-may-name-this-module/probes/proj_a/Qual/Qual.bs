@@ -1,0 +1,4 @@
+module Qual
+
+public int Poke(int n)
+Poke(n) -> Shop.Orders.RecomputeTotal(n)

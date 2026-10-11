@@ -1,0 +1,30 @@
+### 1. does the literal -5 have the type -5..-5? (return into a negative refinement; type uses 0 so it is writable today)
+Neg/a.bs:8:1: error: Sub returns a value its signature does not declare
+
+### 2. ticket 38: provably-zero divisor is refused. Is -0 provably zero?
+Div/a.bs:3:13: error: the right-hand side of `/` in Bad is always zero
+Div/a.bs:7:14: error: the right-hand side of `/` in Bad3 is always zero
+
+### 3. runtime values (bsc PATH FUNCTION)
+Lit  -5
+Dbl  5
+Sp   -5
+D    -3
+R    -1
+M    -7
+Big  -99999999999999999999999
+F    -0.0
+
+### 4. emitted abstract form of -5 in an expression and in a guard
+{function,0,'Lit',0,[{clause,{3,1},[],[],[{integer,{3,11},-5}]}]}. {attribute,0,spec, {{'Sign',1}, [{type,0,'fun', 
+ [{var,{5,1},'N'}]}, {op,{5,16},'=<',{var,{5,14},'N'},{integer,{5,20},-1}}}]], [{atom,{5,25},neg}]}, 
+
+### 5. guard with a negative literal and no catch-all (baseline: reported as non-exhaustive)
+-- same program with n < 0 (control: must be accepted on every build)
+(empty above = accepted)
+
+### 6. residual of a bounded signed domain
+subtract(-10..10, 0) prints: -10..-1 | 1..10
+Res/a.bs:3:13: error: Sg is not exhaustive
+  no clause matches:
+    Sg(>= -10 and <= -1) -> ...

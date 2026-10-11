@@ -1,0 +1,80 @@
+--- bs_emit.erl
++++ bs_emit.erl
+@@ -16,7 +16,7 @@
+ 
+ -module(bs_emit).
+ 
+--export([forms/1, to_abstr/1]).
++-export([forms/1, to_abstr/1, snake/1]).
+ 
+ -define(A, 0).
+ 
+@@ -74,7 +74,8 @@
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+-                             ++ [{type_atoms_name(), 0}]}]
++                             ++ [{type_atoms_name(), 0}]
++                             ++ alias_exports(Exports, Behaviours)}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+@@ -97,11 +98,11 @@
+ %% one file, so every note the checker left is keyed by its file as well.
+ file_group(undefined, Fns, Env, Behaviours, Ctx0) ->
+     Ctx = Ctx0#{file => undefined},
+-    lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] || F <- Fns]);
++    lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] ++ alias_forms(F, Env, Behaviours, Ctx) || F <- Fns]);
+ file_group(Path, Fns, Env, Behaviours, Ctx0) ->
+     Ctx = Ctx0#{file => Path},
+     [{attribute, ?A, file, {Path, 1}}
+-     | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
++     | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] ++ alias_forms(F, Env, Behaviours, Ctx)
+                      || F <- Fns])].
+ 
+ %% The checker's note for the node at `L` in the file being emitted, where the
+@@ -2950,3 +2951,44 @@
+ to_abstr(Forms) ->
+     iolist_to_binary(["%% coding: latin-1\n"
+                       | [io_lib:format("~p.~n", [F]) || F <- Forms]]).
++
++
++%%% ---- EXPERIMENT (ticket 62 probe): snake_case aliases. BS_ALIAS_MODE = none | forward | forward_nospec | dup
++alias_mode() -> case os:getenv("BS_ALIAS_MODE") of false -> none; M -> list_to_atom(M) end.
++
++alias_exports(Exports, Behaviours) ->
++    case alias_mode() of
++        none -> [];
++        _ -> [{snake(name(F, Behaviours)), A} || {F, A} <- Exports]
++    end.
++
++alias_forms(F, Env, Behaviours, Ctx) ->
++    case {alias_mode(), is_public(F)} of
++        {none, _} -> [];
++        {_, false} -> [];
++        {Mode, true} ->
++            N = name(F, Behaviours), Ar = arity(F), Al = snake(N),
++            case Al =:= N of
++                true -> [];
++                false ->
++                    F2 = setelement(2, F, Al),
++                    Spec = spec_attr(F2, Env, []),
++                    Vars = [{var, ?A, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, Ar)],
++                    Fwd = {function, ?A, Al, Ar, [{clause, ?A, Vars, [], [{call, ?A, {atom, ?A, N}, Vars}]}]},
++                    case Mode of
++                        forward -> [Spec, Fwd];
++                        forward_nospec -> [Fwd];
++                        dup -> [Spec, function(F2, Ctx)]
++                    end
++            end
++    end.
++
++%% The simplest deterministic rule: '_' before an uppercase letter that follows a lowercase letter or digit; lowercase everything.
++snake(Atom) ->
++    list_to_atom(snake_(atom_to_list(Atom), [], $_)).
++snake_([], Acc, _) -> lists:reverse(Acc);
++snake_([C | T], Acc, Prev) when C >= $A, C =< $Z ->
++    Sep = (Prev >= $a andalso Prev =< $z) orelse (Prev >= $0 andalso Prev =< $9),
++    Acc1 = case Sep of true -> [$_ | Acc]; false -> Acc end,
++    snake_(T, [C + 32 | Acc1], C);
++snake_([C | T], Acc, _) -> snake_(T, [C | Acc], C).

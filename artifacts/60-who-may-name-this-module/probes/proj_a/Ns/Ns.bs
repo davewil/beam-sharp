@@ -1,0 +1,6 @@
+module Ns
+
+using Shop
+
+public int Poke(int n)
+Poke(n) -> Orders.RecomputeTotal(n)

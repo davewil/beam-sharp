@@ -1,0 +1,18 @@
+=== compiler variant: base   (base = today; notag/widen = the two scratch patches, so the detector is shown able to go red/green)
+PubRec   exported guard=[map_get]
+PrivRec  private  guard=[map_get]
+PubInt   exported guard=[is_integer]
+PrivInt  private  guard=[]
+   .beam bytes: 1448
+=== compiler variant: notag   (base = today; notag/widen = the two scratch patches, so the detector is shown able to go red/green)
+PubRec   exported guard=[map_get]
+PrivRec  private  guard=[]
+PubInt   exported guard=[is_integer]
+PrivInt  private  guard=[]
+   .beam bytes: 1420
+=== compiler variant: widen   (base = today; notag/widen = the two scratch patches, so the detector is shown able to go red/green)
+PubRec   exported guard=[map_get]
+PrivRec  private  guard=[map_get]
+PubInt   exported guard=[is_integer]
+PrivInt  private  guard=[is_integer]
+   .beam bytes: 1468

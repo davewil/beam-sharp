@@ -1,0 +1,55 @@
+=== 1a. three candidate rules (A = simple, B = Elixir Macro.underscore, C = every capital is a word break)
+B# name          simple rule(A)     Macro.underscore(B per-capital(C)    
+New              new                new                new               
+NewHTTP          new_http           new_http           new_h_t_t_p       
+ParseURL         parse_url          parse_url          parse_u_r_l       
+HTTPServer       httpserver         http_server        h_t_t_p_server    
+XMLHttpRequest   xmlhttp_request    xml_http_request   x_m_l_http_request
+ToJson           to_json            to_json            to_json           
+OKResult         okresult           ok_result          o_k_result        
+V2Parse          v2_parse           v2_parse           v2_parse          
+Parse2D          parse2_d           parse2_d           parse2_d          
+Parse2d          parse2d            parse2d            parse2d           
+GetURLFor        get_urlfor         get_url_for        get_u_r_l_for     
+NewUrl           new_url            new_url            new_url           
+NewURL           new_url            new_url            new_u_r_l         
+IOList           iolist             io_list            i_o_list          
+Id               id                 id                 id                
+A                a                  a                  a                 
+AB               ab                 ab                 a_b               
+
+=== 1b. ground truth for B: the REAL Elixir Macro.underscore
+New              new
+NewHTTP          new_http
+ParseURL         parse_url
+HTTPServer       http_server
+XMLHttpRequest   xml_http_request
+ToJson           to_json
+OKResult         ok_result
+V2Parse          v2_parse
+Parse2D          parse2_d
+Parse2d          parse2d
+GetURLFor        get_url_for
+NewUrl           new_url
+NewURL           new_url
+IOList           io_list
+Id               id
+A                a
+AB               ab
+
+=== 1c. ground truth for C: REAL gleam compiling these as VARIANT names (functions cannot be PascalCase in Gleam, probe 02)
+-type t() :: new | new_h_t_t_p | parse_u_r_l | h_t_t_p_server | x_m_l_http_request | to_json | o_k_result | v2_parse | parse2_d | parse2d | get_u_r_l_for | new_url | new_u_r_l | i_o_list | id | a | a_b. 
+
+=== 2. collisions the alias creates (stock compiler vs patched with BS_ALIAS_MODE=forward)
+--- Col2: module Col2 public int NewUrl(int n) NewUrl(n) -> n public int NewURL(int n) NewURL(n) -> n + 1 
+  stock  :  beam: 1
+  patched: compile: bs_collide/Col2/col2.bs:0: function new_url/1 already defined|bs_collide/Col2/col2.bs:0: spec for new_url/1 already defined|p/Col2/Col2.abstr:0: Warning: function new_url/1 already exported|| beam: 0
+--- Col3: module Col3 public int ModuleInfo(int n) ModuleInfo(n) -> n 
+  stock  :  beam: 1
+  patched: compile: bs_collide/Col3/col3.bs:0: function module_info/1 already defined|p/Col3/Col3.abstr:0: Warning: function module_info/1 already exported|| beam: 0
+--- Col5: module Col5 public int Length(int n) Length(n) -> n public int Abs(int n) Abs(n) -> n public int Min(int a) Min(a) -> a 
+  stock  :  beam: 1
+  patched:  beam: 1
+--- Col6: module Col6 public int new(int n) new(n) -> n 
+  stock  : bs_collide/Col6/col6.bs:3:12: error: syntax error before: new| beam: 0
+  patched: bs_collide/Col6/col6.bs:3:12: error: syntax error before: new| beam: 0

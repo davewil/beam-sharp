@@ -1,0 +1,37 @@
+OTP 29
+### 1. erlc on each module: cross-module calls are never checked by the compiler
+-- shop_orders
+erlang/shop_orders.erl:5:1: Warning: function hidden/1 is unused
+-- shop_reports
+-- elsewhere
+-- exportall
+erlang/exportall.erl:2:2: Warning: export_all flag enabled - all functions will be exported
+   (elsewhere.erl calls shop_orders:hidden/1, a non-exported function: no diagnostic above)
+runtime: {'EXIT',{undef,[{shop_orders,hidden,[1],[]},
+                         {erl_eval,do_apply,7,
+                                   [{file,"erl_eval.erl"},{line,1044}]},
+                         {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,780}]},
+                         {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},
+                         {erl_eval,expr_list,7,
+                                   [{file,"erl_eval.erl"},{line,1664}]},
+                         {erl_eval,expr_list,5,
+                                   [{file,"erl_eval.erl"},{line,1660}]},
+                         {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,754}]},
+                         {erl_eval,exprs,6,
+                                   [{file,"erl_eval.erl"},{line,276}]}]}}
+
+### 2. xref can ANSWER the question, as a post-build query
+friends(shop_orders)=[shop_reports] -> violations: [{{elsewhere,poke,1},
+                                                     {shop_orders,
+                                                      recompute_total,1}},
+                                                    {{elsewhere,poke_hidden,1},
+                                                     {shop_orders,hidden,1}}]
+CONTROL friends(shop_orders)=[shop_reports,elsewhere] -> violations: []
+xref undefined_function_calls (finds the non-exported call erlc missed): {ok,
+                                                                          [{{elsewhere,
+                                                                             poke_hidden,
+                                                                             1},
+                                                                            {shop_orders,
+                                                                             hidden,
+                                                                             1}}]}
+xref {module_use,shop_orders}: {ok,[elsewhere,shop_orders,shop_reports]}

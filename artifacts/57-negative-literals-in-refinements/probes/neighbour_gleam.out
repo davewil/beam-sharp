@@ -1,0 +1,28 @@
+pattern  -5                        accepted  
+pattern  - 5 (space)               REFUSED   error: Syntax error   ┌─ /tmp/tmp.MyN6L2OgzK/src/p.gleam:1:29 
+pattern  -(5)                      REFUSED   error: Syntax error   ┌─ /tmp/tmp.MyN6L2OgzK/src/p.gleam:1:29 
+pattern  0 - 5                     REFUSED   error: Syntax error   ┌─ /tmp/tmp.MyN6L2OgzK/src/p.gleam:1:31 
+pattern  -5.0 float                accepted  
+pattern  -0x10 hex                 accepted  
+guard    n >= -5                   accepted  
+guard    n == -5                   accepted  
+guard    n >= - 5                  REFUSED   error: Syntax error   ┌─ /tmp/tmp.MyN6L2OgzK/src/p.gleam:1:36 
+guard    n >= -{5}                 REFUSED   error: Syntax error   ┌─ /tmp/tmp.MyN6L2OgzK/src/p.gleam:1:36 
+guard    n >= 0 - 5                accepted  
+guard    n >= 2 + 3                accepted  
+guard    -n >= 5 (CONTROL?)        REFUSED   error: Syntax error   ┌─ /tmp/tmp.MyN6L2OgzK/src/p.gleam:1:34 
+guard    n >= m (non-const)        accepted  
+expr     -5                        accepted  
+--- emitted abstract form for the pattern and the guard (beam_lib; gleam deletes its .erl)
+{function,1,f,1,
+    [{clause,1,
+         [{var,1,'X'}],
+         [],
+         [{'case',1,
+              {var,1,'X'},
+              [{clause,1,[{integer,1,-5}],[],[{integer,1,1}]},
+               {clause,1,
+                   [{var,1,'N'}],
+                   [[{op,1,'>=',{var,1,'N'},{integer,1,-3}}]],
+                   [{integer,1,2}]},
+               {clause,1,[{var,1,'_'}],[],[{integer,1,0}]}]}]}]}

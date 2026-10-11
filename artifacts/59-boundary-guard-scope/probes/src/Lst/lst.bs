@@ -1,0 +1,10 @@
+module Lst
+
+record Order { Id: int, Total: int }
+
+public int Entry(list<Order> os)
+Entry([])          -> 0
+Entry([o, ..rest]) -> Inner(o) + Entry(rest)
+
+int Inner(Order o)
+Inner(o) -> o.Total

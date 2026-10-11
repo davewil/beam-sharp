@@ -1,0 +1,5 @@
+### CLI wall clock (includes VM boot)
+   bare VM: erl -noshell -eval halt                     median  266506 us  min  206140  max  348037  (n=20)
+   stock bsc, compile Dep (no declarations)             median  448701 us  min  411871  max  607008  (n=20)
+   prototype bsc, compile DeclA (3 declarations + check) median  528537 us  min  440673  max  638100  (n=20)
+   prototype bsc, compile Dep (no declarations: check path only) median  508602 us  min  396426  max  591866  (n=20)

@@ -1,0 +1,5 @@
+module Col3
+
+public int ModuleInfo(int n)
+
+ModuleInfo(n) -> n

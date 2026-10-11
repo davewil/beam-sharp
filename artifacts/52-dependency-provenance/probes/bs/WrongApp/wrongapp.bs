@@ -1,0 +1,9 @@
+// Option A with the app name guessed wrong (ex_dep for exdep).
+module WrongApp
+
+[external: elixir, app: ex_dep] using :'Elixir.ExDep' {
+    binary shout(binary s)
+}
+
+public binary ViaExDep(binary s)
+ViaExDep(s) -> :'Elixir.ExDep'.shout(s)

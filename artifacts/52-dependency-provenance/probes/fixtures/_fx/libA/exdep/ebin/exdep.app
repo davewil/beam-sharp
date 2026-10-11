@@ -1,0 +1,1 @@
+{application,exdep,[{modules,['Elixir.ExDep','Elixir.Exdep.Application']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,logger]},{description,"exdep"},{registered,[]},{vsn,"0.1.0"},{mod,{'Elixir.Exdep.Application',[]}}]}.

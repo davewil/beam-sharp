@@ -1,0 +1,56 @@
+=== (a) BEAM assembly (compile:file option S) of the alias; Abi.abstr is the .abstr bsc wrote
+--- forward, default options: alias = ?
+{function,new_http,1,42,
+          [{label,41},
+           {line,[]},
+           {func_info,{atom,'Abi'},{atom,new_http},1},
+           {label,42},
+           {call_only,1,{f,40}}]}
+
+--- forward, with {inline,[{'NewHTTP',1}]} : is the body pulled into the alias?
+{function,new_http,1,42,
+          [{label,41},
+           {line,[]},
+           {func_info,{atom,'Abi'},{atom,new_http},1},
+           {label,42},
+           {test,is_integer,{f,43},[{x,0}]},
+           {line,[{location,"/home/user/beam-sharp/artifacts/62-outbound-abi/probes/bs/Abi/abi.bs",
+                            42}]},
+           {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+           return,
+           {label,43},
+           {call_only,1,{f,77}}]}
+
+--- forward, with plain 'inline' (compile option: inline everything small) :
+{function,new_http,1,52,
+          [{label,51},
+           {line,[]},
+           {func_info,{atom,'Abi'},{atom,new_http},1},
+           {label,52},
+           {test,is_integer,{f,53},[{x,0}]},
+           {line,[{location,"/home/user/beam-sharp/artifacts/62-outbound-abi/probes/bs/Abi/abi.bs",
+                            42}]},
+           {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+           return,
+           {label,53},
+           {call_only,1,{f,100}}]}
+
+--- dup mode, default options: alias holds its own copy of the body:
+{function,new_http,1,46,
+          [{label,45},
+           {line,[{location,"/home/user/beam-sharp/artifacts/62-outbound-abi/probes/bs/Abi/abi.bs",
+                            42}]},
+           {func_info,{atom,'Abi'},{atom,new_http},1},
+           {label,46},
+           {test,is_integer,{f,45},[{x,0}]},
+           {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+           return]}
+
+=== (c) timing. 1e7 and 5e7 calls, 15 interleaved reps each, microseconds, timer:tc resolution = 1 us (monotonic clock)
+emu_flavor=jit  arch=x86_64-conda-linux-gnu
+N=10000000 calls  empty-loop median 24652 us | PascalCase export median 111790 us (min 105838 max 122849) | alias export median 112651 us (min 105805 max 141951)
+        per call above loop: Pascal 8.71 ns, alias 8.80 ns, alias-minus-Pascal 0.09 ns
+        NEGATIVE CONTROL (the probe must see a real extra cost): the same call plus one erlang:phash2/1 BIF per iteration, median 205516 us = 18.09 ns/call above loop
+N=50000000 calls  empty-loop median 125782 us | PascalCase export median 563003 us (min 543512 max 702661) | alias export median 582620 us (min 538380 max 771341)
+        per call above loop: Pascal 8.74 ns, alias 9.14 ns, alias-minus-Pascal 0.39 ns
+        NEGATIVE CONTROL (the probe must see a real extra cost): the same call plus one erlang:phash2/1 BIF per iteration, median 1026057 us = 18.01 ns/call above loop

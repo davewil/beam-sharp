@@ -1,0 +1,3 @@
+defmodule ElsewherePriv do
+  def poke(n), do: Shop.Orders.hidden(n)
+end

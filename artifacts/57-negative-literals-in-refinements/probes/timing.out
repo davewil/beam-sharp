@@ -1,0 +1,166 @@
+timing.erl:24:65: Warning: 'catch ...' is deprecated; please use 'try ... catch ... end' instead.
+Compile directive 'nowarn_deprecated_catch' can be used to suppress
+warnings in selected modules.
+%   24|     t("check synth-neg", Runs, fun() -> {ok, D} = Parse(Synth), catch bs_check:check(D) end).
+%     |                                                                 ^
+
+## round=1 build=base
+synthetic_negative_file=refused
+parse examples     runs=40 median=1397us min=1291us p90=1641us max=2310us
+check examples     runs=40 median=7555us min=5957us p90=11751us max=17795us
+parse synth-pos    runs=40 median=904us min=783us p90=4744us max=25076us
+check synth-pos    runs=40 median=2368us min=1718us p90=3324us max=6482us
+parse synth-neg    runs=40 median=1011us min=889us p90=1829us max=5149us
+check synth-neg    runs=40 median=1296us min=1103us p90=1822us max=2535us
+## round=1 build=A
+synthetic_negative_file=ok
+parse examples     runs=40 median=1608us min=1367us p90=2009us max=5370us
+check examples     runs=40 median=6577us min=6046us p90=7762us max=8740us
+parse synth-pos    runs=40 median=888us min=818us p90=1385us max=1791us
+check synth-pos    runs=40 median=2134us min=1795us p90=3301us max=4343us
+parse synth-neg    runs=40 median=1056us min=838us p90=1437us max=2140us
+check synth-neg    runs=40 median=2354us min=1946us p90=3314us max=4862us
+## round=1 build=B
+synthetic_negative_file=ok
+parse examples     runs=40 median=1547us min=1289us p90=1831us max=2498us
+check examples     runs=40 median=6627us min=5755us p90=8796us max=10439us
+parse synth-pos    runs=40 median=864us min=775us p90=1338us max=1959us
+check synth-pos    runs=40 median=1982us min=1784us p90=2617us max=2989us
+parse synth-neg    runs=40 median=1092us min=891us p90=1773us max=2260us
+check synth-neg    runs=40 median=1986us min=1750us p90=2570us max=3197us
+## round=1 build=Barith
+synthetic_negative_file=ok
+parse examples     runs=40 median=1400us min=1272us p90=1669us max=2631us
+check examples     runs=40 median=7054us min=5818us p90=11144us max=20155us
+parse synth-pos    runs=40 median=861us min=801us p90=1098us max=4763us
+check synth-pos    runs=40 median=1974us min=1739us p90=3112us max=4091us
+parse synth-neg    runs=40 median=1069us min=892us p90=1723us max=6163us
+check synth-neg    runs=40 median=1969us min=1814us p90=3089us max=4464us
+## round=2 build=base
+synthetic_negative_file=refused
+parse examples     runs=40 median=1546us min=1370us p90=4722us max=9602us
+check examples     runs=40 median=6598us min=5966us p90=10696us max=20591us
+parse synth-pos    runs=40 median=870us min=764us p90=1298us max=1770us
+check synth-pos    runs=40 median=1934us min=1738us p90=2668us max=2983us
+parse synth-neg    runs=40 median=1045us min=901us p90=1261us max=1896us
+check synth-neg    runs=40 median=1302us min=1088us p90=1788us max=1946us
+## round=2 build=A
+synthetic_negative_file=ok
+parse examples     runs=40 median=1426us min=1322us p90=3462us max=9483us
+check examples     runs=40 median=9557us min=6126us p90=10972us max=21166us
+parse synth-pos    runs=40 median=832us min=772us p90=1310us max=1811us
+check synth-pos    runs=40 median=1876us min=1684us p90=2513us max=3214us
+parse synth-neg    runs=40 median=975us min=837us p90=1228us max=2195us
+check synth-neg    runs=40 median=2267us min=1816us p90=3159us max=5837us
+## round=2 build=B
+synthetic_negative_file=ok
+parse examples     runs=40 median=1446us min=1330us p90=2205us max=2568us
+check examples     runs=40 median=7125us min=6030us p90=8422us max=13713us
+parse synth-pos    runs=40 median=874us min=825us p90=1061us max=1670us
+check synth-pos    runs=40 median=1985us min=1792us p90=3715us max=6441us
+parse synth-neg    runs=40 median=1301us min=901us p90=1746us max=5184us
+check synth-neg    runs=40 median=2508us min=1990us p90=3260us max=8324us
+## round=2 build=Barith
+synthetic_negative_file=ok
+parse examples     runs=40 median=1550us min=1286us p90=2406us max=4525us
+check examples     runs=40 median=7411us min=6096us p90=9624us max=15557us
+parse synth-pos    runs=40 median=882us min=795us p90=2082us max=8320us
+check synth-pos    runs=40 median=1932us min=1713us p90=3048us max=6572us
+parse synth-neg    runs=40 median=1056us min=896us p90=1446us max=2521us
+check synth-neg    runs=40 median=2118us min=1802us p90=2691us max=3240us
+## round=3 build=base
+synthetic_negative_file=refused
+parse examples     runs=40 median=1394us min=1297us p90=1802us max=3877us
+check examples     runs=40 median=6512us min=6018us p90=8907us max=19412us
+parse synth-pos    runs=40 median=857us min=794us p90=1290us max=1664us
+check synth-pos    runs=40 median=1978us min=1787us p90=2900us max=12545us
+parse synth-neg    runs=40 median=1103us min=883us p90=2488us max=5097us
+check synth-neg    runs=40 median=2293us min=1100us p90=4615us max=7863us
+## round=3 build=A
+synthetic_negative_file=ok
+parse examples     runs=40 median=1491us min=1332us p90=1690us max=4033us
+check examples     runs=40 median=6611us min=6107us p90=8338us max=14395us
+parse synth-pos    runs=40 median=859us min=784us p90=1339us max=2065us
+check synth-pos    runs=40 median=2146us min=1753us p90=2515us max=5618us
+parse synth-neg    runs=40 median=1046us min=848us p90=1778us max=4159us
+check synth-neg    runs=40 median=2377us min=1771us p90=3688us max=7916us
+## round=3 build=B
+synthetic_negative_file=ok
+parse examples     runs=40 median=1373us min=1187us p90=2036us max=5303us
+check examples     runs=40 median=6395us min=5932us p90=8228us max=11658us
+parse synth-pos    runs=40 median=893us min=804us p90=1387us max=2354us
+check synth-pos    runs=40 median=1997us min=1751us p90=2606us max=3486us
+parse synth-neg    runs=40 median=1063us min=906us p90=1516us max=1705us
+check synth-neg    runs=40 median=2221us min=1802us p90=3570us max=4628us
+## round=3 build=Barith
+synthetic_negative_file=ok
+parse examples     runs=40 median=1419us min=1256us p90=1678us max=2316us
+check examples     runs=40 median=6394us min=6088us p90=7892us max=9740us
+parse synth-pos    runs=40 median=853us min=786us p90=1080us max=1777us
+check synth-pos    runs=40 median=1889us min=1716us p90=2554us max=3012us
+parse synth-neg    runs=40 median=1217us min=898us p90=1945us max=4851us
+check synth-neg    runs=40 median=2234us min=1781us p90=3097us max=7234us
+## round=4 build=base
+synthetic_negative_file=refused
+parse examples     runs=40 median=1465us min=1339us p90=1798us max=2315us
+check examples     runs=40 median=6780us min=5980us p90=11480us max=16166us
+parse synth-pos    runs=40 median=881us min=792us p90=1684us max=3461us
+check synth-pos    runs=40 median=1910us min=1781us p90=2793us max=5579us
+parse synth-neg    runs=40 median=1026us min=881us p90=1300us max=1877us
+check synth-neg    runs=40 median=1268us min=1061us p90=1934us max=2219us
+## round=4 build=A
+synthetic_negative_file=ok
+parse examples     runs=40 median=1581us min=1333us p90=2020us max=2332us
+check examples     runs=40 median=6259us min=5707us p90=8717us max=10013us
+parse synth-pos    runs=40 median=889us min=787us p90=1625us max=3632us
+check synth-pos    runs=40 median=1964us min=1782us p90=2942us max=6198us
+parse synth-neg    runs=40 median=1053us min=822us p90=1617us max=3362us
+check synth-neg    runs=40 median=1946us min=1771us p90=3266us max=4449us
+## round=4 build=B
+synthetic_negative_file=ok
+parse examples     runs=40 median=1393us min=1278us p90=1487us max=2176us
+check examples     runs=40 median=6241us min=5804us p90=7383us max=9705us
+parse synth-pos    runs=40 median=1223us min=803us p90=2019us max=4453us
+check synth-pos    runs=40 median=2560us min=1715us p90=3896us max=6951us
+parse synth-neg    runs=40 median=1021us min=913us p90=1879us max=2332us
+check synth-neg    runs=40 median=1886us min=1779us p90=2707us max=4149us
+## round=4 build=Barith
+synthetic_negative_file=ok
+parse examples     runs=40 median=1456us min=1340us p90=1677us max=2461us
+check examples     runs=40 median=7065us min=6030us p90=9542us max=9878us
+parse synth-pos    runs=40 median=856us min=780us p90=1149us max=1882us
+check synth-pos    runs=40 median=1945us min=1758us p90=2768us max=3347us
+parse synth-neg    runs=40 median=1000us min=876us p90=1411us max=1974us
+check synth-neg    runs=40 median=1978us min=1790us p90=2911us max=5459us
+## round=5 build=base
+synthetic_negative_file=refused
+parse examples     runs=40 median=1447us min=1279us p90=1672us max=2318us
+check examples     runs=40 median=7211us min=6027us p90=8967us max=18432us
+parse synth-pos    runs=40 median=1269us min=1031us p90=1964us max=2453us
+check synth-pos    runs=40 median=1913us min=1733us p90=2840us max=3678us
+parse synth-neg    runs=40 median=989us min=863us p90=1314us max=1889us
+check synth-neg    runs=40 median=1266us min=1070us p90=1768us max=1942us
+## round=5 build=A
+synthetic_negative_file=ok
+parse examples     runs=40 median=2263us min=1579us p90=2490us max=4544us
+check examples     runs=40 median=7498us min=6174us p90=9451us max=12167us
+parse synth-pos    runs=40 median=848us min=773us p90=1447us max=1931us
+check synth-pos    runs=40 median=1961us min=1764us p90=3013us max=5164us
+parse synth-neg    runs=40 median=1045us min=801us p90=1657us max=2537us
+check synth-neg    runs=40 median=2122us min=1789us p90=3490us max=5072us
+## round=5 build=B
+synthetic_negative_file=ok
+parse examples     runs=40 median=1465us min=1313us p90=1657us max=2443us
+check examples     runs=40 median=6365us min=5993us p90=7443us max=8868us
+parse synth-pos    runs=40 median=832us min=780us p90=1247us max=2446us
+check synth-pos    runs=40 median=1932us min=1738us p90=2981us max=4086us
+parse synth-neg    runs=40 median=1032us min=898us p90=1539us max=2311us
+check synth-neg    runs=40 median=1928us min=1741us p90=3389us max=5383us
+## round=5 build=Barith
+synthetic_negative_file=ok
+parse examples     runs=40 median=1481us min=1290us p90=1839us max=3320us
+check examples     runs=40 median=6438us min=5805us p90=7667us max=8759us
+parse synth-pos    runs=40 median=819us min=751us p90=983us max=1968us
+check synth-pos    runs=40 median=1969us min=1779us p90=3175us max=4092us
+parse synth-neg    runs=40 median=978us min=890us p90=1312us max=1762us
+check synth-neg    runs=40 median=1870us min=1747us p90=2860us max=4741us

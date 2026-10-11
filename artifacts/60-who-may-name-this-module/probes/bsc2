@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# wrapper that survives erl's own handling of leading "--" flags
+source /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/env.sh
+exec erl -noshell -pa ${BSC_EBIN:-/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/bsc-ebin} -eval 'bsc:main(init:get_plain_arguments())' -extra "$@"

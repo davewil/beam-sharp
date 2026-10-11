@@ -1,0 +1,11 @@
+module Shop.Orders
+
+public int Apply(int n)
+Apply(n) -> RecomputeTotal(n) + 1
+
+// the ticket-24 helper: neither client API nor callback
+public int RecomputeTotal(int n)
+RecomputeTotal(n) -> n * 2
+
+private int Hidden(int n)
+Hidden(n) -> n

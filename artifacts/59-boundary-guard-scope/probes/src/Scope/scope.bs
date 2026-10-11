@@ -1,0 +1,16 @@
+module Scope
+
+record Order { Id: int, Total: int }
+
+// exported record and int; private record and int
+public int PubRec(Order o)
+PubRec(o) -> PrivRec(o)
+
+int PrivRec(Order o)
+PrivRec(o) -> o.Total
+
+public int PubInt(int n)
+PubInt(n) -> PrivInt(n)
+
+int PrivInt(int n)
+PrivInt(n) -> n + 1

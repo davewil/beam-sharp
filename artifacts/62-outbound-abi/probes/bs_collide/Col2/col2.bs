@@ -1,0 +1,9 @@
+module Col2
+
+public int NewUrl(int n)
+
+NewUrl(n) -> n
+
+public int NewURL(int n)
+
+NewURL(n) -> n + 1

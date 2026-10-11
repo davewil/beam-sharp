@@ -1,0 +1,74 @@
+=== the module as B# sees it (bsc --api)
+module Abi
+({ Kind: :'Abi.Point', X: int, Y: int }, list<{ Kind: :'Abi.Point', X: int, Y: int }>) Both({ Kind: :'Abi.Point', X: int, Y: int })
+int Count(map<atom, term>)
+binary Echo(binary)
+float Half(float)
+:false | :true IsBig(int)
+{ Kind: :'Abi.Point', X: int, Y: int } MakePoint(int)
+:nothing | int MaybeInt(:false | :true)
+:nothing | int | (:error, atom) Nest(:false | :true)
+int NewHTTP(int)
+list<int> Nums(int)
+(int, string) Pair(int)
+int ParseURL(int)
+:green | :red Pick(:false | :true)
+int | (:error, atom) Res(:false | :true)
+atom Tag({ Kind: :'Abi.Point', X: int, Y: int })
+
+=== the -spec / -type attributes in the emitted Abi.beam (erl_pp)
+-spec 'Both'(#{'Kind' := 'Abi.Point',
+               'X' := integer(),
+               'Y' := integer()}) ->
+                {#{'Kind' := 'Abi.Point',
+                   'X' := integer(),
+                   'Y' := integer()},
+                 [#{'Kind' := 'Abi.Point',
+                    'X' := integer(),
+                    'Y' := integer()}]}.
+-spec 'Count'(#{atom() =>
+                    atom() |
+                    integer() |
+                    float() |
+                    tuple() |
+                    [any()] |
+                    map() |
+                    binary() |
+                    pid() |
+                    port() |
+                    reference() |
+                    fun()}) ->
+                 integer().
+-spec 'Echo'(binary()) -> binary().
+-spec 'Half'(float()) -> float().
+-spec 'IsBig'(integer()) -> false | true.
+-spec 'MakePoint'(integer()) ->
+                     #{'Kind' := 'Abi.Point',
+                       'X' := integer(),
+                       'Y' := integer()}.
+-spec 'MaybeInt'(false | true) -> nothing | integer().
+-spec 'Nest'(false | true) -> nothing | integer() | {error, atom()}.
+-spec 'NewHTTP'(integer()) -> integer().
+-spec 'Nums'(integer()) -> [integer()].
+-spec 'Pair'(integer()) -> {integer(), binary()}.
+-spec 'ParseURL'(integer()) -> integer().
+-spec 'Pick'(false | true) -> green | red.
+-spec 'Res'(false | true) -> integer() | {error, atom()}.
+-spec 'Tag'(#{'Kind' := 'Abi.Point', 'X' := integer(), 'Y' := integer()}) ->
+               atom().
+
+=== runtime values of the same functions, from plain Erlang
+MaybeInt(true)                     1
+MaybeInt(false)                    nothing
+Res(true)                          1
+Res(false)                         {error,bad}
+Pair(2)                            {2,<<"x">>}
+Nums(4)                            [4,4]
+IsBig(10)                          true
+Half(5.0)                          2.5
+Pick(true)                         red
+Nest(true)                         1
+Nest(false)                        nothing
+MakePoint(3)                       #{'X' => 3,'Kind' => 'Abi.Point','Y' => 3}
+{ok,_} would-match Res(true)?      no
+NEGATIVE: Res(false) is {error,_}? yes

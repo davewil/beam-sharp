@@ -1,0 +1,24 @@
+### F12 era: --api of Cart (what the boundary manifest advertises)
+module Cart
+behaviour GenServer
+(:reply, int, int) HandleCall(:get | (:add, int), term, int)
+(:noreply, int) HandleCast(:reset, int)
+(:ok, int) Init(int)
+int Total(int)
+
+### (1) test module in another directory names the PRIVATE helper Recompute -> expect refusal
+CartTest/CartTest.bs:7:19: error: TestsHelper calls Recompute/1, which Cart declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Cart, or move the call inside it.
+
+### (2) test module names the PUBLIC CALLBACK HandleCall -> expect NO error (24 sec.1 says it is 'not a test target'; nothing enforces it)
+(:reply, 7, 7)
+
+### (3) NEGATIVE CONTROL: make Recompute public; the same test now compiles -> shows (1) was refused for privacy, not for another reason
+4
+
+### (4) a test FILE placed inside Cart/ declaring 'module Cart' joins the production module and reaches the private helper
+9
+Cart.abstr
+Cart.beam
+Cart.beam exports (the test function ships in the production beam): bs@type_atoms/0 init/1 handle_call/3 handle_cast/2 Total/1 TestRecompute/1 
