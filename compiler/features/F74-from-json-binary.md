@@ -1,6 +1,6 @@
 # F74 — `FromJson<T>` takes a `binary`
 
-**Status**      **in progress** — built 2026-10-11, 12 tests in `from_json_binary_tests`;
+**Status**      **in progress** — built 2026-10-11, 14 tests in `from_json_binary_tests`;
                 closing it is David's call
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q13 and Q23.
                 Decides nothing; see *What the build found*
@@ -90,9 +90,9 @@ does not accept … `binary \ string`"*.
 | Id | Program | Expected |
 |---|---|---|
 | F74.1 | `FromJson<W>(body)` for a `binary` body and a `string` one; six texts each refused for its own reason, through both | the value from both; the same error from both |
-| F74.2 | the byte `0xFF` alone, after the value, before it; a key cut off inside a two-byte character; `0xFF` inside a JSON string; a three-byte character short a byte; a whole two-byte character | `:not_json` at `[]` expecting `JSON`, each; the last is read |
+| F74.2 | the byte `0xFF` alone, after the value, before it; a key cut off inside a two-byte character; `0xFF` inside a JSON string; a three-byte character short a byte; a whole two-byte character; a byte-order mark before the value | `:not_json` at `[]` expecting `JSON`, each; the two-byte character is read; the mark is `:not_json`, from a `binary` and from a `string` |
 | F74.3 | a clause that binds a `string` field read from a `binary` body and builds a string from it | compiles, and returns the string |
-| F74.4 | `body \|> FromJson<W>()`; `body \|?> FromJson<W>() \|?> A()` over a `result<binary, ValidationError>` | the value; `:not_json` for `0xFF`; an earlier error passed through |
+| F74.4 | `body \|> FromJson<W>()`; `body \|?> FromJson<W>() \|?> A()` over a `result<binary, ValidationError>`; `ValidateAs<string>(body) \|?> FromJson<W>()`, the form written before | the value; `:not_json` for `0xFF`; an earlier error passed through; compiles, and `0xFF` is the first stage's `Expected = "string"` |
 | F74.5 | an `int` argument; a `term`; an `option<binary>`; `binary \| int` | `arg_not_accepted`, each; the refusal prints `int` |
 | F74.6 | `FromJson<binary>` over a `binary` body | `undecodable_member`, `binary`, as before |
 | F74.7 | exemplar 25f, `Parse(body) -> FromJson<ReplyWire>(body) switch { … }`, served a reply whose `"model"` holds `0xFF` | `(:error, (:malformed, ValidationError { Path = [], Expected = "JSON", Reason = :not_json }))` |
@@ -104,7 +104,8 @@ after, and `./bin/verify.sh` is green twice from a clean clone.
 
 ## Evidence — 2026-10-11
 
-Before the build, `from_json_binary_tests` failed 8 of its 12: the seven that load the
+Before the build, `from_json_binary_tests` failed 8 of its first 12 (the byte-order mark
+and the two-stage form came from the review, and load the same module): the seven that load the
 module, which did not compile, and the refusal's wording, which printed
 `int | binary \ string` and not `int`. The four that passed assert a refusal
 that stands (`int`, `term`, `option<binary>`, and the `binary` target).

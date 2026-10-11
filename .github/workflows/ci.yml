@@ -736,7 +736,7 @@ jobs:
         working-directory: compiler
         run: ./bin/check-float-reads-integer.sh
 
-      # F74 / ENG-611. Seven stubs: a `binary` argument refused, a `string`
+      # F74 / ENG-611. Seven defects: a `binary` argument refused, a `string`
       # one refused in its place, bytes that are not UTF-8 crashing the
       # call, the same reported as `ValidateAs<string>` reported them, the
       # piped form still checked against `string`, an argument no longer
