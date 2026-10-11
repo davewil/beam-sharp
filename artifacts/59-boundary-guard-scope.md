@@ -75,7 +75,7 @@ Bump(n) -> n + 1
 
 public int ViaField(Wrapper w)    ViaField(w) -> Cents(w.Inner)
 public int ViaList(list<Order> os)  ViaList([o, ..rest]) -> Cents(o)
-public int CountField(Counter c)  CountField(c) -> Bump(c.N)
+public int ViaField2(Counter c)   ViaField2(c) -> Bump(c.N)   // probe name: Leak.ViaField
 ```
 Raw Erlang caller, forged inputs (`output.txt` §2, §3; the Invoice has the same field names as an Order):
 
@@ -84,8 +84,8 @@ Raw Erlang caller, forged inputs (`output.txt` §2, §3; the Invoice has the sam
 | `ViaField(Wrapper{Inner = Invoice})` | `function_clause` | `function_clause` | **`700`** | `function_clause` (at `ViaField`) |
 | `DirectField(Wrapper{Inner = Invoice})` (no helper) | **`700`** | **`700`** | **`700`** | `function_clause` |
 | `ViaList([Invoice])` | `function_clause` | `function_clause` | **`700`** | **`700`** |
-| `CountField(Counter{N = 1.5})` | **`2.5`** | `function_clause` | **`2.5`** | `function_clause` |
-| `DirectField(Counter{N = 1.5})` | **`2.5`** | **`2.5`** | **`2.5`** | `function_clause` |
+| `ViaField2(Counter{N = 1.5})` (`Leak.ViaField`) | **`2.5`** | `function_clause` | **`2.5`** | `function_clause` |
+| `DirectField(Counter{N = 1.5})` (`Leak`) | **`2.5`** | **`2.5`** | **`2.5`** | `function_clause` |
 | `BumpPub(1.5)` (exported control) | `function_clause` | same | same | same |
 
 Bold = the silent outcome 3 of ticket 18 (a wrong term returns a value).
@@ -93,9 +93,10 @@ Bold = the silent outcome 3 of ticket 18 (a wrong term returns a value).
 ### A. Guard every function, private included (tag, `is_integer`, `is_float`, range)
 Delta: `bs_emit.erl guard_one/7`, delete the `none when Public` gate and the second `none ->` clause: 8 changed lines
 (`patches/guard-all.patch`). Emitted: `'Cents'(O) when map_get('Kind', O) =:= 'Forge.Order'` as today, plus `'Bump'(N) when is_integer(N)`.
-- Evidence: closes `ViaField`/`ViaList`/`CountField` rows; leaves both `Direct*` rows open (table). Costs below.
-- Breaks two pinned decisions: `boundary_kind_tests:a_private_function_is_not_guarded_test` (F24.6) and the range pin F37.5; both
-  rest on 18 §4 and 46 ("dead weight"). CONTEXT.md:398 would need to say "any function".
+- Evidence: closes the `ViaField`/`ViaList`/`ViaField2` rows; leaves both `Direct*` rows open (table). Costs below.
+- Breaks two pinned decisions: `boundary_kind_tests:a_private_function_is_not_guarded_test` (F24.6) and
+  `boundary_range_tests:a_private_function_carries_no_range_guard_test` (F37.5); both rest on 18 §4 and 46 ("dead weight").
+  `check-boundary-kind.sh` and `check-boundary-range.sh` stay green under A, B and C (they do not read privacy). CONTEXT.md:398 would need to say "any function".
 - **Strongest counterargument for A**: too narrow is a silent hole, too wide is measurable and loud (the ticket's own
   rule), and the loud half here is small: 0 bytes and 0 ns for ints, ~13 bytes and ~3 ns for a tag.
 

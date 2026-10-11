@@ -1,0 +1,479 @@
+
+######## tool versions
+OTP 28, erts 16.4
+Setting httpc proxy: scheme=https_proxy host="127.0.0.1" port=41857 no_proxy=["localhost",
+                                                                              "127.0.0.1",
+                                                                              "::1",
+                                                                              "127.0.0.0/8",
+                                                                              "0.0.0.0/8",
+                                                                              "::",
+                                                                              "169.254.0.0/16",
+                                                                              "api.anthropic.com",
+                                                                              "api-staging.anthropic.com",
+                                                                              "api-pr-preview.anthropic.com",
+                                                                              "mcp-proxy.anthropic.com",
+                                                                              "mcp-proxy-staging.anthropic.com",
+                                                                              "registry.npmjs.org",
+                                                                              "jsr.io",
+                                                                              "npm.jsr.io",
+                                                                              "pypi.org",
+                                                                              "files.pythonhosted.org",
+                                                                              "index.crates.io",
+                                                                              "proxy.golang.org",
+                                                                              "host.docker.internal",
+                                                                              "10.0.0.0/8",
+                                                                              "172.16.0.0/12",
+                                                                              "192.168.0.0/16",
+                                                                              "100.64.0.0/10",
+                                                                              ".svc.cluster.local",
+                                                                              "*.svc.cluster.local"]
+rebar 3.27.1 on Erlang/OTP 28 Erts 16.4
+Elixir 1.20.4 (compiled with Erlang/OTP 27)
+gleam 1.19.1
+elm 0.19.3
+repo HEAD: 7828918
+Linux 6.18.44-fc-v114 x86_64
+cores: 4
+
+######## build four compilers from a clean copy of compiler/ (base, exported-only, guard-all, field-depth)
+base           patch LOC (added+removed lines): 0
+exported-only  patch LOC (added+removed lines): 2
+guard-all      patch LOC (added+removed lines): 8
+field-depth    patch LOC (added+removed lines): 40
+
+######## sanity: rebuilt base emits byte-identical .abstr to the repo's built bsc
+Guard: identical
+Forge: identical
+Leak: identical
+
+######## 1. SHAPE: which functions carry which guard (p1_shape/Guard)
+---- base
+'PubRec'(O) when map_get('Kind', O) =:= 'Guard.Order' -> map_get('Total', O).
+'PrivRec'(O) when map_get('Kind', O) =:= 'Guard.Order' -> map_get('Total', O).
+'PubInt'(N) when is_integer(N) -> N + 1.
+'PrivInt'(N) -> N + 1.
+'PubOct'(N) when is_integer(N) andalso N >= 0 andalso N =< 255 -> N + 1.
+'PrivOct'(N) -> N + 1.
+
+---- exported-only
+'PubRec'(O) when map_get('Kind', O) =:= 'Guard.Order' -> map_get('Total', O).
+'PrivRec'(O) -> map_get('Total', O).
+'PubInt'(N) when is_integer(N) -> N + 1.
+'PrivInt'(N) -> N + 1.
+'PubOct'(N) when is_integer(N) andalso N >= 0 andalso N =< 255 -> N + 1.
+'PrivOct'(N) -> N + 1.
+
+---- guard-all
+'PubRec'(O) when map_get('Kind', O) =:= 'Guard.Order' -> map_get('Total', O).
+'PrivRec'(O) when map_get('Kind', O) =:= 'Guard.Order' -> map_get('Total', O).
+'PubInt'(N) when is_integer(N) -> N + 1.
+'PrivInt'(N) when is_integer(N) -> N + 1.
+'PubOct'(N) when is_integer(N) andalso N >= 0 andalso N =< 255 -> N + 1.
+'PrivOct'(N) when is_integer(N) andalso N >= 0 andalso N =< 255 -> N + 1.
+
+---- field-depth
+'PubRec'(O) when map_get('Kind', O) =:= 'Guard.Order' andalso is_integer(map_get('Id', O)) andalso is_integer(map_get('Total', O)) -> map_get('Total', O).
+'PrivRec'(O) -> map_get('Total', O).
+'PubInt'(N) when is_integer(N) -> N + 1.
+'PrivInt'(N) -> N + 1.
+'PubOct'(N) when is_integer(N) andalso N >= 0 andalso N =< 255 -> N + 1.
+'PrivOct'(N) -> N + 1.
+
+
+######## 2. FORGERY from Erlang into p2_forge/Forge (each variant)
+---- compiler: base
+ViaField(Wrapper{valid Order})            [valid]              {returned,700}
+ViaField(Order with a wrong Wrapper tag)  [exported guard, con {raised,error,function_clause}
+ViaField(Wrapper{Inner=an Invoice})       [forged one level do {raised,error,function_clause}
+ViaField(Wrapper{Inner=#{Total=>7}})      [forged, no tag at a {raised,error,function_clause}
+DirectField(Wrapper{Inner=an Invoice})    [same, helper factor {returned,700}
+ViaList([valid Order])                    [valid]              {returned,700}
+ViaList([an Invoice])                     [forged list element {raised,error,function_clause}
+ViaList([#{Total=>7}])                    [forged, no tag at a {raised,error,function_clause}
+DirectList([an Invoice])                  [same, helper factor {returned,700}
+ViaUnion(Order)                           [valid]              {returned,700}
+ViaUnion(#{Total=>7})                     [the head names the  {raised,error,function_clause}
+ViaTerm(valid Order)                      [valid]              {returned,700}
+ViaTerm(an Invoice)                       [ValidateAs refuses  {returned,-1}
+---- compiler: exported-only
+ViaField(Wrapper{valid Order})            [valid]              {returned,700}
+ViaField(Order with a wrong Wrapper tag)  [exported guard, con {raised,error,function_clause}
+ViaField(Wrapper{Inner=an Invoice})       [forged one level do {returned,700}
+ViaField(Wrapper{Inner=#{Total=>7}})      [forged, no tag at a {returned,700}
+DirectField(Wrapper{Inner=an Invoice})    [same, helper factor {returned,700}
+ViaList([valid Order])                    [valid]              {returned,700}
+ViaList([an Invoice])                     [forged list element {returned,700}
+ViaList([#{Total=>7}])                    [forged, no tag at a {returned,700}
+DirectList([an Invoice])                  [same, helper factor {returned,700}
+ViaUnion(Order)                           [valid]              {returned,700}
+ViaUnion(#{Total=>7})                     [the head names the  {raised,error,function_clause}
+ViaTerm(valid Order)                      [valid]              {returned,700}
+ViaTerm(an Invoice)                       [ValidateAs refuses  {returned,-1}
+---- compiler: guard-all
+ViaField(Wrapper{valid Order})            [valid]              {returned,700}
+ViaField(Order with a wrong Wrapper tag)  [exported guard, con {raised,error,function_clause}
+ViaField(Wrapper{Inner=an Invoice})       [forged one level do {raised,error,function_clause}
+ViaField(Wrapper{Inner=#{Total=>7}})      [forged, no tag at a {raised,error,function_clause}
+DirectField(Wrapper{Inner=an Invoice})    [same, helper factor {returned,700}
+ViaList([valid Order])                    [valid]              {returned,700}
+ViaList([an Invoice])                     [forged list element {raised,error,function_clause}
+ViaList([#{Total=>7}])                    [forged, no tag at a {raised,error,function_clause}
+DirectList([an Invoice])                  [same, helper factor {returned,700}
+ViaUnion(Order)                           [valid]              {returned,700}
+ViaUnion(#{Total=>7})                     [the head names the  {raised,error,function_clause}
+ViaTerm(valid Order)                      [valid]              {returned,700}
+ViaTerm(an Invoice)                       [ValidateAs refuses  {returned,-1}
+---- compiler: field-depth
+ViaField(Wrapper{valid Order})            [valid]              {returned,700}
+ViaField(Order with a wrong Wrapper tag)  [exported guard, con {raised,error,function_clause}
+ViaField(Wrapper{Inner=an Invoice})       [forged one level do {raised,error,function_clause}
+ViaField(Wrapper{Inner=#{Total=>7}})      [forged, no tag at a {raised,error,function_clause}
+DirectField(Wrapper{Inner=an Invoice})    [same, helper factor {raised,error,function_clause}
+ViaList([valid Order])                    [valid]              {returned,700}
+ViaList([an Invoice])                     [forged list element {returned,700}
+ViaList([#{Total=>7}])                    [forged, no tag at a {returned,700}
+DirectList([an Invoice])                  [same, helper factor {returned,700}
+ViaUnion(Order)                           [valid]              {returned,700}
+ViaUnion(#{Total=>7})                     [the head names the  {raised,error,function_clause}
+ViaTerm(valid Order)                      [valid]              {returned,700}
+ViaTerm(an Invoice)                       [ValidateAs refuses  {returned,-1}
+
+---- disassembly of the private Cents (base vs exported-only)
+== base
+{function,'Cents',1,4,
+          [{line,1},
+           {label,3},
+           {func_info,{atom,'Forge'},{atom,'Cents'},1},
+           {label,4},
+           {bif,map_get,{f,3},[{atom,'Kind'},{x,0}],{x,1}},
+           {test,is_eq_exact,{f,3},[{x,1},{atom,'Forge.Order'}]},
+           {bif,map_get,
+                {f,0},
+                [{atom,'Total'},{tr,{x,0},{t_map,any,any}}],
+                {x,0}},
+           {gc_bif,'*',{f,0},1,[{x,0},{integer,100}],{x,0}},
+           return]}
+== exported-only
+{function,'Cents',1,4,
+          [{line,1},
+           {label,3},
+           {func_info,{atom,'Forge'},{atom,'Cents'},1},
+           {label,4},
+           {bif,map_get,{f,0},[{atom,'Total'},{x,0}],{x,0}},
+           {gc_bif,'*',{f,0},1,[{x,0},{integer,100}],{x,0}},
+           return]}
+
+######## 2b. CAN A TAG-ONLY NARROWING OF term REACH A PRIVATE Order PARAMETER? (expected: bsc REFUSES the program)
+---- compiler: base
+/home/user/beam-sharp/artifacts/probes/59/p2_forge/Narrow/narrow.bs:11:21: error: ViaTerm hands Cents an argument it does not accept
+  argument 1 is not covered by Cents's declared type:
+    { Kind: :'Narrow.Order' }
+  the clause to add here:
+    ViaTerm(Order o) -> ...
+exit=1
+---- compiler: exported-only
+/home/user/beam-sharp/artifacts/probes/59/p2_forge/Narrow/narrow.bs:11:21: error: ViaTerm hands Cents an argument it does not accept
+  argument 1 is not covered by Cents's declared type:
+    { Kind: :'Narrow.Order' }
+  the clause to add here:
+    ViaTerm(Order o) -> ...
+exit=1
+
+######## 3. THE SAME FOR int: p3_leak/Leak
+---- compiler: base
+ViaField(Counter{N=1})                [valid]              {returned,2}
+ViaField(Counter{N=1.5})              [float, via private  {returned,2.5}
+DirectField(Counter{N=1.5})           [float, no helper]   {returned,2.5}
+ViaTuple({1,2})                       [valid]              {returned,2}
+ViaTuple({1.5,2})                     [float, via private  {returned,2.5}
+DirectTuple({1.5,2})                  [float, no helper]   {returned,2.5}
+ViaList([1])                          [valid]              {returned,2}
+ViaList([1.5])                        [float, via private  {returned,2.5}
+DirectList([1.5])                     [float, no helper]   {returned,2.5}
+BumpPub(1.5)                          [exported guard, con {raised,error,function_clause}
+---- compiler: exported-only
+ViaField(Counter{N=1})                [valid]              {returned,2}
+ViaField(Counter{N=1.5})              [float, via private  {returned,2.5}
+DirectField(Counter{N=1.5})           [float, no helper]   {returned,2.5}
+ViaTuple({1,2})                       [valid]              {returned,2}
+ViaTuple({1.5,2})                     [float, via private  {returned,2.5}
+DirectTuple({1.5,2})                  [float, no helper]   {returned,2.5}
+ViaList([1])                          [valid]              {returned,2}
+ViaList([1.5])                        [float, via private  {returned,2.5}
+DirectList([1.5])                     [float, no helper]   {returned,2.5}
+BumpPub(1.5)                          [exported guard, con {raised,error,function_clause}
+---- compiler: guard-all
+ViaField(Counter{N=1})                [valid]              {returned,2}
+ViaField(Counter{N=1.5})              [float, via private  {raised,error,function_clause}
+DirectField(Counter{N=1.5})           [float, no helper]   {returned,2.5}
+ViaTuple({1,2})                       [valid]              {returned,2}
+ViaTuple({1.5,2})                     [float, via private  {raised,error,function_clause}
+DirectTuple({1.5,2})                  [float, no helper]   {returned,2.5}
+ViaList([1])                          [valid]              {returned,2}
+ViaList([1.5])                        [float, via private  {raised,error,function_clause}
+DirectList([1.5])                     [float, no helper]   {returned,2.5}
+BumpPub(1.5)                          [exported guard, con {raised,error,function_clause}
+---- compiler: field-depth
+ViaField(Counter{N=1})                [valid]              {returned,2}
+ViaField(Counter{N=1.5})              [float, via private  {raised,error,function_clause}
+DirectField(Counter{N=1.5})           [float, no helper]   {raised,error,function_clause}
+ViaTuple({1,2})                       [valid]              {returned,2}
+ViaTuple({1.5,2})                     [float, via private  {returned,2.5}
+DirectTuple({1.5,2})                  [float, no helper]   {returned,2.5}
+ViaList([1])                          [valid]              {returned,2}
+ViaList([1.5])                        [float, via private  {returned,2.5}
+DirectList([1.5])                     [float, no helper]   {returned,2.5}
+BumpPub(1.5)                          [exported guard, con {raised,error,function_clause}
+
+---- does erlc delete the private is_integer? Bump in Leak (a projection feeds it) vs Inc in Bench (every caller proves integer)
+== Leak.Bump, base
+{function,'Bump',1,4,
+          [{line,1},
+           {label,3},
+           {func_info,{atom,'Leak'},{atom,'Bump'},1},
+           {label,4},
+           {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}},
+           return]}
+== Leak.Bump, guard-all
+{function,'Bump',1,4,
+          [{line,1},
+           {label,3},
+           {func_info,{atom,'Leak'},{atom,'Bump'},1},
+           {label,4},
+           {test,is_integer,{f,3},[{x,0}]},
+           {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+           return]}
+== Bench.Inc, base
+{function,'Inc',1,6,
+          [{line,2},
+           {label,5},
+           {func_info,{atom,'Bench'},{atom,'Inc'},1},
+           {label,6},
+           {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+           return]}
+== Bench.Inc, guard-all
+{function,'Inc',1,6,
+          [{line,2},
+           {label,5},
+           {func_info,{atom,'Bench'},{atom,'Inc'},1},
+           {label,6},
+           {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+           return]}
+
+######## 4a. BYTES: .beam size, Code chunk and stripped file, private fns with a record param (K) and an int param (K)
+Bench (1 private record fn + 1 private int fn + twins)
+o4_base/Bench.beam                 file=3848 stripped=870 Code=1077
+o4_exported-only/Bench.beam        file=3828 stripped=865 Code=1065
+o4_guard-all/Bench.beam            file=3868 stripped=870 Code=1077
+Many: K=1 private record fns + K private int fns, record has 3 fields
+o5_1_3_base/Many.beam              file=1396 stripped=414 Code=159
+o5_1_3_exported-only/Many.beam     file=1380 stripped=405 Code=147
+o5_1_3_guard-all/Many.beam         file=1412 stripped=414 Code=159
+Many: K=10 private record fns + K private int fns, record has 3 fields
+o5_10_3_base/Many.beam             file=3772 stripped=873 Code=1119
+o5_10_3_exported-only/Many.beam    file=3416 stripped=811 Code=987
+o5_10_3_guard-all/Many.beam        file=3932 stripped=873 Code=1119
+Many: K=10 private record fns + K private int fns, record has 8 fields
+o5_10_8_base/Many.beam             file=3844 stripped=883 Code=1119
+o5_10_8_exported-only/Many.beam    file=3512 stripped=820 Code=987
+o5_10_8_guard-all/Many.beam        file=4004 stripped=883 Code=1119
+Many: K=40 private record fns + K private int fns, record has 3 fields
+o5_40_3_base/Many.beam             file=11752 stripped=2160 Code=4287
+o5_40_3_exported-only/Many.beam    file=10184 stripped=1914 Code=3735
+o5_40_3_guard-all/Many.beam        file=12396 stripped=2160 Code=4287
+
+######## 4b. TIME per call (see p4_cost/tbench.erl): 25 runs x 2M entries (8 guarded calls each), round-robin over variants; base1 and base2 are the SAME code in two modules = the noise floor
+RunRec       base1_plain    min= 25.516 median= 26.320 mad= 0.533 ns/call (n=25 x 2000000 calls)
+RunRec       base2_plain    min= 25.754 median= 26.462 mad= 0.686 ns/call (n=25 x 2000000 calls)
+RunRec       eo_plain       min= 25.025 median= 25.675 mad= 0.556 ns/call (n=25 x 2000000 calls)
+RunRec       ga_plain       min= 25.643 median= 26.494 mad= 0.613 ns/call (n=25 x 2000000 calls)
+RunRec       base1_inline   min= 24.621 median= 25.293 mad= 0.435 ns/call (n=25 x 2000000 calls)
+RunRec       base2_inline   min= 24.612 median= 25.526 mad= 0.721 ns/call (n=25 x 2000000 calls)
+RunRec       eo_inline      min= 24.660 median= 25.209 mad= 0.307 ns/call (n=25 x 2000000 calls)
+RunRec       ga_inline      min= 24.575 median= 25.417 mad= 0.410 ns/call (n=25 x 2000000 calls)
+Run8Rec      base1_plain    min= 73.402 median= 76.669 mad= 2.282 ns/call (n=25 x 2000000 calls)
+Run8Rec      base2_plain    min= 73.732 median= 76.499 mad= 1.620 ns/call (n=25 x 2000000 calls)
+Run8Rec      eo_plain       min= 47.695 median= 49.757 mad= 1.390 ns/call (n=25 x 2000000 calls)
+Run8Rec      ga_plain       min= 73.527 median= 75.451 mad= 1.531 ns/call (n=25 x 2000000 calls)
+Run8Rec      base1_inline   min= 27.143 median= 28.302 mad= 0.762 ns/call (n=25 x 2000000 calls)
+Run8Rec      base2_inline   min= 26.870 median= 27.672 mad= 0.615 ns/call (n=25 x 2000000 calls)
+Run8Rec      eo_inline      min= 26.981 median= 27.897 mad= 0.597 ns/call (n=25 x 2000000 calls)
+Run8Rec      ga_inline      min= 26.941 median= 28.393 mad= 1.127 ns/call (n=25 x 2000000 calls)
+Run8RecPub   base1_plain    min= 70.205 median= 74.192 mad= 2.341 ns/call (n=25 x 2000000 calls)
+Run8RecPub   base2_plain    min= 70.505 median= 74.068 mad= 2.698 ns/call (n=25 x 2000000 calls)
+Run8RecPub   eo_plain       min= 68.596 median= 71.418 mad= 1.904 ns/call (n=25 x 2000000 calls)
+Run8RecPub   ga_plain       min= 71.204 median= 73.486 mad= 1.296 ns/call (n=25 x 2000000 calls)
+Run8RecPub   base1_inline   min= 65.121 median= 67.108 mad= 1.211 ns/call (n=25 x 2000000 calls)
+Run8RecPub   base2_inline   min= 64.866 median= 67.182 mad= 1.672 ns/call (n=25 x 2000000 calls)
+Run8RecPub   eo_inline      min= 70.396 median= 72.575 mad= 1.984 ns/call (n=25 x 2000000 calls)
+Run8RecPub   ga_inline      min= 68.971 median= 73.804 mad= 3.541 ns/call (n=25 x 2000000 calls)
+Run8Direct   base1_plain    min= 26.969 median= 28.013 mad= 0.885 ns/call (n=25 x 2000000 calls)
+Run8Direct   base2_plain    min= 26.997 median= 27.876 mad= 0.666 ns/call (n=25 x 2000000 calls)
+Run8Direct   eo_plain       min= 26.956 median= 28.178 mad= 0.877 ns/call (n=25 x 2000000 calls)
+Run8Direct   ga_plain       min= 27.015 median= 28.219 mad= 0.878 ns/call (n=25 x 2000000 calls)
+Run8Direct   base1_inline   min= 26.999 median= 27.739 mad= 0.351 ns/call (n=25 x 2000000 calls)
+Run8Direct   base2_inline   min= 27.176 median= 28.080 mad= 0.743 ns/call (n=25 x 2000000 calls)
+Run8Direct   eo_inline      min= 27.117 median= 27.963 mad= 0.586 ns/call (n=25 x 2000000 calls)
+Run8Direct   ga_inline      min= 26.958 median= 27.655 mad= 0.416 ns/call (n=25 x 2000000 calls)
+Run8Int      base1_plain    min= 41.178 median= 42.798 mad= 1.106 ns/call (n=25 x 2000000 calls)
+Run8Int      base2_plain    min= 41.038 median= 43.240 mad= 1.404 ns/call (n=25 x 2000000 calls)
+Run8Int      eo_plain       min= 41.137 median= 42.189 mad= 0.860 ns/call (n=25 x 2000000 calls)
+Run8Int      ga_plain       min= 41.034 median= 42.245 mad= 0.707 ns/call (n=25 x 2000000 calls)
+Run8Int      base1_inline   min= 24.746 median= 25.635 mad= 0.436 ns/call (n=25 x 2000000 calls)
+Run8Int      base2_inline   min= 24.962 median= 25.849 mad= 0.736 ns/call (n=25 x 2000000 calls)
+Run8Int      eo_inline      min= 25.029 median= 25.653 mad= 0.435 ns/call (n=25 x 2000000 calls)
+Run8Int      ga_inline      min= 24.796 median= 25.878 mad= 0.601 ns/call (n=25 x 2000000 calls)
+Run8IntPub   base1_plain    min= 44.309 median= 46.405 mad= 1.463 ns/call (n=25 x 2000000 calls)
+Run8IntPub   base2_plain    min= 44.405 median= 46.328 mad= 0.777 ns/call (n=25 x 2000000 calls)
+Run8IntPub   eo_plain       min= 46.036 median= 47.608 mad= 1.061 ns/call (n=25 x 2000000 calls)
+Run8IntPub   ga_plain       min= 44.729 median= 46.559 mad= 1.058 ns/call (n=25 x 2000000 calls)
+Run8IntPub   base1_inline   min= 40.978 median= 43.407 mad= 2.089 ns/call (n=25 x 2000000 calls)
+Run8IntPub   base2_inline   min= 42.422 median= 43.904 mad= 1.015 ns/call (n=25 x 2000000 calls)
+Run8IntPub   eo_inline      min= 40.857 median= 42.557 mad= 1.423 ns/call (n=25 x 2000000 calls)
+Run8IntPub   ga_inline      min= 40.900 median= 42.193 mad= 0.943 ns/call (n=25 x 2000000 calls)
+
+(inlined variant: does Step survive as a call in RunRec? disassembly of RunRec compiled with {inline,[{'Step',1}]})
+{function,'RunRec',1,6,
+          [{line,2},
+           {label,5},
+           {func_info,{atom,'Bench'},{atom,'RunRec'},1},
+           {label,6},
+           {bif,map_get,{f,5},[{atom,'Kind'},{x,0}],{x,1}},
+           {test,is_eq_exact,{f,5},[{x,1},{atom,'Bench.Order'}]},
+           {line,3},
+           {bif,map_get,
+                {f,0},
+                [{atom,'Total'},{tr,{x,0},{t_map,any,any}}],
+                {x,0}},
+           return]}
+
+######## 5. SURVEY: Erlang, Gleam (pub vs private, opaque), Elixir (def vs defp)
+---- Erlang: -spec is not a run-time check, on exported or local
+pub(1.5)=2.5  via_priv(1.5)=2.5
+---- Erlang: OTP stdlib+kernel, bare parameter positions, exported vs private (survey/erlang/census.escript)
+beams scanned: 199 (root /tmp/claude-0/mm/root/envs/beam/lib/erlang/lib/stdlib-7.3)
+exported  functions=4193  parameter positions=7606  bare=6333 (83.3%)  functions with every position defended=893 (21.3%)
+private   functions=8873  parameter positions=26642  bare=23805 (89.4%)  functions with every position defended=882 (9.9%)
+  Compiling probe
+   Compiled in 0.44s
+new_money(C) ->
+    {money, C}.
+priv_cents(O) ->
+    element(3, O) * 100.
+pub_cents(O) ->
+    element(3, O) * 100.
+via_priv(O) ->
+    priv_cents(O).
+priv_inc(N) ->
+    N + 1.
+pub_inc(N) ->
+    N + 1.
+run_inc(N) ->
+    priv_inc(N).
+money_cents(M) ->
+    element(2, M).
+pub_cents({order,1,7})                   {returned,700}
+pub_cents({other,1,7}) forged tag        {returned,700}
+via_priv({other,1,7}) forged tag         {returned,700}
+pub_inc(1.5)                             {returned,2.5}
+run_inc(1.5)  (via private)              {returned,2.5}
+money_cents({whatever,3}) opaque         {returned,3}
+pub_cents(#{total=>7})   (no guard, no struct)     {returned,700}
+via_priv(#{total=>7})    (private, no guard)       {returned,700}
+pub_inc(1.5)             (hand-written guard)      {raised,error,
+                                                    function_clause}
+run_inc(1.5)             (hand-written guard on de {raised,error,
+                                                    function_clause}
+struct_pub(#{total=>7})  (hand-written %Order{})   {raised,error,
+                                                    function_clause}
+struct_via(#{total=>7})  (hand-written %Order{} on {raised,error,
+                                                    function_clause}
+ExCk exports (no private fn is listed): [{pub_cents,1},
+                                         {pub_inc,1},
+                                         {run_inc,1},
+                                         {struct_pub,1},
+                                         {struct_via,1},
+                                         {via_priv,1}]
+struct_via/1 signature inferred THROUGH the defp: #{sig =>
+                                                     {infer,nil,
+                                                      [{[#{map =>
+                                                            {-67927229,closed,
+                                                             [...]}}],
+                                                        #{dynamic => term}}]}}
+Elm: UNMEASURED here -- elm make cannot fetch package.elm-lang.org:
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+######## 6. EXISTING TESTS (tests.sh): rebar3 eunit on each compiler; failing tests by name
+---- base
+  Failed: 1.  Skipped: 0.  Passed: 1433.
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+---- exported-only
+  Failed: 1.  Skipped: 0.  Passed: 1433.
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+---- guard-all
+  Failed: 3.  Skipped: 0.  Passed: 1431.
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
+---- field-depth
+  Failed: 4.  Skipped: 0.  Passed: 1430.
+bindings_tests: a_binding_reads_a_projection_once_test...*failed*
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+records_tests: an_exported_record_parameter_gets_one_tag_test_test...*failed*
+to_json_tests: a_field_of_the_wrong_type_is_not_published_test...*failed*
+
+==== the two gates that cover the touched area (compiler/bin), run against each compiler's own build
+base           check-boundary-kind    exit=0 an int parameter is an integer at the boundary
+base           check-boundary-range   exit=0 a refined int parameter is inside its refinement at the boundary
+exported-only  check-boundary-kind    exit=0 an int parameter is an integer at the boundary
+exported-only  check-boundary-range   exit=0 a refined int parameter is inside its refinement at the boundary
+guard-all      check-boundary-kind    exit=0 an int parameter is an integer at the boundary
+guard-all      check-boundary-range   exit=0 a refined int parameter is inside its refinement at the boundary
+field-depth    check-boundary-kind    exit=0 an int parameter is an integer at the boundary
+field-depth    check-boundary-range   exit=0 a refined int parameter is inside its refinement at the boundary
+
+######## 7. CORPUS: boundary tests in the shipped example modules, per compiler (corpus.sh)
+module                             tag(pub,priv) kind(pub,priv)  per compiler: base | exported-only | guard-all | field-depth
+Aliasing                            | 0 0 3 0 | 0 0 3 0 | 0 0 3 0 | 0 0 3 0
+Counter                             | 0 0 5 0 | 0 0 5 0 | 0 0 5 0 | 0 0 5 0
+Escalate                            | 0 0 2 0 | 0 0 2 0 | 0 0 2 0 | 0 0 2 0
+Fib                                 | 0 0 2 0 | 0 0 2 0 | 0 0 2 6 | 0 0 2 0
+Foreign                             | 0 0 1 0 | 0 0 1 0 | 0 0 1 2 | 0 0 1 0
+Frame                               | 0 0 0 0 | 0 0 0 0 | 0 0 0 4 | 0 0 0 0
+Intake                              | 0 0 0 1 | 0 0 0 1 | 0 0 0 1 | 0 0 0 1
+Interop                             | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0
+Label                               | 1 0 0 0 | 1 0 0 0 | 1 0 0 0 | 1 0 1 0
+Ledger                              | 0 0 8 0 | 0 0 8 0 | 0 0 8 0 | 0 0 8 0
+Levels                              | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0
+Math                                | 0 0 9 0 | 0 0 9 0 | 0 0 9 0 | 0 0 9 0
+Names                               | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0
+Parcel                              | 2 0 1 0 | 2 0 1 0 | 2 0 1 0 | 2 0 3 0
+Pipeline                            | 0 0 6 0 | 0 0 6 0 | 0 0 6 5 | 0 0 6 0
+Queue                               | 1 0 1 0 | 1 0 1 0 | 1 0 1 0 | 1 0 3 0
+Readings                            | 0 0 1 0 | 0 0 1 0 | 0 0 1 0 | 0 0 1 0
+Shop                                | 5 0 4 0 | 5 0 4 0 | 5 0 4 0 | 5 0 14 0
+Shop/Billing                        | 2 0 0 0 | 2 0 0 0 | 2 0 0 0 | 2 0 4 0
+Shop/Collections/Ints               | 0 0 2 0 | 0 0 2 0 | 0 0 2 2 | 0 0 2 0
+Shop/Discounts                      | 0 0 5 0 | 0 0 5 0 | 0 0 5 0 | 0 0 5 0
+Shop/Pricing                        | 0 0 2 0 | 0 0 2 0 | 0 0 2 2 | 0 0 2 0
+Shop/Reports                        | 0 0 2 0 | 0 0 2 0 | 0 0 2 2 | 0 0 2 0
+Shop/Rows                           | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0
+Signalbox                           | 1 0 8 0 | 1 0 8 0 | 1 0 8 0 | 1 0 8 0
+Stats                               | 0 0 3 0 | 0 0 3 0 | 0 0 3 0 | 0 0 3 0
+Stream                              | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0
+Wire                                | 0 0 6 0 | 0 0 6 0 | 0 0 6 0 | 0 0 6 0
+
+TOTALS over the corpus (tag_pub tag_priv kind_pub kind_priv):
+  base           12 0 71 1
+  exported-only  12 0 71 1
+  guard-all      12 0 71 24
+  field-depth    12 0 90 1
+
+DONE
