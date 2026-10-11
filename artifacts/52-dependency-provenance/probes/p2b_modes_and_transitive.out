@@ -20,3 +20,12 @@ ensure_loaded={error,embedded}
   stdlib -> lib_dir "stdlib-8.1"
   elixir -> lib_dir bad_name
   logger -> lib_dir bad_name
+
+### version: is it READABLE at compile time without fetching anything? (the ticket calls any version constraint 'resolution')
+  exdep -> "0.1.0"
+  erldep -> "1.2.3"
+  elixir -> "1.20.4"
+  stdlib -> "8.1"
+  nosuchapp -> absent
+  cost: 278.3 us per vsn read (file:consult of the .app, 1000 calls)
+  dir names carry the version? lib_dir(exdep)=exdep  lib_dir(stdlib)=stdlib-8.1

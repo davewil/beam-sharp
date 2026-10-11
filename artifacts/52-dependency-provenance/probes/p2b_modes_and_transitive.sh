@@ -24,3 +24,15 @@ ERL_LIBS="$FX/libA" erl -noshell -eval '
   {ok, Deps} = application:get_key(exdep, applications),
   [io:format("  ~w -> lib_dir ~p~n",[D, case code:lib_dir(D) of {error,E}->E; P->filename:basename(P) end]) || D <- Deps],
   halt().' 2>&1
+echo; echo "### version: is it READABLE at compile time without fetching anything? (the ticket calls any version constraint 'resolution')"
+ERL_LIBS="$FX/libA:$ELIXLIB" erl -noshell -eval '
+  Vsn = fun(App) ->
+     case code:where_is_file(atom_to_list(App) ++ ".app") of
+        non_existing -> absent;
+        F -> {ok,[{application,App,Props}]} = file:consult(F), proplists:get_value(vsn, Props)
+     end end,
+  [io:format("  ~w -> ~p~n",[A, Vsn(A)]) || A <- [exdep, erldep, elixir, stdlib, nosuchapp]],
+  {T, _} = timer:tc(fun() -> [Vsn(exdep) || _ <- lists:seq(1,1000)] end),
+  io:format("  cost: ~.1f us per vsn read (file:consult of the .app, 1000 calls)~n",[T/1000]),
+  io:format("  dir names carry the version? lib_dir(exdep)=~s  lib_dir(stdlib)=~s~n",[filename:basename(code:lib_dir(exdep)), filename:basename(code:lib_dir(stdlib))]),
+  halt().' 2>&1 | sed "s#$FX#FX#g"

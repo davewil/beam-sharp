@@ -2,7 +2,7 @@ gleam 1.19.1
 == 1. a project with NO dependencies and an @external to a module that exists nowhere
      Resolving versions
      Compiling app1
-      Compiled in 0.47s
+      Compiled in 0.52s
    gleam build exit=0
 -- run it
    error:undef {nonexistent_mod,f,[1],[]}
@@ -18,7 +18,7 @@ gleam 1.19.1
 == 2. NEGATIVE CONTROL: same shape, @external to a module that exists (erlang:abs)
      Resolving versions
      Compiling app2
-      Compiled in 0.40s
+      Compiled in 0.62s
    gleam build exit=0
 
 == 3. a LOCAL path dependency (hex is unreachable): gleam.toml [dependencies] and what the .app gets
@@ -26,7 +26,7 @@ gleam 1.19.1
          Added dep3 v0.1.0
      Compiling dep3
      Compiling app3
-      Compiled in 0.41s
+      Compiled in 0.64s
    exit=0
    {application, app3, [
        {vsn, "1.0.0"},
@@ -40,7 +40,7 @@ gleam 1.19.1
      Resolving versions
      Compiling app4
    error: Unknown module
-     ┌─ PROBES/fixtures/_fx/gleam/app4/src/app4.gleam:1:1
+     ┌─ /home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/gleam/app4/src/app4.gleam:1:1
      │
    1 │ import dep3
      │ ^^^^^^^^^^^
@@ -48,7 +48,7 @@ gleam 1.19.1
    No module has been found with the name `dep3`.
    
    error: Unknown module
-     ┌─ PROBES/fixtures/_fx/gleam/app4/src/app4.gleam:2:24
+     ┌─ /home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/gleam/app4/src/app4.gleam:2:24
      │
    2 │ pub fn main() -> Int { dep3.id(7) }
      │                        ^^^^

@@ -8,6 +8,7 @@ H="$(cd "$(dirname "$0")" && pwd)"; FX="$H/fixtures/_fx"
 [ -d "$FX/libA" ] || "$H/fixtures/build-fixtures.sh" >/dev/null
 [ -d "$H/fixtures/_proto/ebin" ] || "$H/../prototype/build.sh" >/dev/null
 ELIXLIB=/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib
+source /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/env.sh
 export BSC_EBIN="$H/fixtures/_proto/ebin"
 run() { # label libs dir fn arg
   L="${2//$FX/FX}"; L="${L//$ELIXLIB/ELIXIR_LIB}"
@@ -36,6 +37,8 @@ run KwA-machine1 "$M1" KwA ViaExDep '<<"hi">>'
 run KwA-machine2 "$M2" KwA ViaExDep '<<"hi">>'
 run KwB-machine1 "$M1" KwB ViaErl 21
 run KwB-machine2 "$M2" KwB ViaErl 21
+echo; echo "######## --api (reads declarations, builds nothing) on the machine WITHOUT the deps: does the declaration break the query path?"
+for m in DeclA KwA; do echo "--- bsc --api bs/$m  (ERL_LIBS=libB)"; ERL_LIBS="$M2" "$H/bsc.sh" --src-root "$H/bs" --api "$H/bs/$m" 2>&1 | sed 's/^/    /'; done
 echo; echo "######## what lands in the beam (A and B both write one deduped attribute)"
 for m in DeclA DeclB; do
   ERL_LIBS="$M1" "$H/bsc.sh" -o "$FX/proto-$m" --src-root "$H/bs" "$H/bs/$m" >/dev/null 2>&1

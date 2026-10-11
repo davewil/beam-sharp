@@ -20,11 +20,11 @@
 
 == 5. dialyzer: unknown function (PLT of erts+kernel+stdlib, then the one module)
    plt built exit=2
-     Checking whether the PLT PROBES/fixtures/_fx/p3b/p.plt is up-to-date... yes
+     Checking whether the PLT /home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/p3b/p.plt is up-to-date... yes
      Proceeding with analysis...
    Unknown functions:
      missing_dep_mod:run/1 (erl/caller.erl:4:10)
-    done in 0m0.16s
+    done in 0m0.20s
    done (warnings were emitted)
 
 == 6. application:ensure_all_started on an absent app

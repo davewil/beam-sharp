@@ -1,0 +1,16 @@
+## reference
+value >= -5                {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},5}}}
+value >= - 5               {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,31},5}}}
+value >= -(5)              {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,31},5}}}
+value >= -(-5)             {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_neg,{2,31},{e_int,{2,32},5}}}}
+value >= 0 - 5             {e_op,{2,26},'>=',{e_var,{2,20},value},{e_op,{2,31},'-',{e_int,{2,29},0},{e_int,{2,33},5}}}
+value >= -0xFF             {e_op,{2,26},'>=',{e_var,{2,20},value},{e_neg,{2,29},{e_int,{2,30},255}}}
+value >= -1.5              {e_op,{2,26},'>=',{e_var,{2,20},value},{e_float,{2,30},-1.5}}
+## /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/57/ebin-A
+value >= -5                {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,30},-5}}
+value >= - 5               {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,31},-5}}
+value >= -(5)              {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,31},-5}}
+value >= -(-5)             {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,32},5}}
+value >= 0 - 5             {e_op,{2,26},'>=',{e_var,{2,20},value},{e_op,{2,31},'-',{e_int,{2,29},0},{e_int,{2,33},5}}}
+value >= -0xFF             {e_op,{2,26},'>=',{e_var,{2,20},value},{e_int,{2,30},-255}}
+value >= -1.5              {e_op,{2,26},'>=',{e_var,{2,20},value},{e_float,{2,30},-1.5}}

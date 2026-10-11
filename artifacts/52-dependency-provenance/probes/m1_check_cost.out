@@ -1,12 +1,32 @@
 ### cold: first call in a fresh VM, ERL_LIBS = libA + elixir (3 + ~8 app dirs)
-   cold first call lib_dir       n=25 median=    10.6 us  min=     9.7  max=    44.6
-   cold first call which         n=25 median=    19.0 us  min=    15.9  max=    30.6
-   cold first call where_is_app  n=25 median=     4.5 us  min=     4.0  max=     7.3
-   cold first call app_load      n=25 median=   198.7 us  min=   149.2  max=  1481.4
+   cold first call lib_dir       n=25 median=    11.0 us  min=     9.5  max=    31.2
+   cold first call which         n=25 median=    20.2 us  min=    18.3  max=    26.1
+   cold first call where_is_app  n=25 median=     4.7 us  min=     4.3  max=    15.6
+   cold first call app_load      n=25 median=   186.8 us  min=   152.5  max=   535.3
 ### cold: ERL_LIBS = libA + elixir + 300 fake apps
-   cold first call lib_dir       n=25 median=    12.7 us  min=     9.9  max=    47.0
-   cold first call which         n=25 median=    20.6 us  min=    17.8  max=    39.0
-   cold first call where_is_app  n=25 median=     4.6 us  min=     4.2  max=    25.5
-   cold first call app_load      n=25 median=   191.8 us  min=   144.9  max=   361.5
+   cold first call lib_dir       n=25 median=    11.4 us  min=     9.2  max=    19.8
+   cold first call which         n=25 median=    20.4 us  min=    17.6  max=    50.2
+   cold first call where_is_app  n=25 median=     4.7 us  min=     4.0  max=     6.1
+   cold first call app_load      n=25 median=   178.8 us  min=   147.0  max=  3643.0
 ### warm (200k calls each)
-lib_dir(present app)                 2564.4 ns/call  (200000 calls, 512889 us total)
+lib_dir(present app)                 2992.1 ns/call  (200000 calls, 598412 us total)
+lib_dir(absent app)                  1869.0 ns/call  (200000 calls, 373807 us total)
+which(present, unloaded mod)         5749.8 ns/call  (200000 calls, 1149960 us total)
+which(absent mod)                   18219.0 ns/call  (200000 calls, 3643803 us total)
+where_is_file("exdep.app")           4129.6 ns/call  (200000 calls, 825918 us total)
+where_is_file(absent .app)          14816.5 ns/call  (200000 calls, 2963301 us total)
+application:load (already)           1843.3 ns/call  (200000 calls, 368664 us total)
+code:is_loaded(loaded mod)            592.6 ns/call  (200000 calls, 118528 us total)
+(baseline) erlang:now-ish: erlang:     45.4 ns/call  (200000 calls, 9076 us total)
+### warm, 300 extra apps on the path
+lib_dir(present app)                 2981.1 ns/call  (200000 calls, 596211 us total)
+lib_dir(absent app)                  1734.1 ns/call  (200000 calls, 346819 us total)
+which(present, unloaded mod)         4009.4 ns/call  (200000 calls, 801885 us total)
+which(absent mod)                   29876.4 ns/call  (200000 calls, 5975279 us total)
+where_is_file("exdep.app")           3976.5 ns/call  (200000 calls, 795291 us total)
+where_is_file(absent .app)          29985.3 ns/call  (200000 calls, 5997061 us total)
+application:load (already)           1856.2 ns/call  (200000 calls, 371238 us total)
+code:is_loaded(loaded mod)            590.4 ns/call  (200000 calls, 118073 us total)
+(baseline) erlang:now-ish: erlang:     45.0 ns/call  (200000 calls, 8991 us total)
+### NEGATIVE CONTROL: the harness can see a slow call (a deliberate 1 ms sleep, expect >= 1,000,000 ns; the sleep granularity here is coarser, which is reported as measured)
+   sleep(1ms) x100: 1998560.0 ns/call

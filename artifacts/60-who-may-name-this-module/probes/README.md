@@ -19,7 +19,9 @@ selects which compiler build to run (default: the unmodified HEAD build).
 | `./go_internal.sh` | `go_internal.out` | extra: Go's `internal/` directory rule (the direct precedent for variant B) |
 | `./rust_pub_in.sh` | `rust_pub_in.out` | extra: Rust `pub(in path)` (a per-item subtree marker) |
 | `./e_prototype.sh` | `e_prototype.out` | (e) three scratch-compiler variants with negative controls |
-| `./e_cost.sh` | `e_cost.out` | (e) compile-time cost (60 warm runs, 30 cold runs per build) and a corpus regression sweep |
+| `./e_emit_unchanged.sh` | `e_emit_unchanged.out` | (e) the friend rule leaves the caller's emitted code identical; beams are not reproducible (control) |
+| `erlc e_micro.erl` then `e_micro:main()` | `e_micro.out` | (e) the predicate alone, ns per call (see the file header) |
+| `./e_cost.sh` | `e_cost.out` | (e) compile-time cost (80 interleaved warm runs, 30 cold runs per build) and a corpus regression sweep |
 
 Scratch compilers for (e) are built from COPIES of `compiler/src`; `/home/user/beam-sharp/compiler/src`
 is never edited. Sources of the variants: `../patches/variant_{A,B,C}.patch` (diff against HEAD).

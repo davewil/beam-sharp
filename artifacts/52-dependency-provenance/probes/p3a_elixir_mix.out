@@ -19,12 +19,12 @@
 
 
 == 3. dep listed as a path dependency (control: no warning expected)
---- [listed] deps=[{:exdep, path: "PROBES/fixtures/_fx/src/exdep"}]
+--- [listed] deps=[{:exdep, path: "/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/src/exdep"}]
 ==> exdep
 ==> c
 
 == 4. dep listed, function that does not exist in it
---- [listed_badfun] deps=[{:exdep, path: "PROBES/fixtures/_fx/src/exdep"}]
+--- [listed_badfun] deps=[{:exdep, path: "/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/src/exdep"}]
 ==> exdep
 ==> c
     warning: ExDep.nope/1 is undefined or private
@@ -43,7 +43,7 @@ defmodule C.MixProject do
   use Mix.Project
   def project, do: [app: :c, version: "0.1.0", deps: deps()]
   def application, do: [extra_applications: [:logger]]
-  defp deps, do: [{:exdep, path: "PROBES/fixtures/_fx/src/exdep"}]
+  defp deps, do: [{:exdep, path: "/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/src/exdep"}]
 end
 == 7. what mix wrote to the compiled .app of case 3 (applications key records the dep for runtime)
 {application,c,[{modules,['Elixir.C']},{optional_applications,[]},{applications,[kernel,stdlib,elixir,logger,exdep]},{description,"c"},{registered,[]},{vsn,"0.1.0"}]}.

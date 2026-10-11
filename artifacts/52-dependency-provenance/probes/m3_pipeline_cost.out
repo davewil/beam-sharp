@@ -6,12 +6,12 @@ warnings in selected modules.
 %     |                                   ^
 
 check result (deps present): {ok,[elixir,erldep,exdep]}
-check, 3 declarations: first call 8317 us (cold: includes first code:where_is_file/which); warm median 533 us, min 384, p95 1087 (n=2000)
+check, 3 declarations: first call 3785 us (cold: includes first code:where_is_file/which); warm median 535 us, min 408, p95 1009 (n=2000)
 components (warm):
   code:where_is_file("exdep.app")  [is the app on the path]    median 8 us (min 7)
-  code:which(Mod)                     [is the module on the pa median 14 us (min 8)
-  filelib:wildcard(dirname(Beam)/*.app) [who owns the module:  median 37 us (min 23)
+  code:which(Mod)                     [is the module on the pa median 8 us (min 6)
+  filelib:wildcard(dirname(Beam)/*.app) [who owns the module:  median 28 us (min 23)
   basename(dirname(dirname(Beam)))      [owner by DIRECTORY na median 5 us (min 4)
 bsc: error: line {1,1}: application `nosuchapp` (for :erldep) is not on the code path (ERL_LIBS=/home/user/beam-sharp/artifacts/52-dependency-provenance/probes/fixtures/_fx/libA:/tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/mm/root/envs/tc/lib/elixir/lib)
 negative control (absent app) -> fail
-whole bsc:file_to_dir on DeclA (parse+check+emit+erlc, with the check inside), 20 runs: median 9567 us, min 6437, max 90373
+whole bsc:file_to_dir on DeclA (parse+check+emit+erlc, with the check inside), 20 runs: median 7061 us, min 6323, max 51076

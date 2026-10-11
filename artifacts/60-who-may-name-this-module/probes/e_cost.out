@@ -6,3 +6,11 @@ B     median=12919 min=10675 p10=11033 p90=28222 max=96904 (n=80)
 C     median=14328 min=10292 p10=11187 p90=32134 max=83123 (n=80)
 ### cold: 30 separate 'bsc' process launches each (includes VM boot), milliseconds
 base  median=354 min=279 p90=502 max=635 (n=30)
+A     median=358 min=275 p90=392 max=557 (n=30)
+B     median=355 min=293 p90=445 max=644 (n=30)
+C     median=400 min=294 p90=543 max=904 (n=30)
+### regression sweep: every module dir under compiler/examples (not exemplars/), exit status per variant
+base: 28 compile, 0 do not
+A: 28 compile, 0 do not
+B: 28 compile, 0 do not
+C: 28 compile, 0 do not

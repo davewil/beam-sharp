@@ -1,0 +1,19 @@
+--- CONTROL: two compiles of the same source, .beam md5 (expected to DIFFER if beams are not reproducible)
+a2f9b7e31be3c66c2e66ea3ce81facec  b/Shop.Orders.beam
+b12cf727c7bef06a77072cec53534906  b/Shop.Reports.beam
+7de90892718e3730ce9f1e18c7a7864c  c/Shop.Orders.beam
+3537e846e8d9bbc97de3509b62907019  c/Shop.Reports.beam
+--- .abstr md5: A with the friend file (a/) vs unmodified compiler without it (b/, c/)
+c45a447e84c2559e0fe39b4e5558cb65  a/Shop.Orders.abstr
+bcce4736453a509a704e62aa798ac010  a/Shop.Reports.abstr
+907aba4b7caf4d2b8b476566d915949f  b/Shop.Orders.abstr
+bcce4736453a509a704e62aa798ac010  b/Shop.Reports.abstr
+907aba4b7caf4d2b8b476566d915949f  c/Shop.Orders.abstr
+bcce4736453a509a704e62aa798ac010  c/Shop.Reports.abstr
+--- Shop.Orders.abstr differs a/ vs b/ only by the extra source file's file attribute:
+51,55d50
+< {"Shop/Orders/Friends.bs"
+< 1}}.
+< {attribute
+< 0
+< file

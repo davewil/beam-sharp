@@ -1,0 +1,8 @@
+== reference
+Thermo/a.bs:2:1: error: this refinement is not a predicate the checker can read
+== A
+Thermo/a.bs:13:25: error: the right-hand side of `/` in PerStep is always zero
+== B
+Thermo/a.bs:5:1: error: Floor returns a value its signature does not declare
+== Barith
+Thermo/a.bs:13:25: error: the right-hand side of `/` in PerStep is always zero

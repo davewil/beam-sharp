@@ -1,0 +1,42 @@
+######## reference
+## control (unsigned, F2.5 as written): guard n > 128 over 0..255
+Oct/a.bs:3:13: error: K is not exhaustive
+  no clause matches:
+    K(>= 0 and <= 128) -> ...
+## signed: guard n > -3 over -10..10
+Sgn/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+## signed, both halves covered by guards (must be accepted)
+Sgn2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+(empty above = accepted)
+######## /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/57/ebin-A
+## control (unsigned, F2.5 as written): guard n > 128 over 0..255
+Oct/a.bs:3:13: error: K is not exhaustive
+  no clause matches:
+    K(>= 0 and <= 128) -> ...
+## signed: guard n > -3 over -10..10
+Sgn/a.bs:3:13: error: K is not exhaustive
+  no clause matches:
+    K(>= -10 and <= -3) -> ...
+## signed, both halves covered by guards (must be accepted)
+(empty above = accepted)
+######## /tmp/claude-0/-home-user-beam-sharp/6af6839d-c1ca-5cc4-85ca-6a6c1f350905/scratchpad/57/ebin-B
+## control (unsigned, F2.5 as written): guard n > 128 over 0..255
+Oct/a.bs:3:13: error: K is not exhaustive
+  no clause matches:
+    K(>= 0 and <= 128) -> ...
+## signed: guard n > -3 over -10..10
+Sgn/a.bs:3:13: error: K is not exhaustive
+  no clause matches:
+    K(>= -10 and <= -3) -> ...
+## signed, both halves covered by guards (must be accepted)
+(empty above = accepted)

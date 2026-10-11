@@ -63,12 +63,17 @@
     bsc: error: line {2,1}: application `erldep` is not on the code path (ERL_LIBS=FX/libB:ELIXIR_LIB)
     exit=1
 
+######## --api (reads declarations, builds nothing) on the machine WITHOUT the deps: does the declaration break the query path?
+--- bsc --api bs/DeclA  (ERL_LIBS=libB)
+    module DeclA
+    int Pure(int)
+    int ViaErl(int)
+    binary ViaExDep(binary)
+--- bsc --api bs/KwA  (ERL_LIBS=libB)
+    module KwA
+    int ViaErl(int)
+    binary ViaExDep(binary)
+
 ######## what lands in the beam (A and B both write one deduped attribute)
-{"init terminating in do_boot",{{badmatch,{'EXIT',{badarg,[{erlang,binary_to_atom,[<<68,101,99,108,65,208,98,115,64,116,121,112,101,95,97,116,111,109,115,128,86,105,97,69,120,68,101,112,192,69,108,105,120,105,114,46,69,120,68,101,112,80,115,104,111,117,116,96,86,105,97,69,114,108,96,101,114,108,100,101,112,96,100,111,117,98,108,101,64,80,117,114,101,96,101,114,108,97,110,103>>,utf8],[{error_info,#{module=>erl_erts_errors}}]},{beam_lib,extract_atom,2,[{file,"beam_lib.erl"},{line,862}]},{beam_lib,get_atom_data,8,[{file,"beam_lib.erl"},{line,638}]},{beam_lib,scan_beam1,2,[{file,"beam_lib.erl"},{line,599}]},{beam_lib,scan_beam,4,[{file,"beam_lib.erl"},{line,584}]},{beam_lib,read_chunk_data,3,[{file,"beam_lib.erl"},{line,556}]},{beam_lib,read_chunk_data,2,[{file,"beam_lib.erl"},{line,547}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]}]}}},[{beam_lib,read_chunk_data,3,[{file,"beam_lib.erl"},{line,556}]},{beam_lib,read_chunk_data,2,[{file,"beam_lib.erl"},{line,547}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,492}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,136}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
-init terminating in do_boot ({{badmatch,{EXIT,{badarg,[_]}}},[{beam_lib,read_chunk_data,3,[{_},{_}]},{beam_lib,read_chunk_data,2,[{_},{_}]},{erl_eval,do_apply,7,[{_},{_}]},{erl_eval,expr,6,[{_},{_}]},{erl_eval,exprs,6,[{_},{_}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
-
-Crash dump is being written to: erl_crash.dump...done
-{"init terminating in do_boot",{{badmatch,{'EXIT',{badarg,[{erlang,binary_to_atom,[<<68,101,99,108,66,208,98,115,64,116,121,112,101,95,97,116,111,109,115,128,86,105,97,69,120,68,101,112,192,69,108,105,120,105,114,46,69,120,68,101,112,80,115,104,111,117,116,96,86,105,97,69,114,108,96,101,114,108,100,101,112,96,100,111,117,98,108,101,64,80,117,114,101,96,101,114,108,97,110,103>>,utf8],[{error_info,#{module=>erl_erts_errors}}]},{beam_lib,extract_atom,2,[{file,"beam_lib.erl"},{line,862}]},{beam_lib,get_atom_data,8,[{file,"beam_lib.erl"},{line,638}]},{beam_lib,scan_beam1,2,[{file,"beam_lib.erl"},{line,599}]},{beam_lib,scan_beam,4,[{file,"beam_lib.erl"},{line,584}]},{beam_lib,read_chunk_data,3,[{file,"beam_lib.erl"},{line,556}]},{beam_lib,read_chunk_data,2,[{file,"beam_lib.erl"},{line,547}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]}]}}},[{beam_lib,read_chunk_data,3,[{file,"beam_lib.erl"},{line,556}]},{beam_lib,read_chunk_data,2,[{file,"beam_lib.erl"},{line,547}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,492}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,136}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
-init terminating in do_boot ({{badmatch,{EXIT,{badarg,[_]}}},[{beam_lib,read_chunk_data,3,[{_},{_}]},{beam_lib,read_chunk_data,2,[{_},{_}]},{erl_eval,do_apply,7,[{_},{_}]},{erl_eval,expr,6,[{_},{_}]},{erl_eval,exprs,6,[{_},{_}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
-
-Crash dump is being written to: erl_crash.dump...done
+    DeclA: [{bs_deps,[elixir,erldep,exdep]}]
+    DeclB: [{bs_deps,[elixir,erldep,exdep]}]

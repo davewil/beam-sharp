@@ -1,0 +1,7 @@
+A: no friend list (every module)   median 11.5 ns/call  (min 10.8, max 14.2; 21 x 1000000 calls)
+A: 2 friends, caller listed        median 31.1 ns/call  (min 21.6, max 66.1; 21 x 1000000 calls)
+A: 2 friends, caller refused       median 153.1 ns/call  (min 130.7, max 251.4; 21 x 1000000 calls)
+B: no Internal segment             median 450.6 ns/call  (min 358.0, max 583.2; 21 x 1000000 calls)
+B: Internal, caller allowed        median 1076.1 ns/call  (min 884.5, max 1337.3; 21 x 1000000 calls)
+B: Internal, caller refused        median 996.9 ns/call  (min 779.2, max 1326.6; 21 x 1000000 calls)
+control: empty fun                 median 10.2 ns/call  (min 9.2, max 16.7; 21 x 1000000 calls)

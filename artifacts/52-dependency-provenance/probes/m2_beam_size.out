@@ -5,9 +5,9 @@ V1 one attr per using: -bs_dep({Mod,elixir,App})                no-debug_info=  
 V2 one attr per module, deduped apps: -bs_deps([App..])         no-debug_info=   876 B (delta +40)   debug_info=  1532 B (delta +64)   attr term flat_size=8 words
 V3 one attr per using, WITH version string                      no-debug_info=  1000 B (delta +164)   debug_info=  1684 B (delta +216)   attr term flat_size=57 words
 V4 attr per using, long names (control: big payload)            no-debug_info=  1096 B (delta +260)   debug_info=  1776 B (delta +308)   attr term flat_size=18 words
-compile:forms time (30 runs, us): V0 baseline (no attribute)                                 median=2409 min=1975 max=2764
-compile:forms time (30 runs, us): V1 one attr per using: -bs_dep({Mod,elixir,App})           median=2082 min=1948 max=3297
-compile:forms time (30 runs, us): V2 one attr per module, deduped apps: -bs_deps([App..])    median=2001 min=1922 max=2137
+compile:forms time (30 runs, us): V0 baseline (no attribute)                                 median=2079 min=1960 max=2324
+compile:forms time (30 runs, us): V1 one attr per using: -bs_dep({Mod,elixir,App})           median=2150 min=1993 max=4024
+compile:forms time (30 runs, us): V2 one attr per module, deduped apps: -bs_deps([App..])    median=2019 min=1917 max=2771
 beam_lib:chunks(Bin,[attributes]) without loading: [{bs_deps,
                                                      [erldep,exdep,string]}]
 --- the first forms bsc emits (shape of the form the attribute joins):
@@ -24,9 +24,9 @@ V1 one attr per using: -bs_dep({Mod,elixir,App})                no-debug_info=  
 V2 one attr per module, deduped apps: -bs_deps([App..])         no-debug_info=   636 B (delta +36)   debug_info=  1036 B (delta +60)   attr term flat_size=8 words
 V3 one attr per using, WITH version string                      no-debug_info=  1256 B (delta +656)   debug_info=  1708 B (delta +732)   attr term flat_size=228 words
 V4 attr per using, long names (control: big payload)            no-debug_info=  1628 B (delta +1028)   debug_info=  2076 B (delta +1100)   attr term flat_size=72 words
-compile:forms time (30 runs, us): V0 baseline (no attribute)                                 median=934 min=828 max=1214
-compile:forms time (30 runs, us): V1 one attr per using: -bs_dep({Mod,elixir,App})           median=1152 min=832 max=3805
-compile:forms time (30 runs, us): V2 one attr per module, deduped apps: -bs_deps([App..])    median=948 min=831 max=4459
+compile:forms time (30 runs, us): V0 baseline (no attribute)                                 median=1260 min=1134 max=2662
+compile:forms time (30 runs, us): V1 one attr per using: -bs_dep({Mod,elixir,App})           median=1196 min=1132 max=1952
+compile:forms time (30 runs, us): V2 one attr per module, deduped apps: -bs_deps([App..])    median=1042 min=845 max=1442
 beam_lib:chunks(Bin,[attributes]) without loading: [{bs_deps,
                                                      [finch,jason,req]}]
 --- the first forms bsc emits (shape of the form the attribute joins):
