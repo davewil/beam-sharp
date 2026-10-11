@@ -55,6 +55,11 @@ done
 echo; echo "---- disassembly of the private Cents (base vs exported-only)"
 for v in base exported-only; do echo "== $v"; escript "$HERE/p4_cost/dis.escript" o2_$v/Forge.beam Cents; done
 
+H "2b. CAN A TAG-ONLY NARROWING OF term REACH A PRIVATE Order PARAMETER? (expected: bsc REFUSES the program)"
+for v in base exported-only; do
+  echo "---- compiler: $v"; mkdir -p o2b_$v; ./bsc.$v -o o2b_$v "$HERE/p2_forge/Narrow" 2>&1 | head -8; echo "exit=${PIPESTATUS[0]}"
+done
+
 H "3. THE SAME FOR int: p3_leak/Leak"
 erlc -o . "$HERE/p3_leak/drive_leak.erl"
 for v in base exported-only guard-all field-depth; do
@@ -114,4 +119,6 @@ if [ "${TESTS:-1}" = 1 ]; then
 H "6. EXISTING TESTS (tests.sh): rebar3 eunit on each compiler; failing tests by name"
 bash "$HERE/tests.sh" "$SCRATCH"
 fi
+H "7. CORPUS: boundary tests in the shipped example modules, per compiler (corpus.sh)"
+bash "$HERE/corpus.sh" "$SCRATCH"
 echo; echo "DONE"

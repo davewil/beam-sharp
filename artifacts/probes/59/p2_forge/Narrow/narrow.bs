@@ -1,0 +1,12 @@
+module Narrow
+
+record Order { Id: int, Total: int }
+
+int Cents(Order o)
+Cents(o) -> o.Total * 100
+
+// EXPECTED TO BE REFUSED. Naming the record in a head narrows a `term` to its tag only; the
+// checker does not call that value an Order, so it cannot reach the private Cents unchecked.
+public int ViaTerm(term t)
+ViaTerm(Order o) -> Cents(o)
+ViaTerm(_)       -> -1

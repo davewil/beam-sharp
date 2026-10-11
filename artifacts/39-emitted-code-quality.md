@@ -223,3 +223,14 @@ crashed in the harness because the prototype modules do not export `Spin`; the h
 it. An early `eunit` run was cancelled (timeouts while a compile-time probe shared the CPU; its summary said 'cancelled') and was discarded;
 `eunit_proto.txt` is from reruns with nothing else running. The isolation variants export `Spin`, which changes inference for `Wrap`'s argument; that is why the
 bsc-vs-Erlang `inline` gap appears there (17%) and not in the private-`Spin` end-to-end runs (0.1 ms).
+
+## Verifier corrections (artifacts/verification/39.md)
+
+Headline minimums reproduced (A 16.61-16.67, B 10.68-10.73, C 10.21-10.24, Gleam 10.75-10.81 ms; bsc, Erlang and Elixir level to ~1%). No circular probe found. Corrections to the wording above:
+
+- Stripping every `{tr,...}` does not leave the loop unchanged: it is 1.4-2.8% *faster* on 3 of 3 VMs (a round-trip control assembled without stripping equals baseline). Annotations buy nothing; if anything their presence costs.
+- The REPL failure under `BSC_INLINE=private`/`all` is real, but the REPL answers "no Half/1 -- try :exports" rather than "is private in"; it does not come back empty.
+- The "p25..p75 spans 17 to 28 ms" noise claim is unsupported (max p75 in output.txt is 19.3 ms). Minimums-only remains the right policy.
+- The 6% gap between option C and hand-written Erlang compared unlike lists (the Erlang list named two functions, C names six). With all six listed: 9.58 vs 10.24 ms, so the gap is unexplained.
+- Scope: the ticket's Apple Silicon run had Gleam 1.18.1 level with Erlang; the 36% Gleam lead here is x86_64 with Gleam 1.19.1. Apple Silicon is UNPROBED. Option C also grows this module's beam by 16% (2372 to 2756 bytes).
+- Prototype LOC is 12 added by `git apply --numstat` (not 11); compile-time cost was measured on OTP modules only; stack-trace behaviour under inlining was shown on Erlang source only.
