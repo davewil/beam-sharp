@@ -1,0 +1,25 @@
+E0  (-5) with x=7  =>  -5
+E1  (-(-5)) with x=7  =>  5
+E2  (- 5) with x=7  =>  -5
+E3  (3 - -5) with x=7  =>  8
+E4  (-5 + 3) with x=7  =>  -2
+E5  (-2 * 3 - 1) with x=7  =>  -7
+E6  (-7 / 2) with x=7  =>  -3
+E7  (-7 % 2) with x=7  =>  -1
+E8  (7 % -2) with x=7  =>  1
+E9  (7 / -2) with x=7  =>  -3
+E10  (-(2 + 3)) with x=7  =>  -5
+E11  (-(-(-5))) with x=7  =>  -5
+E12  (0 - 5) with x=7  =>  -5
+E13  (-0) with x=7  =>  0
+E14  (- -3) with x=7  =>  3
+E15  (2 - -2 * -2) with x=7  =>  -2
+E16  (-5 / -2) with x=7  =>  2
+E17  (-x) with x=7  =>  -7
+E18  (-x - -x) with x=7  =>  0
+E19  (x * -3) with x=7  =>  -21
+E20  (-1000000 * -1000000 * -1000000) with x=7  =>  -1000000000000000000
+--- diff reference vs A (expect none):
+identical
+--- control: corrupt one value in A's results, diff must fire:
+control ok: diff fired

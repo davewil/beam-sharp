@@ -7,15 +7,21 @@ EX=/home/user/beam-sharp/compiler/examples
 COLD=${COLD:-30}; WARM=${WARM:-60}
 OUT=$(mktemp -d)
 echo "repo rev $(git -C /home/user/beam-sharp rev-parse --short HEAD); $(nproc) cpus"
-echo "### warm: in one VM, ${WARM} timed compiles of examples/Shop/Reports (2 using lines, 2 modules) after 5 warm-ups, microseconds"
+ROUNDS=${ROUNDS:-8}; PER=${PER:-10}
+echo "### warm: ${ROUNDS} interleaved rounds (a fresh VM per build per round, so machine drift hits every build alike); each does 5 warm-ups then ${PER} timed compiles of examples/Shop/Reports. Pooled n=$((ROUNDS*PER)) per build, microseconds"
+declare -A POOL
+for r in $(seq 1 $ROUNDS); do
+  for v in base A B C; do
+    t=$(erl -noshell -pa $PROTO/ebin_$v -eval '
+      file:set_cwd("'$EX'"),
+      Run=fun() -> {T,_}=timer:tc(fun() -> bsc:file_to_dir("Shop/Reports","'$OUT'") end), T end,
+      [Run()||_<-lists:seq(1,5)],
+      io:format("~s~n",[string:join([integer_to_list(Run())||_<-lists:seq(1,'$PER')]," ")]), halt().')
+    POOL[$v]+="$t "
+  done
+done
 for v in base A B C; do
-  erl -noshell -pa $PROTO/ebin_$v -eval '
-  {ok,Cwd}=file:get_cwd(), file:set_cwd("'$EX'"),
-  Run=fun() -> {T,_}=timer:tc(fun() -> bsc:file_to_dir("Shop/Reports","'$OUT'") end), T end,
-  [Run()||_<-lists:seq(1,5)],
-  Ts=lists:sort([Run()||_<-lists:seq(1,'$WARM')]), N=length(Ts),
-  io:format("~-5s median=~p min=~p p90=~p max=~p  (n=~p)~n",["'$v'",lists:nth(N div 2,Ts),hd(Ts),lists:nth(round(N*0.9),Ts),lists:last(Ts),N]),
-  file:set_cwd(Cwd), halt().'
+  echo ${POOL[$v]} | tr ' ' '\n' | grep -v '^$' | sort -n | awk -v v=$v '{a[NR]=$1} END{printf "%-5s median=%d min=%d p10=%d p90=%d max=%d (n=%d)\n", v, a[int((NR+1)/2)], a[1], a[int(NR*0.1)+1], a[int(NR*0.9)], a[NR], NR}'
 done
 echo "### cold: ${COLD} separate 'bsc' process launches each (includes VM boot), milliseconds"
 for v in base A B C; do

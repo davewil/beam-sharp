@@ -1,0 +1,1 @@
+{release,{"r","1"},{erts,"17.1"},[{kernel,"11.0.4"},{stdlib,"8.1"},{missing_dep_app,"1.0"}]}.

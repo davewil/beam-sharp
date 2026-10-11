@@ -1,0 +1,16 @@
+// Option A, keyword spelling (no attribute grammar): `in <app>` on the using block.
+module KwA
+
+using :'Elixir.ExDep' in exdep {
+    binary shout(binary s)
+}
+
+using :erldep in erldep {
+    int double(int n)
+}
+
+public binary ViaExDep(binary s)
+ViaExDep(s) -> :'Elixir.ExDep'.shout(s)
+
+public int ViaErl(int n)
+ViaErl(n) -> :erldep.double(n)

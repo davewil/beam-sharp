@@ -1,0 +1,37 @@
+case                   want      reference A         B         Barith   
+R1_ge_neg5             accepted  refused   accepted  accepted  accepted 
+R2_neg5_and_5          accepted  refused   accepted  accepted  accepted 
+R3_1_or_neg1           accepted  refused   accepted  accepted  accepted 
+R4_le3_or_ge10         accepted  accepted  accepted  accepted  accepted 
+R5_ne0                 accepted  accepted  accepted  accepted  accepted 
+C1_gt_neg1             accepted  refused   accepted  accepted  accepted 
+C2_ge_paren5           accepted  refused   accepted  accepted  accepted 
+C3_ge_0minus5          accepted  refused   refused   refused   accepted 
+C4_neg5_le_value       accepted  refused   accepted  accepted  accepted 
+C5_ge_neg0             accepted  refused   accepted  accepted  accepted 
+C6_eq_neg5             accepted  refused   refused   refused   refused  
+C7_ne_neg5             accepted  refused   accepted  accepted  accepted 
+C8_neg_neg5            accepted  refused   accepted  accepted  accepted 
+C9_space               accepted  refused   accepted  accepted  accepted 
+C10_hex                accepted  accepted  accepted  accepted  accepted 
+C11_neg_hex            accepted  refused   accepted  accepted  accepted 
+C12_big                accepted  refused   accepted  accepted  accepted 
+C13_2plus3             accepted  refused   refused   refused   accepted 
+C14_pos_paren          accepted  accepted  accepted  accepted  accepted 
+E1_eq_pos5             accepted  refused   refused   refused   refused  
+E2_neg_only_range      accepted  refused   accepted  accepted  accepted 
+E3_le_neg1             accepted  refused   accepted  accepted  accepted 
+E4_eq_0                accepted  refused   refused   refused   refused  
+N1_value_ge_value      refused   refused   refused   refused   refused  
+N2_ge_x_plus_1         refused   refused   refused   refused   refused  
+N3_ge_n                refused   refused   refused   refused   refused  
+N4_ge_call             refused   refused   refused   refused   refused  
+N5_float               refused   refused   refused   refused   refused  
+F1_float_neg           refused   refused   refused   refused   refused  
+P1_rel_neg             accepted  accepted  accepted  accepted  accepted 
+P2_lit_neg             accepted  accepted  accepted  accepted  accepted 
+P3_rel_paren           refused   refused   refused   refused   refused  
+G1_guard_neg           accepted  refused   accepted  accepted  accepted 
+G2_guard_neg_exhaust   accepted  accepted  accepted  accepted  accepted 
+
+negative controls accepted by some build: none

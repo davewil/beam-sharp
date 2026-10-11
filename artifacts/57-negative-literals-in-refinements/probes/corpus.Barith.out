@@ -22,3 +22,20 @@ ok C14_pos_paren          accepted (want accepted)
 # emission shapes once negatives are writable (singleton and negative-only ranges)
 !! E1_eq_pos5             refused  (want accepted) compile: a.bs:0: bad range type
 ok E2_neg_only_range      accepted (want accepted) 
+ok E3_le_neg1             accepted (want accepted) 
+!! E4_eq_0                refused  (want accepted) compile: a.bs:0: bad range type
+# negative controls: must stay REFUSED under any fold
+ok N1_value_ge_value      refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok N2_ge_x_plus_1         refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok N3_ge_n                refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok N4_ge_call             refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checker can read
+ok N5_float               refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checker can read
+# float
+ok F1_float_neg           refused  (want refused ) a.bs:2:1: error: this refinement is not a predicate the checker can read
+# patterns
+ok P1_rel_neg             accepted (want accepted) 
+ok P2_lit_neg             accepted (want accepted) 
+ok P3_rel_paren           refused  (want refused ) a.bs:4:10: error: syntax error before: '('
+# guards
+ok G1_guard_neg           accepted (want accepted) 
+ok G2_guard_neg_exhaust   accepted (want accepted) 

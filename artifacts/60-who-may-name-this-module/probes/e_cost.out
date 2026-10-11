@@ -1,10 +1,8 @@
-repo rev 019533d; 4 cpus
-### warm: in one VM, 60 timed compiles of examples/Shop/Reports (2 using lines, 2 modules) after 5 warm-ups, microseconds
-base  median=12701 min=10233 p90=25851 max=80226  (n=60)
-A     median=14292 min=11496 p90=22163 max=32199  (n=60)
-B     median=11834 min=10114 p90=23666 max=34555  (n=60)
-C     median=23185 min=11478 p90=40554 max=106785  (n=60)
+repo rev 8e180cc; 4 cpus
+### warm: 8 interleaved rounds (a fresh VM per build per round, so machine drift hits every build alike); each does 5 warm-ups then 10 timed compiles of examples/Shop/Reports. Pooled n=80 per build, microseconds
+base  median=12727 min=10436 p10=10819 p90=20862 max=37763 (n=80)
+A     median=15031 min=10379 p10=10664 p90=28675 max=48438 (n=80)
+B     median=12919 min=10675 p10=11033 p90=28222 max=96904 (n=80)
+C     median=14328 min=10292 p10=11187 p90=32134 max=83123 (n=80)
 ### cold: 30 separate 'bsc' process launches each (includes VM boot), milliseconds
-base  median=366 min=272 p90=452 max=520 (n=30)
-A     median=367 min=279 p90=513 max=565 (n=30)
-B     median=420 min=291 p90=515 max=595 (n=30)
+base  median=354 min=279 p90=502 max=635 (n=30)

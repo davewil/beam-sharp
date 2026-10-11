@@ -31,6 +31,11 @@ run B-machine2 "$M2" DeclB ViaExDep '<<"hi">>'
 echo "-- B with a using whose app the module forgot to list (negative control for B: must be refused)"
 mkdir -p "$H/bs/DeclBforgot"; sed 's/DeclB/DeclBforgot/; s/\[app: exdep, app: erldep, app: elixir\]/[app: erldep, app: elixir]/' "$H/bs/DeclB/declb.bs" > "$H/bs/DeclBforgot/declbforgot.bs"
 run B-forgot-exdep "$M1" DeclBforgot ViaErl 21
+echo; echo "######## the same two options, keyword spelling (no attribute grammar)"
+run KwA-machine1 "$M1" KwA ViaExDep '<<"hi">>'
+run KwA-machine2 "$M2" KwA ViaExDep '<<"hi">>'
+run KwB-machine1 "$M1" KwB ViaErl 21
+run KwB-machine2 "$M2" KwB ViaErl 21
 echo; echo "######## what lands in the beam (A and B both write one deduped attribute)"
 for m in DeclA DeclB; do
   ERL_LIBS="$M1" "$H/bsc.sh" -o "$FX/proto-$m" --src-root "$H/bs" "$H/bs/$m" >/dev/null 2>&1

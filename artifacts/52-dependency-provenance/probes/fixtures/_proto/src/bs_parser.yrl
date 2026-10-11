@@ -10,7 +10,7 @@
 Nonterminals
   program decls decl
   comp_quals comp_qual
-  module_decl dep_attrs dep_attr type_decl signature clause foreign_decl foreign_sigs foreign_sig
+  module_decl app_list dep_attrs dep_attr type_decl signature clause foreign_decl foreign_sigs foreign_sig
   behaviour_decl record_decl field_decls field_decl open_field_decls
   type_expr type_union_members type_prim type_list type_params
   params param_list param
@@ -102,6 +102,13 @@ block_clause -> '(' patterns ')' guard '->' body :
 decl -> foreign_decl : '$1'.
 %% PROTOTYPE (ticket 52, option A): `[external: elixir, app: req] using :'Elixir.Req' { .. }`.
 %% A decl may return a list; `program` flattens it, so the foreign decl is untouched.
+%% PROTOTYPE keyword spellings (no attribute grammar): `using :M in app { .. }` and `module M in a, b`.
+decl -> 'using' atom_lit 'in' lident '{' foreign_sigs '}' :
+    [{requires, line('$1'), [{app, value('$4')}], value('$2')}, {foreign, line('$1'), value('$2'), '$6'}].
+decl -> 'module' modpath 'in' app_list :
+    [{requires, line('$1'), [{app, A} || A <- '$4'], '*'}, {module, line('$1'), modatom('$2')}].
+app_list -> lident              : [value('$1')].
+app_list -> lident ',' app_list : [value('$1') | '$3'].
 decl -> '[' dep_attrs ']' module_decl : [{requires, line('$1'), '$2', '*'}, '$4'].
 decl -> '[' dep_attrs ']' foreign_decl : [{requires, line('$1'), '$2', element(3, '$4')}, '$4'].
 decl -> behaviour_decl : '$1'.

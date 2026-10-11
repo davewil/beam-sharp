@@ -1,0 +1,12 @@
+== reference
+  body  `-5`        : {e_neg,{3,9},{e_int,{3,10},5}}   flat_size=14 words
+  guard `x >= -5`   : {e_op,{4,14},'>=',{e_var,{4,12},x},{e_neg,{4,17},{e_int,{4,18},5}}}   flat_size=30 words
+  Shape.beam bytes=1280  md5(whole .beam)=d5ab2cdbf699
+  Shape.abstr sha  =af730e7ac050
+  Code chunk md5=qYemaZfXzTTl bytes=163
+== A
+  body  `-5`        : {e_int,{3,10},-5}   flat_size=7 words
+  guard `x >= -5`   : {e_op,{4,14},'>=',{e_var,{4,12},x},{e_int,{4,18},-5}}   flat_size=23 words
+  Shape.beam bytes=1264  md5(whole .beam)=d8148498353c
+  Shape.abstr sha  =4425be3796f4
+  Code chunk md5=qYemaZfXzTTl bytes=163

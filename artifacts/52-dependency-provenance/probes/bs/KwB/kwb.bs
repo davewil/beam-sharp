@@ -1,0 +1,16 @@
+// Option B, keyword spelling: the applications once, on the module line.
+module KwB in exdep, erldep
+
+using :'Elixir.ExDep' {
+    binary shout(binary s)
+}
+
+using :erldep {
+    int double(int n)
+}
+
+public binary ViaExDep(binary s)
+ViaExDep(s) -> :'Elixir.ExDep'.shout(s)
+
+public int ViaErl(int n)
+ViaErl(n) -> :erldep.double(n)
