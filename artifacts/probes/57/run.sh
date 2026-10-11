@@ -21,4 +21,4 @@ echo; echo "################ Erlang / Elixir survey"; "$HERE/survey_erlang_elixi
 echo; echo "################ Gleam survey"; "$HERE/survey_gleam_elm.sh" 2>&1
 echo; echo "################ Elm survey"; "$HERE/survey_elm.sh" 2>&1 | head -12
 echo; echo "################ prototype sizes (git diff --numstat against HEAD; all patches are standalone against HEAD)"
-for p in "$HERE"/patch-*.diff; do printf '%-48s ' "$(basename $p)"; git apply --numstat "$p" | awk '{a+=$1;d+=$2} END{print "+"a" -"d}'; done
+for p in "$HERE"/patch-*.diff; do printf '%-48s ' "$(basename $p)"; awk '/^\+\+\+|^---/{next} /^\+/{a++} /^-/{d++} END{print "+"a" -"d" lines (blank and comment lines included)"}' "$p"; done

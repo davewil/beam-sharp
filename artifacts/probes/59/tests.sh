@@ -9,3 +9,11 @@ for v in base exported-only guard-all field-depth; do
   grep -E "Failed: |tests, |All [0-9]+ tests passed" "$SCRATCH/eunit-$v.txt" | head -3
   grep -E "^\s+[A-Za-z_0-9]+:[0-9]+: [A-Za-z_0-9]+.*\*failed\*|\*failed\*|\.\.\.\*failed\*" "$SCRATCH/eunit-$v.txt" | sed 's/^ *//' | cut -c1-150 | head -12
 done
+
+echo; echo "==== the two gates that cover the touched area (compiler/bin), run against each compiler's own build"
+for v in base exported-only guard-all field-depth; do
+  for g in check-boundary-kind check-boundary-range; do
+    printf '%-14s %-22s ' "$v" "$g"
+    (cd "$SCRATCH/src-$v/compiler" && bash "bin/$g.sh" >/tmp/claude-0/gate.$$ 2>&1; echo "exit=$? $(tail -1 /tmp/claude-0/gate.$$)")
+  done
+done

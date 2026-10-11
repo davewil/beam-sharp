@@ -91,7 +91,11 @@ erl -noshell -eval '{ok,F}=file:consult("o4_base/Bench.abstr"), {ok,_,B}=compile
 escript "$HERE/p4_cost/dis.escript" inl.beam RunRec
 fi
 
-H "5. SURVEY: Gleam (pub vs private, opaque), Elixir (def vs defp)"
+H "5. SURVEY: Erlang, Gleam (pub vs private, opaque), Elixir (def vs defp)"
+echo "---- Erlang: -spec is not a run-time check, on exported or local"
+erlc -o "$SCRATCH" "$HERE/survey/erlang/spec_probe.erl" && erl -noshell -pa "$SCRATCH" -eval 'io:format("pub(1.5)=~p  via_priv(1.5)=~p~n",[spec_probe:pub(1.5), spec_probe:via_priv(1.5)]),halt().'
+echo "---- Erlang: OTP stdlib+kernel, bare parameter positions, exported vs private (survey/erlang/census.escript)"
+escript "$HERE/survey/erlang/census.escript"
 mkdir -p gleam && cp -r "$HERE/survey/gleam/." gleam/ && (cd gleam && gleam build 2>&1 | tail -2
   erl -noshell -eval '{ok,{_,[{abstract_code,{_,AC}}]}}=beam_lib:chunks("build/dev/erlang/probe/ebin/probe.beam",[abstract_code]), [io:format("~s",[erl_pp:form(X)]) || X<-AC, element(1,X)=:=function],halt().' | grep -v '^$'
   erl -noshell -pa build/dev/erlang/probe/ebin -eval '

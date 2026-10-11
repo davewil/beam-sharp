@@ -4,9 +4,590 @@ rebar 3.27.1 on Erlang/OTP 28 Erts 16.4
 Elixir 1.20.4 (compiled with Erlang/OTP 27)
 gleam 1.19.1
 0.19.3
-== building variants into /tmp/tmp.7k1OcyIQpt (A1 A2 B C C2 = prototypes, 0 = baseline from git archive HEAD)
-bsc-0: /tmp/tmp.7k1OcyIQpt/bsc-0
-bsc-A1: /tmp/tmp.7k1OcyIQpt/bsc-A1
-bsc-A2: /tmp/tmp.7k1OcyIQpt/bsc-A2
-bsc-B: /tmp/tmp.7k1OcyIQpt/bsc-B
-bsc-C: /tmp/tmp.7k1OcyIQpt/bsc-C
+== building variants into /tmp/tmp.0TfP4zuUlG (A1 A2 B C C2 = prototypes, 0 = baseline from git archive HEAD)
+bsc-0: /tmp/tmp.0TfP4zuUlG/bsc-0
+bsc-A1: /tmp/tmp.0TfP4zuUlG/bsc-A1
+bsc-A2: /tmp/tmp.0TfP4zuUlG/bsc-A2
+bsc-B: /tmp/tmp.0TfP4zuUlG/bsc-B
+bsc-C: /tmp/tmp.0TfP4zuUlG/bsc-C
+bsc-C2: /tmp/tmp.0TfP4zuUlG/bsc-C2
+
+################ variant 0: repro table + controls
+T1     rc=1  value >= -5                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+T2     rc=1  value >= -5 and value <= 5                 P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+T3     rc=1  value >= 1 or value <= -1                  P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+T4     rc=0  value <= 3 or value >= 10                  
+T5     rc=0  value != 0                                 
+C1     rc=1  value >= n                                 P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C2     rc=1  value >= 2 + 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C3     rc=1  value >= -(5)                              P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C4     rc=1  value >= --5                               P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C5     rc=1  value + 1 >= 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C6     rc=1  value >= 0 - 5                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C7     rc=1  -5 <= value                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C8     rc=1  value >= - 5                               P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C9     rc=1  value >= -0                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C10    rc=1  value == -3                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C11    rc=1  value != -3                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C12    rc=1  value > -1 and value < 1                   P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C13    rc=1  value >= -5 and value <= -10               P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C14    rc=1  value >= -(2 + 3)                          P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C15    rc=1  value >= -5 + 0                            P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C16    rc=1  value >= 5 * 2                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C17    rc=1  value >= -x                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+D      rc=1  value >= -100 and value <= 100             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+
+################ variant A1: repro table + controls
+T1     rc=0  value >= -5                                
+T2     rc=0  value >= -5 and value <= 5                 
+T3     rc=0  value >= 1 or value <= -1                  
+T4     rc=0  value <= 3 or value >= 10                  
+T5     rc=0  value != 0                                 
+C1     rc=1  value >= n                                 P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C2     rc=1  value >= 2 + 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C3     rc=0  value >= -(5)                              
+C4     rc=1  value >= --5                               P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C5     rc=1  value + 1 >= 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C6     rc=1  value >= 0 - 5                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C7     rc=0  -5 <= value                                
+C8     rc=0  value >= - 5                               
+C9     rc=0  value >= -0                                
+C10    rc=1  value == -3                                compile: P/p.bs:0: bad range type
+C11    rc=0  value != -3                                
+C12    rc=1  value > -1 and value < 1                   compile: P/p.bs:0: bad range type
+C13    rc=1  value >= -5 and value <= -10               P/p.bs:3:1: error: this refinement admits no values at all
+C14    rc=1  value >= -(2 + 3)                          P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C15    rc=1  value >= -5 + 0                            P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C16    rc=1  value >= 5 * 2                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C17    rc=1  value >= -x                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+D      rc=0  value >= -100 and value <= 100             
+
+################ variant A2: repro table + controls
+T1     rc=0  value >= -5                                
+T2     rc=0  value >= -5 and value <= 5                 
+T3     rc=0  value >= 1 or value <= -1                  
+T4     rc=0  value <= 3 or value >= 10                  
+T5     rc=0  value != 0                                 
+C1     rc=1  value >= n                                 P/p.bs:3:29: error: syntax error before: n
+C2     rc=1  value >= 2 + 3                             P/p.bs:3:31: error: syntax error before: '+'
+C3     rc=1  value >= -(5)                              P/p.bs:3:30: error: syntax error before: '('
+C4     rc=1  value >= --5                               P/p.bs:3:30: error: syntax error before: '-'
+C5     rc=1  value + 1 >= 3                             P/p.bs:3:26: error: syntax error before: '+'
+C6     rc=1  value >= 0 - 5                             P/p.bs:3:31: error: syntax error before: '-'
+C7     rc=0  -5 <= value                                
+C8     rc=0  value >= - 5                               
+C9     rc=0  value >= -0                                
+C10    rc=1  value == -3                                compile: P/p.bs:0: bad range type
+C11    rc=0  value != -3                                
+C12    rc=1  value > -1 and value < 1                   compile: P/p.bs:0: bad range type
+C13    rc=1  value >= -5 and value <= -10               P/p.bs:3:1: error: this refinement admits no values at all
+C14    rc=1  value >= -(2 + 3)                          P/p.bs:3:30: error: syntax error before: '('
+C15    rc=1  value >= -5 + 0                            P/p.bs:3:32: error: syntax error before: '+'
+C16    rc=1  value >= 5 * 2                             P/p.bs:3:31: error: syntax error before: '*'
+C17    rc=1  value >= -x                                P/p.bs:3:30: error: syntax error before: x
+D      rc=0  value >= -100 and value <= 100             
+
+################ variant B: repro table + controls
+T1     rc=0  value >= -5                                
+T2     rc=0  value >= -5 and value <= 5                 
+T3     rc=0  value >= 1 or value <= -1                  
+T4     rc=0  value <= 3 or value >= 10                  
+T5     rc=0  value != 0                                 
+C1     rc=1  value >= n                                 P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C2     rc=1  value >= 2 + 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C3     rc=0  value >= -(5)                              
+C4     rc=0  value >= --5                               
+C5     rc=1  value + 1 >= 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C6     rc=1  value >= 0 - 5                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C7     rc=0  -5 <= value                                
+C8     rc=0  value >= - 5                               
+C9     rc=0  value >= -0                                
+C10    rc=1  value == -3                                compile: P/p.bs:0: bad range type
+C11    rc=0  value != -3                                
+C12    rc=1  value > -1 and value < 1                   compile: P/p.bs:0: bad range type
+C13    rc=1  value >= -5 and value <= -10               P/p.bs:3:1: error: this refinement admits no values at all
+C14    rc=1  value >= -(2 + 3)                          P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C15    rc=1  value >= -5 + 0                            P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C16    rc=1  value >= 5 * 2                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C17    rc=1  value >= -x                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+D      rc=0  value >= -100 and value <= 100             
+
+################ variant C: repro table + controls
+T1     rc=0  value >= -5                                
+T2     rc=0  value >= -5 and value <= 5                 
+T3     rc=0  value >= 1 or value <= -1                  
+T4     rc=0  value <= 3 or value >= 10                  
+T5     rc=0  value != 0                                 
+C1     rc=1  value >= n                                 P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C2     rc=0  value >= 2 + 3                             
+C3     rc=0  value >= -(5)                              
+C4     rc=0  value >= --5                               
+C5     rc=1  value + 1 >= 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C6     rc=0  value >= 0 - 5                             
+C7     rc=0  -5 <= value                                
+C8     rc=0  value >= - 5                               
+C9     rc=0  value >= -0                                
+C10    rc=1  value == -3                                compile: P/p.bs:0: bad range type
+C11    rc=0  value != -3                                
+C12    rc=1  value > -1 and value < 1                   compile: P/p.bs:0: bad range type
+C13    rc=1  value >= -5 and value <= -10               P/p.bs:3:1: error: this refinement admits no values at all
+C14    rc=0  value >= -(2 + 3)                          
+C15    rc=0  value >= -5 + 0                            
+C16    rc=0  value >= 5 * 2                             
+C17    rc=1  value >= -x                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+D      rc=0  value >= -100 and value <= 100             
+
+################ variant C2: repro table + controls
+T1     rc=0  value >= -5                                
+T2     rc=0  value >= -5 and value <= 5                 
+T3     rc=0  value >= 1 or value <= -1                  
+T4     rc=0  value <= 3 or value >= 10                  
+T5     rc=0  value != 0                                 
+C1     rc=1  value >= n                                 P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C2     rc=0  value >= 2 + 3                             
+C3     rc=0  value >= -(5)                              
+C4     rc=0  value >= --5                               
+C5     rc=1  value + 1 >= 3                             P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+C6     rc=0  value >= 0 - 5                             
+C7     rc=0  -5 <= value                                
+C8     rc=0  value >= - 5                               
+C9     rc=0  value >= -0                                
+C10    rc=1  value == -3                                compile: P/p.bs:0: bad range type
+C11    rc=0  value != -3                                
+C12    rc=1  value > -1 and value < 1                   compile: P/p.bs:0: bad range type
+C13    rc=1  value >= -5 and value <= -10               P/p.bs:3:1: error: this refinement admits no values at all
+C14    rc=0  value >= -(2 + 3)                          
+C15    rc=0  value >= -5 + 0                            
+C16    rc=0  value >= 5 * 2                             
+C17    rc=1  value >= -x                                P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+D      rc=0  value >= -100 and value <= 100             
+
+################ variant 0: guards and patterns (does a guard agree with the refinement?)
+== G0 CONTROL guard 5 positive, both clauses read (must compile) rc=0
+
+== G1 guard -5, both clauses read (compiles only if the guard is READ and credited) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G2 guard 0 - 5 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G3 guard 2+3 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G4 guard -(5) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G5 x < 5 + 0 (folds to a literal only under fix C) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(<= 4) -> ...
+== P1 pattern (>= -5) | (< -5) rc=0
+
+== P2 pattern -5 literal and rest rc=0
+
+== G6 guard -5 plus a wildcard-ish tail: compiles because last clause is open (guard accepted, credited or not) rc=0
+
+== G7 CONTROL guard x >= y (two variables) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n, n2) -> ...
+
+################ variant A1: guards and patterns (does a guard agree with the refinement?)
+== G0 CONTROL guard 5 positive, both clauses read (must compile) rc=0
+
+== G1 guard -5, both clauses read (compiles only if the guard is READ and credited) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G2 guard 0 - 5 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G3 guard 2+3 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G4 guard -(5) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G5 x < 5 + 0 (folds to a literal only under fix C) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(<= 4) -> ...
+== P1 pattern (>= -5) | (< -5) rc=0
+
+== P2 pattern -5 literal and rest rc=0
+
+== G6 guard -5 plus a wildcard-ish tail: compiles because last clause is open (guard accepted, credited or not) rc=0
+
+== G7 CONTROL guard x >= y (two variables) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n, n2) -> ...
+
+################ variant A2: guards and patterns (does a guard agree with the refinement?)
+== G0 CONTROL guard 5 positive, both clauses read (must compile) rc=0
+
+== G1 guard -5, both clauses read (compiles only if the guard is READ and credited) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G2 guard 0 - 5 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G3 guard 2+3 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G4 guard -(5) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G5 x < 5 + 0 (folds to a literal only under fix C) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(<= 4) -> ...
+== P1 pattern (>= -5) | (< -5) rc=0
+
+== P2 pattern -5 literal and rest rc=0
+
+== G6 guard -5 plus a wildcard-ish tail: compiles because last clause is open (guard accepted, credited or not) rc=0
+
+== G7 CONTROL guard x >= y (two variables) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n, n2) -> ...
+
+################ variant B: guards and patterns (does a guard agree with the refinement?)
+== G0 CONTROL guard 5 positive, both clauses read (must compile) rc=0
+
+== G1 guard -5, both clauses read (compiles only if the guard is READ and credited) rc=0
+
+== G2 guard 0 - 5 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G3 guard 2+3 (arith node) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+== G4 guard -(5) rc=0
+
+== G5 x < 5 + 0 (folds to a literal only under fix C) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(<= 4) -> ...
+== P1 pattern (>= -5) | (< -5) rc=0
+
+== P2 pattern -5 literal and rest rc=0
+
+== G6 guard -5 plus a wildcard-ish tail: compiles because last clause is open (guard accepted, credited or not) rc=0
+
+== G7 CONTROL guard x >= y (two variables) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n, n2) -> ...
+
+################ variant C: guards and patterns (does a guard agree with the refinement?)
+== G0 CONTROL guard 5 positive, both clauses read (must compile) rc=0
+
+== G1 guard -5, both clauses read (compiles only if the guard is READ and credited) rc=0
+
+== G2 guard 0 - 5 (arith node) rc=0
+
+== G3 guard 2+3 (arith node) rc=0
+
+== G4 guard -(5) rc=0
+
+== G5 x < 5 + 0 (folds to a literal only under fix C) rc=0
+
+== P1 pattern (>= -5) | (< -5) rc=0
+
+== P2 pattern -5 literal and rest rc=0
+
+== G6 guard -5 plus a wildcard-ish tail: compiles because last clause is open (guard accepted, credited or not) rc=0
+
+== G7 CONTROL guard x >= y (two variables) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n, n2) -> ...
+
+################ variant C2: guards and patterns (does a guard agree with the refinement?)
+== G0 CONTROL guard 5 positive, both clauses read (must compile) rc=0
+
+== G1 guard -5, both clauses read (compiles only if the guard is READ and credited) rc=0
+
+== G2 guard 0 - 5 (arith node) rc=0
+
+== G3 guard 2+3 (arith node) rc=0
+
+== G4 guard -(5) rc=0
+
+== G5 x < 5 + 0 (folds to a literal only under fix C) rc=0
+
+== P1 pattern (>= -5) | (< -5) rc=0
+
+== P2 pattern -5 literal and rest rc=0
+
+== G6 guard -5 plus a wildcard-ish tail: compiles because last clause is open (guard accepted, credited or not) rc=0
+
+== G7 CONTROL guard x >= y (two variables) rc=1
+P/p.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(n, n2) -> ...
+
+################ variant 0: a negative literal in value position
+
+################ variant A1: a negative literal in value position
+P/p.bs:12:10: error: Lit hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    int <= -101 | int >= 101
+P/p.bs:18:10: error: Bad hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    int <= -101 | int >= 101
+P/p.bs:24:10: error: Ctl hands Neg an argument it does not accept
+  argument 1 is not covered by Neg's declared type:
+    int <= 0
+
+################ variant A2: a negative literal in value position
+P/p.bs:12:10: error: Lit hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    int <= -101 | int >= 101
+P/p.bs:18:10: error: Bad hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    int <= -101 | int >= 101
+P/p.bs:24:10: error: Ctl hands Neg an argument it does not accept
+  argument 1 is not covered by Neg's declared type:
+    int <= 0
+
+################ variant B: a negative literal in value position
+P/p.bs:18:10: error: Bad hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    -500
+P/p.bs:24:10: error: Ctl hands Neg an argument it does not accept
+  argument 1 is not covered by Neg's declared type:
+    -5
+
+################ variant C: a negative literal in value position
+P/p.bs:12:10: error: Lit hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    int <= -101 | int >= 101
+P/p.bs:18:10: error: Bad hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    int <= -101 | int >= 101
+P/p.bs:24:10: error: Ctl hands Neg an argument it does not accept
+  argument 1 is not covered by Neg's declared type:
+    int <= 0
+
+################ variant C2: a negative literal in value position
+P/p.bs:18:10: error: Bad hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    -500
+P/p.bs:24:10: error: Ctl hands Neg an argument it does not accept
+  argument 1 is not covered by Neg's declared type:
+    -5
+
+################ variant 0: residual printing and paste-back
+== R1a Delta -10..10, only Sign(0) rc=1
+P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead — `WellFormed(value)` —
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.
+== R1b R1a with the printed heads pasted back rc=1
+P/p.bs:3:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead — `WellFormed(value)` —
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.
+== R2a bare int, only Sign(0) rc=1
+P/p.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(<= -1) -> ...
+    Sign(>= 1) -> ...
+== R2b R2a with printed heads pasted back rc=0
+
+== R3a baseline-reachable bounded signed residual: bare int, three clauses leave -10..-1 | 1..10 rc=1
+P/p.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(>= -10 and <= -1) -> ...
+    Sign(>= 1 and <= 10) -> ...
+== R3b R3a with the printed heads pasted back rc=0
+
+
+################ variant B: residual printing and paste-back
+== R1a Delta -10..10, only Sign(0) rc=1
+P/p.bs:5:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(>= -10 and <= -1) -> ...
+    Sign(>= 1 and <= 10) -> ...
+== R1b R1a with the printed heads pasted back rc=0
+
+== R2a bare int, only Sign(0) rc=1
+P/p.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(<= -1) -> ...
+    Sign(>= 1) -> ...
+== R2b R2a with printed heads pasted back rc=0
+
+== R3a baseline-reachable bounded signed residual: bare int, three clauses leave -10..-1 | 1..10 rc=1
+P/p.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(>= -10 and <= -1) -> ...
+    Sign(>= 1 and <= 10) -> ...
+== R3b R3a with the printed heads pasted back rc=0
+
+
+################ variant C2: residual printing and paste-back
+== R1a Delta -10..10, only Sign(0) rc=1
+P/p.bs:5:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(>= -10 and <= -1) -> ...
+    Sign(>= 1 and <= 10) -> ...
+== R1b R1a with the printed heads pasted back rc=0
+
+== R2a bare int, only Sign(0) rc=1
+P/p.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(<= -1) -> ...
+    Sign(>= 1) -> ...
+== R2b R2a with printed heads pasted back rc=0
+
+== R3a baseline-reachable bounded signed residual: bare int, three clauses leave -10..-1 | 1..10 rc=1
+P/p.bs:3:13: error: Sign is not exhaustive
+  no clause matches:
+    Sign(>= -10 and <= -1) -> ...
+    Sign(>= 1 and <= 10) -> ...
+== R3b R3a with the printed heads pasted back rc=0
+
+
+################ variant 0: the O(n)-tier diagnostic
+P/p.bs:4:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+
+################ variant A2: the O(n)-tier diagnostic
+P/p.bs:4:24: error: syntax error before: 'WellFormed'
+
+################ baseline: single-value refinement crash (no negative literal involved)
+rc=1  value == 3                   compile: P/p.bs:0: bad range type
+rc=1  value > 0 and value < 2      compile: P/p.bs:0: bad range type
+rc=1  value == 0                   compile: P/p.bs:0: bad range type
+rc=1  value > 2 and value < 4      compile: P/p.bs:0: bad range type
+rc=1  value >= 3 and value <= 3    compile: P/p.bs:0: bad range type
+
+################ delta program: Sign over Delta, run under C2
+compile rc=0
+Sign(-100) = :neg
+Sign(-1) = :neg
+Sign(0) = :zero
+Sign(7) = :pos
+Sign(100) = :pos
+Sign(101) = crashed: error:function_clause
+Sign(-101) = crashed: error:function_clause
+
+################ variant 0: what a negative literal is in a function body
+compile rc=0
+A() = -5
+D() = 13
+E() = 5
+B(10) = 15
+C(7) = -7
+[{function,0,'A',0,[{clause,{4,1},[],[],[{op,{4,8},'-',{integer,{4,9},5}}]}]}]
+################ variant B: what a negative literal is in a function body
+compile rc=0
+A() = -5
+D() = 13
+E() = 5
+B(10) = 15
+C(7) = -7
+[{function,0,'A',0,[{clause,{4,1},[],[],[{integer,{4,9},-5}]}]}]
+################ variant C2: what a negative literal is in a function body
+compile rc=0
+A() = -5
+D() = 13
+E() = 5
+B(10) = 15
+C(7) = -7
+[{function,0,'A',0,[{clause,{4,1},[],[],[{op,{4,8},'-',{integer,{4,9},5}}]}]}]
+
+################ Erlang / Elixir survey
+--- Erlang: parse tree of -5 and 2+3 in guard & pattern (erl_parse keeps a unary op node)
+{function,1,f,1,
+          [{clause,1,
+                   [{var,1,'X'}],
+                   [[{op,1,'>=',{var,1,'X'},{op,1,'-',{integer,1,5}}}]],
+                   [{op,1,'+',{integer,1,2},{integer,1,3}}]}]}
+{function,1,f,1,[{clause,1,[{op,1,'-',{integer,1,5}}],[],[{atom,1,a}]}]}
+--- Erlang: compile pattern f(-1), f(1+2), guard X >= -5, X >= 2+3, and a non-constant comparand in a guard
+erlc rc=0
+neg three in ge
+--- Erlang abstract tree after erl_lint partial_eval: -1 in pattern stays {op,_,-,{integer,_,1}} in abstract form; core:
+16:	      <-1> when 'true' ->
+--- Elixir: Code.string_to_quoted of -5, and guard/pattern use
+{:-, [line: 1], [5]}
+{:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+{:neg, :in, :out}
+
+################ Gleam survey
+== G-a pattern -1 rc=0
+   Compiled in 0.44s
+== G-b guard n >= -5 rc=0
+   Compiled in 0.45s
+== G-c guard n >= 2 + 3 (arithmetic in a guard) rc=0
+   Compiled in 0.45s
+== G-d guard n >= -{ 2 } (negation of a non-literal) rc=1
+error: Syntax error
+  ┌─ /tmp/tmp.sLgp3F73qN/probe/src/probe.gleam:2:19
+  │
+2 │   case x { n if n >= -{ 2 } -> "ge"  _ -> "lt" }
+  │                   ^^ This operator has no value on its right side
+
+Hint: Remove it or put a value after it.
+== G-e guard against a module constant -5 rc=0
+   Compiled in 0.48s
+== G-f guard n >= - 5 (space) rc=1
+error: Syntax error
+  ┌─ /tmp/tmp.sLgp3F73qN/probe/src/probe.gleam:2:19
+  │
+2 │   case x { n if n >= - 5 -> "ge"  _ -> "lt" }
+  │                   ^^ This operator has no value on its right side
+
+Hint: Remove it or put a value after it.
+== G-g exhaustiveness: Int guards never credited (control: needs a catch-all) rc=1
+error: Inexhaustive patterns
+  ┌─ /tmp/tmp.sLgp3F73qN/probe/src/probe.gleam:2:3
+  │
+2 │   case x { n if n >= 0 -> "ge"  n if n < 0 -> "lt" }
+  │   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This case expression does not have a pattern for all possible values. If it
+is run on one of the values without a pattern then it will crash.
+
+################ Elm survey
+0.19.3
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+################ prototype sizes (git diff --numstat against HEAD; all patches are standalone against HEAD)
+patch-A1-grammar-action-refinement-only.diff     +7 -1 lines (blank and comment lines included)
+patch-A2-grammar-nonterminal.diff                +19 -2 lines (blank and comment lines included)
+patch-B-parser-negate-fold.diff                  +1 - lines (blank and comment lines included)
+patch-C-checker-fold.diff                        +26 -7 lines (blank and comment lines included)
+patch-C2-checker-fold-plus-type_of.diff          +30 -7 lines (blank and comment lines included)
