@@ -164,7 +164,7 @@ Prototype compilers are scratch copies of `compiler/src` (never edited in place)
 
 | Variant | What it is | Diff vs HEAD (lines added / removed) | Files |
 |---|---|---|---|
-| A | callee lists friends: `friend Shop.Reports` / `friend Shop.Reports.*` | 64 / 8 | `bs_check` 44, `bs_diag` 13, `bs_parser.yrl` 5, `bs_lexer.xrl` 1, `bsc.erl` 1 |
+| A | callee lists friends: `friend Shop.Reports` / `friend Shop.Reports.*` | 64 / 8 non-blank (71 / 9 with blanks; B 61 / 6, C 11 / 4) | `bs_check` 44, `bs_diag` 13, `bs_parser.yrl` 5, `bs_lexer.xrl` 1, `bsc.erl` 1 |
 | B | path convention: an `Internal` segment | 57 / 6 | `bs_check` 44, `bs_diag` 13 |
 | C | behaviour callbacks unnameable from other modules | 10 / 4 | `bs_check` only |
 
@@ -180,7 +180,7 @@ C     median=14328 min=10292 p10=11187 p90=32134 max=83123
 ```
 Cold (30 separate `bsc` launches each, ms): base 354, A 358, B 355, C 400 (medians; spreads overlap). **The differences are inside the machine's noise** (an earlier non-interleaved run had C at twice base and B below it); the floors (min, p10) are indistinguishable across all four. Direct measurement of the predicate alone (`probes/e_micro.out`, 21 x 10^6 calls): A with no friend list 11.5 ns/call (control empty fun 10.2); A with two friends 31 ns listed, 153 ns refused; B 450 ns with no `Internal` segment, about 1 us when there is one (it splits the module name). A module with ten `using` lines pays at most ~10 us against a ~12,700 us compile: under 0.1%. Neither is a reason to choose.
 
-**Regression sweep** (`e_cost.out`): all 28 module directories under `compiler/examples` compile in all four builds (0 failures, same as HEAD). The eunit suite (`rebar3 eunit`) was **not run**: there is no rebar3 here.
+**Regression sweep** (`e_cost.out`): all 28 module directories under `compiler/examples` compile in all four builds (0 failures, same as HEAD). The sweep excludes `compiler/examples/exemplars/` (46 files, 4 of the 8 cross-module `using`s) and contains no `friend` or `Internal` module, so it shows no regression only where the rule is inactive. **Verifier corrections to the cost section:** an interleaved re-run had A and C about 10% *below* base where the author's had them 13-18% above; that sign flip means the whole-compile timings are noise and must not be quoted as an effect. Any 'ten usings cost at most ~10 us' reading scales wrongly: `type_gate` walks every module in `World` per file, so cost is O(World), about 12 ns per module for A and 370 ns per module for B, roughly 3% of a compile at 1000 modules. The eunit suite (`rebar3 eunit`) was **not run**: there is no rebar3 here.
 
 **Emitted code** (`e_emit_unchanged.out`): unchanged for the caller; the callee's abstract code differs by one file attribute (the new source file). `.beam` bytes are not reproducible between two identical compiles (the control prints different md5s), so the comparison is on `.abstr`.
 
@@ -319,5 +319,10 @@ internal int RecomputeTotal(int n)      // spelled how, and internal to what?
 - **C# `internal`** not probed (no toolchain); the "assembly-scoped" fact is carried from ticket 22.
 - **eunit suite not run** (no rebar3). The prototypes are checked by the negative/positive controls in `e_prototype.sh` and the 28-directory example sweep only; the patches are not production quality (no `friend` of a nonexistent module check, no self-friend lint, namespace-type diagnostic wrong, variant C reuses the wrong message).
 - **Timing** is on a shared 4-CPU machine and its differences are noise; the per-predicate micro-benchmark is the reliable figure. Not measured: a large `World`, where `type_gate/3` runs once per module.
-- **Constructor and pattern positions** of a denied record, `implements`, and the REPL (`ibs`) `using` path were not probed.
+- **Constructor and pattern positions** of a denied record (verifier: a qualified record constructor or qualified type in a pattern is a syntax error in base and in A, so these cannot be written and are not a gap), `implements`, and the REPL (`ibs`) `using` path were not probed.
 - The corpus-demand count is a grep over `using <Module>` lines, not a call-graph; it undercounts qualified calls through a namespace `using`.
+
+
+## Verification note
+
+Independently verified: `verification.md` (VERIFIED WITH CORRECTIONS). All 11 probes reproduce; Gleam `@internal`/`internal_modules` not being enforced was re-tested with a from-scratch two-package project (compiles, returns 1044); the ticket-24 'helper lands unclassified' staleness and the four-doors claim were re-tested with the verifier's own programs, and no fifth door was found. One behaviour to read correctly: a module in the dependency closure can be named in type position (the `Ty` case). That is specified (LANGUAGE.md around line 162: the qualified spelling is "legal wherever the module is reachable"), not a checker bug. Still unprobed: `implements`, `behaviour <Module>`, and the `ibs` REPL.

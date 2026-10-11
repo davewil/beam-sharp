@@ -1,0 +1,18 @@
+eunit over all 73 test modules, one build at a time, hand-made escript per build (probes/README: not rebar3)
+== base:   Failed: 11.  Skipped: 0.  Passed: 1437.
+== A:   Failed: 11.  Skipped: 0.  Passed: 1437.
+== B:   Failed: 11.  Skipped: 0.  Passed: 1437.
+== Barith:   Failed: 11.  Skipped: 0.  Passed: 1437.
+
+failing tests (identical set in all four builds; cmp verified):
+binary_tests: the_grammar_has_exactly_its_named_conflicts_test...*failed*
+body_check_tests: every_aoc_program_still_compiles_test...*failed*
+cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each...*failed*
+cli_tests: escript_entry_point_exists_test...*failed*
+corrected_signature_tests: a_declared_form_nothing_can_write_is_named_as_printed_test...*failed*
+corrected_signature_tests: a_refused_declaration_is_reported_as_a_defect_test...*failed*
+corrected_signature_tests: an_unnamed_paste_back_failure_is_reported_as_a_defect_test...*failed*
+diagnostic_json_tests: a_path_is_utf8_on_the_wire_test...*failed*
+diagnostic_term_tests: every_contractual_tag_is_rendered_test...*failed*
+diagnostic_term_tests: the_diagnostics_gate_passes_test...*failed*
+non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test...*failed*

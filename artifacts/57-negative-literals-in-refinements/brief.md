@@ -210,7 +210,8 @@ clause and a rough grep finds no negative integer literal in `compiler/examples/
 
 ### 4.6 Existing suite
 
-See section 7: the in-process suite could be run, the subprocess half only partly.
+1437 pass / 11 fail in the reference, A, B and Barith alike, with an identical failing set
+(`probes/eunit.summary.out`; the 11 are environmental, see section 7).
 
 ---
 
@@ -320,13 +321,17 @@ Do alongside it, because they are the same sentence for a user:
 * **Gleam and Elixir:** only binaries/beams were available. The citations are probe runs; no
   parser source file:line is given for either. Erlang citations are to the OTP 29 stdlib source in
   the conda env (`stdlib-8.1/src/erl_parse.yrl`, `erl_lint.erl`), with line numbers checked.
-* **The existing eunit suite was not a clean measurement.** There is no `rebar3`. I compiled all 73
-  test modules with `erlc` and ran `eunit:test/2` against each build. First attempt, without an
-  escript: 448 failures that all shell out to `bsc`, identical across all four builds (1000 pass in
-  each). Second attempt, with a hand-made escript per build, run four-at-once, was cancelled by a
-  subprocess timeout at 306 tests. A sequential run is described in the final paragraph of this
-  section if it finished in time. This is a differential, not a green suite; `./bin/verify.sh`
-  has not been run, and nothing here counts as "gates pass twice".
+* **The existing eunit suite is a differential, not a green suite.** There is no `rebar3`. I compiled
+  all 73 test modules with `erlc`, built a bsc escript per build with `escript:create`
+  (`probes/mkesc.escript`) and ran `eunit:test/2` one build at a time (`probes/runeunit.sh`).
+  Result, `probes/eunit.summary.out`: **1437 passed, 11 failed in each of the four builds, and the
+  failing set is identical** (`cmp`). The 11 are environment, not this ticket: they include
+  `binary_tests:the_grammar_has_exactly_its_named_conflicts_test` (wants the rebar layout),
+  `cli_tests:escript_entry_point_exists_test`, the UTF-8 locale tests, and the two
+  `diagnostic_*` gate tests. So no existing test pins an integer `e_neg`, and none broke under A, B
+  or Barith. `./bin/verify.sh` and its gates were **not** run, and nothing here counts as "gates pass
+  twice". A first attempt with the four suites in parallel was cancelled by a subprocess timeout
+  at 306 tests; that run is discarded.
 * **Only A, B and Barith were built.** A *refinement-only* grammar rule (the literal reading of
   "mirror `int_lit`" at the `refinement` production) was not built: it would duplicate the
   comparison grammar of `expr_low` and is the shape the ticket itself argues against. A *refine-only*
