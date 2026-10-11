@@ -40,7 +40,7 @@ Fixtures are built here, not downloaded: a mix-built Elixir app `exdep` (module 
 -- machine 1:  bsc bs/Dep ViaExDep '<<"hi">>'    -> "HI"            exit=0
 -- machine 2:  bsc bs/Dep ViaExDep '<<"hi">>'    -> crashed: error:undef   exit=1
 -- machine 2:  bsc bs/Dep ViaStdlib ...          -> "HI"            (Elixir.String is present)
--- machine 3 (apps present, Elixir install absent):  ViaExDep   -> crashed: error:undef
+-- machine 3 (apps present, Elixir install absent; that the missing module is `elixir` is inferred, bsc prints no module name):  ViaExDep   -> crashed: error:undef
 -- control, machine 2:  bsc bs/Dep Pure 41        -> 42              (compile did not fail)
 -- compile only on machine 2:  bsc -o OUT bs/Dep  -> no output, exit 0, Dep.beam written
 -- Erlang node on machine 2, calling that beam:
@@ -97,16 +97,16 @@ All counts are from the final `run-all.sh` run; `.out` files hold the full outpu
 
 | Primitive | Cold, first call in a fresh VM (median of 25 VMs; range) | Warm per call (200k loop) |
 |---|---|---|
-| `code:where_is_file("exdep.app")` | 4.7 us (4.3 to 15.6) | about 4 us present, 15-30 us absent |
-| `code:which(Mod)`, present | 20.2 us (18.3 to 26.1) | about 4-6 us |
+| `code:where_is_file("exdep.app")` | 4.7 us (4.3 to 15.6; verifier re-run 5.7-6.9) | about 4 us present, 15-30 us absent |
+| `code:which(Mod)`, present | 20.2 us (18.3 to 26.1; verifier re-run 20-24.5) | about 4-6 us |
 | `code:which(Mod)`, **absent** | n/a | 18 us, **30 us with 300 extra apps on the path** (it scans the whole path) |
 | `code:lib_dir(App)` | 11.0 us (9.5 to 31.2) | about 3 us present, 1.9 us absent |
 | `application:load(App)` | 186.8 us (152 to 535) | 1.8 us once loaded |
-| read the `.app` for its `vsn` (`file:consult`) | n/a | 278 us |
+| read the `.app` for its `vsn` (`file:consult`) | n/a | 278 us (verifier re-run 339) |
 
 Cold figures run the four calls in a fixed order in one VM, so `lib_dir` carries the first `code_server` message round-trip. With 300 extra application directories on `ERL_LIBS` the cold numbers do not move (`lib_dir` 11.4 us); only the *absent* warm lookups grow (≈ 2x). The harness sees a slow call (control: `timer:sleep(1)` reads 2.0 ms, the sleep granularity here).
 
-The prototype check inside a real compile (`m3`, in-VM, three declarations): first call 3.8 ms (loads `filelib`, first path scan), warm median **0.54 ms**, against a whole `bsc:file_to_dir` (parse, check, emit, `erlc`) of **7.1 ms median** (6.3 to 51 ms). Where the time goes: `where_is_file` 8 us, `which` 8 us, owner-by-directory-listing (`filelib:wildcard`) 28 us, owner-by-directory-name 5 us; the rest of the 0.54 ms is the prototype's own list handling and `os:getenv`, not the BEAM primitives, so the check is *not* worth optimising.
+The prototype check inside a real compile (`m3`, in-VM, three declarations): first call 3.8 ms (loads `filelib`, first path scan), warm median **0.54 ms** (verifier 0.50-0.56), against a whole `bsc:file_to_dir` (parse, check, emit, `erlc`) of **7.1 ms median** (6.3 to 51 ms). Where the time goes: `where_is_file` 8 us, `which` 8 us, owner-by-directory-listing (`filelib:wildcard`) 28 us, owner-by-directory-name 5 us; the rest of the 0.54 ms is the prototype's own list handling and `os:getenv`, not the BEAM primitives, so the check is *not* worth optimising.
 
 CLI wall clock (`m4`, includes a 264 ms bare VM boot; 20 runs each): stock `bsc` 481 ms, prototype with three declarations 474 ms, prototype on an undeclared module 505 ms, with ranges (about 420-630 ms) that overlap completely. **The cost of the check is not resolvable at CLI level.**
 
@@ -246,7 +246,18 @@ If A is chosen: **name only, `app` only, one deduped `-bs_deps` attribute per mo
 - **rebar3 is not installed**, so `rebar.config` / `.app.src` handling and `rebar_mix` are cited from ticket 51 only, not re-measured. Erlang's dependency record is probed only through `erlc`, `xref`, `dialyzer`, `application` and `systools`.
 - **Elm** was not probed beyond the registry failure. **Elixir sources are not installed** (beams only), so the Elixir warning is cited from a run, not a file:line. Gleam is a binary: its citation is the run.
 - A check at compile time can only speak for the compiling VM. Release (embedded mode) behaviour was probed with `erl -mode embedded` only for `lib_dir`, `which`, `ensure_loaded`, not by building a release.
-- An escript archive or an OTP release with apps inside an `.ez` archive was not tested; `lib_dir` / `where_is_file` have archive code paths (`code_server.erl:843-870`) that were read but not run.
+- (Verifier ran the `.ez` case; see Verification note: it produces false errors under Options A and B, none under C.) Originally written as: an escript archive or an OTP release with apps inside an `.ez` archive was not tested; `lib_dir` / `where_is_file` have archive code paths (`code_server.erl:843-870`) that were read but not run.
 - The prototype threads the dependency list as a decl the parser returns and `bsc.erl` strips before the checker; it was not run through the repo's gates and it is not a proposal for how the code should be written. The prototype `bsc` was not run against the exemplar corpus, so I do not claim the grammar change is conflict-neutral beyond the yecc count (6 and 6).
 - Timings: `m1`'s cold numbers measure one fixed call order per VM; the CLI wall times (`m4`) are too noisy to separate the check from boot, and the VM here is shared. `m3`'s 0.54 ms is the prototype's cost, mostly its own plumbing.
 - The scratchpad `bsc` wrapper (`erl -run bsc main "$@"`) cannot accept a leading `--src-root` (erl consumes it); `probes/bsc.sh` forwards flags intact. That is a defect of the wrapper, not of the compiler, and I did not touch either.
+
+
+## Verification note
+
+Independently verified: `verification.md` (VERIFIED WITH CORRECTIONS). All four headline refutations re-tested with the verifier's own scripts and hold; nothing circular. Timings above are single-sample or fast-end figures: quote the ranges. HEAD is now 6887dd0 but `compiler/src` is identical to d8a3bd8. Scenarios the author did not run, which **strengthen option C**:
+
+- Module inside an `.ez` archive: Options A and B raise a false error ("belongs to application `unknown`"), because the prototype's `owner/1` uses `filelib:wildcard`. `code:which` and `where_is_file` themselves work inside the archive.
+- An ebin holding two `.app` files: Options A and B, the same false error.
+- Module on `-pa` with no `.app`: Option C passes; Option A errors because the declared app is not found.
+- An app in a differently named directory: passes.
+- The Req-style case (module present, its own dependency app absent) is seen only at run time; the prototype would not catch it (the brief says so). `p2b`'s "interactive VM" section prints meaningless `mode=error` because it runs inside an escript; no claim relies on it.
