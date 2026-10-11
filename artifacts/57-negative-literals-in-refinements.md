@@ -214,3 +214,13 @@ scratch dir, applies `patch-*.diff`, then runs everything). Needs `/tmp/claude-0
 | `survey_erlang_elixir.sh`, `survey_gleam_elm.sh`, `survey_elm.sh` | neighbours |
 | `build-variants.sh`, `patch-*.diff` | the five prototypes |
 | `verify-eunit.sh`, `verify-gates.sh`, `verify-results.txt` | suite and gate results per prototype (slow; not in `run.sh`) |
+
+## Verifier corrections (artifacts/verification/57.md)
+
+Verdict: sound, recommendation B stands, no circular probe. All variants' accept/refuse results, LOC and citations reproduced; variant B passes the full suite (1434 tests, run per module sequentially) and 10 of 10 gates. Corrections:
+
+- The table entry saying `-(5)` compiles under A1/A2 is wrong for A2, which refuses it with a syntax error.
+- The e_neg-consumer UNMEASURED note narrows: `e_neg` appears at 4 sites in compiler/src (bs_check.erl 2601 and 2889, bs_emit.erl 743 and 1067) and in no test that negates an integer literal. The tree-sitter grammar and editor/ were not read.
+- The AoC corpus, which uses negative literals, passes under B. Running the suite from a bare copy of compiler/ fails body_check_tests and three gates on missing files: they need `aoc/`, `handoff/`, `LANGUAGE.md` and `wayfinder/prototypes` beside `compiler/`.
+- The erl_parse.yrl normalise lines are 1817-1820 (the integer clause is 1819), in addition to the cited 269/301.
+- Only A2's intervals_tests were re-run by the verifier for A1, A2, C and C2; their full eunit and gate results rest on the author's verify-results.txt.
