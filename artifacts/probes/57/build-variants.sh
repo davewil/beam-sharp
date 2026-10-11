@@ -9,7 +9,7 @@ for v in 0 A1 A2 B C C2; do
   d=$OUT/wp-$v; rm -rf "$d"; mkdir -p "$d"
   git -C "$REPO" archive HEAD compiler | tar -x -C "$d"
   if [ "$v" != 0 ]; then
-    p=$(ls "$HERE"/patch-$v-*.diff); (cd "$d" && git apply --directory=. "$p") || { echo "patch $v failed"; exit 1; }
+    p=$(ls "$HERE"/patch-$v-*.diff); (cd "$d" && git apply "$p") || { echo "patch $v failed"; exit 1; }
   fi
   # bs_parser.erl is generated and gitignored; the archive has none, but never trust an mtime.
   rm -f "$d/compiler/src/bs_parser.erl"

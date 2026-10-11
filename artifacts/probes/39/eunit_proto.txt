@@ -1,0 +1,9 @@
+# rebar3 eunit, copy of repo at a5af573 + proto.patch, idle machine. 'off' = BSC_INLINE unset; the other lines set it.
+== BSC_INLINE=off
+1630:  All 1434 tests passed.
+== BSC_INLINE=all
+1150:  repl_tests: a_private_function_is_refused_by_name_at_the_prompt_test...*failed*
+1644:  Failed: 1.  Skipped: 0.  Passed: 1433.
+== BSC_INLINE=private
+1150:  repl_tests: a_private_function_is_refused_by_name_at_the_prompt_test...*failed*
+1644:  Failed: 1.  Skipped: 0.  Passed: 1433.

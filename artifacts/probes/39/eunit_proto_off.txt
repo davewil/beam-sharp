@@ -1,5 +1,0 @@
-# rebar3 eunit in a copy of the repo with proto.patch applied, BSC_INLINE unset (prototype off): the patch must not disturb the existing suite
-118:  api_tests: the_api_of_a_real_example_test...[0.515 s] ok
-618:  foreign_guard_tests: a_real_exception_still_arrives_through_the_channel_test...[0.283 s] ok
-992:  Failed: 0.  Skipped: 0.  Passed: 843.
-996:real	6m48.026s

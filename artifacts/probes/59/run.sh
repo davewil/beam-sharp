@@ -107,10 +107,7 @@ mkdir -p elixir && cp "$HERE/survey/elixir/"* elixir/ && (cd elixir && elixirc -
 echo "Elm: UNMEASURED here -- elm make cannot fetch package.elm-lang.org:"; (mkdir -p elm/src && cd elm && cp "$HERE/survey/elm/elm.json" . && cp "$HERE/survey/elm/Main.elm" src/ && timeout 60 elm make src/Main.elm --output=/dev/null 2>&1 | sed -n 1,8p)
 
 if [ "${TESTS:-1}" = 1 ]; then
-H "6. EXISTING TESTS on each prototype compiler (rebar3 eunit; failures are listed by name)"
-for v in exported-only guard-all field-depth; do
-  echo "---- $v"; (cd src-$v/compiler && rebar3 eunit 2>&1 | grep -E "^\s+[a-z_]+:[0-9]+:|Failed:|passed|tests, |Test passed" | head -30)
-done
-echo "---- base"; (cd src-base/compiler && rebar3 eunit 2>&1 | grep -E "Failed:|tests, |Test passed" | head)
+H "6. EXISTING TESTS (tests.sh): rebar3 eunit on each compiler; failing tests by name"
+bash "$HERE/tests.sh" "$SCRATCH"
 fi
 echo; echo "DONE"

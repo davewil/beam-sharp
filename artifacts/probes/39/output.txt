@@ -6,31 +6,31 @@ gleam 1.19.1
 x86_64
 model name	: Intel(R) Xeon(R) Processor @ 2.80GHz
 4
-a5af573
+5681928
 
 ######## 1. build the four implementations (aoc/bench/build.sh, minus its Gleam stdlib dependency, which this machine cannot fetch and the source does not use)
-   Compiled in 0.65s
+   Compiled in 0.53s
 
 ######## 2. the ticket's own harness (aoc/bench/bench.erl), 3 runs: the four answers must agree before any time means anything
              answer      min ms    med ms      rel
-Erlang       6770         17.43     22.73    1.62x
-Elixir       6770         16.84     19.68    1.56x
-Gleam        6770         10.79     11.69    1.00x
-beam-sharp   6770         16.81     18.12    1.56x
+Erlang       6770         16.96     17.50    1.56x
+Elixir       6770         16.77     17.14    1.54x
+Gleam        6770         10.87     11.45    1.00x
+beam-sharp   6770         16.81     19.16    1.55x
 
 all four agree on 6770
              answer      min ms    med ms      rel
-Erlang       6770         16.89     18.50    1.56x
-Elixir       6770         16.95     18.78    1.56x
-Gleam        6770         10.86     15.19    1.00x
-beam-sharp   6770         16.87     19.36    1.55x
+Erlang       6770         16.86     17.77    1.56x
+Elixir       6770         16.81     17.28    1.55x
+Gleam        6770         10.84     11.22    1.00x
+beam-sharp   6770         16.69     17.43    1.54x
 
 all four agree on 6770
              answer      min ms    med ms      rel
-Erlang       6770         17.33     19.18    1.59x
-Elixir       6770         16.73     17.97    1.54x
-Gleam        6770         10.89     12.97    1.00x
-beam-sharp   6770         16.63     17.54    1.53x
+Erlang       6770         16.82     17.62    1.56x
+Elixir       6770         16.84     17.81    1.56x
+Gleam        6770         10.78     10.86    1.00x
+beam-sharp   6770         16.76     17.10    1.56x
 
 all four agree on 6770
 
@@ -92,6 +92,12 @@ wrap(N) ->
         bs@rv1 when is_integer(bs@rv1) ->
             bs@rv1
     end.
+-- compile options recorded in each beam (Elixir/Gleam sources are not installed; this probes their binaries):
+bench_erl        []
+Elixir.BenchEx   [no_spawn_compiler_process,from_core,no_core_prepare,
+                  no_auto_import]
+bench_gleam      [debug_info]
+Day01            [debug_info,from_abstr]
 -- Gleam's emitted source carries:
 -compile([no_auto_import, nowarn_ignored, nowarn_unused_vars,
           nowarn_unused_function, nowarn_nomatch, inline]).
@@ -134,144 +140,144 @@ v_gl             tr-lines=5 instructions=25
 whole fold (part_two, 673,364 iterations over 4,732 rotations)
   distinct answers across variants: [6770]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  v_erl                16.92     19.38     17.77     21.19   1.60x
-  v_erl_notr           16.61     18.75     17.30     21.76   1.57x
-  v_erl_notypeopt      16.69     19.03     17.52     22.73   1.58x
-  v_erl_nossaopt       16.68     18.88     17.38     22.32   1.58x
-  v_erl_gint           16.60     18.66     17.03     20.25   1.57x
-  v_erl_grange         16.97     18.99     17.52     21.99   1.60x
-  v_bs                 16.82     18.56     17.57     20.18   1.59x
-  v_bs_notr            16.40     18.35     16.90     20.45   1.55x
-  v_bs_gint            16.58     18.60     17.24     20.96   1.57x
-  v_bs_grange          16.97     18.70     17.42     21.32   1.60x
-  v_erl_inline         10.61     11.46     10.86     13.24   1.00x
-  v_erl_inline_lis     10.63     11.70     11.00     13.37   1.00x
-  v_bs_inline          12.38     13.90     12.85     16.50   1.17x
-  v_bs_inline_size     10.81     11.91     11.18     12.69   1.02x
-  v_bs_inline_list     10.72     12.34     11.17     14.23   1.01x
-  v_erl_bswrap_inl     12.12     13.59     12.59     14.88   1.15x
-  v_bs_erlwrap_inl     10.58     11.54     10.89     14.01   1.00x
-  v_gl                 10.60     12.23     11.02     14.80   1.00x
-  v_gl_noinline        16.92     19.62     18.00     22.77   1.60x
+  v_erl                16.80     17.19     16.97     18.02   1.58x
+  v_erl_notr           16.56     17.13     16.85     17.89   1.56x
+  v_erl_notypeopt      16.63     17.33     16.98     18.32   1.57x
+  v_erl_nossaopt       16.71     17.19     16.87     18.06   1.58x
+  v_erl_gint           16.54     17.07     16.74     17.79   1.56x
+  v_erl_grange         17.02     17.48     17.23     18.37   1.60x
+  v_bs                 16.77     17.18     16.95     18.02   1.58x
+  v_bs_notr            16.40     17.00     16.70     17.93   1.55x
+  v_bs_gint            16.61     17.05     16.78     17.67   1.57x
+  v_bs_grange          16.96     17.55     17.18     18.45   1.60x
+  v_erl_inline         10.61     10.84     10.71     11.21   1.00x
+  v_erl_inline_lis     10.64     10.86     10.75     11.15   1.00x
+  v_bs_inline          12.32     12.74     12.54     13.06   1.16x
+  v_bs_inline_size     10.80     11.04     10.93     11.28   1.02x
+  v_bs_inline_list     10.72     11.04     10.88     11.45   1.01x
+  v_erl_bswrap_inl     12.07     12.42     12.30     12.94   1.14x
+  v_bs_erlwrap_inl     10.63     10.80     10.72     11.20   1.00x
+  v_gl                 10.61     10.86     10.72     11.08   1.00x
+  v_gl_noinline        16.84     17.32     17.01     18.01   1.59x
 
 Spin alone (one call, 673,364 iterations)
   distinct answers across variants: [{14,6734}]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  v_erl                16.59     18.94     17.36     22.51   1.58x
-  v_erl_notr           16.42     18.33     17.39     20.20   1.57x
-  v_erl_notypeopt      16.38     19.14     17.31     21.59   1.56x
-  v_erl_nossaopt       16.42     18.39     17.34     21.14   1.57x
-  v_erl_gint           16.36     18.65     17.19     20.43   1.56x
-  v_erl_grange         16.80     18.86     17.59     21.23   1.60x
-  v_bs                 16.57     17.91     17.05     21.29   1.58x
-  v_bs_notr            16.18     18.33     16.80     20.26   1.54x
-  v_bs_gint            16.39     18.52     17.00     20.84   1.56x
-  v_bs_grange          16.85     18.68     17.48     20.95   1.61x
-  v_erl_inline         10.48     11.31     10.82     13.23   1.00x
-  v_erl_inline_lis     10.48     11.34     10.87     13.00   1.00x
-  v_bs_inline          12.13     13.31     12.47     16.04   1.16x
-  v_bs_inline_size     10.52     11.23     10.77     12.56   1.00x
-  v_bs_inline_list     10.62     11.49     10.88     13.04   1.01x
-  v_erl_bswrap_inl     11.94     13.26     12.36     15.34   1.14x
-  v_bs_erlwrap_inl     10.50     11.85     10.89     14.41   1.00x
-  v_gl                 10.51     11.32     10.73     13.32   1.00x
-  v_gl_noinline        16.61     18.65     17.53     22.02   1.59x
+  v_erl                16.63     17.18     16.87     19.09   1.59x
+  v_erl_notr           16.41     17.09     16.67     18.77   1.57x
+  v_erl_notypeopt      16.46     17.43     16.71     18.80   1.57x
+  v_erl_nossaopt       16.43     17.07     16.72     18.83   1.57x
+  v_erl_gint           16.37     17.02     16.66     18.74   1.56x
+  v_erl_grange         16.85     17.49     17.09     19.32   1.61x
+  v_bs                 16.57     17.19     16.82     19.21   1.58x
+  v_bs_notr            16.13     16.98     16.42     18.52   1.54x
+  v_bs_gint            16.38     17.07     16.64     18.85   1.56x
+  v_bs_grange          16.76     17.37     17.02     18.98   1.60x
+  v_erl_inline         10.48     10.73     10.60     10.98   1.00x
+  v_erl_inline_lis     10.53     10.75     10.64     10.97   1.01x
+  v_bs_inline          12.20     12.46     12.35     12.80   1.16x
+  v_bs_inline_size     10.48     10.73     10.61     11.04   1.00x
+  v_bs_inline_list     10.64     10.91     10.79     11.33   1.02x
+  v_erl_bswrap_inl     11.97     12.31     12.14     12.71   1.14x
+  v_bs_erlwrap_inl     10.49     10.67     10.61     10.89   1.00x
+  v_gl                 10.52     10.69     10.59     10.89   1.00x
+  v_gl_noinline        16.65     17.44     16.94     19.18   1.59x
 
 ######## VM 2 of 3
 
 whole fold (part_two, 673,364 iterations over 4,732 rotations)
   distinct answers across variants: [6770]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  v_erl                16.80     18.14     17.34     20.06   1.59x
-  v_erl_notr           16.67     18.20     17.16     20.20   1.58x
-  v_erl_notypeopt      16.55     17.92     17.14     19.96   1.57x
-  v_erl_nossaopt       16.56     17.98     17.15     19.65   1.57x
-  v_erl_gint           16.54     17.69     16.92     19.26   1.57x
-  v_erl_grange         16.98     18.04     17.32     19.96   1.61x
-  v_bs                 16.74     18.02     17.01     20.11   1.59x
-  v_bs_notr            16.41     17.70     16.73     19.41   1.55x
-  v_bs_gint            16.60     17.59     16.95     19.18   1.57x
-  v_bs_grange          16.94     18.38     17.25     20.59   1.60x
-  v_erl_inline         10.55     11.07     10.69     11.97   1.00x
-  v_erl_inline_lis     10.65     11.16     10.80     12.17   1.01x
-  v_bs_inline          12.37     13.06     12.56     14.67   1.17x
-  v_bs_inline_size     10.79     11.58     11.03     12.74   1.02x
-  v_bs_inline_list     10.76     11.22     10.89     12.14   1.02x
-  v_erl_bswrap_inl     12.16     12.96     12.42     13.84   1.15x
-  v_bs_erlwrap_inl     10.60     11.25     10.76     12.36   1.00x
-  v_gl                 10.62     11.18     10.76     11.79   1.01x
-  v_gl_noinline        16.77     17.64     17.21     19.44   1.59x
+  v_erl                16.75     17.31     16.99     17.86   1.58x
+  v_erl_notr           16.52     17.18     16.85     17.72   1.56x
+  v_erl_notypeopt      16.63     17.17     16.95     17.69   1.57x
+  v_erl_nossaopt       16.63     17.16     16.93     17.75   1.57x
+  v_erl_gint           16.54     16.99     16.74     17.73   1.56x
+  v_erl_grange         16.96     17.28     17.10     17.89   1.60x
+  v_bs                 16.72     17.22     17.02     17.62   1.58x
+  v_bs_notr            16.31     16.78     16.54     17.45   1.54x
+  v_bs_gint            16.56     16.96     16.78     17.39   1.57x
+  v_bs_grange          16.95     17.31     17.08     17.78   1.60x
+  v_erl_inline         10.57     10.76     10.68     10.97   1.00x
+  v_erl_inline_lis     10.62     10.84     10.72     11.11   1.01x
+  v_bs_inline          12.33     12.67     12.49     13.16   1.17x
+  v_bs_inline_size     10.75     11.07     10.94     11.34   1.02x
+  v_bs_inline_list     10.70     10.94     10.81     11.27   1.01x
+  v_erl_bswrap_inl     12.11     12.33     12.25     12.79   1.15x
+  v_bs_erlwrap_inl     10.58     10.78     10.69     11.01   1.00x
+  v_gl                 10.58     10.83     10.70     11.06   1.00x
+  v_gl_noinline        16.77     17.22     17.08     17.89   1.59x
 
 Spin alone (one call, 673,364 iterations)
   distinct answers across variants: [{14,6734}]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  v_erl                16.65     18.17     17.14     19.51   1.59x
-  v_erl_notr           16.41     17.81     16.95     19.09   1.57x
-  v_erl_notypeopt      16.37     18.32     17.00     18.96   1.57x
-  v_erl_nossaopt       16.39     18.02     16.89     19.08   1.57x
-  v_erl_gint           16.37     17.97     16.78     19.44   1.57x
-  v_erl_grange         16.85     19.00     17.32     20.03   1.61x
-  v_bs                 16.65     18.38     17.03     19.82   1.59x
-  v_bs_notr            16.24     18.10     16.73     18.88   1.55x
-  v_bs_gint            16.35     18.10     16.92     19.63   1.56x
-  v_bs_grange          16.80     18.93     17.16     19.92   1.61x
-  v_erl_inline         10.49     10.87     10.62     11.53   1.00x
-  v_erl_inline_lis     10.50     10.93     10.65     11.57   1.00x
-  v_bs_inline          12.26     12.64     12.39     13.30   1.17x
-  v_bs_inline_size     10.47     10.79     10.60     11.33   1.00x
-  v_bs_inline_list     10.67     11.04     10.85     11.62   1.02x
-  v_erl_bswrap_inl     12.01     12.64     12.21     13.03   1.15x
-  v_bs_erlwrap_inl     10.46     10.99     10.65     11.69   1.00x
-  v_gl                 10.50     10.90     10.65     11.29   1.00x
-  v_gl_noinline        16.67     18.36     17.20     19.83   1.59x
+  v_erl                16.58     17.01     16.80     17.73   1.59x
+  v_erl_notr           16.37     16.83     16.64     17.39   1.57x
+  v_erl_notypeopt      16.32     16.79     16.59     17.23   1.56x
+  v_erl_nossaopt       16.34     16.89     16.62     17.30   1.57x
+  v_erl_gint           16.30     16.75     16.53     17.37   1.56x
+  v_erl_grange         16.80     17.16     16.99     17.62   1.61x
+  v_bs                 16.56     16.94     16.80     17.50   1.59x
+  v_bs_notr            16.16     16.51     16.37     16.91   1.55x
+  v_bs_gint            16.32     16.70     16.60     17.34   1.57x
+  v_bs_grange          16.79     17.11     16.98     17.67   1.61x
+  v_erl_inline         10.43     10.63     10.55     10.81   1.00x
+  v_erl_inline_lis     10.46     10.69     10.58     10.83   1.00x
+  v_bs_inline          12.10     12.45     12.31     12.79   1.16x
+  v_bs_inline_size     10.47     10.64     10.55     10.80   1.00x
+  v_bs_inline_list     10.61     10.88     10.77     11.16   1.02x
+  v_erl_bswrap_inl     11.91     12.27     12.11     12.55   1.14x
+  v_bs_erlwrap_inl     10.49     10.65     10.57     10.95   1.01x
+  v_gl                 10.46     10.67     10.60     10.86   1.00x
+  v_gl_noinline        16.57     17.06     16.85     17.58   1.59x
 
 ######## VM 3 of 3
 
 whole fold (part_two, 673,364 iterations over 4,732 rotations)
   distinct answers across variants: [6770]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  v_erl                16.76     17.41     17.18     17.79   1.58x
-  v_erl_notr           16.63     17.12     16.92     17.71   1.57x
-  v_erl_notypeopt      16.55     17.30     17.04     17.99   1.56x
-  v_erl_nossaopt       16.74     17.30     17.03     17.72   1.58x
-  v_erl_gint           16.56     16.95     16.75     17.27   1.56x
-  v_erl_grange         16.97     17.36     17.17     17.81   1.60x
-  v_bs                 16.80     17.22     17.05     17.77   1.59x
-  v_bs_notr            16.34     16.78     16.57     17.27   1.54x
-  v_bs_gint            16.62     17.01     16.85     17.38   1.57x
-  v_bs_grange          16.91     17.24     17.12     17.78   1.60x
-  v_erl_inline         10.58     10.76     10.68     10.96   1.00x
-  v_erl_inline_lis     10.63     10.83     10.73     11.01   1.00x
-  v_bs_inline          12.35     12.65     12.54     13.06   1.17x
-  v_bs_inline_size     10.80     11.06     10.93     11.33   1.02x
-  v_bs_inline_list     10.70     10.98     10.84     11.40   1.01x
-  v_erl_bswrap_inl     11.98     12.40     12.27     12.95   1.13x
-  v_bs_erlwrap_inl     10.61     10.79     10.69     11.21   1.00x
-  v_gl                 10.62     10.82     10.71     11.15   1.00x
-  v_gl_noinline        16.79     17.33     17.12     17.99   1.59x
+  v_erl                16.79     17.25     17.08     17.64   1.59x
+  v_erl_notr           16.64     17.09     16.86     17.37   1.57x
+  v_erl_notypeopt      16.63     17.13     16.92     17.93   1.57x
+  v_erl_nossaopt       16.71     17.21     16.97     17.87   1.58x
+  v_erl_gint           16.55     16.97     16.79     17.59   1.56x
+  v_erl_grange         16.97     17.33     17.14     17.71   1.60x
+  v_bs                 16.77     17.19     17.03     17.75   1.59x
+  v_bs_notr            16.41     16.75     16.56     17.16   1.55x
+  v_bs_gint            16.61     16.97     16.80     17.21   1.57x
+  v_bs_grange          16.93     17.24     17.09     17.73   1.60x
+  v_erl_inline         10.57     10.76     10.66     10.87   1.00x
+  v_erl_inline_lis     10.63     10.80     10.74     10.97   1.01x
+  v_bs_inline          12.34     12.59     12.49     12.76   1.17x
+  v_bs_inline_size     10.83     10.99     10.93     11.22   1.02x
+  v_bs_inline_list     10.69     10.96     10.86     11.38   1.01x
+  v_erl_bswrap_inl     12.11     12.37     12.24     12.62   1.15x
+  v_bs_erlwrap_inl     10.60     10.75     10.69     10.99   1.00x
+  v_gl                 10.60     10.78     10.69     10.97   1.00x
+  v_gl_noinline        16.83     17.26     17.07     17.51   1.59x
 
 Spin alone (one call, 673,364 iterations)
   distinct answers across variants: [{14,6734}]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  v_erl                16.62     17.18     16.80     17.72   1.59x
-  v_erl_notr           16.38     16.90     16.62     17.52   1.56x
-  v_erl_notypeopt      16.38     16.85     16.58     17.34   1.56x
-  v_erl_nossaopt       16.41     16.91     16.61     17.70   1.57x
-  v_erl_gint           16.35     16.76     16.53     17.58   1.56x
-  v_erl_grange         16.85     17.30     17.01     17.98   1.61x
-  v_bs                 16.58     16.94     16.75     17.55   1.58x
-  v_bs_notr            16.15     16.53     16.30     17.05   1.54x
-  v_bs_gint            16.36     16.74     16.51     17.15   1.56x
-  v_bs_grange          16.81     17.11     16.94     17.80   1.61x
-  v_erl_inline         10.47     10.71     10.60     11.00   1.00x
-  v_erl_inline_lis     10.51     10.75     10.64     11.02   1.00x
-  v_bs_inline          12.09     12.54     12.36     12.95   1.16x
-  v_bs_inline_size     10.51     10.71     10.61     10.98   1.00x
-  v_bs_inline_list     10.63     10.97     10.80     11.43   1.02x
-  v_erl_bswrap_inl     11.94     12.29     12.13     12.92   1.14x
-  v_bs_erlwrap_inl     10.48     10.69     10.60     11.03   1.00x
-  v_gl                 10.52     10.71     10.62     10.92   1.00x
-  v_gl_noinline        16.60     17.01     16.75     17.66   1.59x
+  v_erl                16.58     17.01     16.76     17.61   1.58x
+  v_erl_notr           16.41     16.87     16.65     17.38   1.57x
+  v_erl_notypeopt      16.33     16.81     16.58     17.17   1.56x
+  v_erl_nossaopt       16.31     16.89     16.63     17.38   1.56x
+  v_erl_gint           16.30     16.69     16.53     17.18   1.56x
+  v_erl_grange         16.79     17.17     16.94     17.93   1.60x
+  v_bs                 16.57     16.93     16.79     17.41   1.58x
+  v_bs_notr            16.15     16.55     16.32     17.16   1.54x
+  v_bs_gint            16.36     16.77     16.51     17.39   1.56x
+  v_bs_grange          16.78     17.26     16.99     17.92   1.60x
+  v_erl_inline         10.50     10.66     10.56     10.86   1.00x
+  v_erl_inline_lis     10.47     10.70     10.57     10.97   1.00x
+  v_bs_inline          12.11     12.43     12.30     12.74   1.16x
+  v_bs_inline_size     10.48     10.64     10.54     10.91   1.00x
+  v_bs_inline_list     10.57     10.84     10.73     11.08   1.01x
+  v_erl_bswrap_inl     11.93     12.16     12.06     12.67   1.14x
+  v_bs_erlwrap_inl     10.48     10.68     10.55     10.90   1.00x
+  v_gl                 10.50     10.63     10.57     10.82   1.00x
+  v_gl_noinline        16.61     16.98     16.79     17.55   1.59x
 
 ######## 5. can the Abstract Format carry type facts into beam_ssa_type? (-spec vs guards)
 no spec      tr-annotated operands: 1 [{t_integer,{0,1}}]
@@ -294,13 +300,13 @@ BSC_INLINE=private  .beam bytes=2740  compile attrs: {attribute,0,compile,
 whole fold (part_two, 673,364 iterations over 4,732 rotations)
   distinct answers across variants: [6770]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  p_none               16.69     18.44     17.21     20.87   1.73x
-  p_all                10.63     11.75     11.02     13.27   1.10x
-  p_private            10.24     10.84     10.43     11.89   1.06x
-  pe_none              16.80     18.44     17.20     20.26   1.74x
-  pe_inline            10.80     11.56     11.10     12.67   1.12x
-  pe_list               9.66     10.45      9.95     12.05   1.00x
-  bench_gleam          10.79     11.63     11.06     13.70   1.12x
+  p_none               16.70     17.04     16.83     17.71   1.73x
+  p_all                10.81     11.10     10.97     11.56   1.12x
+  p_private            10.20     10.38     10.30     10.61   1.06x
+  pe_none              16.81     17.23     16.99     18.22   1.74x
+  pe_inline            10.79     10.98     10.89     11.30   1.12x
+  pe_list               9.66      9.94      9.78     10.29   1.00x
+  bench_gleam          10.76     11.00     10.88     11.33   1.11x
 
 Spin alone (one call, 673,364 iterations)
   (no variant exports the loop: skipped)
@@ -310,13 +316,13 @@ Spin alone (one call, 673,364 iterations)
 whole fold (part_two, 673,364 iterations over 4,732 rotations)
   distinct answers across variants: [6770]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  p_none               16.64     17.41     16.88     19.35   1.72x
-  p_all                10.67     11.38     10.93     12.47   1.10x
-  p_private            10.20     10.61     10.32     11.21   1.05x
-  pe_none              16.75     17.79     17.10     20.27   1.73x
-  pe_inline            10.81     11.17     10.89     11.87   1.12x
-  pe_list               9.67     10.04      9.81     11.15   1.00x
-  bench_gleam          10.77     11.13     10.90     12.08   1.11x
+  p_none               16.67     17.05     16.84     17.69   1.73x
+  p_all                10.68     11.02     10.84     11.78   1.11x
+  p_private            10.23     10.43     10.31     10.67   1.06x
+  pe_none              16.73     17.17     16.92     17.89   1.73x
+  pe_inline            10.81     11.04     10.90     11.36   1.12x
+  pe_list               9.65      9.88      9.78     10.11   1.00x
+  bench_gleam          10.77     10.97     10.86     11.30   1.12x
 
 Spin alone (one call, 673,364 iterations)
   (no variant exports the loop: skipped)
@@ -326,13 +332,13 @@ Spin alone (one call, 673,364 iterations)
 whole fold (part_two, 673,364 iterations over 4,732 rotations)
   distinct answers across variants: [6770]
   variant             min ms    med ms    p25 ms    p75 ms min/bes
-  p_none               16.69     20.83     17.86     25.32   1.72x
-  p_all                10.78     14.74     11.48     19.14   1.11x
-  p_private            10.24     13.25     10.76     16.05   1.05x
-  pe_none              16.80     23.18     18.55     27.85   1.73x
-  pe_inline            10.80     13.85     11.56     17.61   1.11x
-  pe_list               9.70     12.40     10.39     15.15   1.00x
-  bench_gleam          10.81     13.62     11.43     17.45   1.11x
+  p_none               16.62     17.14     16.77     17.74   1.72x
+  p_all                10.67     11.09     10.87     11.95   1.11x
+  p_private            10.23     10.44     10.30     10.71   1.06x
+  pe_none              16.71     17.20     16.92     17.82   1.73x
+  pe_inline            10.77     10.94     10.84     11.16   1.12x
+  pe_list               9.65      9.90      9.76     10.18   1.00x
+  bench_gleam          10.78     10.96     10.84     11.24   1.12x
 
 Spin alone (one call, 673,364 iterations)
   (no variant exports the loop: skipped)
@@ -369,15 +375,15 @@ erlc opts=[+inline]
 
 ######## 9. cost side of inlining: compile time and size on large OTP modules (median of 7)
 module                   opts      median ms      bytes
-lists.erl                default      1281.0      47164
-lists.erl                inline       1616.3      47224
-string.erl               default      1414.3      48912
-string.erl               inline       1738.5      49696
-erl_scan.erl             default      1467.6      48636
-erl_scan.erl             inline       2449.2      49696
+lists.erl                default       687.8      47164
+lists.erl                inline       1053.9      47224
+string.erl               default       840.1      48912
+string.erl               inline       1162.3      49696
+erl_scan.erl             default       987.6      48636
+erl_scan.erl             inline       1555.9      49696
 
-run.sh finished; scratch dir /tmp/claude-0/work-39/run.ITbV1F
+run.sh finished; scratch dir /tmp/claude-0/work-39/run.EIbqds
 
-real	5m48.210s
-user	4m30.986s
-sys	0m10.344s
+real	4m48.296s
+user	4m36.319s
+sys	0m10.964s

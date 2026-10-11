@@ -1,0 +1,19 @@
+Existing suite per prototype (rebar3 eunit, 1434 tests at HEAD; baseline 1434 passed). Measured 2026-10-10/11, Linux x86_64, OTP 28.
+How: build-variants.sh, then verify-eunit.sh V and verify-gates.sh V (the gates: check-diagnostics residual-pasteable guard-calls
+negation division boundary-range examples helper-agrees switch-diagnostics tagged-union). Run one variant at a time: four in
+parallel timed one test out (non_numeric_operand_tests, passes alone in 31 s).
+
+variant  eunit                                                        gates (10)
+0        1434 passed (work-57 baseline copy)                          9/10 rc=0; check-helper-agrees needs eunit beams first (env, not a defect)
+A1       1434 passed                                                  10/10
+A2       1433 passed, 1 FAILED: intervals_tests:                      10/10
+         an_unreadable_refinement_predicate_is_an_error_test
+         (`WellFormed(value)` is now a syntax error, test wants {opaque_refinement,_})
+B        1434 passed                                                  10/10
+C        1433 + the diagnostics-gate test, which failed only because  10/10
+         no escript was built yet; gate itself rc=0 afterwards. Not rerun in full.
+C2       1434 passed                                                  10/10
+
+CORRECTION recorded: the first A1/A2/B eunit+gate runs were against a STALE generated src/bs_parser.erl (copy kept an older mtime
+than the patched .yrl), i.e. they tested the baseline. Discovered when the rebuilt escripts still refused `value >= -5`.
+All A1/A2/B results above are from the rerun after `rm src/bs_parser.erl` + rebuild; build-variants.sh now does that always.
