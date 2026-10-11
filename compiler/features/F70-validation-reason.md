@@ -1,7 +1,7 @@
 # F70 — `ValidationError` says why: `Reason`, and a key blamed at its own path
 
-**Status**      **in progress** — built 2026-10-09, 30 tests in `validation_reason_tests`;
-                closing it is David's call
+**Status**      **done** — built 2026-10-09, 30 tests in `validation_reason_tests`;
+                closed by David 2026-10-11, its open points accepted as built
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q16, Q12, Q21
                 and Q24, and [ticket 79](../../wayfinder/issues/79-validationerror-as-a-record.md)'s
                 reopened point. Decides nothing; see *One point the build could not follow*

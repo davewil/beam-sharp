@@ -1,7 +1,7 @@
 # F71 — `FromJson` refuses a repeated key, and text after the value
 
-**Status**      **in progress** — built 2026-10-09, 18 tests in `duplicate_key_tests`;
-                closing it is David's call
+**Status**      **done** — built 2026-10-09, 18 tests in `duplicate_key_tests`;
+                closed by David 2026-10-11, its open points accepted as built
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q15 and Q20.
                 Decides nothing; see *What the build found*
 **Closes**      [ENG-617](https://linear.app/davewil/issue/ENG-617)

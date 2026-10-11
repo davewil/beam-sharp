@@ -1,7 +1,7 @@
 # F72 — a union tagged by a string-literal key is validated by that key first
 
-**Status**      **in progress** — built 2026-10-10, 21 tests in `tagged_union_tests`;
-                closing it is David's call
+**Status**      **done** — built 2026-10-10, 21 tests in `tagged_union_tests`;
+                closed by David 2026-10-11, its open points accepted as built
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q19 and Q22.
                 Decides nothing; see *What the build found*
 **Closes**      [ENG-618](https://linear.app/davewil/issue/ENG-618)

@@ -1,7 +1,7 @@
 # F73 — under `FromJson`, a `float` position reads a JSON integer
 
-**Status**      **in progress** — built 2026-10-10, 16 tests in `float_reads_integer_tests`;
-                closing it is David's call
+**Status**      **done** — built 2026-10-10, 16 tests in `float_reads_integer_tests`;
+                closed by David 2026-10-11, its open points accepted as built
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q18.
                 Decides nothing; see *What the build found*
 **Closes**      [ENG-616](https://linear.app/davewil/issue/ENG-616)

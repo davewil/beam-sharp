@@ -981,10 +981,16 @@ Nothing in rounds 8 and 9 is built. The build issues:
   with the key in `Expected` (Q20); an unknown key under an exact type is blamed at that key with
   the type's keys as `Expected` (Q21); an absent tag is `:missing` at the tag's path (Q22); bytes
   that are not UTF-8 are `:not_json` like any other text that is not JSON (Q23); 25f's
-  `:malformed` keeps the record (Q24). Rounds 8 and 9 are decided and unbuilt: build issues
-  [ENG-615](https://linear.app/davewil/issue/ENG-615),
-  [ENG-616](https://linear.app/davewil/issue/ENG-616),
-  [ENG-617](https://linear.app/davewil/issue/ENG-617),
-  [ENG-618](https://linear.app/davewil/issue/ENG-618).
+  `:malformed` keeps the record (Q24). **Built and closed 2026-10-11**: rounds 7 to 9 are F70
+  ([ENG-615](https://linear.app/davewil/issue/ENG-615)), F71
+  ([ENG-617](https://linear.app/davewil/issue/ENG-617)), F72
+  ([ENG-618](https://linear.app/davewil/issue/ENG-618)), F73
+  ([ENG-616](https://linear.app/davewil/issue/ENG-616)) and F74
+  ([ENG-611](https://linear.app/davewil/issue/ENG-611)). David accepted what the builds chose
+  where no answer said: the first absent key, and the tag among several candidates, is the first
+  in key order (a field set carries no declaration order, so Q12's "declaration order" is key
+  order); a record's `Kind` is asked about first. Left undecided on purpose, as built, until a
+  program meets them: which member reads a value two members can both read and neither holds as
+  it is, and a UTF-8 byte-order mark before the JSON, which is `:not_json`.
 ```
 

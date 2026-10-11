@@ -1,7 +1,7 @@
 # F74 — `FromJson<T>` takes a `binary`
 
-**Status**      **in progress** — built 2026-10-11, 14 tests in `from_json_binary_tests`;
-                closing it is David's call
+**Status**      **done** — built 2026-10-11, 14 tests in `from_json_binary_tests`;
+                closed by David 2026-10-11, its open points accepted as built
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md) Q13 and Q23.
                 Decides nothing; see *What the build found*
 **Closes**      [ENG-611](https://linear.app/davewil/issue/ENG-611)
