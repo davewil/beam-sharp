@@ -210,3 +210,14 @@ It copies `compiler/` four times into a scratch dir, applies `patches/{exported-
 A probe bug to disclose: my first `Forge` used `w.Inner.Total`, which B# does not parse (chained projection); I rewrote the control
 as `DirectField({ Inner: i }) -> i.Total * 100` and reran everything. The first bytes script used `beam_lib:strip/1` on a path, which
 rewrites the file in place; I switched it to a binary and reran.
+
+## Verifier corrections (artifacts/verification/59.md)
+
+Verdict: sound, no circular probe; the recommendation (B, delivered together with C's field-depth guard) stands. Reproduced independently with a different B# module: the tag test's presence per variant, the 3.2 ns per private tag test, the 987-byte flat size at 3 and 8 fields, patch LOC (B 2, A 8, C 42), the eunit failures per variant (A: F24.6 and F37.5; C: the F3.9 pin, `bindings_tests:a_binding_reads_a_projection_once_test`, `to_json_tests:a_field_of_the_wrong_type_is_not_published_test`), and `CONTEXT.md:398` defining the term as exported-only. Corrections:
+
+- "0 bytes and 0 ns for private int guards" holds only because the Bench probe makes the guard provably dead. In `Leak.Bump`, fed by a projection, guard-all keeps `is_integer`; the cost of a live guard was never measured.
+- The noise floor is understated: identical copies differed by 2.4 ns on the minimum, not 0.4. The effect is about 25 ns, so the conclusion holds.
+- The record-in-tuple route is also real: caught today, silent under B and C (the brief shows only the int case). Under A the list and tuple routes are caught, which C leaves open.
+- C's cost is measured only for ints (+19 tests); the corpus has no record-typed field, so the tag-on-field cost has no data. Section 3 says 46 section 4 "already decided" the field-depth guard, but 46 section 4 is about refined ints only.
+- `seq_loop` has no type guard but does have `N >= 4` loop guards; the Elixir "closed Order struct" output is truncated; the header says HEAD a5af573 while output.txt prints 7828918 (same compiler tree).
+- Missing citation: ticket 18 lines 194-196 already say a foreign value entering through an exported function reaches private ones unchallenged. Not probed: a closure handed to a foreign process, and records arriving by receive, ETS or persistent_term.
