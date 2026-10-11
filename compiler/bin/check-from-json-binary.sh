@@ -19,7 +19,8 @@
 #       `anything`, which stopped checking the argument.
 #   B6  exemplar 25f, its `Parse` a bare `FromJson<ReplyWire>(body)`, served
 #       a body with a byte that is not UTF-8: `(:malformed, e)` with `e` the
-#       `:not_json` error. Red under `refused` and under `exemplar_only`.
+#       `:not_json` error. Red under `refused`, under `crashes`, whose
+#       replay dies on the same byte, and under `exemplar_only`.
 
 set -euo pipefail
 
@@ -120,7 +121,9 @@ probe() {
 #   anything       the argument is no longer checked
 #   exemplar_only  every probe is right and the exemplar is not
 #
-# Each but `refused` is wrong on one case alone, and is required to be.
+# Each but `refused` and `crashes` is wrong on one case alone, and is
+# required to be. A decoder that raises does so in the exemplar too, so
+# `crashes` is wrong on B3 and B6 and required to be red on both.
 # ---------------------------------------------------------------------------
 if [ "${1:-}" = "--self-test" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -152,14 +155,17 @@ $(refusal Piped 12:21)"
 
   stub good          "$G1" "$G1" "$G3" "$G1" "$G5" "$G6"
   stub refused       "$REFUSED" "$REFUSED" "$REFUSED" "$REFUSED" "$G5" "$BAD6"
-  stub text_refused  "$G1" "$(refusal ReadText 9:19 | sed 's/binary . string/string/')" "$G3" "$G1" "$G5" "$G6"
-  stub crashes       "$G1" "$G1" "crashed: error:{invalid_byte,255}" "$G1" "$G5" "$G6"
+  stub text_refused  "$G1" "$(refusal ReadText 9:19 | sed 's/binary . string/string/')
+  the clause to add here:
+    ReadText(s) -> ..." "$G3" "$G1" "$G5" "$G6"
+  stub crashes       "$G1" "$G1" "crashed: invalid_byte 255" "$G1" "$G5" \
+                     '{\"init terminating in do_boot\",{invalid_byte,255}}'
   stub as_string     "$G1" "$G1" "$AS_STRING" "$G1" "$G5" "$G6"
   stub call_only     "$G1" "$G1" "$G3" "$(refusal Piped 12:21)" "$G5" "$G6"
   stub anything      "$G1" "$G1" "$G3" "$G1" "$G3" "$G6"
   stub exemplar_only "$G1" "$G1" "$G3" "$G1" "$G5" "$BAD6"
 
-  only() { # stub, the one case it must be red on
+  only() { # stub, the cases it must be red on and no others
     if [ "$(judge "$W/$1" | grep -o '^B[0-9]: wanted' | cut -d: -f1 | tr '\n' ' ')" = "$2 " ]; then
       echo "  ok red on $1, at $2 alone"
     else
@@ -172,7 +178,7 @@ $(refusal Piped 12:21)"
     echo "  ok red on refused"
   fi
   only text_refused B2
-  only crashes B3
+  only crashes "B3 B6"
   only as_string B3
   only call_only B4
   only anything B5
