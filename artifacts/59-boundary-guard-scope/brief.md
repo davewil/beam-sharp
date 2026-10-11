@@ -14,7 +14,7 @@ Everything else follows from the answer:
 - The record tag test on a private function is either a defect (answer "exported only") or correct (answer "every function").
 - The int, float and range kind tests are then widened, or confirmed as they are.
 
-Today there are *four* tests, not two. `bs_emit:guard_one/8` (`compiler/src/bs_emit.erl:275`) applies them like this:
+Today there are *four* tests, not two. `bs_emit:guard_one/7` (`compiler/src/bs_emit.erl:275`) applies them like this:
 
 | test | scope today | where it is pinned |
 |---|---|---|
@@ -30,14 +30,14 @@ Ticket 59 names two of the four. A decision made for "both guards" has to cover 
 | # | claim (source) | probe | result |
 |---|---|---|---|
 | 1 | A private `Inner(Order o)` gets the tag test; a private `int` helper gets nothing (46, 59) | `probe_a_asymmetry` | **confirmed** |
-| 2 | "A forged record can reach a private function by being passed through an exported one" (59, the 'not a defect' argument) | `probe_b_forged` section 0 | **refuted in the form written.** bsc refuses to hand a `term`, a `map<atom,term>`, or a `{Kind: ...}`-narrowed value to a record-typed function |
+| 2 | "A forged record can reach a private function by being passed through an exported one" (59, the 'not a defect' argument) | `probe_b_forged` section 0 | **partly refuted** (verifier correction). refused for a `term`, a `map<atom,term>`, or a `{Kind: ...}`-narrowed value; **confirmed** for an exported parameter of union type, e.g. `public int Entry(Order \| :nothing m)` forwarding to private `Inner(Order o)`: the exported `Entry` carries no guard, so a forged top-level record reaches `Inner`, where today only the private tag test stops it (`function_clause`); without it the result is a silent `9`. Same for `option<Order>` and, for the int rule, `int \| :nothing` into a private `Bump(int n)` (1.5 -> 2.5 today; widening catches it). Independently re-run by the orchestrator: today's behaviour confirmed. See `verification.md` |
 | 2b | Same claim, other route: values nested inside a typed exported parameter | `probe_b_forged` sections 1-3 | **confirmed, and wider than claimed.** A wrong-Kind record inside a record field or a `list<Order>` reaches the private function |
 | 3 | The private tag test is "18 §4 working" (59) | `probe_b_forged` section 3 | **mostly refuted.** The same forged nested value projected inline, with no function call, already returns a wrong answer under today's emitter. The private test catches it only if the value is handed to a function |
 | 4 | "A non-exported function has the test elided entirely" (18 §1, cited in 59) | `neighbours/probe_f_erlang_entry`, `probe_c_cost` | **partly.** erlc drops a local guard only when every caller's argument type is provable. One unprovable caller keeps it |
 | 5 | One entry label serves local and remote calls (18 §1) | `neighbours/probe_f_erlang_entry` | **confirmed** |
 | 6 | Tag test costs +14 bytes, flat in field count (26a) | `probe_c_cost` | **confirmed in kind, 12 here.** 12 Code bytes at 3 fields and at 8 fields (OTP 29) |
 | 7 | `is_integer` costs +3-5 bytes, time below resolution (18) | `probe_c_cost` | **partly.** 0 bytes when erlc proves the argument, 5 bytes when it cannot. Time is inside this harness's noise (about ±0.6 ns/call), not at the ticket's ±0.09 |
-| 8 | The tag test costs "nothing measurable" in time (26 §1) | `probe_c_cost` | **refuted for a 2-function toy.** About 2.3-3.8 ns/call (median) on an ~15-19 ns call, above the noise floor |
+| 8 | The tag test costs "nothing measurable" in time (26 §1) | `probe_c_cost` | **not comparable.** 26 §1's figure is an exported-projection comparison (7.04 vs 8.78 ns), not a private-call cost. On a 2-function toy the tag test costs roughly 2-5 ns/call (author 2.3-3.8; verifier 2.0-5.4, load-dependent) |
 | 9 | Elided-by-narrowing breaks nothing already built (implied) | `probe_i_suite` | **confirmed:** zero tests fail when the private tag test is dropped |
 
 ## 3. Neighbours
@@ -55,7 +55,7 @@ The probe shows both outcomes: `loc_known` (only provable callers) loses its `is
 - A guard on a `defp` runs: `pub(1.5)` with an unguarded exported `pub` calling a guarded `defp` raises `FunctionClauseError` in `priv/1`.
 - The control (`defp` without the guard) silently returns `2.5`.
 - A `defp` head pattern `%{kind: :order}` also rejects a forged `kind: :invoice`.
-- Elixir never elides a user-written guard on privacy. Guards are semantics there, not an optimisation.
+- Elixir does not drop a user-written guard on `defp` as a rule (erlc can drop one when every caller is provable). Guards are semantics there, not an optimisation.
 
 **Gleam.** Source is not available; the citation is the real compiler (`gleam build --target erlang`, output in `neighbours/probe_h_gleam.out`).
 
@@ -171,7 +171,7 @@ int Bump(int n)                // gains is_integer (and float/range for those ty
 Bump(n) -> n + 1               // Sum [1, 1.5]: 4.5 today, function_clause widened
 ```
 
-- **Delta:** delete `when Public` at `bs_emit.erl:284`; drop the `Public` parameter from `function/2`, `clause/4`, `boundary_guards/6`, `guard_one/8`. Rewrite F24.6 and F37.5 (they assert the opposite), the F24 and F37 prose, 18 §4's "exported" and §1's "interior functions already pay nothing". One scratch-compiler line does the guard half (`probes/variants.patch`).
+- **Delta:** delete `when Public` at `bs_emit.erl:284`; drop the `Public` parameter from `function/2`, `clause/4`, `boundary_guards/6`, `guard_one/7`. Rewrite F24.6 and F37.5 (they assert the opposite), the F24 and F37 prose, 18 §4's "exported" and §1's "interior functions already pay nothing". One scratch-compiler line does the guard half (`probes/variants.patch`).
 - **Evidence:** 0 bytes where erlc proves the argument, 5 where it cannot; time inside noise; 9 private functions in the corpus gain a test. It does **not** close the hole: `ScopeJ.Sum` with no helper still returns `4.5` under widening.
 - **Strongest counterargument:** it reverses three decided pieces (18 §4, F24 §3, F37.5) and two pinned tests for a defence that fails when the author inlines the helper. It also puts the record tag, which erlc cannot elide, on every private record call: 12 bytes and ~3 ns each.
 
@@ -184,19 +184,16 @@ Bump(n) -> n + 1               // Sum [1, 1.5]: 4.5 today, function_clause widen
 
 ## 7. Recommendation
 
-**Choose Option 1: exported only, for every guard, stated once.** The sentence is "a boundary guard is emitted on exported functions, for every kind of parameter it can test; a private function inherits its callers' proofs."
+**Gating question, asked alone: may a private function's only defence against a forged value be a guard on the exported function above it?** Today that is false for union-typed exported parameters (they carry no guard), so the answer decides whether Option 1 is safe to take on its own.
 
-- It is what 18 §4, 46, 58, F24 and F37 already say.
-- It is the BEAM compiler's own discriminator (`beam_ssa_type.erl:122-123, 444-451`).
-- It is the smallest change: one line, no existing test breaks, and the corpus has no private record function to notice.
-- The private tag test is not providing the protection the 'not a defect' argument credits it with (section 5). It fires on call shape, not on provenance.
+**Recommend Option 3 for now (keep the split, write down why), and raise one ticket that makes Option 1 safe.** This replaces the author's first recommendation (Option 1 alone), which the independent verifier showed rests on a false sentence:
 
-**Raise a new ticket in the same session:** "the contents of an exported parameter are unchecked" (probe `Nest`, `Lst`, `ScopeI`: a function published `list<int> -> int` returns `4.5`). That, not scope, is where "never silently" fails. A nested-content defence would have to fit 18 §2's O(1) rule, so it is a design question, and per CLAUDE.md it should be a ticket, not a feature that decides it.
+- "a private function inherits its callers' proofs" does not hold for an exported parameter of union type containing a record or an `int` (probes U1, U5, U6 in `verification.md`). Dropping the private tag test alone turns `function_clause` into a silent wrong answer (`9`) on a top-level argument of a common shape (`option<Order>`).
+- Option 1 is still what 18 §4 says and what erlc's own discriminator does (`beam_ssa_type.erl:122-123, 444-451`), so it becomes right once exported union parameters are guarded. A top-level union membership test is O(1) and fits 18 §2.
+- So: the new ticket is "exported parameters of union type, and the contents of exported container parameters, are unchecked" (covers `Order | :nothing`, `int | :nothing`, `list<int>` returning `4.5`). After it lands, take Option 1.
+- Option 2 (guard everything everywhere) is the cheap stopgap if David wants "never silently" binding now. It reverses 18 §4, F24 §3 and F37.5.
 
-**What would change the recommendation:**
-
-- If David reads "never silently" as binding on nested content *now*, Option 2 is the cheap stopgap, but it covers only the helper-call shape.
-- If the corpus grows private record functions fed from containers (0 today), Option 1's silent-vs-crash change becomes visible. Revisit then.
+**What would change this:** if a decision already says exported union parameters are deliberately unguarded (not found in a grep of 18 and 26; not examined in depth), Option 1 stands as the author first wrote it.
 
 ## 8. Limitations
 
@@ -206,3 +203,8 @@ Bump(n) -> n + 1               // Sum [1, 1.5]: 4.5 today, function_clause widen
 - `probe_i_suite` could not run the full suite (no rebar3 escript; five modules fail on base). Only ten base-green modules were compared.
 - `Public` widening in the scratch compiler also widens float and range because they share `guard_one`; that is the real change Option 2 means.
 - The generated `out*/`, `corpus_*/` and `ctl_*/` directories under `probes/` are run output; the permission check denied me deleting them. They can be removed by hand.
+
+
+## Verification note
+
+Independently verified: `verification.md` (VERIFIED WITH CORRECTIONS). Corrections applied above: ledger rows 2, 8, the Elixir sentence, `guard_one/7`, and the recommendation. Remaining unreconciled: the `beam_ssa_type.erl` 451 / 745-746 quote joins two comments (read the source, not the quote); the probe `out*/corpus_*/ctl_*` directories are generated and git-ignored only for .beam.

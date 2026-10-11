@@ -36,7 +36,7 @@ The one thing the quoted call does not give is `import :Shop` followed by a bare
 | 5 | Gleam `@external(erlang, "Shop", "New")` works | 03 | **Confirmed, and now RUN** (ticket only compiled it). `make_point(3)` -> `#{'X'=>3,'Kind'=>'Abi.Point','Y'=>3}`, `new_http(41)` -> `42`. Controls: wrong name -> `error undef`; beams off the path -> `error undef`. |
 | 6 | "Gleam downcases when it emits to the BEAM, PascalCase becomes snake_case" (ticket 10 section 7, reused as the precedent for aliases) | 02, 07 | **Partly, and it is not a precedent for aliases.** True for **type-variant constructors** (data atoms). False for functions: Gleam **refuses** a PascalCase function name at parse time (`I'm expecting a lowercase name here`), and it emits one export per function, never two. See section 3. |
 | 7 | A B# record arrives as a tagged map, not a struct | 08 | Confirmed: `is_struct?` false, matches as `%{Kind: :"Shop.Order", Id: id}`. |
-| 8 | `Kind` is a required part of the ABI; wrong tag and Elixir struct are `FunctionClauseError` | 08 | Confirmed. **New:** the boundary tests `Kind` only. `%{Kind: :"Shop.Order", Id: 9}` (no `Total`) is accepted and returns `:order`. |
+| 8 | `Kind` is a required part of the ABI; wrong tag and Elixir struct are `FunctionClauseError` | 08 | Confirmed. **New:** the boundary tests only what the clause patterns name. `Which(%{Kind: :"Shop.Order", Id: 9})` (no `Total`) is accepted and returns `:order`; `:Shop."Amount"(...)` on the same map raises `KeyError` for the missing `Total` (verifier). |
 | 9 | `LANGUAGE.md` 12 erasure table matches the emitted `-spec` | 04 | **Confirmed for every row it lists. Incomplete** (see section 4.4): omits `float`, `map<K,V>`, atom unions, and the flattening of `option<result<..>>`. |
 | 10 | `result<T,E>` succeeds as the bare value; `option<T>` absence is the atom `nothing` | 04 | Confirmed: `Res(true)` -> `1`, `Res(false)` -> `{error,bad}`, `MaybeInt(false)` -> `nothing`, and `case Res(true) of {ok,_}` does not match. |
 
@@ -51,7 +51,7 @@ Not a ticket claim but found: Elixir's error for the natural spelling does not p
 
 **Erlang/OTP.**
 - Quoted atoms are ordinary syntax (`'Shop':'New'(1)`).
-- PascalCase exports already exist in OTP: scanning 1321 OTP beams (46,001 exports) finds **19** starting with an uppercase letter, all in `diameter_types` (`'Address'/3`, `'UTF8String'/3`, ...) (probe 10). Rare, but not unheard of; an Elixir caller of those hits the same syntax wall and uses the same quoted call.
+- PascalCase exports already exist in OTP: scanning 1321 OTP beams (46,001 exports) finds **19** starting with an uppercase letter: 14 in `diameter_types` (`'Address'/3`, `'UTF8String'/3`, ...) and 5 in `wx` (`wxImage`, `wxMenu`, `wxRegion` twice, `wxWindow`) (probe 10 prints only the first 12; verifier re-counted). Rare, but not unheard of; an Elixir caller of those hits the same syntax wall and uses the same quoted call.
 
 **Gleam 1.19.1** (binary only; source unavailable, so the evidence is probe runs).
 - Variant constructors are lowercased per capital letter: `NewHTTPThing` -> `new_h_t_t_p_thing`, `HttpError(code)` -> `{http_error, _}`, `PaidInFull` -> `paid_in_full` (probe 02, probe 07 part 1c, real compiler output).
@@ -86,7 +86,7 @@ Patched scratch copy of the compiler (`probes/alias_emit.patch`, 41 added lines;
 
 Reading it:
 - A module's exports double. Marginal cost is about **57 bytes per aliased function** (forward) and about 67 (dup). Dropping the duplicated `-spec` saves only 1-2% of the beam; the rest is in the code, atom, export and `debug_info` chunks (Code +58%, AtU8 +108%, ExpT +98% at N=200).
-- Compile time rises about **48%** at N=200 (forward) and 75% (dup). The N=1 row is noise (the "none" run is slower than "forward"); trust N>=50.
+- Compile time rises about **48%** at N=200 (forward) and 75% (dup) **on one-line bodies, which overstates it**. Verifier regenerated N=200 with three-clause guarded bodies: forward +25% beam / +15% compile, dup +47% beam / +100% compile; a stripped beam grows 55% with forward; 57 bytes per alias holds; rerunning probe 05 gave forward +76% compile, so compile time is noisy. Read the cost as 'tens of percent, size-dependent', not a precise figure. The N=1 row is noise (the "none" run is slower than "forward"); trust N>=50.
 - **`dup` is understated.** The bodies here are one `+`, so duplicating them costs almost nothing. Real bodies make `dup` cost proportional to body size, while `forward` does not. If aliases are ever emitted, `forward` is the only variant whose cost does not grow with the code.
 - Loaded-code memory (`erlang:memory(code)` delta) is in the `.out` but is **not trustworthy** (not monotone with N=1 rows); use the file sizes.
 - The beams carry `debug_info` (as `bsc` writes them), so the duplicated abstract code is inside the sizes above; stripping was not measured.
@@ -99,10 +99,10 @@ Reading it:
 
 | calls | PascalCase export | alias | alias minus Pascal |
 |---|---|---|---|
-| 1e7 | median 105162 us | median 108023 us | **0.29 ns/call** (other runs: 0.00, 0.20, 0.09) |
-| 5e7 | median 532836 us | median 541822 us | **0.18 ns/call** (other runs: 0.07, -0.07, 0.39) |
+| 1e7 | median 105162 us (committed `.out`: 111790) | median 108023 us (`.out`: 112651) | **0.29 ns/call** (other runs: 0.00, 0.20, 0.09) |
+| 5e7 | median 532836 us (`.out`: 563003) | median 541822 us (`.out`: 582620) | **0.18 ns/call** (other runs: 0.07, -0.07, 0.39) |
 
-Run-to-run spread of the difference is about -0.2 to +0.4 ns; min-to-max of a single configuration is 3-15%. **The hop is not distinguishable from zero.** Positive control: adding one `erlang:phash2/1` BIF per iteration costs +8 to +9.5 ns/call, so the probe can see a real extra cost. (An earlier negative control, a dynamic `M:F(N)` call, showed nothing, because the JIT resolves remote calls through the same export entry. I replaced it with the BIF control rather than leave a control that cannot fail.)
+Run-to-run spread of the difference is about -0.2 to +0.4 ns; min-to-max of a single configuration reaches 40% (verifier), and the difference reached -0.52 ns. The `phash2` control is far larger than anything under test; verifier's real hop controls: a tail forwarder about 0.5 ns/call, a framed forwarder 1.1-1.8. **The hop is under about 1 ns/call.** Positive control: adding one `erlang:phash2/1` BIF per iteration costs +8 to +9.5 ns/call, so the probe can see a real extra cost. (An earlier negative control, a dynamic `M:F(N)` call, showed nothing, because the JIT resolves remote calls through the same export entry. I replaced it with the BIF control rather than leave a control that cannot fail.)
 
 ### 4.3 What the Elixir caller gets (probe 09, patched compiler vs stock)
 
@@ -193,7 +193,7 @@ new(7) |> which()                              # works
 4. Not in the patch and required: a checker diagnostic when two aliases (or an alias and a declared function, or `module_info/0,1`) collide, with a B# source position; `bsc --api` decision (does it list aliases?); `-spec` and `Kind` rules unchanged; a gate and a `--self-test` per the project's rules.
 5. Spec delta: the derivation rule becomes part of the published ABI, with the acronym table in section 4.5 as its test vectors.
 
-**Measured evidence:** section 4.1 (exports double, about +50% beam, about +48% compile at N=200), 4.2 (runtime: indistinguishable from zero), 4.3 (what the caller gets), 4.5 (rule and collisions).
+**Measured evidence:** section 4.1 (exports double, tens of percent in beam and compile time, size-dependent: see 4.1 and its verifier note), 4.2 (runtime: under about 1 ns/call), 4.3 (what the caller gets), 4.5 (rule and collisions).
 
 **Strongest counterargument:** the quote is two characters and aliases are forever. Every module in the language, including ones nobody calls from Elixir, pays the size and compile cost. Erlang tooling (xref, Dialyzer, `module_info`) sees every function twice. The derivation rule becomes a contract that every clean-room implementation must match byte for byte, and it directly contradicts `bs_otp.erl`'s "the language has no such rule" and ticket 32. It would also be the only place in the language where one source function yields two public names.
 
@@ -221,7 +221,7 @@ Elixir would call it `:Shop.new(1)`; Erlang `shop:new(1)`.
 
 Reasons, all from measurement:
 1. The friction the ticket was written to fix does not exist as described. `:Shop."New"(1)` works in every position `apply/3` does and a few more.
-2. Option B is real but not cheap: exports double, the beam grows about 50%, compile time about 48%, in every module, to save two characters. Runtime is free (a tail jump, indistinguishable from zero), so the objection is not speed. It is that the derivation rule becomes a public ABI, collides on `NewUrl`/`NewURL` and `ModuleInfo`, and reverses ticket 32's "no such rule".
+2. Option B is real but not cheap: exports double, and the beam and compile time grow by tens of percent (size-dependent), in every module, to save two characters. Runtime is nearly free (a tail jump, under about 1 ns/call), so the objection is not speed. It is that the derivation rule becomes a public ABI, collides on `NewUrl`/`NewURL` and `ModuleInfo`, and reverses ticket 32's "no such rule".
 3. Option C touches the one lexical rule ticket 26 depends on.
 
 The one gap A leaves, `import`, is better covered on the Elixir side (the 12-line macro in probe 01 F4, or a generated `defdelegate` module) than by every B# module on every platform. That belongs with the tooling track.
@@ -247,3 +247,13 @@ The one gap A leaves, `import`, is better covered on the Elixir side (the 12-lin
 - Option C was not implemented; its cost is described by what the grammar refuses, not by a prototype.
 - Elm does not target the BEAM; it was not consulted.
 - The scratchpad `bsc` wrapper cannot take dashed flags, so probes call `bsc:main/1` directly (`probes/lib.sh`). Other probes use the same compiler ebin built at the same revision.
+
+
+## Verification note
+
+Independently verified: `verification.md` (VERIFIED WITH CORRECTIONS), all 11 probes reproduce and the headline (`:Shop."New"(1)` runs; Gleam `@external` runs) holds. Corrections applied above: OTP census split (14 diameter_types + 5 wx), cost percentages, timing medians and spread, kind-check wording. Also from the verifier, not yet in the body text:
+
+- `import :Shop, only: [{:New, 1}]` works, and a macro-built local call `{:New, [], [11]}` runs. Only a source-spelled bare call after `import` is impossible. Read "import cannot reach PascalCase names" in sections 4.3 and 5 with that limit.
+- Three controls are vacuous or mislabelled: probe 09's "NEGATIVE: no alias built" is a SyntaxError under any compiler; probe 08's "negative control" is a finding; probe 01's T6 fails because the call syntax is invalid, not because import fails.
+- The alias patch measures the *simple* snake_case rule, but the brief recommends `Macro.underscore`. Real `Macro.underscore` gives `IDs` -> `i_ds`, `UUIDv4` -> `uui_dv4`, `Parse_Url` -> `parse__url`, `Foo__Bar` -> `foo___bar`. `Parse_Url` and `ParseUrl` collide under the simple rule but not under `Macro.underscore`, so the collision set depends on the rule.
+- "Gleam downcases..." is ticket 62's paraphrase of ticket 10 §7.
