@@ -1,0 +1,8 @@
+OTP 28, JIT=jit
+record, no tag test    min=   6.27 ns/call  median=   7.31  max=   8.49  (N=20000000, 9 runs)
+record, tag test       min=   9.76 ns/call  median=  10.19  max=  11.05  (N=20000000, 9 runs)
+int, no is_integer     min=   3.02 ns/call  median=   3.23  max=   5.43  (N=20000000, 9 runs)
+int, is_integer        min=   2.96 ns/call  median=   3.05  max=   3.46  (N=20000000, 9 runs)
+tag test delta (min-to-min): 3.49 ns/call; is_integer delta: -0.05 ns/call
+record, no tag (rerun) min=   6.93 ns/call  median=   7.54  max=  10.04  (N=20000000, 9 runs)
+noise floor: same code twice differs by 0.66 ns/call

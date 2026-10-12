@@ -1,0 +1,4 @@
+compiled ok=28 failed=0
+modules=28 user functions: public=100 private=16
+public with tag test=10 private with tag test=0
+is_integer guard: public=41 private=0

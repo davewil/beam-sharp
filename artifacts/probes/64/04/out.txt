@@ -1,0 +1,21 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+=== api ===
+module Maybe
+atom Describe(list<(atom, term)>, atom)
+Maybe<V> Get<V>(list<(atom, V)>, atom)
+:nothing | (:some, :nothing | (:some, int)) Nested(int)
+
+=== compile ===
+
+=== non-exhaustive switch at T = term must still be refused ===
+Part/Part.bs:10:30: error: this switch in Partial is not exhaustive
+  no arm matches:
+    :nothing => ...
+
+=== runs ===
+  Describe [(:a, 1)] :b                    -> :absent
+  Describe [(:a, 1)] :a                    -> :present
+  Describe [(:a, :nothing)] :a             -> :present_and_is_nothing
+  Nested 0                                 -> :nothing
+  Nested 1                                 -> (:some, :nothing)
+  Nested 2                                 -> (:some, (:some, 2))

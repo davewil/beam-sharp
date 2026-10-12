@@ -1,0 +1,10 @@
+== Shop.Orders (under Shop)
+exit=0
+== Shop.Billing (under Shop; refused by parent-derived 'internal' in probe b)
+exit=0
+== Shop.Orders.Tests (under Shop)
+exit=0
+== Tools.Rogue (outside Shop)
+Tools/Rogue/Peek.bs:3:1: error: Tools.Rogue may not name Shop.Orders.Recompute
+  Shop.Orders.Recompute is `internal` or restricts its `friend`s; Tools.Rogue is outside that set.
+exit=1

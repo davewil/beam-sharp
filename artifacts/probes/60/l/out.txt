@@ -1,0 +1,22 @@
+HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+== commit 0b761f6 (cited by the ticket) reachable?
+fatal: Not a valid object name 0b761f6
+== internal/friend/sealed/visible_to in compiler/src (excluding generated parser):
+== add_module_import and its caller now:
+498:add_import(L, M, Self, World, Known, Mode, Acc) ->
+500:        true  -> add_module_import(M, World, Acc);
+512:add_module_import(M, World, Acc) ->
+527:add_namespace_import(Prefix, Children, Acc) ->
+add_module_import(M, World, Acc) ->
+    Entry = maps:get(M, World),
+    Exports = maps:get(exports, Entry),
+== readers of the visibility field (a third marker must touch each):
+compiler/src/bs_check.erl:299:    Private = [{N, length(Ps), L} || {signature, L, N, _, Ps, V, _} <- Decls, V =/= public],
+compiler/src/bs_check.erl:365:                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
+compiler/src/bs_check.erl:376:                       V =:= public, TV =/= []]).
+compiler/src/bs_check.erl:479:                                       V =/= public],
+compiler/src/bs_emit.erl:141:is_public(F) -> element(7, F) =:= public.       % #fn.vis
+== lexer token rules (keywords and punctuation together):
+50
+== any .bs in the repo (outside artifacts/) using internal/within/friend as a word:
+0

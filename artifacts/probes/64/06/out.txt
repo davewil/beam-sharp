@@ -1,0 +1,12 @@
+OTP 28, 3000000 lookups per run, 9 runs, microseconds
+case                                                     bare min     bare med   tagged min   tagged med
+V small int, 100% hit (keys 0..999 all present)             42843        57097        43233        47034
+V small int,  50% hit (keys 0..499 present)                 37568        38493        36165        37812
+V 3-list,    100% hit                                       42406        44903        42877        46035
+
+--- GC pressure: minor collections in a fresh process over one 3,000,000-lookup run (the tagged return allocates a 3-word tuple per hit)
+3,000,000 lookups: bare  minor_gcs=0 reductions=12001508
+3,000,000 lookups: ok    minor_gcs=2160 reductions=12003622
+
+--- does the compiler really emit the tuple allocation for the tagged return? (lk.S: put_tuple2 of {atom,ok})
+45:    {put_tuple2,{x,0},{list,[{atom,ok},{x,0}]}}.

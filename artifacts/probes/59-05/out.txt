@@ -1,0 +1,27 @@
+=== base ===
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+'Twice'(N) ->
+ViaLine nested forged tag      {error,function_clause,raised_in,'T','Inner'}
+ViaList elem forged tag        {error,function_clause,raised_in,'T','Inner'}
+ViaOrder top-level forged      {error,function_clause,raised_in,'T',
+                                      'ViaOrder'}
+ViaItem returns nested forged  #{'Id' => 1,'Kind' => 'T.Invoice','Total' => 7}
+ViaLineQty forged payload      5.0
+=== narrow ===
+'Inner'(O) ->
+'Twice'(N) ->
+ViaLine nested forged tag      7
+ViaList elem forged tag        7
+ViaOrder top-level forged      {error,function_clause,raised_in,'T',
+                                      'ViaOrder'}
+ViaItem returns nested forged  #{'Id' => 1,'Kind' => 'T.Invoice','Total' => 7}
+ViaLineQty forged payload      5.0
+=== widen ===
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+'Twice'(N) when is_integer(N) ->
+ViaLine nested forged tag      {error,function_clause,raised_in,'T','Inner'}
+ViaList elem forged tag        {error,function_clause,raised_in,'T','Inner'}
+ViaOrder top-level forged      {error,function_clause,raised_in,'T',
+                                      'ViaOrder'}
+ViaItem returns nested forged  #{'Id' => 1,'Kind' => 'T.Invoice','Total' => 7}
+ViaLineQty forged payload      {error,function_clause,raised_in,'T','Twice'}

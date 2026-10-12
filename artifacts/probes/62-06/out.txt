@@ -1,0 +1,50 @@
+sample (G10, first 6 lines):
+module G10
+
+record Item { Id: int, Qty: int }
+
+public int GetItemAbById(int id)
+
+GetItemAbById(id) -> id + 1
+
+N=1   mode=none    file_bytes=1008 exports=4 ExpT=52 AtU8=72 Code=94 Dbgi=364 Line=56 FunT=0 load_us_median=3360.3 load_us_min=3335.5
+N=1   mode=nospec  file_bytes=1100 exports=5 ExpT=64 AtU8=91 Code=107 Dbgi=405 Line=56 FunT=0 load_us_median=3096.1 load_us_min=2867.1
+N=1   mode=spec    file_bytes=1104 exports=5 ExpT=64 AtU8=91 Code=107 Dbgi=414 Line=56 FunT=0 load_us_median=3211.4 load_us_min=2833.5
+N=10  mode=none    file_bytes=1856 exports=13 ExpT=160 AtU8=199 Code=315 Dbgi=730 Line=74 FunT=0 load_us_median=3029.7 load_us_min=2825.7
+N=10  mode=nospec  file_bytes=2460 exports=23 ExpT=280 AtU8=389 Code=480 Dbgi=858 Line=74 FunT=0 load_us_median=3307.5 load_us_min=3208.4
+N=10  mode=spec    file_bytes=2488 exports=23 ExpT=280 AtU8=389 Code=480 Dbgi=888 Line=74 FunT=0 load_us_median=3393.3 load_us_min=3269.9
+N=50  mode=none    file_bytes=5740 exports=53 ExpT=640 AtU8=759 Code=1466 Dbgi=2344 Line=154 FunT=0 load_us_median=3600.3 load_us_min=3448.4
+N=50  mode=nospec  file_bytes=8696 exports=103 ExpT=1240 AtU8=1709 Code=2310 Dbgi=2903 Line=154 FunT=0 load_us_median=3493.5 load_us_min=3389.6
+N=50  mode=spec    file_bytes=8844 exports=103 ExpT=1240 AtU8=1709 Code=2310 Dbgi=3051 Line=154 FunT=0 load_us_median=3256.2 load_us_min=3207.1
+
+--- compile time (wall ms, 9 runs, bsc escript incl. VM start): min / median
+N=10  mode=none    min=376 median=423  (463 494 467 433 376 395 423 421 419)
+N=10  mode=nospec  min=381 median=408  (381 391 394 425 433 408 424 393 421)
+N=10  mode=spec    min=383 median=403  (460 408 442 478 403 395 383 399 384)
+N=50  mode=none    min=420 median=453  (420 423 442 423 490 453 537 511 525)
+N=50  mode=nospec  min=409 median=446  (615 630 445 424 450 409 466 442 446)
+N=50  mode=spec    min=405 median=446  (418 446 446 434 464 405 438 480 470)
+
+--- emitted export list (G10, spec mode), first 14
+[{'GetItemAbById',1},
+ {'GetItemAcById',1},
+ {'GetItemAdById',1},
+ {module_info,1},
+ {module_info,0},
+ {get_item_ak_by_id,1},
+ {get_item_aj_by_id,1},
+ {get_item_ai_by_id,1}]
+
+--- call overhead: direct vs alias (G10, 2M calls each, median of 5)
+exports(G10)=['GetItemAbById','GetItemAcById','GetItemAdById','GetItemAeById',
+              'GetItemAfById','GetItemAgById','GetItemAhById','GetItemAiById',
+              'GetItemAjById','GetItemAkById',get_item_ab_by_id,
+              get_item_ac_by_id,get_item_ad_by_id,get_item_ae_by_id,
+              get_item_af_by_id,get_item_ag_by_id,get_item_ah_by_id,
+              get_item_ai_by_id,get_item_aj_by_id,get_item_ak_by_id]
+direct 'GetItemAbById' 92653 us; alias get_item_ab_by_id 125956 us (2M calls, remote apply by variable atom)
+
+--- dialyzer (erts-only PLT) on G50: none vs spec vs nospec
+  Proceeding with analysis... done in 0m0.08s done (passed successfully)  <- none: 502 ms
+  Proceeding with analysis... done in 0m0.12s done (passed successfully)  <- nospec: 543 ms
+  Proceeding with analysis... done in 0m0.13s done (passed successfully)  <- spec: 526 ms

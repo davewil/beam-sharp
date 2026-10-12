@@ -1,0 +1,7 @@
+plain remote call      : min=8.3 median=8.7 ns/call
+caller passed as arg   : min=8.5 median=8.6 ns/call
+stacktrace caller check: min=348.4 median=374.9 ns/call (x43.1 of plain, by median)
+legit caller, body call          -> {ok,2}
+ROGUE caller, non-tail call      -> refused
+ROGUE caller, TAIL call (admitted) -> 2
+ROGUE `Y = f(), Y` (erlc makes it a tail call; admitted) -> 2

@@ -1,0 +1,6 @@
+module Shop.Orders
+
+using Shop.Orders.Recompute
+
+public int Total(list<int> lines)
+Total(lines) -> Sum(lines, 0)

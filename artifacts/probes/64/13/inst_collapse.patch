@@ -1,0 +1,52 @@
+--- a/compiler/src/bs_check.erl	2026-10-12 23:03:24.724595440 +0000
++++ b/compiler/src/bs_check.erl	2026-10-12 23:17:16.877981686 +0000
+@@ -4280,6 +4280,7 @@
+                         [] ->
+                             Inst = [subst_tpl(PT, Sub) || PT <- PsT],
+                             {subst_tpl(RetT, Sub),
++                             inst_collapse(L, Shown, RetT, Sub, C) ++
+                              poly_arg_diags(L, Shown, Args, ATys, Ps, Inst, C) ++ D};
+                         _ ->
+                             {reported(),
+@@ -4291,6 +4292,30 @@
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 64 probe): run the member-wise absorption check on a polymorphic
++%% call's instantiated return. subst_tpl keeps the template's union members apart until
++%% the substitution, so the same absorbed/2 that F31 uses at the declaration applies.
++inst_collapse(L, Shown, RT, Sub, C) -> inst_collapse1(L, Shown, RT, Sub, C).
++inst_collapse1(L, Shown, {t_union, Ms}, Sub, C) ->
++    Rs = [subst_tpl(M, Sub) || M <- Ms],
++    %% only members written ground in the template (already resolved to algebra
++    %% maps) can be the failure member; a bare variable member is the success side
++    lists:append(
++      [case is_map(M) of
++           false -> [];
++           true ->
++               Others = bs_types:union(Rs -- [R]),
++               case absorbed(R, Others) of
++                   true  ->
++                       Ch = case bs_types:is_subtype(R, bs_types:atom_lit(nothing)) of
++                                true -> nothing; false -> error end,
++                       [{error, L, C#ctx.fname,
++                         {absorbed_member, L, Shown, Ch, R, Others}}];
++                   false -> []
++               end
++       end || {M, R} <- lists:zip(Ms, Rs)]);
++inst_collapse1(_, _, _, _, _) -> [].
++
+ %% Type arguments needing no expectation first, at the template's extent. Use
+ %% their partial solution for lambdas, bare names and containing forms.
+ poly_args({poly, Vars, PsT, _RetT, Erased}, Args, S, C) ->
+--- a/compiler/src/bs_diag.erl	2026-10-12 23:03:24.728595441 +0000
++++ b/compiler/src/bs_diag.erl	2026-10-12 23:16:31.328913472 +0000
+@@ -177,6 +177,8 @@
+ %% empty name is the whole mechanism: every head printer a `prints_a_head/1`
+ %% tag reaches (`pasteable/3`, `caller_head/3`, `union_heads/2`) writes the
+ %% name with `~s` straight before its `(`, so `''` leaves the arm.
++built(Path, {_Sev, Line, _Fn, {absorbed_member, Line, Where, Channel, Member, Absorber}}) ->
++    built(Path, {absorbed_member, Line, Where, Channel, Member, Absorber});
+ built(Path, {Sev, Line, Fn, {in_block, Payload}}) ->
+     (built(Path, {Sev, Line, '', Payload}))#{function := Fn};
+ built(Path, {Sev, Line, Fn, {inexhaustive, Residual, Names}}) ->

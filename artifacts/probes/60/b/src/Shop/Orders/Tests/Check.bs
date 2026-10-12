@@ -1,0 +1,6 @@
+module Shop.Orders.Tests
+
+using Shop.Orders.Recompute
+
+public int Check(list<int> xs)
+Check(xs) -> Sum(xs, 0)

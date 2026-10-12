@@ -1,0 +1,7 @@
+base  unsigned source: min 398  median 505  max 574 ms
+A     unsigned source: min 478  median 500  max 587 ms
+C     unsigned source: min 415  median 471  max 500 ms
+base  signed   source: min 241  median 255  max 302 ms
+A     signed   source: min 447  median 503  max 594 ms
+C     signed   source: min 445  median 498  max 749 ms
+A signed output sanity (empty = compiled): 

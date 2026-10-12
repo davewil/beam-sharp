@@ -1,0 +1,5 @@
+name = "caller"
+version = "1.0.0"
+# no dependencies: hex.pm is blocked, and nothing here needs gleam_stdlib at the source level
+# (the Gleam prelude gives Int/String/List/Result/etc.)
+[dependencies]

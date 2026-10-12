@@ -1,0 +1,20 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+boundary_guards in current source:
+134:        none -> Name;
+195:    {Patterns1, Tests} = boundary_guards(Patterns0, Params, Line, Ctx, Public, Accepts),
+265:boundary_guards(Patterns, Params, Line, Ctx, Public, Accepts) ->
+284:        none when Public ->
+289:        none ->
+540:        none ->
+=== emitted Inner/Outer (erl_pp of .abstr) ===
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    map_get('Total', O).
+                'Kind' := 'T.Order',
+                'Total' := integer()}) ->
+                 integer().
+'Outer'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    'Inner'(O).
+'InnerN'(N) ->
+    N + 1.
+'OuterN'(N) when is_integer(N) ->
+    'InnerN'(N).

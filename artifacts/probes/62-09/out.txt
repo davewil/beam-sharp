@@ -1,0 +1,18 @@
+PascalCase exports in OTP diameter_types: [
+  OctetString: 3,
+  Integer32: 3,
+  Integer64: 3,
+  Unsigned32: 3,
+  Unsigned64: 3,
+  Float32: 3,
+  Float64: 3,
+  Address: 3,
+  DiameterIdentity: 3,
+  DiameterURI: 3,
+  IPFilterRule: 3,
+  QoSFilterRule: 3,
+  UTF8String: 3,
+  Time: 3
+]
+:diameter_types."Unsigned32"(:encode, 7, %{}): <<0, 0, 0, 7>>
+unquoted spelling parses?: :error

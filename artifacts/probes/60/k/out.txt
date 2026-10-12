@@ -1,0 +1,17 @@
+./Shop/Billing/Charge.bs
+./Shop/Orders/Internal/Recompute/Sum.bs
+./Shop/Orders/Tests/Check.bs
+./Shop/Orders/Total.bs
+./Tools/Rogue/Peek.bs
+== Shop.Orders
+exit=0
+== Shop.Orders.Tests
+exit=0
+== Shop.Billing
+Shop/Billing/Charge.bs:3:1: error: Shop.Billing may not name Shop.Orders.Internal.Recompute
+  Shop.Orders.Internal.Recompute is `internal` or restricts its `friend`s; Shop.Billing is outside that set.
+exit=1
+== Tools.Rogue
+Tools/Rogue/Peek.bs:3:1: error: Tools.Rogue may not name Shop.Orders.Internal.Recompute
+  Shop.Orders.Internal.Recompute is `internal` or restricts its `friend`s; Tools.Rogue is outside that set.
+exit=1

@@ -1,0 +1,19 @@
+patch: patching file compiler/src/bs_check.erl
+patch: patching file compiler/src/bs_diag.erl
+=== stock bsc (HEAD) on Gen ===
+exit=0
+
+=== prototype bsc on Gen: AtInt accepted, AtTerm and AtAtom refused at the CALL line ===
+Gen/Gen.bs:10:15: error: `:nothing` is absorbed by `term`
+  in Head
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, term) | :nothing
+Gen/Gen.bs:13:15: error: `:nothing` is absorbed by `atom`
+  in Head
+  the failure channel does not survive normalisation, so the type
+  declared here IS `atom`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, atom) | :nothing
+exit=1

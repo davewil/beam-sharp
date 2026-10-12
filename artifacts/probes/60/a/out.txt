@@ -1,0 +1,28 @@
+== 1. Tools.Rogue (sibling tree) calls PUBLIC Shop.Orders.RecomputeTotal via using
+exit=0
+Shop.Orders.abstr
+Shop.Orders.beam
+Tools.Rogue.abstr
+Tools.Rogue.beam
+== 2. Tools.Rogue RUN: Peek([1,2,3])
+6
+exit=0
+== 3. CONTROL: Tools.Report names PRIVATE Shop.Orders.Recompute qualified
+Tools/Report/Peek2.bs:6:28: error: Peek2 calls Shop.Orders.Recompute/2, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+exit=1
+== 4. Shop.Billing (a 'friend' by intent) compiles too: nothing distinguishes it
+exit=0
+== 5. bsc --api Shop/Orders: the published surface; a public cross-module helper is indistinguishable from client API
+module Shop.Orders
+int RecomputeTotal(list<int>)
+int Total(list<int>)
+exit=0
+== 6. a test-shaped module (ordinary B#, 24 s7) in a THIRD tree calling the public helper: also accepted
+exit=0
+== 7. caller side TODAY: qualified call without a using line is refused (the caller-declared dependency list already exists)
+Tools/NoUsing/Peek3.bs:4:28: error: Shop.Orders is called but never imported
+  add `using Shop.Orders` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1

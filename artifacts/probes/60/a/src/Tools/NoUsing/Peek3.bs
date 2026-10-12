@@ -1,0 +1,4 @@
+module Tools.NoUsing
+
+public int Peek3(list<int> lines)
+Peek3(lines) -> Shop.Orders.RecomputeTotal(lines)

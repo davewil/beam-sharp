@@ -1,0 +1,6 @@
+module Tools.Spy
+
+using Vault
+
+public int Spy(int n)
+Spy(n) -> Hidden.Open(n)

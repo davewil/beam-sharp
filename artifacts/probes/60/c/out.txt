@@ -1,0 +1,13 @@
+== Shop.Orders (listed)
+exit=0
+== Shop.Billing (listed)
+exit=0
+== Shop.Orders.Tests (NOT listed; was allowed under subtree rule)
+Shop/Orders/Tests/Check.bs:3:1: error: Shop.Orders.Tests may not name Shop.Orders.Recompute
+  Shop.Orders.Recompute is `internal` or restricts its `friend`s; Shop.Orders.Tests is outside that set.
+exit=1
+== Tools.Rogue (NOT listed)
+Tools/Rogue/Peek.bs:3:1: error: Tools.Rogue may not name Shop.Orders.Recompute
+  Shop.Orders.Recompute is `internal` or restricts its `friend`s; Tools.Rogue is outside that set.
+exit=1
+-- edit cost: callee file now names its callers; every new legitimate caller edits Recompute/index.bs

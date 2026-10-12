@@ -1,0 +1,18 @@
+--- gleam build (no ERL_LIBS)
+  Resolving versions
+  Compiling caller
+   Compiled in 0.49s
+--- gleam run with ERL_LIBS pointing at the B# ebin
+   Compiled in 0.50s
+    Running caller.main
+#{'Total'=>0,'Kind'=>'Shop.Order','Id'=>3}
+order
+42
+--- gleam run WITHOUT ERL_LIBS (expected: undef)
+A function was called but it did not exist.
+
+stacktrace:
+  Shop.New[90m unknown source[0m
+  caller.main[90m src/caller.gleam:19[0m
+
+--- generated erlang for the externals

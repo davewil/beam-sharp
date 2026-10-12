@@ -1,0 +1,15 @@
+module T
+
+record Order { Id: int, Total: int }
+
+int Inner(Order o)
+Inner(o) -> o.Total
+
+public int Outer(Order o)
+Outer(o) -> Inner(o)
+
+int InnerN(int n)
+InnerN(n) -> n + 1
+
+public int OuterN(int n)
+OuterN(n) -> InnerN(n)

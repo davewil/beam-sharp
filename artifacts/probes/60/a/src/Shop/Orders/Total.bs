@@ -1,0 +1,11 @@
+module Shop.Orders
+
+public int Total(list<int> lines)
+Total(lines) -> Recompute(lines, 0)
+
+public int RecomputeTotal(list<int> lines)
+RecomputeTotal(lines) -> Recompute(lines, 0)
+
+private int Recompute(list<int> lines, int acc)
+Recompute([], acc)          -> acc
+Recompute([x, ..rest], acc) -> Recompute(rest, acc + x)

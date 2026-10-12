@@ -1,0 +1,13 @@
+RetZero: accepted
+RetNegLit: refused
+    RetNegLit/a.bs:4:1: error: F returns a value its signature does not declare
+      not covered by the declared return type:
+        int >= 1
+      If `NonPos` is what you meant, fix the clause, not the signature.
+      no signature is offered: what the clauses return has no spelling as a type yet.
+RetNegViaParam: accepted
+== is there any other surface for a signed domain? (type-expression literals/ranges) ==
+TyLitUnion: refused
+    TyLitUnion/a.bs:2:10: error: syntax error before: '-'
+TyRange: refused
+    TyRange/a.bs:2:10: error: syntax error before: '-'

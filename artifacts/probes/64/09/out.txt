@@ -1,0 +1,53 @@
+
+gleam: gleam 1.19.0   stdlib: v0.62.0
+--- stdlib source citations
+150:pub fn get(from: Dict(k, v), get: k) -> Result(v, Nil)
+230:pub fn first(list: List(a)) -> Result(a, Nil) {
+19:pub type Option(a) {
+    pub type Option(a) {
+      Some(a)
+      None
+    }
+230:pub fn flatten(option: Option(Option(a))) -> Option(a) {
+      Added gleam_stdlib v0.62.0
+warning: Unused result value
+  ┌─ /tmp/tmp.WqylbIqrlo/proj/src/proj.gleam:8:3
+  │
+8 │   echo dict.get(d, "a")      // Ok(None)
+  │   ^^^^^^^^^^^^^^^^^^^^^ The Result value created here is unused
+
+Hint: If you are sure you don't need it you can assign it to `_`.
+
+warning: Unused result value
+  ┌─ /tmp/tmp.WqylbIqrlo/proj/src/proj.gleam:9:3
+  │
+9 │   echo dict.get(d, "zzz")    // Error(Nil)
+  │   ^^^^^^^^^^^^^^^^^^^^^^^ The Result value created here is unused
+
+Hint: If you are sure you don't need it you can assign it to `_`.
+
+warning: Unused result value
+   ┌─ /tmp/tmp.WqylbIqrlo/proj/src/proj.gleam:10:3
+   │
+10 │   echo dict.get(d, "b")      // Ok(Some(1))
+   │   ^^^^^^^^^^^^^^^^^^^^^ The Result value created here is unused
+
+Hint: If you are sure you don't need it you can assign it to `_`.
+
+[90msrc/proj.gleam:8[39m
+Ok(None)
+[90msrc/proj.gleam:9[39m
+Error(Nil)
+[90msrc/proj.gleam:10[39m
+Ok(Some(1))
+[90msrc/proj.gleam:13[39m
+Some(None)
+[90msrc/proj.gleam:14[39m
+None
+
+--- what the BEAM sees (Ok(V)/Error(Nil) and Some(V)/None are tagged tuples / atoms):
+   Compiled in 0.39s
+gleam@dict:get(D, <<"a">>)   = {ok,none}
+gleam@dict:get(D, <<"zzz">>) = {error,nil}
+gleam@dict:get(D, <<"b">>)   = {ok,{some,1}}
+flat_size {ok,{some,1}} = 6 words; flat_size {ok,1}= 3 words

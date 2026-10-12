@@ -1,0 +1,101 @@
+== base ==
+  RGeNeg         refused: this refinement is not a predicate the checker can read
+  RBoth          refused: this refinement is not a predicate the checker can read
+  ROrNeg         refused: this refinement is not a predicate the checker can read
+  RFlip          refused: this refinement is not a predicate the checker can read
+  RParen         refused: this refinement is not a predicate the checker can read
+  RSum           refused: this refinement is not a predicate the checker can read
+  RSumNeg        refused: this refinement is not a predicate the checker can read
+  RProd          refused: this refinement is not a predicate the checker can read
+  RNegNeg        refused: this refinement is not a predicate the checker can read
+  RDiv           refused: this refinement is not a predicate the checker can read
+  RFloat         refused: this refinement is not a predicate the checker can read
+  RVar           refused: this refinement is not a predicate the checker can read
+  GNeg           refused: S is not exhaustive
+  GSum           refused: S is not exhaustive
+  RetNeg         refused: F returns a value its signature does not declare
+  DeltaOk        refused: this refinement is not a predicate the checker can read
+  DeltaBad       refused: this refinement is not a predicate the checker can read
+  DeltaLoseNeg   refused: this refinement is not a predicate the checker can read
+== A ==
+  RGeNeg         accepted
+  RBoth          accepted
+  ROrNeg         accepted
+  RFlip          accepted
+  RParen         accepted
+  RSum           refused: this refinement is not a predicate the checker can read
+  RSumNeg        refused: this refinement is not a predicate the checker can read
+  RProd          refused: this refinement is not a predicate the checker can read
+  RNegNeg        accepted
+  RDiv           refused: this refinement is not a predicate the checker can read
+  RFloat         refused: this refinement is not a predicate the checker can read
+  RVar           refused: this refinement is not a predicate the checker can read
+  GNeg           accepted
+  GSum           refused: S is not exhaustive
+  RetNeg         accepted
+  DeltaOk        accepted
+  DeltaBad       refused: G hands F an argument it does not accept
+  DeltaLoseNeg   refused: S is not exhaustive
+== B ==
+  RGeNeg         accepted
+  RBoth          accepted
+  ROrNeg         accepted
+  RFlip          accepted
+  RParen         accepted
+  RSum           refused: this refinement is not a predicate the checker can read
+  RSumNeg        refused: this refinement is not a predicate the checker can read
+  RProd          refused: this refinement is not a predicate the checker can read
+  RNegNeg        refused: this refinement is not a predicate the checker can read
+  RDiv           refused: this refinement is not a predicate the checker can read
+  RFloat         refused: this refinement is not a predicate the checker can read
+  RVar           refused: this refinement is not a predicate the checker can read
+  GNeg           accepted
+  GSum           refused: S is not exhaustive
+  RetNeg         refused: F returns a value its signature does not declare
+  DeltaOk        refused: G hands F an argument it does not accept
+  DeltaBad       refused: G hands F an argument it does not accept
+  DeltaLoseNeg   refused: S is not exhaustive
+== C ==
+  RGeNeg         accepted
+  RBoth          accepted
+  ROrNeg         accepted
+  RFlip          accepted
+  RParen         accepted
+  RSum           accepted
+  RSumNeg        accepted
+  RProd          accepted
+  RNegNeg        accepted
+  RDiv           refused: this refinement is not a predicate the checker can read
+  RFloat         refused: this refinement is not a predicate the checker can read
+  RVar           refused: this refinement is not a predicate the checker can read
+  GNeg           accepted
+  GSum           accepted
+  RetNeg         refused: F returns a value its signature does not declare
+  DeltaOk        refused: G hands F an argument it does not accept
+  DeltaBad       refused: G hands F an argument it does not accept
+  DeltaLoseNeg   refused: S is not exhaustive
+== residual text for a signed bounded domain: Delta = -100..100 with clauses S(>= 1), S(0) ==
+-- base
+R/a.bs:2:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead — `WellFormed(value)` —
+  is the O(n) tier. It is established once at a boundary and never
+-- A
+R/a.bs:3:13: error: S is not exhaustive
+  no clause matches:
+    S(>= -100 and <= -1) -> ...
+-- B
+R/a.bs:3:13: error: S is not exhaustive
+  no clause matches:
+    S(>= -100 and <= -1) -> ...
+-- C
+R/a.bs:3:13: error: S is not exhaustive
+  no clause matches:
+    S(>= -100 and <= -1) -> ...
+== same residual, then the clause the residual says to add (S(<= -1) -> ...) ==
+(empty line above = accepted)
+== emitted Code chunk for bodies using -5: base vs A (same md5 = same machine code) ==
+base: 988 bytes, code-md5=4ABB3E926D63C9B2B1D8932CD8A31A07
+A: 976 bytes, code-md5=4ABB3E926D63C9B2B1D8932CD8A31A07

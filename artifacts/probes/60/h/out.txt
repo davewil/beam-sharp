@@ -1,0 +1,13 @@
+== Erlang: -doc false on an exported function; another module calls it
+e2:go() = 42
+== Elixir: @moduledoc false / @doc false / defp, and a compiler tracer that refuses calls by caller module
+    warning: function hidden/1 is unused
+    │
+  5 │   defp hidden(x), do: x
+    │        ~
+    │
+    └─ ex.exs:5:8: Shop.Orders.Internal (module)
+
+no tracer: Tools.Rogue.peek(1): 2
+tracer: refused -> Tools.Rogue2 may not call Shop.Orders.Internal.recompute/1
+tracer: Shop.Orders.Total accepted

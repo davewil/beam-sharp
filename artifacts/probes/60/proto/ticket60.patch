@@ -1,0 +1,154 @@
+--- a/src/bs_lexer.xrl	2026-10-06 23:03:23.000000000 +0000
++++ b/src/bs_lexer.xrl	2026-10-12 23:17:45.057521203 +0000
+@@ -42,6 +42,9 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++internal                : {token, {'internal', TokenLoc}}.
++within                  : {token, {'within', TokenLoc}}.
++friend                  : {token, {'friend', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+--- a/src/bs_parser.yrl	2026-10-12 23:03:24.000000000 +0000
++++ b/src/bs_parser.yrl	2026-10-12 23:17:45.060103217 +0000
+@@ -11,7 +11,7 @@
+   program decls decl
+   comp_quals comp_qual
+   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
+-  behaviour_decl record_decl field_decls field_decl open_field_decls
++  internal_decl within_decl friend_decl behaviour_decl record_decl field_decls field_decl open_field_decls
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+   patterns pattern_list pattern plist_items pat_fields pat_field
+@@ -25,7 +25,7 @@
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'internal' 'within' 'friend' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -101,6 +101,9 @@
+     {line('$1'), '$2', '$4', '$6'}.
+ decl -> foreign_decl : '$1'.
+ decl -> behaviour_decl : '$1'.
++decl -> internal_decl : '$1'.
++decl -> friend_decl : '$1'.
++decl -> within_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
+ decl -> implements_decl : '$1'.
+@@ -161,6 +164,9 @@
+ %% `behaviour GenServer` uses the platform's own word and is emitted as
+ %% written. Not `using GenServer`, which is the same tokens as a one-segment
+ %% import and would need a symbol table to tell apart.
++internal_decl -> 'internal' : {internal, line('$1')}.
++within_decl -> 'within' modpath : {within, line('$1'), modatom('$2')}.
++friend_decl -> 'friend' modpath : {friend, line('$1'), modatom('$2')}.
+ behaviour_decl -> 'behaviour' uident : {behaviour, line('$1'), value('$2')}.
+ 
+ %% --- foreign modules --------------------------------------------------------
+--- a/src/bsc.erl	2026-10-06 23:03:23.000000000 +0000
++++ b/src/bsc.erl	2026-10-12 23:17:45.060618304 +0000
+@@ -238,6 +238,9 @@
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
++                                     internal => lists:keymember(internal, 1, Decls),
++                                     friends => [F || {friend, _, F} <- Decls],
++                                     within => [W || {within, _, W} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+                                      %% name in type position.
+--- a/src/bs_check.erl	2026-10-12 23:03:24.000000000 +0000
++++ b/src/bs_check.erl	2026-10-12 23:21:45.587268566 +0000
+@@ -497,17 +497,62 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case visible_to(Self, M, World) of
++                true -> add_module_import(M, World, Acc);
++                false when Mode =:= strict -> erlang:error({not_visible, M, Self, L});
++                false -> Acc
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+-            case {children(M, Known) -- [Self], Mode} of
++            All = children(M, Known) -- [Self],
++            case {[C || C <- All, visible_to(Self, C, World)], Mode} of
++                {[], strict} when All =/= [] ->
++                    erlang:error({not_visible, hd(All), Self, L});
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+                 {Children, _} -> add_namespace_import(M, Children, Acc)
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60): who may name module M.
++visible_to(Self, M, World) ->
++    Entry = maps:get(M, World, #{}),
++    Internal = maps:get(internal, Entry, false),
++    Friends = maps:get(friends, Entry, []),
++    Within = maps:get(within, Entry, []),
++    Seg = segment_root(M),
++    case {Internal, Friends, Within, Seg} of
++        {false, [], [], none} -> true;
++        _ ->
++            (Seg =/= none andalso in_subtree(Self, Seg))
++                orelse (Internal andalso in_subtree(Self, parent(M)))
++                orelse lists:member(Self, Friends)
++                orelse lists:any(fun(W) -> in_subtree(Self, W) end, Within)
++    end.
++
++%% Go's rule: a module with an `Internal` path segment is nameable only from the
++%% subtree rooted at the segment's parent. No grammar, no marker.
++segment_root(M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}       -> none;
++        {[], _}       -> none;
++        {Before, _}   -> list_to_atom(lists:flatten(lists:join(".", Before)))
++    end.
++
++parent(M) ->
++    case string:split(atom_to_list(M), ".", trailing) of
++        [P, _] -> list_to_atom(P);
++        _      -> none
++    end.
++
++in_subtree(_Self, none) -> true;
++in_subtree(Self, P) ->
++    S = atom_to_list(Self), Ps = atom_to_list(P),
++    S =:= Ps orelse lists:prefix(Ps ++ ".", S).
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- a/src/bs_diag.erl	2026-10-12 23:03:24.000000000 +0000
++++ b/src/bs_diag.erl	2026-10-12 23:09:23.851472829 +0000
+@@ -657,6 +657,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible, Mod, Self, Line}) ->
++    #{tag => not_visible, severity => error, file => Path, line => Line,
++      module => Mod, caller => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible, file := P, line := L, column := C, module := Mod, caller := Self}) ->
++    {"~s:~p:~p: error: ~s may not name ~s~n"
++     "  ~s is `internal` or restricts its `friend`s; ~s is outside that set.~n",
++     [P, L, C, Self, Mod, Mod, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

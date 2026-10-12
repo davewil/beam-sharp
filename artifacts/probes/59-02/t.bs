@@ -1,0 +1,32 @@
+module T
+
+record Order { Id: int, Total: int }
+record Line  { Item: Order, Qty: int }
+
+// private helpers: their tag test is the thing under study
+int Inner(Order o)
+Inner(o) -> o.Total
+
+int Twice(int n)
+Twice(n) -> n * 2
+
+// path A: exported takes the record itself -> its own tag test runs first
+public int ViaOrder(Order o)
+ViaOrder(o) -> Inner(o)
+
+// path B: exported takes an enclosing record; the NESTED Order is not tag-tested
+public int ViaLine(Line l)
+ViaLine(l) -> Inner(l.Item)
+
+// path C: exported takes a list<Order>; elements are not tag-tested
+public int ViaList(list<Order> os)
+ViaList([])        -> 0
+ViaList([o, ..t])  -> Inner(o) + ViaList(t)
+
+// payload analogue: nested int through a record field into a private int function
+public int ViaLineQty(Line l)
+ViaLineQty(l) -> Twice(l.Qty)
+
+// path D: no private function at all; the nested forged Order simply comes back out, typed Order
+public Order ViaItem(Line l)
+ViaItem(l) -> l.Item

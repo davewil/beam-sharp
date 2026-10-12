@@ -1,0 +1,6 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+  ReqAbsent      -> (:error, {Kind = :'ValidationError', Expected = "term", Path = ["["extra"]"], Reason = :missing})
+  ReqPresent     -> {"extra" = :nothing, "id" = "x"}
+  TaggedAbsent   -> {"extra" = :nothing, "id" = "x"}
+  TaggedWire     -> {"extra" = (:some, 7), "id" = "x"}
+(refused spelling, for the record: "extra": option<term> -- see probe 03 R4)

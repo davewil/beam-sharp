@@ -1,0 +1,45 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+════════════════════════════════════════════════════════════════════
+ 48l — the cost of the list<(atom, term)> workaround
+════════════════════════════════════════════════════════════════════
+
+─── §1  A MISSPELLED KEY, and §2 a wrong value type ───
+  Correct      42
+  Typo         0
+  WrongType    "unset"
+
+  ✓ the typo is SILENT: compiles clean, runs clean, returns the absent answer.
+    Indistinguishable from a legitimately absent optional key.
+
+  ✓ CONTROL: a bare `term` reaching an `int` parameter is a COMPILE ERROR.
+    So the VALUE domain is checked — the checker forces a narrowing, and
+    WrongType above fails as a value at run time rather than silently.
+    The blindness is the KEY domain specifically, not "everything is term".
+
+─── §3  CAN A CLAUSE HEAD ASK THE KEY QUESTION? ───
+  user_id written first        :saw_user
+  locale written first         :no_user
+
+  ✓ Same key set. Different write order. Different answer. Both compile clean.
+    The head cannot express "does this channel carry key K", so key
+    dispatch must move into the body — which is what B#'s whole dispatch
+    story exists to avoid.
+
+─── §4  CONTROL — the checker on a CLOSED key set ───
+  (this control routes through a record: an anonymous brace map cannot be
+   CONSTRUCTED — there is no bare-brace expression production, 48j wall two.)
+  closed union, both arms            :is_admin
+  union grew by one member           REFUSED — not exhaustive
+
+  ✓ Over a CLOSED key set the guarantee is live: add a member and the
+    clause set goes red. The engine works. §1 and §3 are not the engine
+    being weak — they are the open key domain being outside its reach.
+
+════════════════════════════════════════════════════════════════════
+ The trade, in one line:
+
+   The unchecked open key domain EXISTS TODAY, spelled as a list.
+   Adding map<K,V> does not create it — it makes it a type the
+   compiler knows the shape of. Exhaustiveness over open keys is
+   vacuous either way; §4 shows what is NOT being given up.
+════════════════════════════════════════════════════════════════════

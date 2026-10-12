@@ -1,0 +1,39 @@
+  Aliasing     base: exit=0
+  Counter      base: exit=0
+  Escalate     base: exit=0
+  Fib          base: exit=0
+  Foreign      base: exit=0
+  Frame        base: exit=0
+  Intake       base: exit=0
+  Interop      base: exit=0
+  Label        base: exit=0
+  Ledger       base: exit=0
+  Levels       base: exit=0
+  Math         base: exit=0
+  Names        base: exit=0
+  Parcel       base: exit=0
+  Pipeline     base: exit=0
+  Queue        base: exit=0
+  Readings     base: exit=0
+  Shop         base: exit=0
+  Signalbox    base: exit=0
+  Stats        base: exit=0
+  Stream       base: exit=0
+  Wire         base: exit=0
+examples with identical verdict/output: 22, different: 0
+examples containing a negative integer literal expression:
+/home/user/beam-sharp/compiler/examples/Ledger/ledger.bs
+/home/user/beam-sharp/compiler/examples/Frame/frame.bs
+== runtime values of negative-literal expressions, base vs A (must be identical) ==
+A base: -3 
+A A: -3 
+B base: -1 
+B A: -1 
+C base: -6 
+C A: -6 
+D base: 4 
+D A: 4 
+E base: 15 
+E A: 15 
+F base: -3 
+F A: -3 

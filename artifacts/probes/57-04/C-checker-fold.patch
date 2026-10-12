@@ -1,0 +1,44 @@
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -5013,20 +5013,34 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++
++comparison({e_op, L0, Op, {e_var, _, V}, R}) -> case const_c(R) of {ok, K} -> int_cmp(Op, V, K); error -> comparison_rest({e_op, L0, Op, {e_var, 0, V}, R}) end;
++comparison({e_op, L0, Op, L, {e_var, _, V}}) -> case const_c(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> comparison_rest({e_op, L0, Op, L, {e_var, 0, V}}) end;
++comparison(E) -> comparison_rest(E).
++
++comparison_rest(X) -> comparison_x(X).
++
++comparison_x({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison_x({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+ %% F68: a string literal is compared as an atom literal is.
+-comparison({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
++comparison_x({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {include, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
++comparison_x({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {exclude, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison(_) ->
++comparison_x(_) ->
+     unknown.
+ 
++const_c({e_int,_,K}) -> {ok,K};
++const_c({e_neg,_,E}) -> case const_c(E) of {ok,K} -> {ok,-K}; error -> error end;
++const_c({e_op,_,Op,A,B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_c(A), const_c(B)} of
++        {{ok,X},{ok,Y}} -> {ok, case Op of '+' -> X+Y; '-' -> X-Y; '*' -> X*Y end};
++        _ -> error
++    end;
++const_c(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

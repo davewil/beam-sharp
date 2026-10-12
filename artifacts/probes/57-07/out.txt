@@ -1,0 +1,44 @@
+gleam 1.19.0
+0.19.2
+== Gleam ==
+pattern -1: accepted
+guard x >= -5: accepted
+guard x == 2 + 3: accepted
+guard x == -n? (var): REFUSED
+    error: Syntax error
+      ┌─ /tmp/tmp.EympNFH2Zh/g/src/g.gleam:1:51
+      │
+    1 │ pub fn f(x: Int, y: Int) -> Int { case x { n if n == -y -> 1 _ -> 0 } }
+      │                                                   ^^ This operator has no value on its right side
+    
+    Hint: Remove it or put a value after it.
+pattern 2 + 3: REFUSED
+    error: Syntax error
+      ┌─ /tmp/tmp.EympNFH2Zh/g/src/g.gleam:1:38
+      │
+    1 │ pub fn f(x: Int) -> Int { case x { 2 + 3 -> 1 _ -> 0 } }
+      │                                      ^ I was not expecting this
+    
+    Found `+`, expected one of: 
+const c = -5: accepted
+const c = 2 + 3 in guard: REFUSED
+    error: Unsupported operator in constant expression
+      ┌─ /tmp/tmp.EympNFH2Zh/g/src/g.gleam:1:13
+      │
+    1 │ const c = 2 + 3
+      │             ^
+    
+    This operator is currently not supported in constants.
+== Elm (0.19.2) ==
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link

@@ -1,0 +1,11 @@
+heads (one-line defs):   def=2905  defp=3870
+with type-test guard:    def=672  defp=299
+head mentions %Struct{}: def=118  defp=27
+--- 3 sample private heads with guards (file:line):
+./system.ex:1176:  defp cmd_opts([{:cd, bin} | t], opts, into, line, stdio?) when is_binary(bin),
+./system.ex:1179:  defp cmd_opts([{:arg0, bin} | t], opts, into, line, stdio?) when is_binary(bin),
+./system.ex:1434:  defp normalize_time_unit(unit) when is_integer(unit) and unit > 0, do: unit
+--- 3 sample private heads matching a struct:
+./access.ex:975:  defp slice(:get, data, %Range{} = range, next) when is_list(data) do
+./module/types/apply.ex:582:  defp warn_undefined?(_, _, _, %{no_warn_undefined: %Macro.Env{}}) do
+./stream.ex:659:  defp map_every_after_guards(enum, 0, _fun), do: %Stream{enum: enum}

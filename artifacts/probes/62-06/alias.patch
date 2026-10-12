@@ -1,0 +1,72 @@
+--- compiler/src/bs_emit.erl	2026-10-12 23:03:24.732595441 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/85ea2bce-ecdf-5608-986e-9a9c48462462/scratchpad/c62/src/bs_emit.erl	2026-10-12 23:15:36.064004933 +0000
+@@ -70,10 +70,12 @@
+     %% annotation supplies its line, so the numbers are exact.
+     %% Rationale: compiler/features/F15-module-is-a-directory.md.
+     Files = maps:get(files, Module, [{undefined, Fns}]),
++    Aliases = alias_table(Exports, Fns, Behaviours),
+     [{attribute, ?A, module, Mod},
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
++                             ++ [{AN, AA} || {AN, AA, _, _} <- Aliases]
+                              ++ [{type_atoms_name(), 0}]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+@@ -89,8 +91,56 @@
+     %% `ToJson<T>` generates does, on a value its validator refused, and the
+     %% stack still names the B# function that called it.
+     ++ validator_forms(Validators)
++    ++ alias_forms(Aliases, Env, Behaviours)
+     ++ reserved_forms(Fns).
+ 
++%%% PROTOTYPE (artifacts/probes/62-06): derived snake_case alias exports.
++%%% BS_ALIAS=none (default) | spec (alias + wrapper + -spec) | nospec (alias + wrapper).
++alias_mode() -> case os:getenv("BS_ALIAS") of "spec" -> spec; "nospec" -> nospec; _ -> none end.
++
++alias_table(Exports, Fns, Behaviours) ->
++    case alias_mode() of
++        none -> [];
++        _ ->
++            Taken = [{name(F, Behaviours), arity(F)} || F <- Fns],
++            Cands = [{snake(element(2, F)), A, F, element(2, F)} || {F, A} <- Exports],
++            lists:foldl(fun({SN, A, F, Orig}, Acc) ->
++                Key = {SN, A},
++                case lists:member(Key, Taken) orelse lists:member(Key, [{N, AA} || {N, AA, _, _} <- Acc]) of
++                    true -> io:format(standard_error, "alias-collision ~p/~p (~p)~n", [SN, A, Orig]), Acc;
++                    false -> Acc ++ [{SN, A, F, Orig}]
++                end
++            end, [], Cands)
++    end.
++
++alias_forms(Aliases, Env, Behaviours) ->
++    lists:append([alias_form(AN, AA, F, Orig, Env, Behaviours) || {AN, AA, F, Orig} <- Aliases]).
++
++alias_form(AN, AA, F, _Orig, Env, Behaviours) ->
++    Vars = [{var, ?A, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, AA)],
++    Target = name(F, Behaviours),
++    Spec = case alias_mode() of
++        spec -> {attribute, _, spec, {_, Ty}} = spec_attr(F, Env, Behaviours),
++                [{attribute, ?A, spec, {{AN, AA}, Ty}}];
++        _ -> []
++    end,
++    Spec ++ [{function, ?A, AN, AA,
++      [{clause, ?A, Vars, [], [{call, ?A, {atom, ?A, Target}, Vars}]}]}].
++
++%% New -> new, GetById -> get_by_id, HTTPGet -> http_get, GetID -> get_id, Sha256Hash -> sha256_hash
++snake(Atom) ->
++    Cs = atom_to_list(Atom),
++    list_to_atom(lists:flatten(snake(Cs, none))).
++snake([], _) -> [];
++snake([C | T], Prev) ->
++    Up = C >= $A andalso C =< $Z,
++    Next = case T of [N | _] -> N; [] -> $_ end,
++    NextLower = Next >= $a andalso Next =< $z,
++    PrevLowerOrDigit = Prev =/= none andalso ((Prev >= $a andalso Prev =< $z) orelse (Prev >= $0 andalso Prev =< $9)),
++    PrevUp = Prev =/= none andalso Prev >= $A andalso Prev =< $Z,
++    Sep = Up andalso (PrevLowerOrDigit orelse (PrevUp andalso NextLower)),
++    [[$_ || Sep], string:to_lower([C]) | snake(T, C)].
++
+ %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
+ %% have no path to attribute to; no attribute is emitted for them.
+ %% The context names the file being emitted: a position is unique only within

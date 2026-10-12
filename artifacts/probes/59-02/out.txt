@@ -1,0 +1,27 @@
+--- ViaOrder { Kind = :'T.Order', Id = 1, Total = 7 }
+7
+--- ViaOrder { Kind = :'T.Invoice', Id = 1, Total = 7 }
+crashed: error:function_clause
+--- ViaLine { Kind = :'T.Line', Item = { Kind = :'T.Order', Id = 1, Total = 7 }, Qty = 2 }
+7
+--- ViaLine { Kind = :'T.Line', Item = { Kind = :'T.Invoice', Id = 1, Total = 7 }, Qty = 2 }
+crashed: error:function_clause
+--- ViaList [{ Kind = :'T.Order', Id = 1, Total = 7 }]
+7
+--- ViaList [{ Kind = :'T.Invoice', Id = 1, Total = 7 }]
+crashed: error:function_clause
+--- ViaLineQty { Kind = :'T.Line', Item = { Kind = :'T.Order', Id = 1, Total = 7 }, Qty = 2 }
+4
+--- ViaLineQty { Kind = :'T.Line', Item = { Kind = :'T.Order', Id = 1, Total = 7 }, Qty = 2.5 }
+5.0
+=== which function raised? (erl, stack top frame) ===
+'ViaLine'(L) when map_get('Kind', L) =:= 'T.Line' ->
+    'Inner'(map_get('Item', L)).
+                   'Kind' := 'T.Order',
+                   'Total' := integer()}]) ->
+ViaLine nested forged tag      {error,function_clause,raised_in,'T','Inner'}
+ViaList elem forged tag        {error,function_clause,raised_in,'T','Inner'}
+ViaOrder top-level forged      {error,function_clause,raised_in,'T',
+                                      'ViaOrder'}
+ViaItem returns nested forged  #{'Id' => 1,'Kind' => 'T.Invoice','Total' => 7}
+ViaLineQty forged payload      5.0

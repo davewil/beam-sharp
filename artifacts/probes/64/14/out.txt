@@ -1,0 +1,5 @@
+OTP 28, 3000000 lookups/run, 9 runs, 1000-key small-int map, 100% hit, microseconds
+variant                                   min     median
+maps:find  {ok,V}|error (1 lookup)      71377      74921
+is_key + get   (2 lookups)              77528      80375
+get/3 + sentinel (1 lookup)             27286      28159

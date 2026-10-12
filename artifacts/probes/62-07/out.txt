@@ -1,0 +1,12 @@
+B# source files with a module line: 121; modules: 111; public fn declarations (regex): 233; distinct names: 147
+derived-name collisions inside a module (two DIFFERENT PascalCase names -> same snake): 0
+names that equal a GenServer/Supervisor/Application callback row (alias would clash IF the module declares the behaviour):
+    Counter ['HandleCall', 'HandleCast', 'Init']
+    Req ['Start']
+names with a 2+ capital run: []
+names with digits: []
+corpus-wide non-injective snake images: []
+single-word names (alias = plain lowercase): 129 of 147
+sample mapping: [('AtomEq', 'atom_eq'), ('FuelAll', 'fuel_all'), ('HandleCall', 'handle_call'), ('HandleCast', 'handle_cast'), ('HasKind', 'has_kind'), ('HowMany', 'how_many'), ('InBand', 'in_band'), ('IsAdmin', 'is_admin'), ('ModelKey', 'model_key'), ('NameOf', 'name_of'), ('OrElse', 'or_else'), ('PartOne', 'part_one')]
+--- cross-check: regex-extracted exports vs the compiler's real export table for Shop
+['Amount', 'Band', 'Bump', 'New', 'Pay', 'Squared', 'Total', 'Which']

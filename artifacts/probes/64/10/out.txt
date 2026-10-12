@@ -1,0 +1,18 @@
+elm: 0.19.2
+--- elm/core 1.0.5 source
+94:get : comparable -> Dict comparable v -> Maybe v
+39:type Maybe a
+    type Maybe a
+        = Just a
+        | Nothing
+    
+32:type Result error value
+--- elm make attempt
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+    https://package.elm-lang.org/all-packages
+But my HTTP library is giving me the following error message:
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+I am trying to fetch work in your browser? Maybe the site is down? Does your

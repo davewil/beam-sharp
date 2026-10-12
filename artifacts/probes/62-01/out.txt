@@ -1,0 +1,44 @@
+== parse level (Code.string_to_quoted) and AST
+:Shop.New(1)                                SYNTAX_ERROR  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+Shop.New(1)                                 SYNTAX_ERROR  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:"Elixir.Shop".new(1)                       parses  {{:., [line: 1], [Shop, :new]}, [line: 1], [1]}
+:"Elixir.Shop".New(1)                       SYNTAX_ERROR  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:Shop.new(1)                                parses  {{:., [line: 1], [:Shop, :new]}, [line: 1], [1]}
+:"Shop".New(1)                              SYNTAX_ERROR  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:Shop."New"(1)                              parses  {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+:"Shop"."New"(1)                            parses  {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+Shop."New"(1)                               parses  {{:., [line: 1], [{:__aliases__, [line: 1], [:Shop]}, :New]}, [line: 1], [1]}
+:Shop.'New'(1)                              parses  {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+apply(:Shop, :New, [1])                     parses  {:apply, [line: 1], [:Shop, :New, [1]]}
+Kernel.apply(:Shop, :New, [1])              parses  {{:., [line: 1], [{:__aliases__, [line: 1], [:Kernel]}, :apply]}, [line: 1], [:Shop, :New, [1]]}
+:erlang.apply(:Shop, :New, [1])             parses  {{:., [line: 1], [:erlang, :apply]}, [line: 1], [:Shop, :New, [1]]}
+&:Shop.New/1                                SYNTAX_ERROR  "atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error before: ""'.'"
+&:Shop."New"/1                              parses  {:&, [line: 1], [{:/, [line: 1], [{{:., [line: 1], [:Shop, :New]}, [no_parens: true, line: 1], []}, 1]}]}
+&:erlang.apply(:Shop, :New, &1)             parses  {:&, [line: 1], [{{:., [line: 1], [:erlang, :apply]}, [line: 1], [:Shop, :New, {:&, [line: 1], [1]}]}]}
+Module.concat(:Shop, nil).New(1)            SYNTAX_ERROR  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+m = :Shop; m.New(1)                         SYNTAX_ERROR  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+m = :Shop; m."New"(1)                       parses  {:__block__, [], [{:=, [line: 1], [{:m, [line: 1], nil}, :Shop]}, {{:., [line: 1], [{:m, [line: 1], nil}, :New]}, [line: 1], [1]}]}
+(&:Shop.new/1)                              parses  {:&, [line: 1], [{:/, [line: 1], [{{:., [line: 1], [:Shop, :new]}, [no_parens: true, line: 1], []}, 1]}]}
+:Shop.New                                   SYNTAX_ERROR  "atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error before: ""'.'"
+:Shop.New.(1)                               SYNTAX_ERROR  "atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error before: ""'.'"
+:Shop.\New(1)                               SYNTAX_ERROR  "unexpected token: ""\"\\\" (column 7, code point U+005C)"
+
+== run level (only forms that parse)
+:"Elixir.Shop".new(1)                       {:raised, UndefinedFunctionError, "function Shop.new/1 is undefined (module Shop is not available). Make sure the m"}
+:Shop.new(1)                                {:raised, UndefinedFunctionError, "function :Shop.new/1 is undefined or private"}
+:Shop."New"(1)                              {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+:"Shop"."New"(1)                            {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+Shop."New"(1)                               {:raised, UndefinedFunctionError, "function Shop.\"New\"/1 is undefined (module Shop is not available). Make sure the"}
+:Shop.'New'(1)                              {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+apply(:Shop, :New, [1])                     {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+Kernel.apply(:Shop, :New, [1])              {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+:erlang.apply(:Shop, :New, [1])             {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+&:Shop."New"/1                              {:ok, &:Shop."New"/1}
+&:erlang.apply(:Shop, :New, &1)             {:ok, #Function<42.113135111/1 in :erl_eval.expr/6>}
+m = :Shop; m."New"(1)                       {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+(&:Shop.new/1)                              {:ok, &:Shop.new/1}
+
+== tokenizer level
+:Shop.New(1) -> :error
+:Shop."New"(1) -> :ok
+:Shop.new(1) -> :ok

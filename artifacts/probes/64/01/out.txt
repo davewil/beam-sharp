@@ -1,0 +1,166 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+bsc built: 2026-10-12 23:05
+
+=== A_OptionInt ===
+  | module A_OptionInt
+  | public option<int> FindI(int k)
+  | FindI(k) -> :nothing
+  --- bsc --api:
+  module A_OptionInt
+  :nothing | int FindI(int)
+  --- bsc (compile):
+  exit=0
+
+=== B_OptionTerm ===
+  | module B_OptionTerm
+  | public option<term> FindT(int k)
+  | FindT(k) -> :nothing
+  --- bsc --api:
+  /tmp/tmp.6Q2olLnBpr/B_OptionTerm/B_OptionTerm.bs:2:21: error: `:nothing` is absorbed by `term`
+    in FindT
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+  --- bsc (compile):
+  /tmp/tmp.6Q2olLnBpr/B_OptionTerm/B_OptionTerm.bs:2:21: error: `:nothing` is absorbed by `term`
+    in FindT
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+  exit=1
+
+=== C_ResultTermAtom ===
+  | module C_ResultTermAtom
+  | public result<term, atom> FindR(int k)
+  | FindR(k) -> (:error, :missing)
+  --- bsc --api:
+  /tmp/tmp.6Q2olLnBpr/C_ResultTermAtom/C_ResultTermAtom.bs:2:27: error: `(:error, atom)` is absorbed by `term`
+    in FindR
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+  --- bsc (compile):
+  /tmp/tmp.6Q2olLnBpr/C_ResultTermAtom/C_ResultTermAtom.bs:2:27: error: `(:error, atom)` is absorbed by `term`
+    in FindR
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+  exit=1
+
+=== D_ResultIntTerm ===
+  | module D_ResultIntTerm
+  | public result<int, term> FindE(int k)
+  | FindE(k) -> (:error, :missing)
+  --- bsc --api:
+  module D_ResultIntTerm
+  int | (:error, term) FindE(int)
+  --- bsc (compile):
+  exit=0
+
+=== E_ResultTermTerm ===
+  | module E_ResultTermTerm
+  | public result<term, term> FindEE(int k)
+  | FindEE(k) -> (:error, :missing)
+  --- bsc --api:
+  /tmp/tmp.6Q2olLnBpr/E_ResultTermTerm/E_ResultTermTerm.bs:2:27: error: `(:error, term)` is absorbed by `term`
+    in FindEE
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+  --- bsc (compile):
+  /tmp/tmp.6Q2olLnBpr/E_ResultTermTerm/E_ResultTermTerm.bs:2:27: error: `(:error, term)` is absorbed by `term`
+    in FindEE
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+  exit=1
+
+=== F_ResultAtomTerm ===
+  | module F_ResultAtomTerm
+  | public result<atom, term> FindAT(int k)
+  | FindAT(k) -> (:error, :missing)
+  --- bsc --api:
+  module F_ResultAtomTerm
+  atom | (:error, term) FindAT(int)
+  --- bsc (compile):
+  exit=0
+
+=== G_ResultTermBinary ===
+  | module G_ResultTermBinary
+  | public result<term, binary> FindTB(int k)
+  | FindTB(k) -> (:error, "x")
+  --- bsc --api:
+  /tmp/tmp.6Q2olLnBpr/G_ResultTermBinary/G_ResultTermBinary.bs:2:29: error: `(:error, binary)` is absorbed by `term`
+    in FindTB
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+  --- bsc (compile):
+  /tmp/tmp.6Q2olLnBpr/G_ResultTermBinary/G_ResultTermBinary.bs:2:29: error: `(:error, binary)` is absorbed by `term`
+    in FindTB
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+  exit=1
+
+=== H_Handrolled ===
+  | module H_Handrolled
+  | type Found = (:ok, term) | :absent
+  | public Found FindF(int k)
+  | FindF(k) -> :absent
+  --- bsc --api:
+  module H_Handrolled
+  :absent | (:ok, term) FindF(int)
+  --- bsc (compile):
+  exit=0
+
+=== I_AliasOptionTerm ===
+  | module I_AliasOptionTerm
+  | type MaybeTerm = option<term>
+  | public int Use(MaybeTerm m)
+  | Use(m) -> 0
+  --- bsc --api:
+  /tmp/tmp.6Q2olLnBpr/I_AliasOptionTerm/I_AliasOptionTerm.bs:2:1: error: `:nothing` is absorbed by `term`
+    in MaybeTerm
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+  --- bsc (compile):
+  /tmp/tmp.6Q2olLnBpr/I_AliasOptionTerm/I_AliasOptionTerm.bs:2:1: error: `:nothing` is absorbed by `term`
+    in MaybeTerm
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+  exit=1
+
+=== J_MapStringTermParam ===
+  | module J_MapStringTermParam
+  | public term Look(map<string, term> m, string k)
+  | Look(m, k) -> :absent
+  --- bsc --api:
+  module J_MapStringTermParam
+  term Look(map<string, term>, string)
+  --- bsc (compile):
+  exit=0

@@ -1,0 +1,96 @@
+=== A. valid module: build and show generated Erlang
+  Resolving versions
+  Compiling demo
+   Compiled in 0.61s
+--- build/dev/erlang/demo/_gleam_artefacts/demo@@main.erl
+1:-module('demo@@main').
+2:-export([run/1, main/1]).
+9:run(Module) ->
+13:    Pid = spawn_link(fun() -> run_module(Module) end),
+15:        {'EXIT', Pid, {Reason, [First|_] = StackTrace}} when is_tuple(First) ->
+18:        {'EXIT', Pid, Reason} when Reason =/= normal ->
+23:main(_) ->
+26:run_module(Module) ->
+33:        Class:Reason:StackTrace ->
+38:print_error_with_stacktrace(Class, Error, Stacktrace) ->
+50:print_error(Class, Error) ->
+60:refine_first(#{gleam_error := _, line := L}, [{M, F, A, [{file, Fi} | _]} | S]) ->
+62:refine_first(_, S) ->
+65:error_class(_, #{gleam_error := panic}) -> "panic";
+66:error_class(_, #{gleam_error := todo}) -> "todo";
+67:error_class(_, #{gleam_error := let_assert}) -> "let assert";
+68:error_class(_, #{gleam_error := assert}) -> "assert";
+69:error_class(Class, _) -> ["Erlang ", atom_to_binary(Class)].
+71:error_message(#{gleam_error := _, message := M}) ->
+73:error_message(undef) ->
+75:error_message({case_clause, _}) ->
+77:error_message({badmatch, _}) ->
+79:error_message(function_clause) ->
+81:error_message(_) ->
+84:error_details(_, #{gleam_error := let_assert, value := V}) ->
+86:error_details(_, {case_clause, V}) ->
+88:error_details(_, {badmatch, V}) ->
+90:error_details(_, #{gleam_error := _}) ->
+92:error_details(error, function_clause) ->
+94:error_details(error, undef) ->
+=== A2. the .beam file names (module atom encoding)
+build/dev/erlang/demo/ebin/deep@nested.beam
+build/dev/erlang/demo/ebin/demo.beam
+build/dev/erlang/demo/ebin/demo@@main.beam
+=== A3. erlang view: exports, and the atom a PascalCase constructor becomes
+demo exports: [{get_by_id,1},{make,0},{err,0},{module_info,0},{module_info,1}]
+make() -> {right_triangle,1,2} ; err() -> h_t_t_p_error
+deep@nested exports: [{hello,0},{module_info,0},{module_info,1}]
+=== B. rejected function names
+--- bad/a.gleam
+pub fn GetById(x: Int) -> Int { x }
+-->
+error: Syntax error
+  ┌─ /tmp/tmp.Cbu1ZMpgI8/src/demo.gleam:1:8
+  │
+1 │ pub fn GetById(x: Int) -> Int { x }
+  │        ^^^^^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+
+--- bad/b.gleam
+pub fn getById(x: Int) -> Int { x }
+-->
+error: Invalid function name
+  ┌─ /tmp/tmp.Cbu1ZMpgI8/src/demo.gleam:1:8
+  │
+1 │ pub fn getById(x: Int) -> Int { x }
+  │        ^^^^^^^ This is not a valid function name
+
+Hint: Function names start with a lowercase letter and contain a-z, 0-9, or
+_.
+Try: get_by_id
+
+--- bad/c.gleam
+pub fn HTTPGet(x: Int) -> Int { x }
+-->
+error: Syntax error
+  ┌─ /tmp/tmp.Cbu1ZMpgI8/src/demo.gleam:1:8
+  │
+1 │ pub fn HTTPGet(x: Int) -> Int { x }
+  │        ^^^^^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+
+--- bad/d.gleam
+@external(erlang, "Shop", "New")
+pub fn new(id: Int) -> Int
+@external(erlang, "Shop", "NewThing")
+pub fn NewThing(id: Int) -> Int
+-->
+error: Syntax error
+  ┌─ /tmp/tmp.Cbu1ZMpgI8/src/demo.gleam:4:8
+  │
+4 │ pub fn NewThing(id: Int) -> Int
+  │        ^^^^^^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+

@@ -1,0 +1,5 @@
+Single: refused
+    compile: Single/a.bs:0: bad range type
+SingleEq: refused
+    compile: SingleEq/a.bs:0: bad range type
+Pair: accepted

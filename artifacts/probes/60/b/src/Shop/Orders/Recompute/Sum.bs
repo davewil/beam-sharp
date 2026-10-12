@@ -1,0 +1,5 @@
+module Shop.Orders.Recompute
+
+public int Sum(list<int> xs, int acc)
+Sum([], acc)          -> acc
+Sum([x, ..rest], acc) -> Sum(rest, acc + x)

@@ -1,0 +1,28 @@
+--- elixirc w.ex
+--- erlc e.erl
+--- Erlang calls Elixir-defined capitalised fn
+{new,1} {weird,2} {new,1}
+exports: [{'__info__',1},
+          {'GetById',1},
+          {selfcall,0},
+          {'weird name',1},
+          {module_info,0},
+          {module_info,1},
+          {'New',1}]
+--- Elixir dot-syntax on its own capitalised fn
+:error
+{:new, 1}
+{:new, 1}
+[
+  __info__: 1,
+  GetById: 1,
+  New: 1,
+  selfcall: 0,
+  "weird name": 1,
+  module_info: 0,
+  module_info: 1
+]
+--- Erlang -export(['New'/1]) module e; Elixir calls
+[New: 1, GetById: 1, new: 1, module_info: 0, module_info: 1]
+{:new, 1}
+{:new, 1}

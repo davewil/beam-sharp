@@ -1,0 +1,17 @@
+V                                                         V {ok,V} {some,   delta |  ttb V ttb ok ttb so
+small int 42                                              0      3      3       3 |      3      9     11
+large int 2^70                                            3      6      6       3 |     13     19     21
+atom                                                      0      3      3       3 |      6     12     14
+binary <<"hello">> (heap bin, 5B)                         3      6      6       3 |     11     17     19
+binary, 100 bytes (>64: refc)                             8     11     11       3 |    106    112    114
+3-element list                                            6      9      9       3 |      7     13     15
+2-tuple                                                   3      6      6       3 |      9     15     17
+map #{a=>1,b=>2,c=>3}                                    10     13     13       3 |     21     27     29
+map 40 keys (hashmap)                                   148    151    151       3 |    166    172    174
+
+words on a 64-bit emulator = 8 bytes; wrapper delta in bytes = delta*8
+erts word size: 8 bytes
+
+Extra: the failure value itself costs 0 words (an atom is immediate): flat_size(absent)=0 flat_size(nothing)=0
+Extra: 1000 distinct small-int options as a list, words: bare=2000 wrapped=5000 (delta 3000 = 3/elem)
+OTP 28

@@ -1,0 +1,14 @@
+base 16968 raw / 3076 stripped / 6335 Code chunk
+   ops: #{is_float => 1,is_integer => 1,instructions => 1374,
+          is_eq_exact => 44,get_map_elements => 0}
+narrow 15436 raw / 2824 stripped / 5786 Code chunk
+   ops: #{is_float => 1,is_integer => 1,instructions => 1294,is_eq_exact => 4,
+          get_map_elements => 0}
+widen 18512 raw / 3184 stripped / 6535 Code chunk
+   ops: #{is_float => 21,is_integer => 21,instructions => 1414,
+          is_eq_exact => 44,get_map_elements => 0}
+(N=20 private fns of each kind; Keep* are the exported callers)
+=== compile time, 7 runs each, ms (escript boot dominates) ===
+base min=534 median=612 max=659
+narrow min=519 median=555 max=626
+widen min=560 median=598 max=630

@@ -1,0 +1,21 @@
+gleam 1.19.0
+  Resolving versions
+  Compiling probe
+   Compiled in 0.51s
+=== generated code: build/dev/erlang/probe/_gleam_artefacts/probe.abstr (Gleam 1.19 writes abstract format, not .erl), pretty-printed ===
+inner(O) ->
+    element(3, O) + 1.
+outer(O) ->
+    inner(O).
+inner_int(N) ->
+    N + 1.
+outer_int(N) ->
+    inner_int(N).
+make(N) ->
+    {sealed, N}.
+read(S) ->
+    element(2, S).
+=== forging at the boundary: pass a tuple with wrong tag and a float ===
+outer({order,1,7})           8
+outer({invoice,1,7})  forged 8
+outer_int(1.5)  forged       2.5

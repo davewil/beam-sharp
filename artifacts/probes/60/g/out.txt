@@ -1,0 +1,25 @@
+gleam 1.19.0
+== 1. lib on its own: @internal + internal_modules used INSIDE the package, including its own test/
+  Resolving versions
+  Compiling lib
+   Compiled in 0.40s
+exit=0
+== 1b. gleam check (also compiles test/): lib/test/lib_test.gleam names @internal and internal_modules
+   Compiled in 0.44s
+exit=0
+== 2. app (separate package, path dependency) names lib.helper (@internal), lib/internal/deep, lib.Secret (@internal type)
+  Resolving versions
+      Added lib v1.0.0
+  Compiling lib
+  Compiling app
+   Compiled in 0.42s
+exit=0
+== 3. what @internal does DO: gleam docs build hides it (the only other effect)
+
+The documentation for lib has been rendered to 
+/tmp/tmp.uF2B4wxRvo/lib/build/dev/docs/lib/index.html
+exit=0
+      6 api
+      6 leak
+== 4. the BEAM side: is the @internal function still in the .beam export table?
+[{helper,0},{api,0},{leak,0},{module_info,0},{module_info,1}]

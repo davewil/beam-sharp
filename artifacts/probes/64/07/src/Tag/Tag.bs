@@ -1,0 +1,19 @@
+module Tag
+
+type Maybe<T> = (:some, T) | :nothing
+
+// tagged Maybe<int>: success is (:some, v), a 2-tuple per hit
+private Maybe<int> Find(list<(atom, int)> xs, atom k)
+Find([], k)                            -> :nothing
+Find([(kk, v), ..rest], k) when kk == k -> (:some, v)
+Find([(kk, v), ..rest], k)             -> Find(rest, k)
+
+private int Loop(int n, list<(atom, int)> xs, int acc)
+Loop(0, xs, acc) -> acc
+Loop(n, xs, acc) -> Find(xs, :k19) switch {
+    :nothing    => Loop(n - 1, xs, acc),
+    (:some, v)  => Loop(n - 1, xs, acc + v)
+}
+
+public int Run(int n)
+Run(n) -> Loop(n, [(:k1,1),(:k2,2),(:k3,3),(:k4,4),(:k5,5),(:k6,6),(:k7,7),(:k8,8),(:k9,9),(:k10,10),(:k11,11),(:k12,12),(:k13,13),(:k14,14),(:k15,15),(:k16,16),(:k17,17),(:k18,18),(:k19,19),(:k20,20)], 0)

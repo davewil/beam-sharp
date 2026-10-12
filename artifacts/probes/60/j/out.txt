@@ -1,0 +1,13 @@
+go version go1.24.7 linux/amd64
+== go build ./shop/orders
+exit=0
+== go build ./shop/orders/tests
+exit=0
+== go build ./shop/billing
+package example.com/app/shop/billing
+	shop/billing/b.go:3:8: use of internal package example.com/app/shop/orders/internal/recompute not allowed
+exit=1
+== go build ./tools/rogue
+package example.com/app/tools/rogue
+	tools/rogue/r.go:3:8: use of internal package example.com/app/shop/orders/internal/recompute not allowed
+exit=1

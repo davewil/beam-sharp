@@ -1,0 +1,4 @@
+module Vault.Hidden
+
+public int Open(int n)
+Open(n) -> n

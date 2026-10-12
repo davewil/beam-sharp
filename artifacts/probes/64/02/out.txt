@@ -1,0 +1,68 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+=== source ===
+module Gen
+
+// A generic "first element" - option<T> with T a quantified variable.
+public option<T> Head<T>(list<T> xs)
+Head([])        -> :nothing
+Head([x, ..r])  -> x
+
+// Instantiations by the CALLER at three element types.
+public option<int> AtInt(list<int> xs)
+AtInt(xs) -> Head(xs)
+
+public term AtTerm(list<term> xs)
+AtTerm(xs) -> Head(xs)
+
+public atom AtAtom(list<atom> xs)
+AtAtom(xs) -> Head(xs)
+
+=== bsc --api ===
+module Gen
+atom AtAtom(list<atom>)
+:nothing | int AtInt(list<int>)
+term AtTerm(list<term>)
+option<T> Head<T>(list<T>)
+
+=== compile ===
+exit=0
+
+=== run: Head([]) vs Head([:nothing]) at term and atom ===
+  AtTerm []              -> :nothing
+  AtTerm [:nothing]      -> :nothing
+  AtAtom []              -> :nothing
+  AtAtom [:nothing]      -> :nothing
+  AtInt []               -> :nothing
+  AtInt [3]              -> 3
+
+=== a caller that tries to branch on the failure channel of Head at term ===
+Head([])        -> :nothing
+Head([x, ..r])  -> x
+
+public atom Probe(list<term> xs)
+Probe(xs) -> Head(xs) switch {
+    :nothing => :was_empty,
+    v        => :was_value
+}
+exit=0
+  Probe []           -> :was_empty
+  Probe [:nothing]   -> :was_empty
+  Probe [1]          -> :was_value
+
+=== the ONE emitted body of Head<T> (erased generics: no per-instantiation copy exists to box at term only) ===
+-spec 'Head'([any()]) ->
+                atom() |
+                integer() |
+                float() |
+                tuple() |
+                [any()] |
+                map() |
+                binary() |
+                pid() |
+                port() |
+                reference() |
+                fun().
+'Head'([]) ->
+    nothing;
+'Head'([X | _R]) ->
+    X.

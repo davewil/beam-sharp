@@ -1,0 +1,52 @@
+== ex.S  (g/0 local)
+1:{module, ex}.  %% version = 0
+3:{exports, [{f,0},{module_info,0},{module_info,1}]}.
+7:{labels, 9}.
+10:{function, f, 0, 2}.
+11:  {label,1}.
+14:  {label,2}.
+18:{function, g, 0, 4}.
+19:  {label,3}.
+22:  {label,4}.
+27:{function, module_info, 0, 6}.
+28:  {label,5}.
+31:  {label,6}.
+36:{function, module_info, 1, 8}.
+37:  {label,7}.
+40:  {label,8}.
+{exports, [{f,0},{module_info,0},{module_info,1}]}.
+
+{attributes, []}.
+== ex2.S (g/0 exported)
+3:{exports, [{f,0},{g,0},{module_info,0},{module_info,1}]}.
+7:{labels, 9}.
+10:{function, f, 0, 2}.
+11:  {label,1}.
+14:  {label,2}.
+18:{function, g, 0, 4}.
+19:  {label,3}.
+22:  {label,4}.
+27:{function, module_info, 0, 6}.
+28:  {label,5}.
+31:  {label,6}.
+36:{function, module_info, 1, 8}.
+37:  {label,7}.
+40:  {label,8}.
+== diff of the two assembler files: only the exports line (and the module name) differ
+3c3
+< {exports, [{f,0},{g,0},{module_info,0},{module_info,1}]}.
+---
+> {exports, [{f,0},{module_info,0},{module_info,1}]}.
+== runtime: ex:g() from outside
+{'EXIT',{undef,[{ex,g,[],[]},
+                {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,656}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},
+                {erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,1504}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,630}]},
+                {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},
+                {init,start_it,1,[]}]}}
+1
+== beam_lib exports/locals
+ex [{f,0},{module_info,0},{module_info,1}]
+ex2 [{f,0},{g,0},{module_info,0},{module_info,1}]

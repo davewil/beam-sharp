@@ -1,0 +1,6 @@
+module Tools.Report
+
+using Shop.Orders
+
+public int Peek2(list<int> lines)
+Peek2(lines) -> Shop.Orders.Recompute(lines, 0)

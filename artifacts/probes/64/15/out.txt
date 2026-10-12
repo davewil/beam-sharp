@@ -1,0 +1,25 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+-- .bs programs under compiler/examples + aoc (exemplars, examples, AoC):
+   files: 78
+   files mentioning option<: 10
+   option<...> spellings (incl. comments):
+           6 option<string>
+           6 option<int>
+           3 option<T>
+           3 option<Level>
+           3 option<Answer>
+           1 option<atom>
+   lines containing :nothing: 19  in 7 files
+   option<term> / result<term in any .bs: 0
+-- compiler tests:
+   test files: 73; files mentioning :nothing / nothing: 41; lines: 210
+-- docs that spell the bare shape as a feature:
+   LANGUAGE.md              lines with ":nothing": 31
+   TOUR.md                  lines with ":nothing": 9
+   STANDARD-ENVIRONMENT.md  lines with ":nothing": 4
+   CONTEXT.md               lines with ":nothing": 6
+-- features keyed on the BARE option success:
+   F61-absent-option-key      mentions of option<: 13
+   F72-tagged-union           mentions of option<: 4
+   F69-from-json              mentions of option<: 2
+-- runtime: 3 extra words per PRESENT option value (probe 05): a record with 5 present option fields pays 15 words (120 bytes)

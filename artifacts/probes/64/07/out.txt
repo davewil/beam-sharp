@@ -1,0 +1,30 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+.beam sizes (bytes):
+  Opt 2096
+  Tag 2136
+
+emitted Find/3 for each (erl_pp of .abstr):
+--- Opt
+'Find'([], _K) ->
+    nothing;
+'Find'([{Kk, V} | _Rest], K) when Kk =:= K ->
+    V;
+'Find'([{_Kk, _V} | Rest], K) ->
+    'Find'(Rest, K).
+--- Tag
+'Find'([], _K) ->
+    nothing;
+'Find'([{Kk, V} | _Rest], K) when Kk =:= K ->
+    {some, V};
+'Find'([{_Kk, _V} | Rest], K) ->
+    'Find'(Rest, K).
+
+compile wall time, ms (bsc process incl. VM start), 7 runs:
+  Opt min=491 median=577
+  Tag min=375 median=593
+
+run time of Run(2000000) (20-element assoc list, hit at position 19), microseconds, 7 runs:
+  Opt min=89546 median=104594
+  Tag min=91367 median=110802
+
+result check: Opt Run(3) = 57  Tag Run(3) = 57

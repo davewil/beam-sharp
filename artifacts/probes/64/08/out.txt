@@ -1,0 +1,53 @@
+=== SOURCES (grep -n against the installed trees) ===
+-- maps.erl: find is tagged, get/3 is a default
+138:-spec find(Key, Map) -> {ok, Value} | error when
+686:-spec get(Key, Map, Default) -> Value | Default when
+-- proplists.erl: get_value/2 defaults to 'undefined'
+202:-doc(#{ equiv => get_value(Key, List, undefined) }).
+208:    get_value(Key, List, undefined).
+-- proplists.erl: the only tagged lookup is lookup/2 -> none | tuple
+140:-spec lookup(Key, List) -> 'none' | tuple() when
+-- lists.erl: keyfind -> Tuple | false
+115:-spec keyfind(Key, N, TupleList) -> Tuple | false when
+-- Elixir map.ex
+298:  @spec fetch(map, key) :: {:ok, value} | :error
+299:  def fetch(map, key), do: :maps.find(key, map)
+316:  @spec fetch!(map, key) :: value
+525:  @spec get(map, key, value) :: value
+526:  def get(map, key, default \\ nil) do
+-- Elixir keyword.ex
+394:  @spec get(t, key, default) :: value | default
+577:  @spec fetch(t, key) :: {:ok, value} | :error
+
+=== ERLANG RUN ===
+proplists:get_value(a, [{a, undefined}])  = undefined
+proplists:get_value(a, [])               = undefined
+proplists:lookup(a, [{a, undefined}])    = {a,undefined}
+proplists:lookup(a, [])                  = none
+maps:find(a, #{a => undefined})          = {ok,undefined}
+maps:find(a, #{})                        = error
+maps:get(a, #{a => undefined}, undefined)= undefined
+maps:get(a, #{}, undefined)              = undefined
+lists:keyfind(a,1,[{a,false}])           = {a,false}
+lists:keyfind(a,1,[])                    = false
+
+=== ELIXIR RUN ===
+Elixir 1.18.5 / OTP 28
+-- Map.get/3 default (nil): ambiguous
+Map.get(%{a: nil}, :a)       : nil
+Map.get(%{},       :a)       : nil
+indistinguishable?        : true
+-- Map.fetch/2: tagged, distinguishes
+Map.fetch(%{a: nil}, :a)     : {:ok, nil}
+Map.fetch(%{},       :a)     : :error
+-- Keyword.get ambiguity
+Keyword.get([a: nil], :a)  : nil
+Keyword.get([], :a)        : nil
+-- Access (map[key]) is the nil-default form
+map[:a] indistinguishable?: true
+
+-- Elixir 1.18.5's set-theoretic type module (Module.Types.Descr): does `term() | nil` collapse?
+term() | nil  ==  term()  : true
+integer() | nil == integer(): false
+{:ok, term()} | :error == {:ok,term()}: false
+nil subtype of term()          : true

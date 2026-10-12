@@ -1,0 +1,87 @@
+git HEAD: 019533d The tour's chapter 15 teaches FromJson, restamped (version 34)
+
+=== R1_RecordField ===
+  | record Doc { Extra: option<term> }
+  | public int Use(Doc d)
+  | Use(d) -> 0
+  R1_RecordField/R1_RecordField.bs:2:1: error: `:nothing` is absorbed by `term`
+    in Doc.Extra
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+
+=== R2_TupleNested ===
+  | public (option<term>, int) Pair(int n)
+  | Pair(n) -> (:nothing, n)
+  R2_TupleNested/R2_TupleNested.bs:2:28: error: `:nothing` is absorbed by `term`
+    in Pair.1
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+
+=== R3_ListOfOption ===
+  | public list<option<term>> Xs(int n)
+  | Xs(n) -> []
+  R3_ListOfOption/R3_ListOfOption.bs:2:27: error: `:nothing` is absorbed by `term`
+    in Xs
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+
+=== R4_WireFieldOptionTerm ===
+  | type Wire = { "id": string, "extra": option<term>, .. }
+  | public result<Wire, ValidationError> Read(term doc)
+  | Read(doc) -> ValidateAs<Wire>(doc)
+  R4_WireFieldOptionTerm/R4_WireFieldOptionTerm.bs:2:1: error: `:nothing` is absorbed by `term`
+    in Wire["extra"]
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+
+=== R5_ValidateAsTerm ===
+  | public result<term, ValidationError> Read(term doc)
+  | Read(doc) -> ValidateAs<term>(doc)
+  R5_ValidateAsTerm/R5_ValidateAsTerm.bs:2:38: error: `(:error, { Kind: :'ValidationError', Expected: string, Path: list<string>, Reason: :duplicate_key | :mismatch | :missing | :not_json | :unknown_key })` is absorbed by `term`
+    in Read
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    The failure member already carries its tag, so tagging it again
+    repairs nothing: narrow the success type until it cannot hold an
+    `(:error, ...)` of its own.
+
+=== R6_ValidateAsOptionTerm ===
+  | public term Read(term doc)
+  | Read(doc) -> ValidateAs<option<term>>(doc)
+  module R6_ValidateAsOptionTerm
+  term Read(term)
+
+=== R7_MapValueOptionTerm ===
+  | public int M(map<string, option<term>> m)
+  | M(m) -> 0
+  R7_MapValueOptionTerm/R7_MapValueOptionTerm.bs:2:12: error: `:nothing` is absorbed by `term`
+    in M.m
+    the failure channel does not survive normalisation, so the type
+    declared here IS `term`. No caller can write the failure clause,
+    because no failure member is left to match.
+    hint: tag it - (:some, term) | :nothing
+
+=== R8_TaggedPairOK ===
+  | public (:some, term) | :nothing Find(int k)
+  | Find(k) -> :nothing
+  module R8_TaggedPairOK
+  :nothing | (:some, term) Find(int)
+
+=== R9_ParametricAliasMaybe ===
+  | type Maybe<T> = (:some, T) | :nothing
+  | public Maybe<term> Find(int k)
+  | Find(k) -> :nothing
+  | public Maybe<int> FindI(int k)
+  | FindI(k) -> (:some, 3)
+  module R9_ParametricAliasMaybe
+  :nothing | (:some, term) Find(int)
+  :nothing | (:some, int) FindI(int)
