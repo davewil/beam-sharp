@@ -62,11 +62,13 @@ Compiler delta (prototyped, probes b/i/k): one `World` entry field per module (`
 `visible_to(Self, M, World)` called once per `using` edge in `add_import` (`bs_check.erl:498`), a namespace-import
 filter in the same function, one `resolve_error` clause. Emitted code: **none** (no beam changes). Cost: +43 lines
 in `bs_check.erl`, +8 in `bs_parser.yrl`, +3 lexer, +3 `bsc.erl`, +7 `bs_diag.erl` for all four spellings I
-tried together (`internal`, `within`, `friend`, `Internal` segment); **zero new yecc conflicts** (6 shift/reduce before and after). Check cost: predicate ~15 ns when
-nothing is restricted, ~0.4 us when restricted (probe d micro, a *copy* of the function) x ~285 edges = ~0.1 ms;
-end-to-end on 60 modules/285 edges, 9 runs x2: repo bsc median 659/723 ms, patched 659/685, patched with 20
-restricted modules 700/730 ms — **not distinguishable from run-to-run spread (~100-200 ms)** (probe d).
-Existing suite on the patched copy: see "Regression" below.
+tried together (`internal`, `within`, `friend`, `Internal` segment); **zero new yecc conflicts** (6 shift/reduce before and after). Check cost: predicate ~10 ns when nothing is restricted, ~0.4 us when restricted (probe d micro, a *copy* of the function)
+x ~285 edges = ~0.1 ms. End-to-end on 60 modules/285 edges, 9 runs x2 (min/median ms): repo bsc 591/638 and
+596/624; patched, no markers 629/653 and 606/742; patched, 20 restricted modules 627/676 and 620/698. The patched
+binary is 15-120 ms slower at the median, but unrestricted-patched is as slow as restricted-patched and the
+predicate cannot account for more than ~0.1 ms, so I **cannot attribute the gap to the rule** (grammar/lexer table
+growth or noise; not isolated; two earlier runs of this probe during development showed no consistent gap but were not saved).
+Existing suite on the patched copy: see "Regression".
 
 Precedent, executed: **Go** `internal/` — `go build` accepts `shop/orders` and `shop/orders/tests`, refuses
 `shop/billing` and `tools/rogue` with `use of internal package … not allowed` (probe j); **Rust**
@@ -137,8 +139,8 @@ word. Go gets the same semantics B# wants with the word as a *directory name*, n
 ## Recommendation
 
 **Answer the gating question A: callee-side, subtree.** Reasons: (i) the only direction that can refuse the
-rogue/test module; (ii) the checker cost is one predicate per `using` edge, no emitter change, nothing
-measurable at compile time (d); (iii) both executed precedents with enforcement (Go, Rust) are subtrees; (iv)
+rogue/test module; (ii) the checker cost is one predicate per `using` edge, no emitter change, a predicate
+costing ~0.1 ms per build (d); (iii) both executed precedents with enforcement (Go, Rust) are subtrees; (iv)
 B (a list) loads the contended `index.bs` and C protects nothing. **Module-level, not a third visibility value
 on the signature**: a third marker must be read as "exported" by five sites that test `=:= public`/`=/= public`
 (`bs_check.erl:299,365,376,479`, `bs_emit.erl:141`; F12's own amendment records that getting one wrong exports
@@ -161,7 +163,12 @@ the subtree are admitted.
 
 ## Regression
 
-REGRESSION_PLACEHOLDER
+`rebar3 eunit` on a patched copy of `compiler/` (outside the repo layout): 1446 passed, 2 failed. Both failures were
+artefacts of the copy, and each passes once the copy is completed: `body_check_tests:every_aoc_program_still_compiles_test`
+needs `../aoc` (copied it; `body_check_tests` then 54/54 pass, so the aoc corpus compiles with the patched
+`bsc`), and `diagnostic_term_tests:the_diagnostics_gate_passes_test` needs `_build/default/bin/bsc` (built it;
+`bin/check-diagnostics.sh` then prints `diagnostics: ok`). I did **not** run `./bin/verify.sh` (the repo's two-pass
+gate), did not baseline the unpatched copy, and wrote no `--self-test` gate or failing test for the feature.
 
 ## Probe index
 
@@ -170,7 +177,7 @@ REGRESSION_PLACEHOLDER
 | `a/` | any public function is nameable from any tree today; private is refused (control); `--api` cannot tell a cross-module helper from client API; caller-side `using` is already mandatory (#7) | confirmed (exit 0 / refusal text / `--api` listing) |
 | `b/` | prototype: parent-derived `internal` admits Orders and Orders.Tests, refuses Billing, Rogue, namespace-imported Vault.Hidden | as stated |
 | `c/` | explicit `friend` list: Tests refused unless listed | confirmed |
-| `d/` | compile-time overhead; `micro.sh` predicate cost | within noise; ~15 ns / ~0.4 us |
+| `d/` | compile-time overhead; `micro.sh` predicate cost | gap of 15-120 ms not attributable to the rule; ~10 ns / ~0.4 us |
 | `e/` | export vs local = one `{exports,…}` line, same labels | confirmed |
 | `f/` | runtime caller check cost and soundness | ~43x; tail call admits rogue |
 | `g/` | Gleam `@internal` / `internal_modules` enforcement | **not enforced** (1.19.0, path dep) |

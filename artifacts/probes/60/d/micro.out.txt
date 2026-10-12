@@ -1,2 +1,2 @@
-'App.M4': min=14.321 ns/call median=14.544 ns/call
-'App.M3': min=386.307 ns/call median=490.563 ns/call
+'App.M4': min=9.732 ns/call median=10.171 ns/call
+'App.M3': min=378.873 ns/call median=415.663 ns/call
