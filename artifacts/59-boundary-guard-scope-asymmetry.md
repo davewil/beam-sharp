@@ -22,7 +22,7 @@ Repo HEAD at measurement: `019533d`. Prototype compilers were built in a scratch
 
 1. **GATING — does the record tag test stay on private functions?** (the ticket's stated question)
 2. Whether the int kind/range tests widen to private functions. *Follows from 1*: both rest on one premise
-   (18 §4: "a private function's every call site is a checked call site"), so they stand or fall together.
+   (the premise "a private function's every call site is a checked call site" is NOT in 18 §4 — it is at 46:166, bs_emit.erl:330, F24:115 and F37:170; 18 §4 itself says a value handed to another function "counts as unchecked", which supports the private tag test), so they stand or fall together.
 3. Whether "exported" is the right discriminator at all. *Settled by measurement, below*: it is the BEAM's own.
 4. Cost if widened. *Measured, below.*
 
@@ -91,12 +91,12 @@ choosing not to apply its own argument.
 ### C. Widen: kind and range tests also apply to private functions (tag stays)
 Delta: `none when Public ->` becomes `none ->`, drop the now-unreachable clause, `Public` param unused (`widen.patch`,
 ~6 lines). Reverses F24.6 / F37.5 (`boundary_kind_tests.erl:88`, `boundary_range_tests.erl:122` change).
-Evidence (59-04, 20 private int + 20 private float fns): where every caller's argument is provable, **erlc deletes
-the test: 0 bytes** (Code chunk unchanged, 4176 -> 4176; same mechanism 18a recorded and 59-07 reproduces:
-`loc_int` keeps its test only because `unproven/1` also calls it). Where the argument is a record-field
+Evidence (59-04, 20 private int + 20 private float fns): where every caller's argument is provable, erlc deletes
+the test (fixture figure `4176 -> 4176` is in no out.txt; the verifier's fixture without 12-field records gave 3076 -> 3076, so the direction holds; verification/59.md); same mechanism 18a recorded and 59-07 reproduces:
+`loc_int` keeps its test only because `unproven/1` also calls it). On real code the zero-byte claim does NOT hold everywhere: across 28 example modules plus 3 aoc programs, 28 have identical code and three grow — Shop.Pricing +9 B (2 tests, private functions passed as function values), aoc/2025/Day01 +34 B (3 tests), aoc/bench/Day01 +18 B (2 tests): 4.5–11 B per surviving test; no runtime cost shown. Where the argument is a record-field
 projection (the exact hole), tests survive (`is_integer` 1 -> 21, `is_float` 1 -> 21): Code chunk 6335 -> 6535 bytes, 40 tests, **5.0 bytes each** (consistent with
 the 3-5 claimed). `is_integer` call cost not measurable (-0.05 ns/call, inside 0.66 ns noise, 59-06; caveat:
-my loop passes a provable integer, so erlc may have removed the test there too).
+verified by `erlc +to_asm`: `int_g` and `int_n` compile to identical asm, so erlc erased the test in that arm — it is vacuous, not merely unmeasurable. The tag test is 2–3.5 ns/call (verifier re-run 2.14 vs author 3.49; noise ~0.7)).
 Strongest counterargument: it contradicts 18 §4's text and 18 §1's "interior functions already pay nothing — the
 shape C wanted", and is still *partial*: it covers only values that flow into a private function, not
 `ViaItem`-style pass-through. It adds guards on exactly the unprovable edges, so it is a patch over shallow guards,
@@ -132,16 +132,14 @@ tracked). That is why the same scope rule costs ~0 for kind and 14 bytes for tag
 
 **Keep the tag test on private functions (reject A), and widen kind/range to private (C), provisionally.**
 Reasons: (1) 18 §4's reason for exported-only is false at nested positions, measured not argued (59-02);
-(2) the cost the ticket worried about is measured and small: 0 bytes where erlc can prove, 5 bytes per test where
-it cannot, and those are exactly the edges that are unsound; (3) narrowing converts a crash into silent
+(2) the cost the ticket worried about is measured and small: 0 bytes where erlc can prove, 4.5–11 bytes per surviving test where
+it cannot (three of 31 corpus modules grow), and those are exactly the edges that are unsound; (3) narrowing converts a crash into silent
 type confusion for ~14 bytes. If the owner prefers 18 §4 left literal, B is the honest minimum, but then
 the text must say the private tag test exists as nested-position cover and that the kind hole is accepted.
 The residual shallow-guard problem (`ViaItem`) is unaffected by any option and wants its own ticket.
 
 ## 7. Not decided / not measured
-- Narrow variant (A) under `rebar3 eunit` in a scratch copy (only `src test examples` copied): 1447 passed, 1 failed
-  (`body_check_tests:every_aoc_program_still_compiles_test`, `length(Dirs) >= 3`, which reads corpus dirs absent from
-  my copy; I did not run a baseline of that one test, so 'unrelated' is inferred). **No test pins the private tag test.**
+- Narrow variant (A) under `rebar3 eunit` in a scratch copy (only `src test examples` copied): (author's partial copy: 1447 passed, 1 failed from missing corpus dirs). Verifier, whole-repo copy: A passes 1448/1448 and the unpatched baseline passes 1448/1448; widen (C) passes 1446 and fails exactly F24.6 and F37.5, the two that change by design. **No test pins the private tag test.**
   Not run: the widen variant (C) suite (it would fail F24.6 / F37.5 by design), `./bin/verify.sh`, any gate.
 - Not measured: per-call cost of `is_integer` on an *unprovable* argument (my loop was provable); bytes on
   arm64 or JIT-emitted native code; cold call sites; compile time (escript boot ~0.5 s swamps it: 59-04 shows
@@ -149,7 +147,8 @@ The residual shallow-guard problem (`ViaItem`) is unaffected by any option and w
 - Not covered: FFI-declared return values (ETS reads) reaching private functions; gen_server callback heads.
 - "Flat in field count" was not isolated: 59-04 mixes 2- and 12-field records (13.7 B average).
 - Elm not executed; C#/F# knowledge-only; Elixir survey is a line grep, not a parse.
-- Nothing here amends ticket 18; 18 §4 is quoted, not edited.
+- Nothing here edits ticket 18, but option C amends 18 §4's scope text and conflicts with ticket 46's Decisions entry ("Emitted always, on exported functions only"); A or B would leave both literal. "The shape C wanted" at 18:617 means 18's own rule C, not this brief's option C.
+- The corpus has no private function with a closed record parameter, so 59-03's "0 of 16 private functions carry the tag test" is not negative evidence.
 
 ## 8. Probe index
 | probe | claim checked | result |
@@ -159,7 +158,7 @@ The residual shallow-guard problem (`ViaItem`) is unaffected by any option and w
 | 59-03 | corpus exercises private tag test | no: 0 of 16 private functions in 28 modules |
 | 59-04 | +14 bytes tag, +3-5 `is_integer`; patches | 13.7 B/tag; 0 B where provable, 5.0 B where not |
 | 59-05 | behaviour under narrow vs widen | table in section 3 |
-| 59-06 | call-time cost, 9 runs of 20M | tag ~3.5 ns/call (noise 0.66); `is_integer` unmeasurable |
+| 59-06 | call-time cost, 9 runs of 20M | tag 2–3.5 ns/call (noise ~0.7); `is_integer` arm erased by erlc (vacuous) |
 | 59-07 | one entry label; local-only elision | confirmed; tag test never elided, `is_integer` elided only if all callers provable |
 | 59-08 | Elixir def vs defp guarding | 23% vs 8% of heads guarded (crude) |
 | 59-09 | Gleam pub/private checks | none; forged values pass |
