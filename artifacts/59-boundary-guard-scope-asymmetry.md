@@ -139,7 +139,10 @@ the text must say the private tag test exists as nested-position cover and that 
 The residual shallow-guard problem (`ViaItem`) is unaffected by any option and wants its own ticket.
 
 ## 7. Not decided / not measured
-- Not measured: a full repo test-suite result for A or C. A narrow-variant `rebar3 eunit` was started; see 8.
+- Narrow variant (A) under `rebar3 eunit` in a scratch copy (only `src test examples` copied): 1447 passed, 1 failed
+  (`body_check_tests:every_aoc_program_still_compiles_test`, `length(Dirs) >= 3`, which reads corpus dirs absent from
+  my copy; I did not run a baseline of that one test, so 'unrelated' is inferred). **No test pins the private tag test.**
+  Not run: the widen variant (C) suite (it would fail F24.6 / F37.5 by design), `./bin/verify.sh`, any gate.
 - Not measured: per-call cost of `is_integer` on an *unprovable* argument (my loop was provable); bytes on
   arm64 or JIT-emitted native code; cold call sites; compile time (escript boot ~0.5 s swamps it: 59-04 shows
   base/narrow/widen medians within noise).
