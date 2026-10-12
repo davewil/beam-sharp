@@ -210,7 +210,7 @@ clause and a rough grep finds no negative integer literal in `compiler/examples/
 
 ### 4.6 Existing suite
 
-1437 pass / 11 fail in the reference, A, B and Barith alike, with an identical failing set
+1437 pass / 11 fail in the reference (verifier's trees: 1438 / 10; the one difference is `cli_tests:escript_entry_point_exists_test`, which passes when `rebar.config` is present; failing set identical across builds), A, B and Barith alike, with an identical failing set
 (`probes/eunit.summary.out`; the 11 are environmental, see section 7).
 
 ---
@@ -259,7 +259,7 @@ only; B `(a) Floor returns a value its signature does not declare` only; Barith 
 ### Option 2 — fold in the checker, unary minus only (build B)
 
 * **(a) refused**, **(b)** accepted, **(c)** accepted (crashes at run time).
-* **Compiler delta (8 lines, `bs_check.erl`):** a `const_int/1` helper (literal, or `e_neg` of a
+* **Compiler delta (8 lines, 9 with a blank, `bs_check.erl`):** a `const_int/1` helper (literal, or `e_neg` of a
   constant) and two `comparison/1` clauses after the atom/string ones (`bs_check.erl:5016-5017`
   is where the bare-literal clauses live).
 * **Evidence:** fixes every refinement and guard in the corpus except `0 - 5`, `2 + 3`; parse tree
@@ -273,7 +273,7 @@ only; B `(a) Floor returns a value its signature does not declare` only; Barith 
 ### Option 3 — fold in the checker, with arithmetic (build Barith)
 
 * **(a)** accepted, **(b)** accepted, **(c) refused**; also accepts `value >= 0 - 5` and `>= 2 + 3`.
-* **Compiler delta (15 lines):** option 2's helper extended to `+ - *` over constants, plus one
+* **Compiler delta (15 lines, 16 with a blank):** option 2's helper extended to `+ - *` over constants, plus one
   `type_of({e_neg,_,{e_int,..}})` clause giving `-N` the singleton range.
 * **Evidence:** the widest acceptance in the matrix; `value >= n` and `value >= x + 1` still refused.
 * **Strongest counterargument.** It is the only option that accepts `0 - 5`, and no one writes
@@ -342,3 +342,16 @@ Do alongside it, because they are the same sentence for a user:
   difference to measure); `erts_debug:size` of a module's environment beyond the parse term.
 * The probes' `want` column states the post-fix wish; `!!` rows on the reference are the bug being
   reported, not probe failures.
+
+
+## Verification note
+
+Independently verified: `verification.md` (VERIFIED WITH CORRECTIONS); no circular probe found. Corrections applied or to carry:
+
+- Diff sizes are 1 / 9 / 16 added lines counting blanks (1 / 8 / 15 non-blank).
+- The `value == K` / `bad range type` defect is **not** an OTP 29 artefact: `-type t() :: 5..5.` fails on OTP 25.3, 28 and 29 (`erl_lint.erl:4053` in OTP 29, line 3443 in OTP 28), and unpatched `bsc` built on OTP 28 fails `value == 5` and `value == 0` the same way. The "separate defect" claim stands.
+- `f25_negative.out` has no Barith column although the table says Barith is the same; the verifier re-ran it and Barith is the same, but the committed output should be regenerated with all four builds.
+- Do not cite whole-beam md5s (they change run to run); the Code-chunk md5 and byte sizes are stable.
+- Timing is in-VM lex/parse/check, interleaved, and the verifier's re-run found no separation. The `check synth-neg` row is slower on patched builds (ref 1493 vs A 2375 us) only because the reference refuses early.
+- Extra inputs the verifier ran: `-(-5)`, `- 5`, `-0x10`, `-9223372036854775808`, `--5` accepted by A, B and Barith; `-(1+2)` by Barith only; `Well{Z = -3}` with `Z: Depth` (a refinement with negative bounds) accepted by A and Barith but refused by B. Patterns already accept `- 5` with a space on the reference, a precedent for A.
+- The brief's "want" column is the author's wish, so its `!!` rows are not independent tests.
