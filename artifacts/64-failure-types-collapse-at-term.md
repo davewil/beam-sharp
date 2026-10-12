@@ -118,7 +118,7 @@ Who(a) -> Map.?Get(a, "user") switch {          // the SAME text at every V
 
 ## 6. Independent of Q2: close the instantiation hole
 
-Whatever Q2 gives, `option<T>` at `T = term` through a variable must be as loud as the written form (except under C, where it disappears for `option`). A prototype, `probes/64/13/inst_collapse.patch`, 24 lines in `call/6` at `bs_check.erl:4282` plus one forwarding clause in `bs_diag.erl`, runs the existing `absorbed/2` per template member after `solution/2`. It works because `subst_tpl` keeps union members apart until substitution. Result (13): the stock compiler accepts `AtTerm` and `AtAtom`; the patched one refuses both at the call line with the existing sentence and leaves `AtInt` alone. **It has no test, no gate and no self-test**, so it is evidence of feasibility, not a feature. The patched suite result is at the end of this file.
+Whatever Q2 gives, `option<T>` at `T = term` through a variable must be as loud as the written form (except under C, where it disappears for `option`). A prototype, `probes/64/13/inst_collapse.patch`, 24 lines in `call/6` at `bs_check.erl:4282` plus one forwarding clause in `bs_diag.erl`, runs the existing `absorbed/2` per template member after `solution/2`. It works because `subst_tpl` keeps union members apart until substitution. Result (13): the stock compiler accepts `AtTerm` and `AtAtom`; the patched one refuses both at the call line with the existing sentence and leaves `AtInt` alone. **It has no test, no gate and no self-test**, so it is evidence of feasibility, not a feature. The patched eunit run was cut short (see §8).
 
 ## 7. Recommendation
 
@@ -135,7 +135,7 @@ If David wants A's readability, the question to ask is "may the shape of a stand
 
 - Not decided: the name of a `Has` (96 lists `Map.Has`; spelling is 96's row ticket), whether a prelude `maybe<T>` ships, whether F61 should wrap present values.
 - Not measured: what `Map.Get` / `Map.?Get` will emit (unbuilt, ENG-324), so no end-to-end lookup cost for A or B; wire-decode cost under C; the allocation cost of C over the exemplars (counts only); Elm by execution; Elixir's inference-warning output for `Map.get` (only `Descr` was run); C# and F# are knowledge only.
-- The §6 prototype's effect on the full eunit suite: see the line below.
+- The §6 prototype's effect on the full eunit suite: **incomplete.** In a scratch copy the run got through 694 passing tests before it was terminated, with 1 failure, `every_aoc_program_still_compiles_test`, which asserts on a directory that the scratch copy of `compiler/` does not contain (`aoc/` sits beside it), so it is an artefact of the copy. The remaining tests did not run. Treat the prototype as unproven against the suite.
 
 ## Probe index
 
