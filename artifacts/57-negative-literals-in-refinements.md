@@ -53,10 +53,10 @@ Measured (`57-04/out.txt`, `57-08/out.txt`):
 * `Delta` + `Go() -> Nudge(-3)` accepted, `Nudge(-300)` refused "hands F an argument it does not accept". Only A does this (see B).
 * Residual for `S(>= 1), S(0)` over `Delta` prints `S(>= -100 and <= -1)`, and adding `S(<= -1) -> ...` makes it compile: the residual doctrine round-trips.
 * Emitted Code chunk for bodies using `-5` has the **identical md5** to baseline (`4ABB3E92...`); runtime values of `-7/2`, `-7%3`, `-2*3`, `- -4`, `10 - -5`, `-(7)/2` identical (`-3 -1 -6 4 15 -3`).
-* All 22 shipped examples (`compiler/examples/*`) give byte-identical compiler output and exit 0 (two of them, `Ledger`, `Frame`, contain negative literal expressions).
-* Compile time unchanged within noise (`57-05`: 40-clause module, 9 runs, min/median 478/500 ms vs baseline 398/505 ms).
+* All 22 shipped examples (`compiler/examples/*`) give an identical verdict (empty output, exit 0; stdout only, so this does not show the emitted code is identical — the Code-chunk md5 in `57-04` does) (two of them, `Ledger`, `Frame`, contain negative literal expressions).
+* Compile time on UNSIGNED sources is unchanged (`57-05` — the fold never runs there, so it does not time A's change; baseline refuses the signed source, so no like-for-like exists;  40-clause module, 9 runs, min/median 478/500 ms vs baseline 398/505 ms).
 
-Strongest counterargument: it changes the **expression** grammar's output for every program, not just refinements: `-5` now types as `-5..-5` instead of `int`, which could shift an inference or message somewhere the 22 examples and a few hand cases do not reach. The eunit suite (`compiler/test`) was **not** run against A. It also cannot ever grow into `2 + 3` (that is a separate, later fold).
+Strongest counterargument: it changes the **expression** grammar's output for every program, not just refinements: `-5` now types as `-5..-5` instead of `int`, which could shift an inference or message somewhere the 22 examples and a few hand cases do not reach. `rebar3 eunit` on A in a scratch copy (no `aoc/`): 1447 passed, 1 failed (`every_aoc_program_still_compiles_test`, needs `../aoc`); the unpatched copy gives the identical result (verification/57.md). `verify.sh` was not run. It also cannot ever grow into `2 + 3` (that is a separate, later fold).
 
 ### B. Fold in the checker, `-N` only (`comparison/1` accepts `{e_neg,_,{e_int,_,K}}`)
 
@@ -115,7 +115,7 @@ the same patch or the signed domain cannot be given a literal.
 
 ## 6. Not decided or not measured
 
-* The compiler eunit/verify suite was **not** run on any variant (ticket CLAUDE.md says a clean-checkout pair is ~13 min). Only compile verdicts for 22 examples, 18 hand cases and runtime values.
+* The eunit suite was run only on A (see above); `verify.sh` and B/C were not run (ticket CLAUDE.md says a clean-checkout pair is ~13 min). Only compile verdicts for 22 examples, 18 hand cases and runtime values.
 * `Sign(-1.5)`/float behaviour is unchanged by construction (A touches only `e_int`); not separately probed.
 * Whether `-5` typing as the singleton changes any diagnostic *text* in the tour/handoff docs was not checked (examples only).
 * `- 2 ** n` or similar higher-precedence forms: the fold fires only when the operand is already a bare literal, so `-7/2` parses as `-(7/2)` and is untouched (values identical, `57-08`); parse-tree shape for other operators not enumerated.

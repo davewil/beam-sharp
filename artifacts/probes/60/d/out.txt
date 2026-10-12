@@ -1,3 +1,5 @@
 modules=60  using-edges=285  internal-modules=20
 A repo-bsc / plain       runs=9 min=591ms median=638ms max=710ms
 B patched / plain        runs=9 min=629ms median=653ms max=734ms
+C patched / 20 internal  runs=9 min=627ms median=676ms max=744ms
+A repo-bsc / plain       runs=9 min=596ms median=624ms max=664ms
