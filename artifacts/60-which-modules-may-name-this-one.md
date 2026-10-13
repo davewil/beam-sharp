@@ -43,8 +43,7 @@ unbuilt is only a *callee-side refusal*. 3 and 4 are measured below and follow f
 *Caller-side* checks already exist and do not protect the callee (the rogue module simply omits the declaration).
 *Runtime* enforcement is out: the BEAM has one entry label per function — a local and an exported function
 assemble identically except the `{exports,…}` line (probe e) — and a runtime caller check costs ~43x a plain
-call and is unsound under tail calls (probe f: plain 8.3 ns, stacktrace check 375 ns median; a rogue module
-tail-calling the checked function is **admitted**, and so is `Y = f(), Y`, which erlc silently turns into a tail
+call and is unsound under tail calls (probe f: plain 8.3 ns, stacktrace check 375 ns median; caller checks are unsound in both directions (verifier: the callee sees the caller's caller, so a legitimate module that tail-calls the checked function is refused and legit -> rogue(tail) -> checked is admitted; probe f's 'rogue admitted' is partly an artefact of its harness, where the admitted module `who` is the one calling `rogue:tail`; verifier measured ~37–55x, author 43x), and so is `Y = f(), Y`, which erlc silently turns into a tail
 call). So the rule is a compile-time check at the caller's edge, or nothing. The ticket's premise holds.
 
 ## Option A — callee-side, unit = subtree (Go / Rust `pub(in)` shape)
@@ -62,10 +61,10 @@ Compiler delta (prototyped, probes b/i/k): one `World` entry field per module (`
 `visible_to(Self, M, World)` called once per `using` edge in `add_import` (`bs_check.erl:498`), a namespace-import
 filter in the same function, one `resolve_error` clause. Emitted code: **none** (no beam changes). Cost: +43 lines
 in `bs_check.erl`, +8 in `bs_parser.yrl`, +3 lexer, +3 `bsc.erl`, +7 `bs_diag.erl` for all four spellings I
-tried together (`internal`, `within`, `friend`, `Internal` segment); **zero new yecc conflicts** (6 shift/reduce before and after). Check cost: predicate ~10 ns when nothing is restricted, ~0.4 us when restricted (probe d micro, a *copy* of the function)
+tried together (`internal`, `within`, `friend`, `Internal` segment); **zero new yecc conflicts** (6 shift/reduce before and after). Check cost: predicate ~300 ns unrestricted and ~720 ns restricted per call (the verifier timed the shipped functions; probe d `micro.sh` timed a stale copy and its ~10 ns / ~0.4 us figures are superseded) — still ~0.1–0.2 ms over ~285 edges
 x ~285 edges = ~0.1 ms. End-to-end on 60 modules/285 edges, 9 runs x2 (min/median ms): repo bsc 591/638 and
-596/624; patched, no markers 629/653 and 606/742; patched, 20 restricted modules 627/676 and 620/698. The patched
-binary is 15-120 ms slower at the median, but unrestricted-patched is as slow as restricted-patched and the
+596/624; patched, no markers 629/653 and 606/742; patched, 20 restricted modules 627/676 and 620/698. The author saw the patched
+binary 15-120 ms slower at the median, but that baseline was the repo's bsc (not an unpatched copy built the same way) and runs were in blocks. The verifier's interleaved, order-rotated 25-run re-run against an unpatched copy: unpatched 623/821/1171, patched no markers 656/833/1236, patched with 20 restricted 621/784/1035 (min/median/max ms) — **noise; there is no measured gap**. The earlier text read: unrestricted-patched is as slow as restricted-patched and the
 predicate cannot account for more than ~0.1 ms, so I **cannot attribute the gap to the rule** (grammar/lexer table
 growth or noise; not isolated; two earlier runs of this probe during development showed no consistent gap but were not saved).
 Existing suite on the patched copy: see "Regression".
@@ -126,14 +125,14 @@ to the ticket; fine as a later, separate question.
 |---|---|---|---|
 | Erlang | `-export`; `-doc false`/`hidden` | export: yes; doc: **no** | probe h (`e2:go()=42` over `-doc false`); `erl_lint.erl:1095-1098` accepts `false`/`hidden` for docs only. OTP xref has no caller restriction: its `restriction` operators are set-algebra on call sets (`xref.erl:413`); analyses listed at `xref.erl:1497-1503`. The "restricted-calls" xref feature in the task brief **does not exist** in tools-4.1.4.1 |
 | Elixir | `defp`, `@moduledoc false`, `@doc false`, `:tracers` option | `defp`: yes; the docs flags: **no** | `module.ex:318` ("invisible to documentation extraction tools"); `code.ex:1668` tracers; probe h |
-| Gleam 1.19.0 | `@internal`, `internal_modules` in `gleam.toml` | **no, not by `gleam build` across a path dependency** | probe g (executed; no compiler source installed): `app` named `lib.helper` (`@internal`), `lib/internal/deep` and the `@internal` type `lib.Secret`; build exit 0, no warning. The only effect I could observe: `gleam docs build` omits the `@internal` function; the `.beam` still exports it. Hex-dependency case and `gleam publish` not testable (hex blocked) |
+| Gleam 1.19.0 | `@internal`, `internal_modules` in `gleam.toml` | **not by `gleam build`** (path dependency with default and explicit `internal_modules`, and the same-package case; `gleam export hex-tarball` also passed a package leaking an `@internal` type). The gleam binary contains a publish-time check, "These modules leak internal types in their public API and cannot be published"; `gleam publish` was not run | probe g (executed; no compiler source installed): `app` named `lib.helper` (`@internal`), `lib/internal/deep` and the `@internal` type `lib.Secret`; build exit 0, no warning. The only effect I could observe: `gleam docs build` omits the `@internal` function; the `.beam` still exports it. Hex-dependency case and `gleam publish` not testable (hex blocked) |
 | Elm | `module M exposing (..)` lists, opaque types | yes, but **not run**: `package.elm-lang.org` returns 403 and `~/.elm` is empty, so `elm make` cannot resolve `elm/core` | knowledge only |
 | Go | `internal/` path segment | yes, subtree of the parent | probe j (executed, go1.24.7) |
 | Rust | `pub(in path)` / `pub(crate)` | yes | probe m (executed, rustc 1.97.0) |
 | C# / F# / Java | `internal` (assembly), `InternalsVisibleTo`, JPMS `exports … to` | yes | **knowledge only**, not run |
 
 The CLAUDE.md false-friend rule, tested: C# `internal` is assembly-scoped and enforced; Gleam `@internal` is
-package-scoped and (1.19.0) **unenforced**; a B# `internal` that refuses a subtree would be a third meaning of the
+package-scoped and (1.19.0) **not enforced by `gleam build`** (publish refuses leaked internal types); a B# `internal` that refuses a subtree would be a third meaning of the
 word. Go gets the same semantics B# wants with the word as a *directory name*, not a keyword.
 
 ## Recommendation
@@ -177,13 +176,20 @@ gate), did not baseline the unpatched copy, and wrote no `--self-test` gate or f
 | `a/` | any public function is nameable from any tree today; private is refused (control); `--api` cannot tell a cross-module helper from client API; caller-side `using` is already mandatory (#7) | confirmed (exit 0 / refusal text / `--api` listing) |
 | `b/` | prototype: parent-derived `internal` admits Orders and Orders.Tests, refuses Billing, Rogue, namespace-imported Vault.Hidden | as stated |
 | `c/` | explicit `friend` list: Tests refused unless listed | confirmed |
-| `d/` | compile-time overhead; `micro.sh` predicate cost | gap of 15-120 ms not attributable to the rule; ~10 ns / ~0.4 us |
+| `d/` | compile-time overhead; `micro.sh` predicate cost | gap of 15-120 ms not attributable to the rule; ~300 ns / ~720 ns per call (verifier re-timing; the probe's own micro.sh figures were from a stale copy) |
 | `e/` | export vs local = one `{exports,…}` line, same labels | confirmed |
 | `f/` | runtime caller check cost and soundness | ~43x; tail call admits rogue |
-| `g/` | Gleam `@internal` / `internal_modules` enforcement | **not enforced** (1.19.0, path dep) |
+| `g/` | Gleam `@internal` / `internal_modules` enforcement | **not enforced by `gleam build`** (1.19.0); publish-time leak check exists, untested |
 | `h/` | Erlang `-doc false`, Elixir `@moduledoc false`/`defp`/tracer | docs-only; tracer can refuse |
 | `i/` | `within Shop`: subtree named by callee | Billing admitted, Rogue refused |
 | `j/` | Go `internal/` | executed, subtree rule confirmed |
 | `k/` | `Internal` path segment, zero grammar | refuses Billing/Rogue; atom changes |
 | `l/` | ticket's checker premises at HEAD | no `internal/friend/sealed/visible_to`; `0b761f6` absent; lines moved |
 | `m/` | Rust `pub(in path)` | executed, outside caller refused |
+
+## Verifier additions (verification/60.md)
+- `Shop.OrdersExtras` (string-prefix of `Shop.Orders`) is correctly refused: the match is by path segment. `Shop.Tests.Orders` refused; `Shop.Orders.Tests` admitted. A partly visible namespace import works.
+- Gaps: a top-level `Internal.Util` module is unrestricted (`segment_root` returns none); `:erlang.apply` with atom literals bypasses a compile-time check; the "add `using Vault.Hidden`" hint is misleading for a hidden module; the cost list omits the tree-sitter grammar and LANGUAGE.md; probe a names a function, not module `Shop.Orders.Recompute`.
+- F12:185 lists "`internal`, or any third level" as an explicit non-goal; the module-level recommendation agrees with it.
+- eunit on whole-repo copies, patched and unpatched, both 1447 passed / 1 failed (`diagnostic_term_tests:the_diagnostics_gate_passes_test`, bsc not built in a fresh copy); `bin/check-diagnostics.sh` prints ok on the patched copy. `verify.sh` not run.
+- The A/B/C headings may read as the option-menu shape CLAUDE.md bans; each carries B# code and a compiler delta.
