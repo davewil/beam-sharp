@@ -57,6 +57,14 @@ shape of ticket 57's diagnostic (a message that sends the reader back to what th
 implementation needs its own tag: `bs_diag.erl` carries `unknown_module` in two clauses
 (`built/2` at line 660, `message/1` at line 2073) and a new tag needs the same two.
 
+**Gaps the verifier found in both prototypes** (so "two sites" is a floor, not the count):
+a qualified *type* name from a hidden module still compiles from `Other` after only `using Lib.User`
+(a third path, tested at HEAD and R1); `--api` (lenient mode) now fails under R1 where HEAD
+succeeds; R2 sets `friends` at one world-entry site but not the one at `bsc.erl:294`. Also,
+**ticket 41 already gives an `Internal/` directory a meaning** (a source-only sub-module), which
+R1's name would collide with — read 41 before choosing the spelling. And R2's fixture mirrors R1's
+subtree rule, so their agreement on the table is expected, not independent evidence.
+
 ## Neighbours
 
 | | what it does | evidence |

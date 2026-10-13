@@ -25,7 +25,7 @@ has to cover all three, and that is what separates the options below.
 
 ## Evidence
 
-Baseline matrix (P1, `bsc` built from HEAD): refused — `>= -5`, `>= -5 and <= 5`, `>= 1 or <= -1`,
+Baseline matrix (P1, `bsc` built from HEAD; note `value == -3` passes the checker under A/B/B2 and then fails in the backend with `bad range type`, the P5 defect, so it is not a clean "accepted"): refused — `>= -5`, `>= -5 and <= 5`, `>= 1 or <= -1`,
 `!= -1`, `== -3`, `-5 <= value`, `>= -(-5)`, `>= -0`, `> -1.5`, `>= 2 + 3`. Accepted — `<= 3 or >= 10`,
 `!= 0`.
 
@@ -38,19 +38,15 @@ Baseline matrix (P1, `bsc` built from HEAD): refused — `>= -5`, `>= -5 and <= 
 | `Pass(-d)` for a `Delta d` (P4b, must stay refused) | n/a | refused | refused | refused |
 | patch size, `diff -u` of non-generated source | — | 1 file, **+1 −0** | 1 file, +7 −2 | 1 file, +8 −2 |
 | sites that must agree | — | **1** | 2 `comparison/1` clauses + `const_int/1` | those + `type_of/3` |
-| AST words for one written `-5` (P3, `erts_debug:flat_size`) | 8 | **4** | 8 | 8 |
-| eunit, 1448 tests | 1448 pass (291 s) | 1446 pass; 2 fail — see note | — | see note |
+| AST words for one written `-5` (P3, `erts_debug:flat_size`, hand-built terms not A's parser output) | 8 | **4** | 8 | 8 |
+| eunit, 1448 tests | 1448 pass (291 s) | **1448 pass** (293 s, full layout) | not run | the two layout-dependent modules pass; full suite not reported |
 
 **The row that matters is `Pass(-3)`.** Option B alone makes `Delta` writable and then refuses
 `Pass(-3)`, because the literal is still typed `int`. That is the ticket's own defect again, one
 level down: a type you can write and cannot use. It would pass a gate that only tests the
 declaration.
 
-*Eunit note.* The two failures under A (`every_aoc_program_still_compiles_test`,
-`the_diagnostics_gate_passes_test`) are layout failures of my scratch copy — the first asserts
-`length(Dirs) >= 3` over `../aoc`, which a copy under a scratch directory lacks. They are re-run in
-the correct layout in the verifier section below; until that result is there, read A as "1446 of
-1448, two unexplained".
+*Eunit note.* My first run of A showed 2 failures; they were my scratch copy lacking `bin/`, `examples/` and `../aoc`. With that layout restored, A passes all 1448.
 
 ## Neighbours
 
