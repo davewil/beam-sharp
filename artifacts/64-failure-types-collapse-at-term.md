@@ -16,7 +16,7 @@ there is a way to reach the collapse that the refusal does not cover.
 |---|---|---|
 | the refusal "leaves the author with nothing to reach for" | the diagnostic ends `hint: tag it - (:some, term) \| :nothing`, and that shape declares and `--api`s cleanly | P1 |
 | Q3: does the rule reach `result<T, E>` at `E = term`? "not measured" | **no**: `result<int, term>` survives as `int \| (:error, term)`. The collapse is at `T`, not `E`: `result<term, atom>` and `result<(atom, binary), binary>` are refused, `result<atom, binary>` is not | P1 |
-| the refusal is built (F31, F68/ticket 68) | built **at declarations only**. A generic `option<T> Wrap<T>(…)` compiles, and instantiated at `T = term` it silently loses the distinction | P2, P2b |
+| the refusal is built (F31, F68/ticket 68) | built **at written type annotations only**; an inferred `option<term>` (a generic's result, a local binding, a switch) is never checked (verifier-confirmed). A generic `option<T> Wrap<T>(…)` compiles, and instantiated at `T = term` it silently loses the distinction | P2, P2b |
 
 ## Evidence
 
@@ -90,11 +90,10 @@ option is a program and the compiler work it implies.
 ### A — lookups return a tagged success; `option<T>` stays bare (what ticket 48 Q8 already leans to)
 
 ```csharp
-public term Name(map<string, term> m)
-Name(m) -> Map.Get(m, "name") switch {
-    (:ok, v) -> v
-    :absent  -> "anonymous"
-}
+public term OrAnon((:ok, term) | :absent r)       // compiles today (clause heads, verified)
+OrAnon((:ok, v)) -> v
+OrAnon(:absent)  -> "anonymous"
+// Map.Get(m, "name") would feed it once ENG-324 is built
 ```
 
 Compiler delta: `Map.Get`'s signature is `(:ok, V) | :absent` for **every** `V` (so it never

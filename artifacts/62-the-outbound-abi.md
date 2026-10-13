@@ -48,7 +48,7 @@ must pick an acronym-aware rule (`Macro.underscore`, `elixir/lib/elixir/lib/macr
 
 ## Evidence for the two ways to fix it
 
-**P3 — the derived name, over the corpus** (`derive.exs`, 128 public functions, 100 distinct names):
+**P3 — the derived name, over the corpus** (`derive.exs`; it reported 128 public functions / 100 names, but the verifier found 7 exemplar directories that are not modules inflated that — the true corpus is **100 functions, 84 distinct names**):
 **0 collisions** and 0 odd segments under either rule. That is weaker than it sounds: the corpus
 has no acronym-bearing names. `ParseURL` and `ParseUrl` both become `parse_url` under
 `Macro.underscore`, so a real implementation needs a compile-time collision error; `Sha256Hash` and
@@ -61,7 +61,7 @@ wrapper per export, recompiled; the Elixir call `:Shop.new(7)` then runs):
 |---|---|
 | exports | 8 |
 | bytes, recompiled from forms | 1252 → 1528 (**+276, 34.5 B per alias, +22%**) |
-| bytes, the shipped `.beam` with specs and debug info | 2600 → ~2876 (**+10.6%**; the shipped file is larger than the recompile because of those chunks) |
+| bytes with `debug_info`, as the real build compiles | **+404 B, about +16%** (verifier-measured); with specs on the aliases **+496 B, about +20%**. My first figure (+10.6%) was arithmetic on file sizes, not a measurement, and the aliases in the probe carry no specs |
 | `ExpT` (export table) chunk | 136 → 232 B |
 | Erlang callers | unchanged: `'Shop':'New'(1)` still works |
 
@@ -89,7 +89,7 @@ Compiler delta: none. Doc delta: correct `LANGUAGE.md` §12 to show the quoted f
 **Strongest counterargument.** It is a tax on exactly the audience the ticket worries about — the
 Elixir codebase trying B# *incrementally* — and every call site wears it. Quote marks on every call
 read as a signal that the callee is foreign, which is the impression an adoption path wants to avoid.
-I did not measure whether `mix format` preserves the quotes; that is unverified.
+`Code.format_string!/1` keeps the quotes (verifier-tested); `mix format` itself was not run.
 
 ### 2 — emit a snake_case alias beside each export
 
@@ -124,7 +124,7 @@ The B# module is unchanged, so Erlang callers and the clean-room spec's ABI are 
 
 **Strongest counterargument.** `Elixir.Shop` is in the *caller's* atom namespace. An application
 that already has its own `Shop` module collides, and nothing in the build knows to warn; the
-collision is silent at load time, last-loaded wins. It is also a second artifact to version, ship
+collision is not always silent: Elixir warns "redefining module" when it compiles its own `Shop` after the facade is loaded, and is silent only when the facade loads second (verifier-tested). It is also a second artifact to version, ship
 and keep in step with the first, which is exactly the kind of apparatus the repo has been cutting.
 
 ## Recommendation

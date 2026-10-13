@@ -68,7 +68,7 @@ Option 1 below closes the **call-boundary** route to a forged nested value, not 
 Reading it honestly: the tag test costs **14 bytes and roughly 0.4–0.7 ns per call**; the BEAM
 compiler (`beam_ssa_type`) removes the widened int guard from the `Code` chunk when the only caller
 already proved it (`absdump.sh` shows the guard present in the abstract code and the Code chunk
-unchanged at 119 B), so widening it measured **zero**. Two caveats against over-reading the zero:
+unchanged at 119 B), so widening it measured **zero where the caller proves the type**. The verifier built the other case — a list element passed into a private `Byte` function — and the Code chunk grew **183 → 201 B (+18)** under the widened build, with no per-call slowdown visible in 3 runs. So widening is free only when proven redundant, and costs about 18 B per unprovable site. Two caveats against over-reading the zero:
 the 19-module corpus contains no private function whose caller *cannot* prove the type (a value
 from `Dictionary`, a list element), which is the case where widening would cost; and a
 file-size difference of +36 B appears with the widened build that I did not trace (probably debug
@@ -107,7 +107,7 @@ Program that changes: `Next(g.Level)` with a forged `Level` stops answering `100
 asymmetry is "deliberate" and that eliding private-function guards "is the shape C wanted anyway".
 The savings that sentence prized measured zero for the int test here, but only on code whose callers
 prove their arguments; in a private helper fed from a list element the guard will cost a test per
-call that nothing proves redundant, and I did not build that case. If David's priority is "a tight
+call that nothing proves redundant, and the verifier built it (+18 B, see P3). If David's priority is "a tight
 private loop pays nothing", this is the option that can lose it.
 
 ### 2 — keep the tag test private-wide and the int test exported-only, and write the rule down
@@ -165,3 +165,5 @@ artifacts/probes/59/absdump.sh       # guard present in abstract code, absent fr
 ## Verifier result
 
 (filled in below by the independent re-run)
+
+**Verifier addenda.** Exported *list* parameters are not checked per element either: a forged 999 inside a `list<Byte>` reached a private `Bump` under HEAD and was refused only under the widened build — the same shallow-guard limit as `Inline`.
