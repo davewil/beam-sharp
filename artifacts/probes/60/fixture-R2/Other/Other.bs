@@ -1,0 +1,4 @@
+module Other
+using Shop.Internal.Cost
+public int Go(int n)
+Go(n) -> Cost(n)

@@ -1,0 +1,4 @@
+module Shop.Billing
+using Shop.Internal.Cost
+public int Bill(int n)
+Bill(n) -> Cost(n)

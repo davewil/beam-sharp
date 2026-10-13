@@ -1,0 +1,3 @@
+module Other3
+public int Go(int n)
+Go(n) -> Shop.Internal.Cost.Cost(n)

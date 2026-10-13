@@ -1,0 +1,40 @@
+diff -u -x bs_parser.erl -x bs_lexer.erl /home/user/beam-sharp/compiler/src/bs_check.erl /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR1/src/bs_check.erl
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-13 23:03:20.173020547 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR1/src/bs_check.erl	2026-10-13 23:12:04.451643209 +0000
+@@ -497,11 +497,15 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case visible_to(M, Self) of
++                true  -> add_module_import(M, World, Acc);
++                false -> erlang:error({unknown_module, M, L})   % PROBE: reuses the unknown_module text
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+-            case {children(M, Known) -- [Self], Mode} of
++            case {[C || C <- children(M, Known) -- [Self], visible_to(C, Self)], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+                 {Children, _} -> add_namespace_import(M, Children, Acc)
+@@ -587,6 +591,18 @@
+                                 end, Acc, Ex)
+               end, #{}, World).
+ 
++%% PROBE R1: a module whose path has an `Internal` segment is nameable only from
++%% modules under that segment's parent (Go's `internal/` rule, spelled as data).
++visible_to(M, Self) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    visible_segs(Segs, [], atom_to_list(Self)).
++visible_segs([], _Acc, _Self) -> true;
++visible_segs(["Internal" | Rest], Acc, Self) ->
++    Parent = lists:flatten(lists:join(".", lists:reverse(Acc))),
++    (Parent =:= "" orelse Self =:= Parent orelse lists:prefix(Parent ++ ".", Self))
++        andalso visible_segs(Rest, ["Internal" | Acc], Self);
++visible_segs([S | Rest], Acc, Self) -> visible_segs(Rest, [S | Acc], Self).
++
+ children(Prefix, Known) ->
+     P = atom_to_list(Prefix) ++ ".",
+     [M || M <- Known, lists:prefix(P, atom_to_list(M))].

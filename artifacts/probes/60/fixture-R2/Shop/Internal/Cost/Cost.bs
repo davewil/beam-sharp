@@ -1,0 +1,4 @@
+module Shop.Internal.Cost
+friend Shop
+public int Cost(int n)
+Cost(n) -> n * 2

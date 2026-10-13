@@ -1,0 +1,92 @@
+diff -u -x bs_parser.erl -x bs_lexer.erl /home/user/beam-sharp/compiler/src/bs_check.erl /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bs_check.erl
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-13 23:03:20.173020547 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bs_check.erl	2026-10-13 23:12:04.453345510 +0000
+@@ -497,11 +497,15 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            case friendly(M, Self, World) of
++                true  -> add_module_import(M, World, Acc);
++                false -> erlang:error({unknown_module, M, L})   % PROBE: reuses the unknown_module text
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+-            case {children(M, Known) -- [Self], Mode} of
++            case {[C || C <- children(M, Known) -- [Self], friendly(C, Self, World)], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+                 {Children, _} -> add_namespace_import(M, Children, Acc)
+@@ -587,6 +591,14 @@
+                                 end, Acc, Ex)
+               end, #{}, World).
+ 
++%% PROBE R2: a module with no `friend` lines is open; with some, only those (or
++%% anything under one of them) may name it.
++friendly(M, Self, World) ->
++    case maps:get(friends, maps:get(M, World, #{}), []) of
++        [] -> true;
++        Fs -> lists:any(fun(F) -> F =:= Self orelse lists:prefix(atom_to_list(F) ++ ".", atom_to_list(Self)) end, Fs)
++    end.
++
+ children(Prefix, Known) ->
+     P = atom_to_list(Prefix) ++ ".",
+     [M || M <- Known, lists:prefix(P, atom_to_list(M))].
+diff -u -x bs_parser.erl -x bs_lexer.erl /home/user/beam-sharp/compiler/src/bs_lexer.xrl /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bs_lexer.xrl
+--- /home/user/beam-sharp/compiler/src/bs_lexer.xrl	2026-10-06 23:03:23.688655679 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bs_lexer.xrl	2026-10-13 23:12:04.451980841 +0000
+@@ -42,6 +42,7 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++friend                  : {token, {'friend', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+diff -u -x bs_parser.erl -x bs_lexer.erl /home/user/beam-sharp/compiler/src/bs_parser.yrl /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bs_parser.yrl
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-10-13 23:03:20.185020547 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bs_parser.yrl	2026-10-13 23:12:22.412523610 +0000
+@@ -20,12 +20,12 @@
+   guard guard_expr
+   body binding
+   expr expr_low expr_list elist_items assign_fields assign_field
+-  switch_arms switch_arm modpath using_decl visibility call
++  switch_arms switch_arm modpath using_decl friend_decl visibility call
+   block_clauses block_clause implements_decl impl_clauses impl_for
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'friend' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -103,6 +103,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> friend_decl : '$1'.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+@@ -183,6 +184,7 @@
+ %% name, like the foreign form above; the two are one construct, told apart
+ %% by the token class of what follows `using` (ticket 41 §1).
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
++friend_decl -> 'friend' modpath : {friend, line('$1'), modatom('$2')}.
+ 
+ %% --- module -----------------------------------------------------------------
+ %% A module's atom is its full dotted path, because a record tag is minted as
+diff -u -x bs_parser.erl -x bs_lexer.erl /home/user/beam-sharp/compiler/src/bsc.erl /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bsc.erl
+--- /home/user/beam-sharp/compiler/src/bsc.erl	2026-10-06 23:03:23.692655679 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vR2/src/bsc.erl	2026-10-13 23:12:04.452476484 +0000
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     friends => [F || {friend, _, F} <- Decls],
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to

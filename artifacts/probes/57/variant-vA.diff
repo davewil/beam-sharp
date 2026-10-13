@@ -1,0 +1,11 @@
+diff -u -x bs_parser.erl -x bs_lexer.erl /home/user/beam-sharp/compiler/src/bs_parser.yrl /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vA/src/bs_parser.yrl
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-10-13 23:03:20.185020547 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/f4f580dd-d9b8-5263-a5b1-0260b2f72402/scratchpad/vA/src/bs_parser.yrl	2026-10-13 23:06:22.623156238 +0000
+@@ -945,6 +945,7 @@
+ %% A negated float literal is the literal; anything else is the BEAM's unary
+ %% minus, typed by its operand (F51).
+ negate(_L, {e_float, FL, F}) -> {e_float, FL, -F};
++negate(_L, {e_int, IL, I})   -> {e_int, IL, -I};
+ negate(L, E)                 -> {e_neg, L, E}.
+ 
+ to_param_rest(_L, nil)               -> nil;
