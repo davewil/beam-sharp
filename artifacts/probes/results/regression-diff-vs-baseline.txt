@@ -1,0 +1,14 @@
+== v57a: tests failing here and not in baseline
+(baseline failing: 583, variant failing: 583)
+== v57b: tests failing here and not in baseline
+(baseline failing: 583, variant failing: 583)
+== v59a: tests failing here and not in baseline
+(baseline failing: 583, variant failing: 583)
+== v59b: tests failing here and not in baseline
+>   boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+>   boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
+(baseline failing: 583, variant failing: 585)
+== v59c: tests failing here and not in baseline
+(baseline failing: 583, variant failing: 583)
+== v60a: tests failing here and not in baseline
+(baseline failing: 583, variant failing: 583)

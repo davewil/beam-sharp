@@ -1,0 +1,41 @@
+######## bsc
+Handler()(Order map)                                       7
+Handler()(Invoice map, same fields: wrong record)          {error,
+                                                            function_clause}
+Classifier()(100)                                          1
+Classifier()(8.5)  [float into a private int fn]           0
+Classifier()(9.5)                                          1
+Direct(Invoice map) [exported entry]                       {error,
+                                                            function_clause}
+######## v59a
+Handler()(Order map)                                       7
+Handler()(Invoice map, same fields: wrong record)          7
+Classifier()(100)                                          1
+Classifier()(8.5)  [float into a private int fn]           0
+Classifier()(9.5)                                          1
+Direct(Invoice map) [exported entry]                       {error,
+                                                            function_clause}
+######## v59b
+Handler()(Order map)                                       7
+Handler()(Invoice map, same fields: wrong record)          {error,
+                                                            function_clause}
+Classifier()(100)                                          1
+Classifier()(8.5)  [float into a private int fn]           {error,
+                                                            function_clause}
+Classifier()(9.5)                                          {error,
+                                                            function_clause}
+Direct(Invoice map) [exported entry]                       {error,
+                                                            function_clause}
+######## v59c
+Handler()(Order map)                                       7
+Handler()(Invoice map, same fields: wrong record)          {error,
+                                                            function_clause}
+Classifier()(100)                                          1
+Classifier()(8.5)  [float into a private int fn]           {error,
+                                                            function_clause}
+Classifier()(9.5)                                          {error,
+                                                            function_clause}
+Direct(Invoice map) [exported entry]                       {error,
+                                                            function_clause}
+bsc: Kind-only forged map (no Total) into exported ViaTag -> {error,{badkey,'Total'}}
+v59a: Kind-only forged map (no Total) into exported ViaTag -> {error,{badkey,'Total'}}

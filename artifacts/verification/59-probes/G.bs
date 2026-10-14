@@ -1,0 +1,71 @@
+module G
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Box { Run: fn(Order) -> int }
+
+using :lists {
+    term map(fn(Order) -> int f, list<Order> xs)
+}
+
+private int Show1(Order o)
+Show1(o) -> o.Total
+
+private int Show2(Order o)
+Show2(o) -> o.Total
+
+private int Show3(Order o)
+Show3(o) -> o.Total
+
+private int Show4(Order o)
+Show4(o) -> o.Total
+
+private int Show5(Order o)
+Show5(o) -> o.Total
+
+private int Show6(Order o)
+Show6(o) -> o.Total
+
+private int Show6(Order o, int k)
+Show6(o, k) -> o.Total + k
+
+private int Show8(Order o)
+Show8(o) -> o.Total
+
+private int NoEscape(Order o)
+NoEscape(o) -> o.Total
+
+private int Cls(int n)
+Cls(n) when n >= 9 -> 1
+Cls(n) -> 0
+
+public (fn(Order) -> int, int) InTuple()
+InTuple() -> (Show1,
+  1)
+
+public Box MkBox()
+MkBox() -> Box { Run = Show2 }
+
+public int Piped(Order o)
+Piped(o) -> o |> Show4()
+
+public list<fn(Order) -> int> InList()
+InList() -> [
+  Show5/1]
+
+public fn(Order, int) -> int Two()
+Two() -> Show6/2
+
+public fn(int) -> fn(Order) -> int Thunk()
+Thunk() -> (k) => Show8
+
+public (fn(int) -> int, int) KindInTuple()
+KindInTuple() -> (Cls,
+  1)
+
+public int Plain(Order o)
+Plain(o) -> NoEscape(o)
+
+public term Mapped(list<Order> xs)
+Mapped(xs) -> :lists.map(Show3,
+  xs)

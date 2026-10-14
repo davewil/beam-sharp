@@ -1,0 +1,6 @@
+module B
+record Order { Id: int, Total: int }
+public int Take({ Id: int, Total: int } m)
+Take(m) -> Inner(m)
+private int Inner(Order o)
+Inner(o) -> o.Total

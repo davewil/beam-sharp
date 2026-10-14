@@ -1,0 +1,10 @@
+module Q
+
+record Order { Id: int, Total: int }
+
+public int Loop(Order o, int n, int acc)
+Loop(o, 0, acc) -> acc
+Loop(o, n, acc) -> Loop(o, n - 1, acc + Inner(o))
+
+private int Inner(Order o)
+Inner(o) -> o.Total

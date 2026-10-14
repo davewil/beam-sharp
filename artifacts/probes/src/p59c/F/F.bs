@@ -1,0 +1,7 @@
+module F
+record Order { Id: int, Total: int }
+using :erlang {
+    Order binary_to_term(binary b)
+}
+public int Take(binary b)
+Take(b) -> 0

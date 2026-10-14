@@ -1,0 +1,8 @@
+module D
+
+type Delta = int where value >= -100 and value <= 100
+
+public int D(Delta n)
+
+D(n) -> n
+

@@ -1,0 +1,5 @@
+A(out_bsc_Q) min/med ms {567.573,590.312}
+B(out_v59a_Q) min/med ms {455.442,469.719}
+-- null control (same beam both sides):
+A(out_bsc_Q) min/med ms {553.422,582.054}
+B(out_bsc_Q) min/med ms {566.869,599.37}

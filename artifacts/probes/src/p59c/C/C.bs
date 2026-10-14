@@ -1,0 +1,7 @@
+module C
+record Order { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+public int Take(Order | Invoice r)
+Take(r) -> Inner(r)
+private int Inner(Order o)
+Inner(o) -> o.Total

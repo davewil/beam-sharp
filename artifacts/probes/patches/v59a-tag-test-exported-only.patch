@@ -1,0 +1,10 @@
+--- a/bs_emit.erl
++++ b/bs_emit.erl
+@@ -274,6 +274,7 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        {ok, _Tag} when not Public -> {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

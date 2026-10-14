@@ -1,0 +1,8 @@
+module Use
+
+using :no_such_app_mod {
+    int answer(int x)
+}
+
+public int Run(int x)
+Run(x) -> :no_such_app_mod.answer(x)

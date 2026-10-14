@@ -1,0 +1,6 @@
+module H
+
+public atom Sign(int n)
+
+Sign(n) when n >= -5 -> :near
+Sign(n) when n < -6  -> :far

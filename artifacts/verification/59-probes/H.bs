@@ -1,0 +1,5 @@
+module H
+using G
+
+public int Steal(term t)
+Steal(t) -> G.Show1(t)

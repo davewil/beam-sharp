@@ -1,0 +1,96 @@
+######## bsc
+guarded fns (tag/kind guard present in emitted head):
+  Show1     GUARDED
+  Show2     GUARDED
+  Show3     GUARDED
+  Show4     GUARDED
+  Show5     GUARDED
+  Show6     GUARDED
+  Show6     GUARDED
+  Show8     GUARDED
+  NoEscape  GUARDED
+  Cls       unguarded
+  Cls       unguarded
+  tuple Show1(Invoice)               {error,function_clause}
+  record-field Show2(Invoice)        {error,function_clause}
+  record-field Show2(Order)          7
+  list Show5/1 (Invoice)             {error,function_clause}
+  Show6/2 (Invoice,1)                {error,function_clause}
+  lambda-returned Show8(Invoice)     {error,function_clause}
+  Cls(8.5) via tuple                 0
+  Mapped([Invoice]) via lists:map    {error,function_clause}
+  Piped(Invoice) exported entry      {error,function_clause}
+  Plain(Invoice) exported entry      {error,function_clause}
+  BEAM_BYTES 3528
+######## v59a
+guarded fns (tag/kind guard present in emitted head):
+  Show1     unguarded
+  Show2     unguarded
+  Show3     unguarded
+  Show4     unguarded
+  Show5     unguarded
+  Show6     unguarded
+  Show6     unguarded
+  Show8     unguarded
+  NoEscape  unguarded
+  Cls       unguarded
+  Cls       unguarded
+  tuple Show1(Invoice)               7
+  record-field Show2(Invoice)        7
+  record-field Show2(Order)          7
+  list Show5/1 (Invoice)             7
+  Show6/2 (Invoice,1)                8
+  lambda-returned Show8(Invoice)     7
+  Cls(8.5) via tuple                 0
+  Mapped([Invoice]) via lists:map    [7]
+  Piped(Invoice) exported entry      {error,function_clause}
+  Plain(Invoice) exported entry      {error,function_clause}
+  BEAM_BYTES 3308
+######## v59b
+guarded fns (tag/kind guard present in emitted head):
+  Show1     GUARDED
+  Show2     GUARDED
+  Show3     GUARDED
+  Show4     GUARDED
+  Show5     GUARDED
+  Show6     GUARDED
+  Show6     GUARDED
+  Show8     GUARDED
+  NoEscape  GUARDED
+  Cls       GUARDED
+  Cls       GUARDED
+  tuple Show1(Invoice)               {error,function_clause}
+  record-field Show2(Invoice)        {error,function_clause}
+  record-field Show2(Order)          7
+  list Show5/1 (Invoice)             {error,function_clause}
+  Show6/2 (Invoice,1)                {error,function_clause}
+  lambda-returned Show8(Invoice)     {error,function_clause}
+  Cls(8.5) via tuple                 {error,function_clause}
+  Mapped([Invoice]) via lists:map    {error,function_clause}
+  Piped(Invoice) exported entry      {error,function_clause}
+  Plain(Invoice) exported entry      {error,function_clause}
+  BEAM_BYTES 3620
+######## v59c
+guarded fns (tag/kind guard present in emitted head):
+  Show1     GUARDED
+  Show2     GUARDED
+  Show3     GUARDED
+  Show4     unguarded
+  Show5     GUARDED
+  Show6     unguarded
+  Show6     GUARDED
+  Show8     GUARDED
+  NoEscape  unguarded
+  Cls       GUARDED
+  Cls       GUARDED
+  tuple Show1(Invoice)               {error,function_clause}
+  record-field Show2(Invoice)        {error,function_clause}
+  record-field Show2(Order)          7
+  list Show5/1 (Invoice)             {error,function_clause}
+  Show6/2 (Invoice,1)                {error,function_clause}
+  lambda-returned Show8(Invoice)     {error,function_clause}
+  Cls(8.5) via tuple                 {error,function_clause}
+  Mapped([Invoice]) via lists:map    {error,function_clause}
+  Piped(Invoice) exported entry      {error,function_clause}
+  Plain(Invoice) exported entry      {error,function_clause}
+  BEAM_BYTES 3556

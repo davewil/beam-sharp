@@ -1,0 +1,9 @@
+== grammar: base
+g.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+{ok,"g.erl"}
+== grammar: for
+g.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+{ok,"g.erl"}
+== grammar: visible
+g.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+{ok,"g.erl"}

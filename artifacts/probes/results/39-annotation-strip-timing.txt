@@ -1,0 +1,4 @@
+erl_default      min 12.97 ms  median 13.36 ms
+erl_no_type_opt  min 12.92 ms  median 13.54 ms
+erl_no_ssa_opt   min 12.97 ms  median 13.39 ms
+beam_sharp       min 13.10 ms  median 13.35 ms

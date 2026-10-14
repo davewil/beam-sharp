@@ -1,0 +1,14 @@
+module                 actual app     naive guess    match
+Elixir.Enum            elixir         enum           false
+Elixir.Kernel          elixir         kernel         false
+Elixir.Logger          logger         logger         true
+Elixir.ExUnit.Case     ex_unit        exunit         false
+Elixir.IEx.Helpers     iex            iex            true
+Elixir.Mix.Task        mix            mix            true
+Elixir.Registry        elixir         registry       false
+crypto                 crypto         crypto         true
+ssl                    ssl            ssl            true
+public_key             public_key     public_key     true
+gen_server             stdlib         gen_server     false
+lists                  stdlib         lists          false
+mnesia                 mnesia         mnesia         true

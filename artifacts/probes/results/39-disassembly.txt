@@ -1,0 +1,11 @@
+bench_erl      spin   instrs=26 tr_operands=4
+Day01          Spin   instrs=26 tr_operands=4
+wrap     8 instrs vs 8; identical-modulo-labels-lines-names=true
+hit      10 instrs vs 10; identical-modulo-labels-lines-names=true
+spin     26 instrs vs 26; identical-modulo-labels-lines-names=true
+sign     13 instrs vs 10; identical-modulo-labels-lines-names=false
+size_    10 instrs vs 9; identical-modulo-labels-lines-names=false
+clicks   29 instrs vs 29; identical-modulo-labels-lines-names=true
+b39_default spin: instrs=26 tr_count=4
+b39_notype spin: instrs=26 tr_count=0
+b39_nossa spin: instrs=26 tr_count=0

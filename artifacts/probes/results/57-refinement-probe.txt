@@ -1,0 +1,42 @@
+=== bsc
+[value >= -5] => error: REFUSED
+[value >= -5 and value <= 5] => error: REFUSED
+[value >= 1 or value <= -1] => error: REFUSED
+[value <= 3 or value >= 10] => ACCEPTED
+[value != 0] => ACCEPTED
+[value >= 0 - 5] => error: REFUSED
+[value >= (-5)] => error: REFUSED
+[value >= 2 + 3] => error: REFUSED
+[value >= 2 * 3] => error: REFUSED
+[value > -1] => error: REFUSED
+[value != -1] => error: REFUSED
+g57/G/G.bs:3:1: error: Sign is not exhaustive
+  no clause matches:
+    Sign(n) -> ...
+exit-ok
+=== v57a
+[value >= -5] => ACCEPTED
+[value >= -5 and value <= 5] => ACCEPTED
+[value >= 1 or value <= -1] => ACCEPTED
+[value <= 3 or value >= 10] => ACCEPTED
+[value != 0] => ACCEPTED
+[value >= 0 - 5] => error: REFUSED
+[value >= (-5)] => ACCEPTED
+[value >= 2 + 3] => error: REFUSED
+[value >= 2 * 3] => error: REFUSED
+[value > -1] => ACCEPTED
+[value != -1] => ACCEPTED
+exit-ok
+=== v57b
+[value >= -5] => ACCEPTED
+[value >= -5 and value <= 5] => ACCEPTED
+[value >= 1 or value <= -1] => ACCEPTED
+[value <= 3 or value >= 10] => ACCEPTED
+[value != 0] => ACCEPTED
+[value >= 0 - 5] => ACCEPTED
+[value >= (-5)] => ACCEPTED
+[value >= 2 + 3] => ACCEPTED
+[value >= 2 * 3] => ACCEPTED
+[value > -1] => ACCEPTED
+[value != -1] => ACCEPTED
+exit-ok

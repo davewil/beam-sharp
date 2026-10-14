@@ -1,0 +1,10 @@
+-- compile Use
+compile exit=0
+-- compile Elx
+compile exit=0
+-- run Use
+crashed: error:undef
+erlc remote call to absent module: exit=0
+warning: NoSuchLib.go/0 is undefined (module NoSuchLib is not available or is yet to be defined)
+  x1.ex:2: X1.f/0
+

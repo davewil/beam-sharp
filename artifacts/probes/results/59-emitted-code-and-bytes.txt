@@ -1,0 +1,66 @@
+######## bsc
+'ViaTag'(O) when map_get('Kind', O) =:= 'P.Order' ->
+    'Inner'(O).
+'ViaKind'(B)
+    when
+        is_integer(B)
+        andalso
+        B >= 0
+        andalso
+        B =< 255 ->
+    'InnerB'(B).
+'Inner'(O) when map_get('Kind', O) =:= 'P.Order' ->
+    map_get('Total', O).
+'InnerB'(X) when X > 100 ->
+    1;
+'InnerB'(_X) ->
+    0.
+BEAM_BYTES 1548
+######## v59a
+'ViaTag'(O) when map_get('Kind', O) =:= 'P.Order' ->
+    'Inner'(O).
+'ViaKind'(B)
+    when
+        is_integer(B)
+        andalso
+        B >= 0
+        andalso
+        B =< 255 ->
+    'InnerB'(B).
+'Inner'(O) ->
+    map_get('Total', O).
+'InnerB'(X) when X > 100 ->
+    1;
+'InnerB'(_X) ->
+    0.
+BEAM_BYTES 1524
+######## v59b
+'ViaTag'(O) when map_get('Kind', O) =:= 'P.Order' ->
+    'Inner'(O).
+'ViaKind'(B)
+    when
+        is_integer(B)
+        andalso
+        B >= 0
+        andalso
+        B =< 255 ->
+    'InnerB'(B).
+'Inner'(O) when map_get('Kind', O) =:= 'P.Order' ->
+    map_get('Total', O).
+'InnerB'(X)
+    when
+        is_integer(X)
+        andalso
+        X =< 255
+        andalso
+        X > 100 ->
+    1;
+'InnerB'(X)
+    when
+        is_integer(X)
+        andalso
+        X >= 0
+        andalso
+        X =< 255 ->
+    0.
+BEAM_BYTES 1624

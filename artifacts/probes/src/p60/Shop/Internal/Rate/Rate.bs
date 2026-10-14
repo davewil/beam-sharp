@@ -1,0 +1,3 @@
+module Shop.Internal.Rate
+public int Rate(int n)
+Rate(n) -> n * 2

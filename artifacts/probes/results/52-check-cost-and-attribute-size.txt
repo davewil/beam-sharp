@@ -1,0 +1,11 @@
+lib_dir(crypto)        = "/usr/lib/erlang/lib/crypto-5.1.4.1"
+lib_dir(req)           = {error,bad_name}
+which(crypto)          = "/usr/lib/erlang/lib/crypto-5.1.4.1/ebin/crypto.beam"
+which('Elixir.Enum')   = "/usr/lib/elixir/lib/elixir/ebin/Elixir.Enum.beam"
+which('Elixir.Req')    = non_existing
+app of loaded module   = undefined
+code:lib_dir(crypto)  (app present)          5.08 us/call
+code:lib_dir(req)     (app absent)           2.70 us/call
+code:which(crypto)    (module present)       481.09 us/call
+code:which('Elixir.Req') (module absent)     836.76 us/call
+beam bytes: none 588 | -requires([req]) 632 (+44) | 3 apps 664 (+76)

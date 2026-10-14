@@ -1,0 +1,21 @@
+== bsc
+rt57/D/D.bs:3:1: error: this refinement is not a predicate the checker can read
+rt57/D/D.bs:3:1: error: this refinement is not a predicate the checker can read
+rt57/D/D.bs:3:1: error: this refinement is not a predicate the checker can read
+rt57/H/H.bs:3:1: error: Sign is not exhaustive
+  no clause matches:
+    Sign(n) -> ...
+== v57a
+100
+-100
+crashed: error:function_clause
+rt57/H/H.bs:3:1: error: Sign is not exhaustive
+  no clause matches:
+    Sign(-6) -> ...
+== v57b
+100
+-100
+crashed: error:function_clause
+rt57/H/H.bs:3:1: error: Sign is not exhaustive
+  no clause matches:
+    Sign(-6) -> ...

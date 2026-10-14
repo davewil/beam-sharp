@@ -1,0 +1,4 @@
+module Other
+using Shop.Internal.Rate
+public int Total(int n)
+Total(n) -> Rate(n) + 1

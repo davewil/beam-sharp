@@ -1,0 +1,17 @@
+module P
+
+record Order { Id: int, Total: int }
+type Byte = int where value >= 0 and value <= 255
+
+public int ViaTag(Order o)
+ViaTag(o) -> Inner(o)
+
+public int ViaKind(Byte b)
+ViaKind(b) -> InnerB(b)
+
+private int Inner(Order o)
+Inner(o) -> o.Total
+
+private int InnerB(Byte x)
+InnerB(x) when x > 100 -> 1
+InnerB(x) -> 0

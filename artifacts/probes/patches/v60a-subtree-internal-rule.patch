@@ -1,0 +1,30 @@
+--- a/bs_check.erl
++++ b/bs_check.erl
+@@ -486,8 +486,11 @@
+ %%   types: Name -> [Module], consumed by `imported_types/2`
+ %% The resolved path determines the import tier, not its spelling. Compilation
+ %% refuses unknown imports; `--api` skips them.
+-import_env(Decls, Self, World, Mode) ->
++import_env(Decls, Self, World0, Mode) ->
+     Imports = [{L, M} || {import, L, M} <- Decls],
++    %% PROTOTYPE (ticket 60, option subtree): a module with an `Internal`
++    %% segment may be named only from inside the subtree above that segment.
++    World = maps:filter(fun(M, _) -> may_name(Self, M) end, World0),
+     Known = maps:keys(World),
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+                 #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+@@ -5098,3 +5101,14 @@
+ 
+ setnth(1, [_ | T], V) -> [V | T];
+ setnth(N, [H | T], V) -> [H | setnth(N - 1, T, V)].
++
++
++may_name(Self, M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}      -> true;
++        {[], _}      -> true;
++        {Prefix, _}  ->
++            SelfSegs = string:split(atom_to_list(Self), ".", all),
++            lists:prefix(Prefix, SelfSegs)
++    end.

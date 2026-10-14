@@ -1,0 +1,1 @@
+filter over a 1001-module world: 10196.5 us per import_env (10.186 us per module)

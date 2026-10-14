@@ -1,0 +1,22 @@
+######## bsc
+-- Shop/Orders
+-- Other
+-- Other2
+-- Other3
+p60/Other3/Other3.bs:3:1: error: Shop.Internal.Rate is called but never imported
+  add `using Shop.Internal.Rate` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+######## v60a
+-- Shop/Orders
+-- Other
+p60/Other/Other.bs:2:1: error: `using Shop.Internal.Rate` names no module and no namespace
+  a module is a source file this invocation can reach; a namespace
+  is a path that other modules sit under. Neither matched.
+-- Other2
+p60/Other2/Other2.bs:4:1: error: Internal.Rate is called but never imported
+  add `using Internal.Rate` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+-- Other3
+p60/Other3/Other3.bs:3:1: error: Shop.Internal.Rate is called but never imported
+  add `using Shop.Internal.Rate` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.

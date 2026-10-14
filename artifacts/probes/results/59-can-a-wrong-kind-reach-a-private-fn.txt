@@ -1,0 +1,21 @@
+-- A
+p59c/A/A.bs:4:1: error: Take hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    term
+  the clause to add here:
+-- B
+p59c/B/B.bs:4:1: error: Take hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    { Id: _, Total: _ }
+  the clause to add here:
+-- C
+p59c/C/C.bs:5:1: error: Take hands Inner an argument it does not accept
+  argument 1 is not covered by Inner's declared type:
+    { Kind: :'C.Invoice' }
+  the clause to add here:
+-- D
+-- F
+p59c/F/F.bs:4:1: error: :erlang.binary_to_term returns `Order`, which one guard cannot decide
+  `Order` is a record, and Erlang cannot produce its `Kind`: the key is
+  minted by this compiler, so no value from outside carries it.
+  write its fields instead, `{ Id: int, Total: int }`, which a guard decides.

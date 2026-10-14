@@ -1,0 +1,21 @@
+module E
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+
+// a private function that escapes as a value
+private int Show(Order o)
+Show(o) -> o.Total
+
+public fn(Order) -> int Handler()
+Handler() -> Show
+
+private int Class(int n)
+Class(n) when n >= 9 -> 1
+Class(n) -> 0
+
+public fn(int) -> int Classifier()
+Classifier() -> Class
+
+public int Direct(Order o)
+Direct(o) -> Show(o)
