@@ -1,0 +1,8 @@
+G_RES Use(5) [expect 1]:
+1
+G_RES Use((:error,:x)) [collapse => 0]:
+0
+result<int, term>  int | {:error, term} == int?        false
+result<term, term> term | {:error, term} == term?      true
+Map.get(%{a: nil}, :a) == Map.get(%{}, :a)?            true
+Map.fetch distinguishes: {{:ok, nil}, :error}

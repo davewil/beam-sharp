@@ -1,0 +1,11 @@
+== G_RES: result<T,atom> generic at T=term, Use((:error,:x)) a PRESENT 2-tuple
+0
+== G_ATOM: option<T> generic at T=atom
+0
+== G_REC: generic record with option<T> field at T=term
+G_REC/m.bs:3:11: error: syntax error before: '<'
+== G_CTRL: control T=int
+1
+-- stock bsc rc/version:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
