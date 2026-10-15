@@ -1,0 +1,12 @@
+module HeadersOptTerm
+
+// The same program with V = term, as ticket 48 states the Req case. EXPECTED RED at the signature.
+using :maps {
+    (:ok, term) | :error find(term key, map<string, term> m)
+}
+
+private option<term> Header(string name, map<string, term> hs)
+Header(name, hs) -> :maps.find(name, hs) switch {
+    (:ok, v) => v,
+    :error   => :nothing
+}

@@ -1,0 +1,10 @@
+-- UNTAGGED  T | :nothing  equal to bare T?
+T=int  (control, expect false)            false
+T=atom                                    true
+T=term                                    true
+nest option<option<int>> == option<int>   true
+-- TAGGED  {:ok,T} | :absent  equal to bare T?
+T=int                                     false
+T=atom                                    false
+T=term                                    false
+nest found<found<int>> == found<int>      false

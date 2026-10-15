@@ -1,0 +1,30 @@
+module AssignsNaive
+
+using :maps {
+    map<term, term> from_list(list<(term, term)> pairs)
+    term get(term key, map<atom, term> m, term default)   // maps:get/3: absence is a sentinel VALUE
+}
+
+public map<term, term> Anon()
+Anon() -> :maps.from_list([])
+
+public map<term, term> LoggedOut()
+LoggedOut() -> :maps.from_list([(:user, :nothing)])
+
+public atom Who(map<term, term> raw)
+Who(raw) -> ValidateAs<map<atom, term>>(raw) switch {
+    (:error, e) => :not_assigns,
+    assigns     => Lookup(assigns)
+}
+
+private atom Lookup(map<atom, term> assigns)
+Lookup(assigns) -> :maps.get(:user, assigns, :nothing) switch {
+    :nothing => :no_assign_or_logged_out,
+    u        => :has_user
+}
+
+public atom RunAnon()
+RunAnon() -> Who(Anon())
+
+public atom RunLoggedOut()
+RunLoggedOut() -> Who(LoggedOut())

@@ -1,0 +1,29 @@
+module JsonA
+
+// A decoded jsonb document. JSON null decodes to the atom `null`, so `{"email": null}` and `{}` differ,
+// and an atom-valued entry is exactly what the collapse swallows.
+using :json {
+    term decode(binary text)
+}
+
+using :maps {
+    (:ok, term) | :error find(term key, map<string, term> m)
+}
+
+// "Did the client clear the email, leave it alone, or set it?"  Three outcomes, as a PATCH needs.
+public atom EmailChange(binary text)
+EmailChange(text) -> ValidateAs<map<string, term>>(:json.decode(text)) switch {
+    (:error, e) => :not_an_object,
+    doc         => Email(doc)
+}
+
+private atom Email(map<string, term> doc)
+Email(doc) -> :maps.find("email", doc) switch {
+    :error          => :leave_alone,
+    (:ok, :null)    => :clear,
+    (:ok, v)        => :set
+}
+
+public atom RunSet()     RunSet() -> EmailChange("{\"email\": \"a@b.c\"}")
+public atom RunNull()    RunNull() -> EmailChange("{\"email\": null}")
+public atom RunMissing() RunMissing() -> EmailChange("{}")

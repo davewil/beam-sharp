@@ -1,0 +1,44 @@
+== R1: user parametric alias at term
+R1/m.bs:5:20: error: `:nothing` is absorbed by `term`
+  in F
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+   rc=1
+== R2: generic Wrap<T> returning option<T>, caller instantiates T=term
+module R2
+int Use(term)
+option<T> Wrap<T>(T)
+   rc=0
+== R2b: same, caller instantiates T=int (control: expected ACCEPTED)
+module R2b
+int Use(int)
+option<T> Wrap<T>(T)
+   rc=0
+== R3: ticket's four signatures in one module
+R3/m.bs:9:27: error: `(:error, atom)` is absorbed by `term`
+  in FindR
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  The failure member already carries its tag, so tagging it again
+  repairs nothing: narrow the success type until it cannot hold an
+  `(:error, ...)` of its own.
+   rc=1
+== R3b: same module WITHOUT the two collapsing signatures (control)
+module R3b
+:absent | (:ok, atom | int | list<term>) FindF(int)
+:nothing | int FindI(int)
+   rc=0
+== R4: foreign signature returning option<term>
+R4/m.bs:4:18: error: `:nothing` is absorbed by `term`
+  in get
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+   rc=1
+== R5: control: tagged (:ok, term) | :absent
+module R5
+:absent | (:ok, term) Find(map<string, term>, string)
+   rc=0
+== R2 runtime: Wrap<T>(t) at T=term, then switch on :nothing (the intent: 'present, whose value is :nothing')
+0
+1

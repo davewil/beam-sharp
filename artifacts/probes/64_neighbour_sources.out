@@ -1,0 +1,27 @@
+## Erlang /nix/store/qlclzl3234h2jwjpvy2gs72vzq2g6wkw-erlang-28.5.0.7/lib/erlang/lib/stdlib-7.3.0.3/src/maps.erl
+138:-spec find(Key, Map) -> {ok, Value} | error when
+686:-spec get(Key, Map, Default) -> Value | Default when
+691:        #{Key := Value} -> Value;
+692:        #{} -> Default
+## Elixir /nix/store/pp8kbll8n2778kdm3b3bihjj3nnrrvh3-elixir-1.18.5/lib/elixir/lib/elixir/lib/map.ex
+298:  @spec fetch(map, key) :: {:ok, value} | :error
+299:  def fetch(map, key), do: :maps.find(key, map)
+317:  def fetch!(map, key) do
+496:        %{^key => value} -> [{key, value} | acc]
+526:  def get(map, key, default \\ nil) do
+528:      %{^key => value} ->
+564:      %{^key => value} ->
+675:      %{^key => value} ->
+845:      %{^key => value} ->
+
+## Gleam stdlib v0.62.0
+g/src/gleam/dict.gleam:150:pub fn get(from: Dict(k, v), get: k) -> Result(v, Nil)
+g/src/gleam/option.gleam:19:pub type Option(a) {
+41:map_get(Map, Key) ->
+42-    case maps:find(Key, Map) of
+43-        error -> {error, nil};
+44-        OkFound -> OkFound
+
+## Elm core 1.0.5 (source only)
+e/src/Dict.elm:94:get : comparable -> Dict comparable v -> Maybe v
+e/src/Maybe.elm:39:type Maybe a

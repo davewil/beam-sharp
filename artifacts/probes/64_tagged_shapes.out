@@ -1,0 +1,20 @@
+== S1: F31 hint spelling (:some, term) | :nothing
+module S1
+:nothing | (:some, term) Find(int)
+== S2: ticket 48 spelling (:ok, term) | :absent
+module S2
+:absent | (:ok, term) Find(int)
+== S3: OTP spelling (:ok, term) | :error
+module S3
+:error | (:ok, term) Find(int)
+== N1: nesting: Found<Found<int>> stays two levels (a map of maps)
+module N1
+:absent | (:ok, :absent | (:ok, int)) Deep(int)
+== G1: generic Found<T> Wrap<T>(T x) at T=term
+module G1
+int Use(term)
+Found<T> Wrap<T>(T)
+G1 runtime (tagged generic: a present :nothing must NOT read as absent -> expect 1):
+1
+R2 control (untagged generic, silent collapse -> 0):
+   see 64_silent_routes.sh R2 runtime

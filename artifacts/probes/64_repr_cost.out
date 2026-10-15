@@ -1,0 +1,18 @@
+erts_debug:size/1 is in WORDS (8 bytes each on this 64-bit VM); tbin = byte_size(term_to_binary(T)).
+OTP 28, word size 8
+value                        bare w {ok,V} w {just,V} |   bare B {ok,V} B {just,V}
+small int 42                      0        3        3 |        3        9       11
+bignum 2^70                       3        6        6 |       13       19       21
+atom                              0        3        3 |        8       14       16
+3-key map                        10       13       13 |       21       27       29
+40B binary (heap bin)             7       10       10 |       46       52       54
+1,000,000B binary (refc)          8       11       11 |  1000006  1000012  1000014
+
+flat_size (copy cost on send): int 42 bare=0 {ok,42}=3; 3-key map bare=10 {ok,M}=13
+
+1e6 lookups over a 1000-key int map (~9% misses), consumer sums hits; 21 runs, ms
+shape                                                           min   median checksum
+bare, lowered as maps:get(K,M,Default) (option<int> loweri     27.1     33.3 500499000
+bare, lowered as maps:find then unwrap to V | nothing          36.3     37.0 500499000
+tagged ok/error: maps:find -> {ok,V}|error, matched            36.3     44.5 500499000
+tagged {just,V}|nothing built from find, matched               36.4     46.6 500499000

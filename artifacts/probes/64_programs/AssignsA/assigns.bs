@@ -1,0 +1,36 @@
+module AssignsA
+
+// Plug-style assigns. Values are `term`: a middleware put them there.
+using :maps {
+    map<term, term> from_list(list<(term, term)> pairs)       // returns map<term,term>: a guard can decide that
+    (:ok, term) | :error find(term key, map<atom, term> m)     // maps:find/2, OTP's own shape
+}
+
+public map<term, term> Anon()
+Anon() -> :maps.from_list([])
+
+public map<term, term> LoggedOut()
+LoggedOut() -> :maps.from_list([(:user, :nothing)])
+
+public map<term, term> Ann()
+Ann() -> :maps.from_list([(:user, "ann")])
+
+// Three states a middleware chain really has: no assign / assigned-but-empty / assigned.
+public atom Who(map<term, term> raw)
+Who(raw) -> ValidateAs<map<atom, term>>(raw) switch {
+    (:error, e) => :not_assigns,
+    assigns     => Lookup(assigns)
+}
+
+private atom Lookup(map<atom, term> assigns)
+Lookup(assigns) -> :maps.find(:user, assigns) switch {
+    :error          => :no_assign,
+    (:ok, :nothing) => :explicitly_logged_out,
+    (:ok, u)        => :has_user
+}
+
+public atom RunAnon()
+RunAnon() -> Who(Anon())
+
+public atom RunLoggedOut()
+RunLoggedOut() -> Who(LoggedOut())

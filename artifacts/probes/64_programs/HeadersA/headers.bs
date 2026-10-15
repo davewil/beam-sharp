@@ -1,0 +1,21 @@
+module HeadersA
+
+// Req-style response headers. Modelled two ways, because the ticket says `term` and the value shape is
+// what decides whether anything collapses.
+using :maps {
+    map<term, term> from_list(list<(term, term)> pairs)
+    (:ok, term) | :error find(term key, map<string, term> m)
+}
+
+// (1) values are `term` (ticket 48's claim): option<term> is refused, so the tagged shape is spelled out.
+private atom ContentKind(map<string, term> hs)
+ContentKind(hs) -> :maps.find("content-type", hs) switch {
+    :error                 => :no_header,
+    (:ok, v)               => :has_header
+}
+
+public atom Run()
+Run() -> ValidateAs<map<string, term>>(:maps.from_list([("content-type", ["text/html"])])) switch {
+    (:error, e) => :invalid,
+    hs          => ContentKind(hs)
+}

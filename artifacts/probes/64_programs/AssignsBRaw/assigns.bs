@@ -1,0 +1,34 @@
+module AssignsBRaw
+
+// STAND-IN for a prelude `found<T>`: a user parametric alias (F31 amendment 2026-10-08 says these compile).
+type Found<T> = (:ok, T) | :absent
+
+using :maps {
+    map<term, term> from_list(list<(term, term)> pairs)
+    Found<term> find(term key, map<atom, term> m)
+}
+
+public map<term, term> Anon()
+Anon() -> :maps.from_list([])
+
+public map<term, term> LoggedOut()
+LoggedOut() -> :maps.from_list([(:user, :nothing)])
+
+public atom Who(map<term, term> raw)
+Who(raw) -> ValidateAs<map<atom, term>>(raw) switch {
+    (:error, e) => :not_assigns,
+    assigns     => Lookup(assigns)
+}
+
+private atom Lookup(map<atom, term> assigns)
+Lookup(assigns) -> :maps.find(:user, assigns) switch {
+    :absent         => :no_assign,
+    (:ok, :nothing) => :explicitly_logged_out,
+    (:ok, u)        => :has_user
+}
+
+public atom RunAnon()
+RunAnon() -> Who(Anon())
+
+public atom RunLoggedOut()
+RunLoggedOut() -> Who(LoggedOut())

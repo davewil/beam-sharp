@@ -1,0 +1,14 @@
+module BareWins
+
+// option<int> as shipped: the success is the bare int.
+private option<int> Find(list<(string, int)> xs, string key)
+Find([], key)                             -> :nothing
+Find([(k, v), ..rest], key) when k == key -> v
+Find([(k, v), ..rest], key)               -> Find(rest, key)
+
+private int OrZero(option<int> o)
+OrZero(:nothing) -> 0
+OrZero(n)        -> n
+
+public int Run()
+Run() -> OrZero(Find([("a", 1), ("b", 2)], "b")) + OrZero(Find([("a", 1)], "zz"))

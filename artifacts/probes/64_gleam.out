@@ -1,0 +1,18 @@
+
+stdlib dict.get declaration:
+150:pub fn get(from: Dict(k, v), get: k) -> Result(v, Nil)
+its erlang external:
+148:@external(erlang, "gleam_stdlib", "map_get")
+      Added gleam_stdlib v0.62.0
+warning: Unused variable
+   ┌─ proj/src/probe.gleam:10:13
+   │
+10 │     Ok(Some(n)) -> "present, Some"
+   │             ^ This variable is never used
+
+Hint: You can ignore it with an underscore: `_n`.
+
+get c  (no such key)         : absent
+get a  (stored None)          : present, value is None
+Dynamic: get k (stored nil)   : present, value is dynamic nil
+Dynamic: get zz (no such key) : absent

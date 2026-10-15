@@ -1,0 +1,30 @@
+module HeadersOpt
+
+// Req >= 0.4 style: header name -> LIST of values. V = list<term>, which does not contain :nothing.
+// So the untagged option<V> that 108 decided for Map.?Get is usable here with no tagging.
+using :maps {
+    map<term, term> from_list(list<(term, term)> pairs)
+    (:ok, list<term>) | :error find(term key, map<string, list<term>> m)
+}
+
+// What `Map.?Get` would lower to, hand-written: option<list<term>>
+private option<list<term>> Header(string name, map<string, list<term>> hs)
+Header(name, hs) -> :maps.find(name, hs) switch {
+    (:ok, vs) => vs,
+    :error    => :nothing
+}
+
+public atom Kind(map<term, term> raw)
+Kind(raw) -> ValidateAs<map<string, list<term>>>(raw) switch {
+    (:error, e) => :invalid,
+    hs          => Header("content-type", hs) switch {
+        :nothing => :no_header,
+        vs       => :has_header
+    }
+}
+
+public atom RunPresent()
+RunPresent() -> Kind(:maps.from_list([("content-type", ["text/html"])]))
+
+public atom RunAbsent()
+RunAbsent() -> Kind(:maps.from_list([("x-other", ["1"])]))

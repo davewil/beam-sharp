@@ -1,0 +1,14 @@
+module TaggedOption
+
+// The same program if option<T> were (:some, T) | :nothing (the ticket's "tag option<T> itself").
+private (:some, int) | :nothing Find(list<(string, int)> xs, string key)
+Find([], key)                             -> :nothing
+Find([(k, v), ..rest], key) when k == key -> (:some, v)
+Find([(k, v), ..rest], key)               -> Find(rest, key)
+
+private int OrZero((:some, int) | :nothing o)
+OrZero(:nothing)   -> 0
+OrZero((:some, n)) -> n
+
+public int Run()
+Run() -> OrZero(Find([("a", 1), ("b", 2)], "b")) + OrZero(Find([("a", 1)], "zz"))

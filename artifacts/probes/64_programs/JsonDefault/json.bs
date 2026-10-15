@@ -1,0 +1,28 @@
+module JsonDefault
+
+// Assertive-with-default: Map.Get(m, k, default). The default is a sentinel VALUE, not a type.
+using :json {
+    term decode(binary text)
+}
+
+using :maps {
+    term get(term key, map<string, term> m, term default)
+}
+
+public atom EmailChange(binary text)
+EmailChange(text) -> ValidateAs<map<string, term>>(:json.decode(text)) switch {
+    (:error, e) => :not_an_object,
+    doc         => Email(doc)
+}
+
+// :undefined cannot come out of a JSON decode (JSON's atoms are true, false, null), so it is a safe sentinel HERE.
+private atom Email(map<string, term> doc)
+Email(doc) -> :maps.get("email", doc, :undefined) switch {
+    :undefined   => :leave_alone,
+    :null        => :clear,
+    v            => :set
+}
+
+public atom RunSet()     RunSet() -> EmailChange("{\"email\": \"a@b.c\"}")
+public atom RunNull()    RunNull() -> EmailChange("{\"email\": null}")
+public atom RunMissing() RunMissing() -> EmailChange("{}")

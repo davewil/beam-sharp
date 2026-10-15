@@ -1,0 +1,34 @@
+module JsonB
+
+type Found<T> = (:ok, T) | :absent       // stand-in for a prelude name
+
+using :json {
+    term decode(binary text)
+}
+
+using :maps {
+    (:ok, term) | :error find(term key, map<string, term> m)
+}
+
+private Found<term> Fetch(string key, map<string, term> m)
+Fetch(key, m) -> :maps.find(key, m) switch {
+    (:ok, v) => (:ok, v),
+    :error   => :absent
+}
+
+public atom EmailChange(binary text)
+EmailChange(text) -> ValidateAs<map<string, term>>(:json.decode(text)) switch {
+    (:error, e) => :not_an_object,
+    doc         => Email(doc)
+}
+
+private atom Email(map<string, term> doc)
+Email(doc) -> Fetch("email", doc) switch {
+    :absent      => :leave_alone,
+    (:ok, :null) => :clear,
+    (:ok, v)     => :set
+}
+
+public atom RunSet()     RunSet() -> EmailChange("{\"email\": \"a@b.c\"}")
+public atom RunNull()    RunNull() -> EmailChange("{\"email\": null}")
+public atom RunMissing() RunMissing() -> EmailChange("{}")

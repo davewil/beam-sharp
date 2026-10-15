@@ -1,0 +1,28 @@
+AssignsA       RunAnon        :no_assign
+AssignsB       RunAnon        :no_assign
+AssignsBRaw    RunAnon        crashed: case_clause :error
+AssignsNaive   RunAnon        :no_assign_or_logged_out
+AssignsA       RunLoggedOut   :explicitly_logged_out
+AssignsB       RunLoggedOut   :explicitly_logged_out
+AssignsBRaw    RunLoggedOut   :explicitly_logged_out
+AssignsNaive   RunLoggedOut   :no_assign_or_logged_out
+JsonA          RunSet         :set
+JsonB          RunSet         :set
+JsonDefault    RunSet         :set
+JsonA          RunNull        :clear
+JsonB          RunNull        :clear
+JsonDefault    RunNull        :clear
+JsonA          RunMissing     :leave_alone
+JsonB          RunMissing     :leave_alone
+JsonDefault    RunMissing     :leave_alone
+HeadersA       Run            :has_header
+HeadersOpt     RunPresent     :has_header
+HeadersOpt     RunAbsent      :no_header
+-- HeadersOptTerm (expected red):
+HeadersOptTerm/headers.bs:8:22: error: `:nothing` is absorbed by `term`
+  in Header
+  the failure channel does not survive normalisation, so the type
+-- bare-success wins: same program, option<int> vs (:some,int)|:nothing (expect both 2; note the extra wrapper tokens)
+BareWins       Run            2
+TaggedOption   Run            2
+success-path wrapper expressions: bare=0 tagged=1 ; clause-head wrapper patterns: bare=0 tagged=1
