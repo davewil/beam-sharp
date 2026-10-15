@@ -1,0 +1,54 @@
+x-5                            stock  accepted run: 5
+x-5                            gramA  accepted run: 5
+x - 5                          stock  accepted run: 5
+x - 5                          gramA  accepted run: 5
+x -5                           stock  accepted run: 5
+x -5                           gramA  accepted run: 5
+5 - 3                          stock  accepted run: 2
+5 - 3                          gramA  accepted run: 2
+n -1 callpublic int F(int n)
+F(n) -> n -1 stock  REFUSED L2 syntax error before: 
+n -1 callpublic int F(int n)
+F(n) -> n -1 gramA  REFUSED L2 syntax error before: 
+a - -5                         stock  accepted run: 15
+a - -5                         gramA  accepted run: 15
+- -5                           stock  accepted run: 5
+- -5                           gramA  accepted run: 5
+-(5)                           stock  accepted run: -5
+-(5)                           gramA  accepted run: -5
+-(-5)                          stock  accepted run: 5
+-(-5)                          gramA  accepted run: 5
+-0                             stock  accepted run: 0
+-0                             gramA  accepted run: 0
+-9223372036854775808           stock  accepted run: -9223372036854775808
+-9223372036854775808           gramA  accepted run: -9223372036854775808
+-9223372036854775809           stock  accepted run: -9223372036854775809
+-9223372036854775809           gramA  accepted run: -9223372036854775809
+-99999999999999999999999       stock  accepted run: -99999999999999999999999
+-99999999999999999999999       gramA  accepted run: -99999999999999999999999
+-5.0 float                     stock  accepted run: -5.0
+-5.0 float                     gramA  accepted run: -5.0
+-5 as float (int->float?)      stock  REFUSED L3 F returns a value its signature does not declare
+-5 as float (int->float?)      gramA  REFUSED L3 F returns a value its signature does not declare
+5 - -3.0                       stock  accepted run: 8.0
+5 - -3.0                       gramA  accepted run: 8.0
+-2 * 3                         stock  accepted run: -6
+-2 * 3                         gramA  accepted run: -6
+-2 + 3                         stock  accepted run: 1
+-2 + 3                         gramA  accepted run: 1
+2 - 3 - 4                      stock  accepted run: -5
+2 - 3 - 4                      gramA  accepted run: -5
+-7 / 2                         stock  accepted run: -3
+-7 / 2                         gramA  accepted run: -3
+n / -1                         stock  accepted run: -8
+n / -1                         gramA  accepted run: -8
+n / -0                         stock  accepted run: crashed: error:badarith
+n / -0                         gramA  REFUSED L3 the right-hand side of `/` in F is always zero
+n / (0-0)                      stock  accepted run: crashed: error:badarith
+n / (0-0)                      gramA  accepted run: crashed: error:badarith
+n / 0                          stock  REFUSED L3 the right-hand side of `/` in F is always zero
+n / 0                          gramA  REFUSED L3 the right-hand side of `/` in F is always zero
+n % -0                         stock  accepted run: crashed: error:badarith
+n % -0                         gramA  REFUSED L3 the right-hand side of `%` in F is always zero
+-5 |> abs                      stock  REFUSED L4 syntax error before: int
+-5 |> abs                      gramA  REFUSED L4 syntax error before: int

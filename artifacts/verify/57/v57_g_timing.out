@@ -1,0 +1,26 @@
+CLI wall ms, n=15 interleaved: min / median
+stock   350 / 384
+stock2  381 / 403
+gramA   356 / 406
+gramB   339 / 395
+gramC   348 / 409
+chk     344 / 393
+in-VM lex+parse n=2000, check n=500 (3 repeats; min/median us)
+r1 stock  lex+parse n=2000 min=80us median=112us | check n=500 min=1578us median=1880us
+r1 stock  lex+parse n=2000 min=100us median=163us | check n=500 min=1260us median=1731us
+r1 gramA  lex+parse n=2000 min=102us median=132us | check n=500 min=1280us median=1448us
+r1 gramB  lex+parse n=2000 min=94us median=115us | check n=500 min=1232us median=1566us
+r1 gramC  lex+parse n=2000 min=80us median=108us | check n=500 min=1218us median=1284us
+r1 chk    lex+parse n=2000 min=78us median=105us | check n=500 min=1204us median=1574us
+r2 stock  lex+parse n=2000 min=82us median=104us | check n=500 min=1215us median=1346us
+r2 stock  lex+parse n=2000 min=100us median=136us | check n=500 min=1242us median=1610us
+r2 gramA  lex+parse n=2000 min=105us median=137us | check n=500 min=1224us median=1580us
+r2 gramB  lex+parse n=2000 min=93us median=113us | check n=500 min=1482us median=1615us
+r2 gramC  lex+parse n=2000 min=93us median=114us | check n=500 min=1225us median=1594us
+r2 chk    lex+parse n=2000 min=85us median=132us | check n=500 min=1229us median=1598us
+r3 stock  lex+parse n=2000 min=101us median=135us | check n=500 min=1220us median=1524us
+r3 stock  lex+parse n=2000 min=84us median=133us | check n=500 min=1211us median=1278us
+r3 gramA  lex+parse n=2000 min=84us median=116us | check n=500 min=1226us median=1407us
+r3 gramB  lex+parse n=2000 min=77us median=96us | check n=500 min=1218us median=1608us
+r3 gramC  lex+parse n=2000 min=79us median=96us | check n=500 min=1306us median=1573us
+r3 chk    lex+parse n=2000 min=89us median=125us | check n=500 min=1227us median=1590us

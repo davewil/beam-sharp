@@ -1,0 +1,18 @@
+match lhs (n, -5) = p          stock  REFUSED L4 n is introduced here, and a bare `=` matches rather than introduces -- write `var n = ...`
+match lhs (n, -5) = p          gramA  REFUSED L4 n is introduced here, and a bare `=` matches rather than introduces -- write `var n = ...`
+match lhs (n, 5) = p (ctl)     stock  REFUSED L4 n is introduced here, and a bare `=` matches rather than introduces -- write `var n = ...`
+match lhs (n, 5) = p (ctl)     gramA  REFUSED L4 n is introduced here, and a bare `=` matches rather than introduces -- write `var n = ...`
+match lhs -5 = n               stock  REFUSED L4 the left of a bare `=` must be a literal pattern. To introduce a name, write `var <pattern> = ...`
+match lhs -5 = n               gramA  REFUSED L4 this bind in F can fail
+match lhs 5 = n (ctl)          stock  REFUSED L4 this bind in F can fail
+match lhs 5 = n (ctl)          gramA  REFUSED L4 this bind in F can fail
+lambda body -5                 stock  REFUSED L3 syntax error before: 
+lambda body -5                 gramA  REFUSED L3 syntax error before: 
+switch arm -5                  stock  accepted run: :m
+switch arm -5                  gramA  accepted run: :m
+bin seg -5                     stock  accepted
+bin seg -5                     gramA  accepted
+interp $"{-5}"                 stock  accepted run: "v=-5"
+interp $"{-5}"                 gramA  accepted run: "v=-5"
+-5 with e_neg of call          stock  REFUSED L4 syntax error before: '->'
+-5 with e_neg of call          gramA  REFUSED L4 syntax error before: '->'

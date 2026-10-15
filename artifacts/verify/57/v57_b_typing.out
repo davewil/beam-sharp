@@ -1,0 +1,70 @@
+bind -1 then sum               stock  REFUSED L4 k is introduced here, and a bare `=` matches rather than introduces -- write `var k = ...`
+bind -1 then sum               gramA  REFUSED L4 k is introduced here, and a bare `=` matches rather than introduces -- write `var k = ...`
+if/else -1 | 1                 stock  accepted run: -1
+if/else -1 | 1                 gramA  accepted run: -1
+tuple with -1                  stock  accepted run: (:ok, -1)
+tuple with -1                  gramA  accepted run: (:ok, -1)
+list of negs                   stock  REFUSED L4 syntax error before: int
+list of negs                   gramA  REFUSED L4 syntax error before: int
+-1 vs 1 return refined         stock  REFUSED L2 this refinement is not a predicate the checker can read
+-1 vs 1 return refined         gramA  accepted run: 1
+-1 return refined(stock?)      stock  REFUSED L4 F returns a value its signature does not declare
+-1 return refined(stock?)      gramA  accepted run: -1
+return -1 as pos               stock  REFUSED L4 F returns a value its signature does not declare
+return -1 as pos               gramA  REFUSED L4 F returns a value its signature does not declare
+return 5 as pos (ctl)          stock  accepted run: 5
+return 5 as pos (ctl)          gramA  accepted run: 5
+arg -1 to Nonneg               stock  REFUSED L6 G hands F an argument it does not accept
+arg -1 to Nonneg               gramA  REFUSED L6 G hands F an argument it does not accept
+arg -1 to int param            stock  accepted run: -1
+arg -1 to int param            gramA  accepted run: -1
+arg 5 to Nonneg (ctl)          stock  accepted run: 5
+arg 5 to Nonneg (ctl)          gramA  accepted run: 5
+arg -1 to !=0 NZ               stock  REFUSED L6 G hands F an argument it does not accept
+arg -1 to !=0 NZ               gramA  accepted run: -1
+arg 0 to NZ (ctl)              stock  REFUSED L6 G hands F an argument it does not accept
+arg 0 to NZ (ctl)              gramA  REFUSED L6 G hands F an argument it does not accept
+guard n == -3                  stock  accepted run: :a
+guard n == -3                  gramA  accepted run: :a
+guard n != -3 exh              stock  REFUSED L2 F is not exhaustive
+guard n != -3 exh              gramA  accepted run: :b
+guard -5<=n<=5                 stock  accepted run: :a
+guard -5<=n<=5                 gramA  accepted run: :a
+pattern range -5               stock  accepted run: :b
+pattern range -5               gramA  accepted run: :b
+pattern lit -5                 stock  accepted run: :a
+pattern lit -5                 gramA  accepted run: :a
+case -5 literal switch         stock  REFUSED L3 `-` in F has `:a | :b` as its operand
+case -5 literal switch         gramA  REFUSED L3 `-` in F has `:a | :b` as its operand
+x = -5; x switch               stock  REFUSED L4 x is introduced here, and a bare `=` matches rather than introduces -- write `var x = ...`
+x = -5; x switch               gramA  REFUSED L4 x is introduced here, and a bare `=` matches rather than introduces -- write `var x = ...`
+-5 literal switch no catchall  stock  REFUSED L3 `-` in F has `:neg | :nn` as its operand
+-5 literal switch no catchall  gramA  REFUSED L3 `-` in F has `:neg | :nn` as its operand
+record where -5                stock  REFUSED L2 syntax error before: int
+record where -5                gramA  REFUSED L2 syntax error before: int
+record field type alias        stock  REFUSED L3 syntax error before: 'Temp'
+record field type alias        gramA  REFUSED L3 syntax error before: 'Temp'
+unary of var                   stock  accepted run: -3
+unary of var                   gramA  accepted run: -3
+float where >= -5.0            stock  REFUSED L2 this refinement is not a predicate the checker can read
+float where >= -5.0            gramA  REFUSED L2 this refinement is not a predicate the checker can read
+type >= - 5 (space)            stock  REFUSED L2 this refinement is not a predicate the checker can read
+type >= - 5 (space)            gramA  accepted run: :a
+type >= -(5)                   stock  REFUSED L2 this refinement is not a predicate the checker can read
+type >= -(5)                   gramA  accepted run: :a
+type >= - -5                   stock  REFUSED L2 this refinement is not a predicate the checker can read
+type >= - -5                   gramA  accepted run: :a
+type -5 <= value               stock  REFUSED L2 this refinement is not a predicate the checker can read
+type -5 <= value               gramA  accepted run: :a
+type >=-5 nospace              stock  REFUSED L2 this refinement is not a predicate the checker can read
+type >=-5 nospace              gramA  accepted run: :a
+type value >= -5 + 10          stock  REFUSED L2 this refinement is not a predicate the checker can read
+type value >= -5 + 10          gramA  REFUSED L2 this refinement is not a predicate the checker can read
+type -0                        stock  REFUSED L2 this refinement is not a predicate the checker can read
+type -0                        gramA  accepted run: crashed: error:function_clause
+type huge                      stock  REFUSED L2 this refinement is not a predicate the checker can read
+type huge                      gramA  accepted run: :a
+type >=-5 and <=-10            stock  REFUSED L2 this refinement is not a predicate the checker can read
+type >=-5 and <=-10            gramA  REFUSED L2 this refinement admits no values at all
+type -5..?                     stock  REFUSED L2 this refinement is not a predicate the checker can read
+type -5..?                     gramA  REFUSED 

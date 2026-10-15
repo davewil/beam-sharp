@@ -1,0 +1,36 @@
+record field alias -5          stock  REFUSED L2 this refinement is not a predicate the checker can read
+record field alias -5          gramA  accepted run: bsc: F takes 1 argument(s), got 0
+record field inline where      stock  REFUSED L2 syntax error before: where
+record field inline where      gramA  REFUSED L2 syntax error before: where
+record ctor -6 into T          stock  REFUSED L5 syntax error before: ':'
+record ctor -6 into T          gramA  REFUSED L5 syntax error before: ':'
+record ctor -5 into T          stock  REFUSED L5 syntax error before: ':'
+record ctor -5 into T          gramA  REFUSED L5 syntax error before: ':'
+(-5) switch ranges             stock  accepted run: :neg
+(-5) switch ranges             gramA  accepted run: :neg
+var k=-1; sum                  stock  accepted run: 4
+var k=-1; sum                  gramA  accepted run: 4
+var k=-1 to NZ                 stock  REFUSED L8 F hands G an argument it does not accept
+var k=-1 to NZ                 gramA  accepted run: -1
+clause head -5 literal arg     stock  accepted run: :a
+clause head -5 literal arg     gramA  accepted run: :a
+-5 in list/tuple pat           stock  accepted run: :a
+-5 in list/tuple pat           gramA  accepted run: :a
+float: -5.0 vs 0-5.0           stock  accepted run: -0.0
+float: -5.0 vs 0-5.0           gramA  accepted run: -0.0
+int*float neg                  stock  accepted run: -3.0
+int*float neg                  gramA  accepted run: -3.0
+x - -5.0 float                 stock  accepted run: 6.5
+x - -5.0 float                 gramA  accepted run: 6.5
+-x - -5 (var,int)              stock  accepted run: 3
+-x - -5 (var,int)              gramA  accepted run: 3
+int where range + guard -5     stock  REFUSED L2 this refinement is not a predicate the checker can read
+int where range + guard -5     gramA  accepted run: :a
+T>=-5, F(<= -6) dead clause?   stock  REFUSED L2 this refinement is not a predicate the checker can read
+T>=-5, F(<= -6) dead clause?   gramA  accepted run: :a
+T>=-5, F(-5),F(>=-4) exh       stock  REFUSED L2 this refinement is not a predicate the checker can read
+T>=-5, F(-5),F(>=-4) exh       gramA  accepted run: :x
+T>=-5, F(>=-4) only (residual) stock  REFUSED L2 this refinement is not a predicate the checker can read
+T>=-5, F(>=-4) only (residual) gramA  REFUSED L3 F is not exhaustive
+T>=-5, F(>=-5)                 stock  REFUSED L2 this refinement is not a predicate the checker can read
+T>=-5, F(>=-5)                 gramA  accepted run: :a

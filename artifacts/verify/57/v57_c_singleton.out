@@ -1,0 +1,18 @@
+T: value >= 0 and value <= 0   stock  REFUSED 
+T: value >= 0 and value <= 0   gramA  REFUSED 
+T: value > 4 and value < 6     stock  REFUSED 
+T: value > 4 and value < 6     gramA  REFUSED 
+T: value >= 5 and value <= 5   stock  REFUSED 
+T: value >= 5 and value <= 5   gramA  REFUSED 
+T: value > -1 and value < 1    stock  REFUSED L2 this refinement is not a predicate the checker can read
+T: value > -1 and value < 1    gramA  REFUSED 
+T: value >= -5 and value <= -5 stock  REFUSED L2 this refinement is not a predicate the checker can read
+T: value >= -5 and value <= -5 gramA  REFUSED 
+T: value == 0                  stock  REFUSED 
+T: value == 0                  gramA  REFUSED 
+T: value == 5                  stock  REFUSED 
+T: value == 5                  gramA  REFUSED 
+T: value == -3                 stock  REFUSED L2 this refinement is not a predicate the checker can read
+T: value == -3                 gramA  REFUSED 
+T: value >= -3 and value <= -3 stock  REFUSED L2 this refinement is not a predicate the checker can read
+T: value >= -3 and value <= -3 gramA  REFUSED 

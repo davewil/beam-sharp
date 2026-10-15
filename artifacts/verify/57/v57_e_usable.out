@@ -1,0 +1,20 @@
+use: value >= -5               stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value >= -5               gramA  accepted run: :a
+use: value >= -5 and value <= 5 stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value >= -5 and value <= 5 gramA  accepted run: :a
+use: value >= 1 or value <= -1 stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value >= 1 or value <= -1 gramA  accepted run: :a
+use: value > -1                stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value > -1                gramA  accepted run: crashed: error:function_clause
+use: value == -3               stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value == -3               gramA  REFUSED 
+use: value != -3               stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value != -3               gramA  accepted run: crashed: error:function_clause
+use: value >= - 5              stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value >= - 5              gramA  accepted run: :a
+use: value >= -0               stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value >= -0               gramA  accepted run: crashed: error:function_clause
+use: value >= -100 and value <= 100 stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: value >= -100 and value <= 100 gramA  accepted run: :a
+use: -5 <= value               stock  REFUSED L2 this refinement is not a predicate the checker can read
+use: -5 <= value               gramA  accepted run: :a
