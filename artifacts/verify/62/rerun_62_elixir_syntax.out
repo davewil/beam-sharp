@@ -1,0 +1,40 @@
+elixir: Elixir 1.18.5 (compiled with Erlang/OTP 28)
+exports of :Shop: [[{bs@type_atoms,0},
+  {'Which',1},
+  {'Amount',1},
+  {'New',1},
+  {'Pay',1},
+  {'Band',1},
+  {'Total',1},
+  {'Squared',1},
+  {'Bump',1},
+  {module_info,0},
+  {module_info,1}]]
+:Shop.New(1)                                        SYNTAX_ERROR -
+:"BSharp.Shop".New(1)                               SYNTAX_ERROR -
+:"Elixir.Shop".New(1)                               SYNTAX_ERROR -
+:"Shop.Reports".Totals(1)                           SYNTAX_ERROR -
+:"BSharp.Shop".new(1)                               parses       raised UndefinedFunctionError function :"BSharp.Shop".new/1 is undefined (module :"BSharp.Shop" is n
+apply(:Shop, :New, [1])                             parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+Kernel.apply(:Shop, :New, [1])                      parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+(&:Shop.New/1).(1)                                  SYNTAX_ERROR -
+:Shop."New"(1)                                      parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+:Shop.'New'(1)                                      parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+:"Shop"."New"(1)                                    parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+:"Shop.Reports"."Totals"(1)                         parses       raised UndefinedFunctionError function :"Shop.Reports"."Totals"/1 is undefined or private
+(&:Shop."New"/1).(1)                                parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+1 |> :Shop."New"()                                  parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+m = :Shop; m."New"(1)                               parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+m = :Shop; m.New(1)                                 SYNTAX_ERROR -
+n = :New; apply(:Shop, n, [1])                      parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+error: invalid call :Shop.unquote(String.to_atom(n))(1)
+\x{2514}\x{2500} nofile:1
+
+n = "New"; :Shop.unquote(String.to_atom(n))(1)      parses       raised CompileError nofile: cannot compile file (errors have been logged)
+Module.concat([:Shop]) |> then(& &1)                parses       ok -> Shop
+:erlang.apply(:Shop, :New, [1])                     parses       ok -> %{Kind: :"Shop.Order", Total: 0, Id: 1}
+:"Shop.Reports".Restate(3)                          SYNTAX_ERROR -
+:"Shop.Reports"."Restate"(3)                        parses       ok -> 9
+:Shop.new(1)                                        parses       raised UndefinedFunctionError function :Shop.new/1 is undefined or private
+:Shop."Nope"(1)                                     parses       raised UndefinedFunctionError function :Shop."Nope"/1 is undefined or private
+macro unquote wrapper Dyn.call_new(1) -> %{Kind: :"Shop.Order", Total: 0, Id: 1}

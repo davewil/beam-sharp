@@ -1,0 +1,35 @@
+:Shop."New"(1)                                   => :Shop."New"(1)                           same-AST
+      quoted: {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+1 |> :Shop."New"() |> :Shop."Pay"()              => 1 |> :Shop."New"() |> :Shop."Pay"()      same-AST
+      quoted: {:|>, [line: 1], [{:|>, [line: 1], [1, {{:., [line: 1], [:Shop, :New]}, [line: 1], []}]}, {{:., [line: 1], [:Shop, :Pay]}, [line: 1], []}]}
+&:Shop."New"/1                                   => &:Shop."New"/1                           same-AST
+      quoted: {:&, [line: 1], [{:/, [line: 1], [{{:., [line: 1], [:Shop, :New]}, [no_parens: true, line: 1], []}, 1]}]}
+:Shop.'New'(1)                                   => :Shop."New"(1)                           same-AST
+      quoted: {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+x = :Shop."New"(1)                               => x = :Shop."New"(1)                       same-AST
+      quoted: {:=, [line: 1], [{:x, [line: 1], nil}, {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}]}
+:Shop. "New"(1)                                  => :Shop."New"(1)                           same-AST
+      quoted: {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+:"Shop"."New"(1)                                 => :Shop."New"(1)                           same-AST
+      quoted: {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+:Shop."New" (1)                                  => :Shop."New"(1)                           same-AST
+      quoted: {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+:Shop."New"                                      => :Shop."New"()                            same-AST
+      quoted: {{:., [line: 1], [:Shop, :New]}, [no_parens: true, line: 1], []}
+m = :Shop; m."New"(1, 2)                         => m = :Shop
+m."New"(1, 2)                  same-AST
+      quoted: {:__block__, [], [{:=, [line: 1], [{:m, [line: 1], nil}, :Shop]}, {{:., [line: 1], [{:m, [line: 1], nil}, :New]}, [line: 1], [1, 2]}]}
+:Shop."New"(1) |> then(&:Shop."Pay"/1)           => :Shop."New"(1) |> then(&:Shop."Pay"/1)   same-AST
+      quoted: {:|>, [line: 1], [{{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}, {:then, [line: 1], [{:&, [line: 1], [{:/, [line: 1], [{{:., [line: 1], [:Shop, :Pay]}, [no_parens: true, line: 1], []}, 1]}]}]}]}
+-- Macro.to_string
+:Shop."New"(1)
+:Shop."New"(1)
+-- invalid forms
+{:error,
+ {[line: 1, column: 10],
+  "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ",
+  "("}}
+{:error,
+ {[line: 1, column: 7],
+  "atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error before: ",
+  "'.'"}}

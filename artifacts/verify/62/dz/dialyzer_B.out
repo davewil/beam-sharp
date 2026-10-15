@@ -1,0 +1,10 @@
+Unknown functions:
+  'Elixir.Enum':map/2 (lib/mixproj.ex:4:21)
+  'Shop':'Amount'/1 (lib/mixproj.ex:3:50)
+  'Shop':'New'/1 (dz/Bad.ex:5:25)
+  'Shop':'New'/1 (lib/mixproj.ex:2:24)
+  'Shop':'New'/2 (dz/Bad.ex:3:28)
+  'Shop':'Nwe'/1 (dz/Bad.ex:2:27)
+  'Shop':'Pay'/1 (lib/mixproj.ex:3:33)
+ done in 0m0.12s
+done (warnings were emitted)

@@ -1,0 +1,17 @@
+stock:   Failed: 5.  Skipped: 0.  Passed: 1443.
+proto:   Failed: 13.  Skipped: 0.  Passed: 1435.
+--- failing ONLY under the alias patch ---
+bindings_tests: an_unused_binding_compiles_without_a_warning_test
+heads_tests: four_clauses_become_four_clause_heads_test
+intervals_tests: an_interval_pattern_lowers_to_a_variable_and_a_guard_test
+otp_tests: a_callback_of_another_behaviour_is_untouched_test
+otp_tests: without_a_behaviour_the_name_is_untouched_test
+visibility_tests: a_private_function_is_not_exported_test
+visibility_tests: an_unmarked_signature_is_not_exported_test
+visibility_tests: two_arities_of_one_name_may_differ_in_visibility_test
+--- failing in both (environment, not charged to the patch) ---
+body_check_tests: every_aoc_program_still_compiles_test
+cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each
+diagnostic_json_tests: a_path_is_utf8_on_the_wire_test
+diagnostic_term_tests: the_diagnostics_gate_passes_test
+non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test

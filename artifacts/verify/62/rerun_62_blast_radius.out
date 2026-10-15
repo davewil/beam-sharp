@@ -1,0 +1,8 @@
+control: Awk fixture (7 public fns, 7 clause heads) -> (1, [7, 0, 7])
+tree                               files  public  private clause heads
+compiler/examples/*.bs                75     115       60          359
+aoc/*.bs                               3       7       13           38
+handoff/*.bs                          25      29        0           31
+wayfinder/prototypes/*.bs             45      72       14          144
+LANGUAGE.md                            -     154       16          271   (fenced blocks only)
+TOUR.md                                -      62       17          128   (fenced blocks only)

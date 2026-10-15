@@ -1,0 +1,15 @@
+Bad.ex:2:27: Call to missing or unexported function 'Shop':'Nwe'/1
+Bad.ex:3:28: Call to missing or unexported function 'Shop':'New'/2
+Bad.ex:4:7: Function wrongtype/0 has no local return
+Bad.ex:4:30: The call 'Shop':'New'
+         (<<110,111,116,32,97,110,32,105,110,116>>) will never return since the success typing is 
+         (integer()) -> 
+          #{'Id' := integer(), 'Kind' := 'Shop.Order', 'Total' := 0} and the contract is 
+          (integer()) ->
+             #{'Id' := integer(),
+               'Kind' := 'Shop.Order',
+               'Total' := integer()}
+Unknown functions:
+  'Elixir.Enum':map/2 (lib/mixproj.ex:4:21)
+ done in 0m0.13s
+done (warnings were emitted)

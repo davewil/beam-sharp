@@ -1,0 +1,10 @@
+error: invalid alias: "o.Total". If you wanted to define an alias, an alias must expand to an atom at compile time but it did not, you may use Module.concat/2 to build it at runtime. If instead you wanted to invoke a function or access a field, wrap the function or field name in double quotes
+\x{2514}\x{2500} nofile:1
+
+o.Total                                        CompileError: nofile: cannot compile file (errors have been logged)
+o."Total"                                      ok -> 0
+o[:Total]                                      ok -> 0
+%{Total: t} = o; t                             ok -> 0
+Map.fetch!(o, :Total)                          ok -> 0
+import :Shop, only: [{:New, 1}]; New(1)        SyntaxError: invalid syntax found on nofile:1:37:     error: unexpected (
+import :Shop, only: [{:New, 1}]; "New"(1)      SyntaxError: invalid syntax found on nofile:1:39:     error: syntax error

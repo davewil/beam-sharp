@@ -1,0 +1,15 @@
+direct  n=7 x 10000000 calls  min=49.1 ms  median=50.3 ms  (4.91 ns/call at min)
+alias   n=7 x 10000000 calls  min=54.6 ms  median=60.2 ms  (5.46 ns/call at min)
+dup     n=7 x 10000000 calls  min=54.0 ms  median=54.3 ms  (5.40 ns/call at min)
+empty   n=7 x 10000000 calls  min=13.8 ms  median=14.0 ms  (1.38 ns/call at min)
+
+direct  n=7 x 10000000 calls  min=49.3 ms  median=52.6 ms  (4.93 ns/call at min)
+alias   n=7 x 10000000 calls  min=44.8 ms  median=54.7 ms  (4.48 ns/call at min)
+dup     n=7 x 10000000 calls  min=41.4 ms  median=41.6 ms  (4.14 ns/call at min)
+empty   n=7 x 10000000 calls  min=11.5 ms  median=11.9 ms  (1.15 ns/call at min)
+
+direct  n=7 x 10000000 calls  min=50.4 ms  median=53.2 ms  (5.04 ns/call at min)
+alias   n=7 x 10000000 calls  min=54.1 ms  median=57.7 ms  (5.41 ns/call at min)
+dup     n=7 x 10000000 calls  min=54.7 ms  median=58.2 ms  (5.47 ns/call at min)
+empty   n=7 x 10000000 calls  min=14.0 ms  median=14.3 ms  (1.40 ns/call at min)
+

@@ -1,0 +1,5 @@
+s: ['GetOrder','GetURL2','HTTPGet','New','Plain','ToJSON','X2Y',bs@type_atoms,
+    module_info,module_info]
+p: ['GetOrder','GetURL2','HTTPGet','New','Plain','ToJSON','X2Y',bs@type_atoms,
+    get_order,get_url2,http_get,module_info,module_info,new,plain,to_json,
+    x2_y]
