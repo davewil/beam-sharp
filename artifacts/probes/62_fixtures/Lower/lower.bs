@@ -1,0 +1,4 @@
+module Lower
+
+public int new(int id)
+new(id) -> id

@@ -1,0 +1,57 @@
+=== A. derived names and collisions (patched compiler) ===
+  Coll stderr: bs_alias_collision: get_url/1 from 'GetUrl'
+  Coll stderr: bs_alias_collision: get_url/1 from 'GetURL'
+  Coll stderr: bs_alias_collision: get_url/1 from 'Get_Url'
+  Coll stderr: bs_alias_collision: module_info/1 from 'ModuleInfo'
+  Awk exports : [{'GetOrder',2},
+                 {'GetURL2',1},
+                 {'HTTPGet',1},
+                 {'New',1},
+                 {'Plain',1},
+                 {'ToJSON',1},
+                 {'X2Y',1},
+                 {get_order,2},
+                 {get_url2,1},
+                 {http_get,1},
+                 {new,1},
+                 {plain,1},
+                 {to_json,1},
+                 {x2_y,1}]
+  Coll exports: [{'Fine',1},
+                 {'GetURL',1},
+                 {'GetUrl',1},
+                 {'Get_Url',1},
+                 {'ModuleInfo',1},
+                 {fine,1}]
+  stock compiler on Lower (lowercase fn name written in B#):
+    /home/user/beam-sharp/artifacts/probes/62_fixtures/Lower/lower.bs:3:12: error: syntax error before: new
+
+=== B. callers ===
+  elixir :Awk.new(1)          -> 1
+  elixir :Awk.to_json(1)      -> 2
+  elixir :Awk.http_get(1)     -> 3
+  elixir :Awk.x2_y(1)         -> 4
+  elixir :Awk.get_url2(1)     -> 5
+  elixir :Awk.get_order(1,2)  -> 3
+  elixir :Awk."New"(1) quoted form still works -> 1
+  elixir pipe 1 |> :Awk.new() |> :Awk.to_json() -> 2
+  CONTROL elixir :Awk.nope(1) -> UndefinedFunctionError
+  erlang 'Awk':'New'(1) -> 1 ; 'Awk':new(1) -> 1
+  B#->B# under patch: 'Shop.Reports':'Restate'(3) -> 9 ; snake alias restate(3) -> 9
+  bsc run of Shop.Reports Restate 3 via patched bsc:
+    9
+
+=== C. beam size and export count over compiler/examples/* (top-level modules) ===
+  modules: stock=23 proto=23 ; bytes: stock=54456 proto=58796 delta=4340 (8.0%) ; exports (excl module_info): stock=106 proto=186
+  Awk.beam (toy, 7 public fns, 7 aliases): stock=1564 proto=1952 bytes
+
+=== D. compile time, wall ms, n=7 (bsc on Shop; includes escript VM start) ===
+  stock: min=407 median=477 max=525 ms  (all: 510 407 477 469 473 501 525)
+  proto: min=447 median=465 max=490 ms  (all: 447 480 452 490 454 488 465)
+
+=== E. call-time ===
+sanity: direct=3 alias=3 dup=3
+direct  n=7 x 10000000 calls  min=42.8 ms  median=44.0 ms  (4.28 ns/call at min)
+alias   n=7 x 10000000 calls  min=45.2 ms  median=47.6 ms  (4.52 ns/call at min)
+dup     n=7 x 10000000 calls  min=42.3 ms  median=45.2 ms  (4.23 ns/call at min)
+empty   n=7 x 10000000 calls  min=13.7 ms  median=15.0 ms  (1.37 ns/call at min)

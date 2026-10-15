@@ -1,0 +1,52 @@
+=== 1. function names (control: snake_case compiles) ===
+### snake_case fn  (src/good.gleam)
+  Resolving versions
+### PascalCase fn  (src/bad_fn.gleam)
+error: Syntax error
+  ┌─ /tmp/probe.pzU54d/proj/src/bad_fn.gleam:1:8
+  │
+1 │ pub fn NewOrder(x: Int) -> Int { x }
+  │        ^^^^^^^^ I'm expecting a lowercase name here
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+### camelCase fn  (src/bad_fn2.gleam)
+error: Invalid function name
+  ┌─ /tmp/probe.pzU54d/proj/src/bad_fn2.gleam:1:8
+  │
+1 │ pub fn newOrder(x: Int) -> Int { x }
+  │        ^^^^^^^^ This is not a valid function name
+Hint: Function names start with a lowercase letter and contain a-z, 0-9, or
+_.
+Try: new_order
+=== 2. module (file) names ===
+### PascalCase module file  (src/Shop.gleam)
+warning: Invalid module name
+Module names must begin with a lowercase letter and contain only lowercase
+alphanumeric characters or underscores.
+Hint: Rename `/tmp/probe.pzU54d/proj/src/Shop.gleam` to be valid, or remove
+this
+file from the project source.
+### camelCase module file  (src/shopThing.gleam)
+warning: Invalid module name
+Module names must begin with a lowercase letter and contain only lowercase
+alphanumeric characters or underscores.
+Hint: Rename `/tmp/probe.pzU54d/proj/src/shopThing.gleam` to be valid, or
+remove
+this file from the project source.
+### nested snake path  (src/ok_name.gleam)
+=== 3. constructors / types: what lands in the beam ===
+deep@nested.beam
+good.beam
+ok_name.beam
+probe.app
+probe@@main.beam
+exports: [{make,0},{mk2,0},{module_info,0},{module_info,1}]
+make(): [{circle,1},my_h_t_t_p_thing,{h_t_t_p_server,2},x2_y,get_u_r_l2]
+mk2(): {my_type,3}
+atoms in beam: [deep@nested,make,mk2,module_info,erlang,get_module_info]
+=== 4. @external call into a B# PascalCase export: compile AND run ===
+caller:main() -> #{'Kind' => 'Shop.Order','Total' => 0,'Id' => 7}
+--- imports of Gleam's caller.beam (the call it emits) ---
+[{'Shop','New',1},{erlang,get_module_info,1},{erlang,get_module_info,2}]
+--- does a PascalCase module file produce a beam at all? ---
+caller.beam deep@nested.beam good.beam ok_name.beam probe.app probe@@main.beam 

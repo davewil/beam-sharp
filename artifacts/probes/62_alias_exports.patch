@@ -1,0 +1,67 @@
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -34,6 +34,7 @@
+     %% distinction.
+     Exports = [{F, arity(F)} || F <- Fns, is_public(F)],
+     Behaviours = maps:get(behaviours, Module, []),
++    Aliases = alias_table([{name(F, Behaviours), A} || {F, A} <- Exports]),
+     %% Whether `HandleCall/3` lowers to `handle_call/3` depends on what the
+     %% module declares, so the behaviours travel in the context. The
+     %% validator table is built once per module and consulted at every call
+@@ -74,7 +75,8 @@
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+-                             ++ [{type_atoms_name(), 0}]}]
++                             ++ [{type_atoms_name(), 0}]
++                             ++ [{Al, A} || {Al, A, _} <- Aliases]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+@@ -89,7 +91,45 @@
+     %% `ToJson<T>` generates does, on a value its validator refused, and the
+     %% stack still names the B# function that called it.
+     ++ validator_forms(Validators)
+-    ++ reserved_forms(Fns).
++    ++ reserved_forms(Fns)
++    ++ [alias_form(Al, A, T) || {Al, A, T} <- Aliases].
++
++%%% PROTOTYPE (ticket 62, option 2): one snake_case alias export per public
++%%% function, a local wrapper that tail-calls the PascalCase function.
++alias_table(Emitted) ->
++    Names = [N || {N, _} <- Emitted],
++    Cands = [{snake(N), A, N} || {N, A} <- Emitted, snake(N) =/= N],
++    Reserved = [{module_info, 0}, {module_info, 1}],
++    Keys = [{Al, A} || {Al, A, _} <- Cands],
++    lists:filter(
++      fun({Al, A, N}) ->
++          Dup = length([x || K <- Keys, K =:= {Al, A}]) > 1,
++          Clash = lists:member({Al, A}, Reserved) orelse lists:member(Al, Names),
++          case Dup orelse Clash of
++              true  -> io:format(standard_error, "bs_alias_collision: ~p/~p from ~p~n", [Al, A, N]), false;
++              false -> true
++          end
++      end, Cands).
++
++alias_form(Al, A, Target) ->
++    Vs = [{var, ?A, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, A)],
++    {function, ?A, Al, A, [{clause, ?A, Vs, [], [{call, ?A, {atom, ?A, Target}, Vs}]}]}.
++
++%% PascalCase -> snake_case, acronym-aware (Elixir's Macro.underscore shape):
++%% `_` goes before an upper-case letter that follows a lower-case letter or a
++%% digit, or that starts a word after an upper-case run (`HTTPGet` -> http_get).
++snake(Atom) ->
++    S = atom_to_list(Atom),
++    list_to_atom(snake(S, undefined)).
++snake([], _) -> [];
++snake([C | T], Prev) ->
++    Next = case T of [] -> undefined; [N | _] -> N end,
++    Up = fun(X) -> X =/= undefined andalso X >= $A andalso X =< $Z end,
++    Lo = fun(X) -> X =/= undefined andalso ((X >= $a andalso X =< $z) orelse (X >= $0 andalso X =< $9)) end,
++    Sep = Up(C) andalso Prev =/= undefined andalso Prev =/= $_ andalso
++          (Lo(Prev) orelse (Up(Prev) andalso Next =/= undefined andalso Lo(Next) andalso not (Next >= $0 andalso Next =< $9))),
++    Out = case Up(C) of true -> C + 32; false -> C end,
++    (case Sep of true -> [$_]; false -> [] end) ++ [Out | snake(T, C)].
+ 
+ %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
+ %% have no path to attribute to; no attribute is emitted for them.

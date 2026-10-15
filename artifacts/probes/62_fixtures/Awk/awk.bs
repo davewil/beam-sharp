@@ -1,0 +1,22 @@
+module Awk
+
+public int New(int id)
+New(id) -> id
+
+public int ToJSON(int x)
+ToJSON(x) -> x + 1
+
+public int HTTPGet(int x)
+HTTPGet(x) -> x + 2
+
+public int X2Y(int x)
+X2Y(x) -> x + 3
+
+public int GetURL2(int x)
+GetURL2(x) -> x + 4
+
+public int GetOrder(int x, int y)
+GetOrder(x, y) -> x + y
+
+public int Plain(int x)
+Plain(x) -> x

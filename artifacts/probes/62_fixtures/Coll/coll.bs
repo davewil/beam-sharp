@@ -1,0 +1,16 @@
+module Coll
+
+public int GetUrl(int x)
+GetUrl(x) -> x
+
+public int GetURL(int x)
+GetURL(x) -> x + 1
+
+public int Get_Url(int x)
+Get_Url(x) -> x + 2
+
+public int ModuleInfo(int x)
+ModuleInfo(x) -> x
+
+public int Fine(int x)
+Fine(x) -> x

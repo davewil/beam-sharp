@@ -1,0 +1,17 @@
+--- elixirc output (warnings are the point) ---
+    warning: :Shop."Nope"/1 is undefined or private
+    \x{2502}
+  5 \x{2502}   def bad(id), do: :Shop."Nope"(id)
+    \x{2502}                          ~
+    \x{2502}
+    \x{2514}\x{2500} caller.ex:5:26: Caller.bad/1
+
+--- run ---
+%{Kind: :"Shop.Order", Total: 0, Id: 1}
+500
+[
+  %{Kind: :"Shop.Order", Total: 0, Id: 1},
+  %{Kind: :"Shop.Order", Total: 0, Id: 2}
+]
+--- defdelegate (Elixir-side shim, one line per function) ---
+500
