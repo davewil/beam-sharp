@@ -1,0 +1,25 @@
+=== 1-2 outsider calls hidden-doc module and function (expect: no output, exit 0)
+exit 0
+=== CONTROL: defp and missing function from outside (expect diagnostics)
+    warning: Shop.Orders.secret/1 is undefined or private. Did you mean:
+
+          * use_secret/1
+
+    │
+  2 │   def c(x), do: Shop.Orders.secret(x)                       # defp
+    │                             ~
+    │
+    └─ ctl_private.ex:2:29: Audit2.c/1
+
+    warning: Shop.Orders.nonexistent/1 is undefined or private
+    │
+exit 0
+=== docs state
+Internal moduledoc: :hidden
+Internal fn docs: [{:function, :recompute_total, 1, :none}]
+Orders fn docs: [
+  {:function, :helper, 1, :hidden},
+  {:function, :total, 1, :none},
+  {:function, :use_secret, 1, :none}
+]
+runtime call outsider -> hidden module: 6

@@ -1,0 +1,36 @@
+--- HEAD: 8b09c30; 0b761f6 resolves? -> fatal: Not a valid object name 0b761f6
+--- definition and call sites of add_module_import:
+500:        true  -> add_module_import(M, World, Acc);
+512:add_module_import(M, World, Acc) ->
+--- body (arity = number of params in the head):
+add_module_import(M, World, Acc) ->
+    Entry = maps:get(M, World),
+    Exports = maps:get(exports, Entry),
+    Funs0 = maps:get(funs, Acc),
+    Funs = maps:fold(fun(K, _Sig, F) ->
+                             %% Collisions are errors only at use sites.
+                             maps:update_with(K, fun(Ms) -> [M | Ms] end, [M], F)
+                     end, Funs0, Exports),
+    %% Type collisions are also refused at use sites. A missing `types` entry
+    %% means the module offers no types.
+    Types = maps:fold(fun(N, _T, T0) ->
+                              maps:update_with(N, fun(Ms) -> [M | Ms] end, [M], T0)
+                      end, maps:get(types, Acc), maps:get(types, Entry, #{})),
+    Acc#{funs := Funs, types := Types, imported := [M | maps:get(imported, Acc)]}.
+
+--- keyword grep (expect: no hits for internal|friend|sealed|visible_to as VISIBILITY; list all hits):
+compiler/src/bs_check.erl:109:    %% Internal notes travel through the diagnostic channel; remove them before
+compiler/src/bs_check.erl:188:%% diagnostic, and every internal note, passes through.
+compiler/src/bs_check.erl:4928:%% instead of an internal `function_clause`.
+compiler/src/bs_diag.erl:166:%% The caller re-raises `unhandled`; it must pass through unchanged. Internal
+compiler/src/bs_emit.erl:1800:%% internal types still use alternatives rather than shape dispatch.
+compiler/src/bs_emit.erl:1874:%% Only the root unwraps internal success. Keeping call sites variable-free
+compiler/src/bs_parser.erl:274:%% For internal use only.
+LANGUAGE.md:366:and costs a false friend.
+LANGUAGE.md:1785:first-class rather than checker-internal. The reason it is writable is an asymmetry rather than a
+--- control: private hits in parser/lexer:
+compiler/src/bs_parser.yrl:4
+compiler/src/bs_lexer.xrl:1
+--- does add_module_import receive the caller (Self)? params:
+498:add_import(L, M, Self, World, Known, Mode, Acc) ->
+512:add_module_import(M, World, Acc) ->

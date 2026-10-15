@@ -1,0 +1,4 @@
+module Orders
+
+public int Apply(list<int> lines)
+Apply(lines) -> RecomputeTotal(lines, 0)

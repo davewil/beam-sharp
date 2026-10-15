@@ -1,0 +1,6 @@
+module Audit
+
+using Shop.Orders
+
+public int Report(list<int> lines)
+Report(lines) -> Total(lines)

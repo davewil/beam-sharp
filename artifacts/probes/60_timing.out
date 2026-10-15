@@ -1,0 +1,8 @@
+program A (Shop/Billing)
+  HEAD run1   n=15 min=359 median=406 max=743 ms
+  HEAD run2   n=15 min=369 median=413 max=730 ms
+  PATCHED     n=15 min=376 median=410 max=794 ms
+program B (Gen/M40)
+  HEAD run1   n=15 min=530 median=990 max=1487 ms
+  HEAD run2   n=15 min=748 median=903 max=1424 ms
+  PATCHED     n=15 min=561 median=875 max=1238 ms

@@ -1,0 +1,33 @@
+=== (a) exports and per-function entry code
+exports/1: ['Pub','Twice',module_info]
+Pub/1: labels=[3,4] func_info=1 type_tests=[is_integer]
+Priv/1: labels=[5,6] func_info=1 type_tests=[]
+Twice/1: labels=[7,8] func_info=1 type_tests=[is_integer]
+=== (b) outsider in Erlang, no B# compiler involved
+Audit.abstr
+Audit.beam
+Shop.Billing.abstr
+Shop.Billing.beam
+Shop.Internal.abstr
+Shop.Internal.beam
+Shop.Orders.Internal.abstr
+Shop.Orders.Internal.beam
+Shop.Orders.abstr
+Shop.Orders.beam
+outsider: 'Shop.Orders.Internal':'RecomputeTotal'([5,6],0) = 11
+outsider: 'Shop.Orders.Internal' exports RecomputeTotal/2: true
+CONTROL private: 'Guard':'Priv'(2) -> 'EXIT'
+CONTROL guard on public: 'Guard':'Pub'(foo) -> 'EXIT'
+=== (c) patched vs HEAD beams
+whole-file HEAD-vs-HEAD differs Audit.beam
+whole-file HEAD-vs-HEAD differs Shop.Billing.beam
+whole-file HEAD-vs-HEAD differs Shop.Internal.beam
+whole-file HEAD-vs-HEAD differs Shop.Orders.Internal.beam
+whole-file HEAD-vs-HEAD differs Shop.Orders.beam
+Audit.beam: behaviour chunks IDENTICAL (sizes 880 vs 884)
+Shop.Billing.beam: behaviour chunks IDENTICAL (sizes 1032 vs 1032)
+Shop.Internal.beam: behaviour chunks IDENTICAL (sizes 916 vs 920)
+Shop.Orders.Internal.beam: behaviour chunks IDENTICAL (sizes 1076 vs 1076)
+Shop.Orders.beam: behaviour chunks IDENTICAL (sizes 1076 vs 1080)
+CONTROL (must say DIFFERENT): HEAD Shop.Internal vs HEAD Shop.Orders
+Shop.Internal.beam: behaviour chunks DIFFERENT (sizes 916 vs 1076)

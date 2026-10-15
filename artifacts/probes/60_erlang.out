@@ -1,0 +1,40 @@
+=== A,B,type-use: erlc +warn_all (expect: no output, exit 0)
+shop_orders_internal.erl:10:1: Warning: function local_only/1 is unused
+%   10| local_only(X) -> X.
+%     | ^
+
+exit 0
+=== CONTROL: erlc on a module with an undefined local call and an unused function (expect diagnostics)
+ctl.erl:3:8: function g/1 undefined
+%    3| f() -> g(1).
+%     |        ^
+
+ctl.erl:4:1: Warning: function h/0 is unused
+=== runtime: A works (exported), B is undef
+A=6
+B={'EXIT',{undef,[{shop_orders_internal,local_only,[1],[]},
+                  {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,920}]},
+                  {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,656}]},
+                  {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},
+                  {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,442}]},
+                  {erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,1504}]},
+                  {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,630}]},
+                  {erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]}]}}
+=== xref: who uses shop_orders_internal? (the only 'friend'-shaped check Erlang offers)
+module_use: [audit,shop_orders]
+undefined_function_calls: [{{audit,b,1},{shop_orders_internal,local_only,1}},
+                           {{shop_orders_internal,recompute_total,1},
+                            {lists,sum,1}}]
+violations vs allow-list [shop_orders]: [audit]
+=== source citations (OTP 28 stdlib)
+23:-moduledoc false.
+403-
+404:-doc hidden.
+405--spec start() -> no_return().
+--
+26:-moduledoc """
+232:               moduledoc_defined = false :: {true, erl_anno:anno(), boolean()} | false
+1073:attribute_state({attribute, _A, moduledoc, _Doc}=AST, St)  ->
+1106:get_doc_attr(moduledoc, #lint{moduledoc_defined = Moduledoc}) -> Moduledoc;
+1109:update_doc_attr(moduledoc, A, Hidden, #lint{}=St) ->
+1110:    St#lint{moduledoc_defined = {true, A, Hidden}};

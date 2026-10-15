@@ -1,0 +1,11 @@
+go version go1.24.7 linux/amd64
+=== green: orders->own internal, billing->shop/internal
+exit 0
+=== red: sibling billing -> shop/orders/internal
+package example.com/m/shop/billing
+	shop/billing/bad.go:2:8: use of internal package example.com/m/shop/orders/internal/recompute not allowed
+exit 1
+=== red: outsider -> shop/internal
+package example.com/m/outsider/audit
+	outsider/audit/a.go:2:8: use of internal package example.com/m/shop/internal/tax not allowed
+exit 1

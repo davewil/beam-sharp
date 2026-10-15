@@ -1,0 +1,24 @@
+=== other package imports the HIDDEN module me/libpkg:Lib.Internal.Secret
+  Verifying dependencies (0/3)Verifying dependencies (1/3)Verifying dependencies (2/3)Verifying dependencies (3/3)                            Dependencies ready!
+  Compiling ...-- MODULE NOT FOUND ----------------------------------------------- src/Main.elm
+  
+  You are trying to import a `Lib.Internal.Secret` module:
+  
+  2| import Lib.Internal.Secret as Secret
+            ^^^^^^^^^^^^^^^^^^^
+  I checked the "dependencies" and "source-directories" listed in your elm.json,
+  but I cannot find it! Maybe it is a typo for one of these names?
+  
+      Bitwise
+      Json.Decode
+      Json.Encode
+      Dict
+exit 1
+=== CONTROL: other package imports the exposed module Lib
+  Verifying dependencies (0/3)Verifying dependencies (1/3)Verifying dependencies (2/3)Verifying dependencies (3/3)                            Dependencies ready!
+  Compiling ...Compiling (1)Success! Compiled 1 module.
+exit 0
+=== SAME package: build libpkg itself (Lib imports its hidden Lib.Internal.Secret)
+Verifying dependencies (0/1)Verifying dependencies (1/1)                            Dependencies ready!
+Compiling ...Compiling (1)Compiling (2)Success! Compiled 2 modules.
+exit 0

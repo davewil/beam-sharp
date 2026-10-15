@@ -1,0 +1,9 @@
+module Audit
+
+using Shop
+
+public int Report(list<int> lines)
+Report(lines) -> Orders.Total(lines)
+
+public int Sneak(list<int> lines)
+Sneak(lines) -> Orders.Internal.RecomputeTotal(lines, 0)

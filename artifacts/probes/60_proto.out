@@ -1,0 +1,15 @@
+patch size: 32 added, 2 removed lines (bs_check.erl + bs_diag.erl)
+[head] ok Shop/Billing -> exit 0 | 430
+[head] ok Audit -> exit 0 | 330
+[head] outsider_orders_internal Audit -> exit 0 | 1
+[head] sibling_orders_internal Shop/Billing -> exit 0 | 1
+[head] outsider_shop_internal Audit -> exit 0 | 100
+[head] namespace_ok Audit -> exit 0 | 3
+[head] namespace_import Audit -> exit 0 | 3
+[patched] ok Shop/Billing -> exit 0 | 430
+[patched] ok Audit -> exit 0 | 330
+[patched] outsider_orders_internal Audit -> exit 1 | Audit/Report.bs:3:1: error: Shop.Orders.Internal is internal to Shop.Orders and Audit is outside it
+[patched] sibling_orders_internal Shop/Billing -> exit 1 | Shop/Billing/Bill.bs:3:1: error: Shop.Orders.Internal is internal to Shop.Orders and Shop.Billing is outside it
+[patched] outsider_shop_internal Audit -> exit 1 | Audit/Report.bs:3:1: error: Shop.Internal is internal to Shop and Audit is outside it
+[patched] namespace_ok Audit -> exit 0 | 3
+[patched] namespace_import Audit -> exit 1 | Audit/Report.bs:9:32: error: Orders.Internal is called but never imported

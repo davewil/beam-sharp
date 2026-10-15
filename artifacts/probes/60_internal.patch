@@ -1,0 +1,73 @@
+diff -u -r a/compiler/src/bs_check.erl b/compiler/src/bs_check.erl
+--- a/compiler/src/bs_check.erl	2026-10-15 23:09:19.518654112 +0000
++++ b/compiler/src/bs_check.erl	2026-10-15 23:09:19.520519056 +0000
+@@ -497,17 +497,41 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> may_name(Self, M, L, Mode),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    add_namespace_import(M, [C || C <- Children, nameable(Self, C)], Acc)
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60): `P.Internal[.Q]` may be named only from P or below.
++may_name(Self, M, L, strict) ->
++    case nameable(Self, M) of
++        true  -> ok;
++        false -> erlang:error({module_not_visible, M, Self, internal_scope(M), L})
++    end;
++may_name(_, _, _, _) -> ok.
++
++nameable(Self, M) ->
++    case internal_scope(M) of
++        none  -> true;
++        Scope -> Self =:= Scope orelse
++                 lists:prefix(atom_to_list(Scope) ++ ".", atom_to_list(Self))
++    end.
++
++internal_scope(M) ->
++    case string:split(atom_to_list(M), ".Internal", leading) of
++        [Pre, Post] when Pre =/= "", (Post =:= "" orelse hd(Post) =:= $.) ->
++            list_to_atom(Pre);
++        _ -> none
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+diff -u -r a/compiler/src/bs_diag.erl b/compiler/src/bs_diag.erl
+--- a/compiler/src/bs_diag.erl	2026-10-15 23:09:19.518816647 +0000
++++ b/compiler/src/bs_diag.erl	2026-10-15 23:09:19.520701949 +0000
+@@ -657,6 +657,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {module_not_visible, Mod, Self, Scope, Line}) ->
++    #{tag => module_not_visible, severity => error, file => Path, line => Line,
++      module => Mod, self => Self, scope => Scope};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,12 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := module_not_visible, file := P, line := L, column := C, module := Mod,
++          self := Self, scope := Scope}) ->
++    {"~s:~p:~p: error: ~s is internal to ~s and ~s is outside it~n"
++     "  a module whose path has an `Internal` segment may be named only from~n"
++     "  the module before that segment and the modules below it.~n",
++     [P, L, C, Mod, Scope, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

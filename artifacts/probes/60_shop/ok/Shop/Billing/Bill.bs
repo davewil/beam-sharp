@@ -1,0 +1,7 @@
+module Shop.Billing
+
+using Shop.Orders
+using Shop.Internal
+
+public int Invoice(list<int> lines)
+Invoice(lines) -> Total(lines) + TaxOn(1000)

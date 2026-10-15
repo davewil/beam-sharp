@@ -1,0 +1,4 @@
+module Shop.Internal
+
+public int TaxOn(int cents)
+TaxOn(c) -> c / 10

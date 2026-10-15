@@ -1,0 +1,6 @@
+module Audit
+
+using Shop.Internal
+
+public int Report(list<int> lines)
+Report(lines) -> TaxOn(1000)

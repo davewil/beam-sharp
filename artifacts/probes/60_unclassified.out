@@ -1,0 +1,10 @@
+=== (a) any test-boundary classifier in the compiler? (hits other than the diagnostic tag 'unclassified' in bs_diag/bs_api/bsc are a refutation)
+(end grep)
+=== (b) a helper in its own file, F12 default
+module Orders
+int Apply(list<int>)
+compiled; Apply 3 ->
+6
+beam exports: [{bs@type_atoms,0},{'Apply',1},{module_info,0},{module_info,1}]
+Erlang call of private RecomputeTotal: 'EXIT'
+CONTROL Erlang call of public Apply: 3

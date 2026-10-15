@@ -1,0 +1,7 @@
+module Shop.Orders
+
+using Shop.Orders.Internal
+using Shop.Internal
+
+public int Total(list<int> lines)
+Total(lines) -> RecomputeTotal(lines, 0) + TaxOn(RecomputeTotal(lines, 0))

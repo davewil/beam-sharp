@@ -1,0 +1,3 @@
+results: [false,true,true,true]
+nameable/2 ns/call (n=5 x 1e6): min=3945 median=5021
+CONTROL no-op ns/call:        min=2649 median=3103

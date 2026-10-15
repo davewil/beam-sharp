@@ -1,0 +1,5 @@
+module Orders
+
+private int RecomputeTotal(list<int> lines, int acc)
+RecomputeTotal([], acc)          -> acc
+RecomputeTotal([l, ..rest], acc) -> RecomputeTotal(rest, acc + l)

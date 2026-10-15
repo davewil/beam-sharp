@@ -1,0 +1,28 @@
+=== (1) other package imports libpkg/internal/secret (internal_modules)
+  Resolving versions
+      Added libpkg v1.0.0
+   Compiled in 0.47s
+exit 0
+=== (1b) other package calls an @internal fn from the public module
+  Resolving versions
+   Compiled in 0.31s
+exit 0
+=== CONTROL: other package uses only the public API
+  Compiling libpkg
+  Compiling ctl_app
+   Compiled in 0.40s
+exit 0
+    Running ctl_app.main
+=== (3) same package: libpkg's own test-style module imports its internal module
+  Compiling libpkg
+   Compiled in 0.37s
+exit 0
+=== (4) does the BEAM stop an outsider? call the compiled internal module from Erlang
+41
+=== (5) generated docs (gleam docs build): public fn listed (control), internal module / @internal fn listed?
+control  'open' in docs: 1 file(s)
+'secret' in docs: 0 file(s); '@internal annotated' in docs: 0 file(s)
+=== (6) what the gleam binary itself says about internal (strings in the binary; no source available for Gleam)
+//# sourceMappingURL=value instanceof $is = (value) =>export class class  extends $CustomType {constructor() {value.value[];$$const =();$const;);\\\Error$EmptyEmpty$List$Empty$const$NonEmptylistPrependprepend$CustomTypeCustomTypebitArraySliceToFloatbitArraySliceToIntexport {}IntFloatStringCustom type variants must existlist has a type argumentinternal module globinternal module globs1.19.2Parse compiler semantic version
+PThese modules leak internal types in their public API and cannot be published:
+Please make sure internal types do not appear in public functions and try again.
