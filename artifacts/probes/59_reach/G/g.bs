@@ -1,0 +1,66 @@
+module G
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Wrapper { Id: int, Inner: Order }
+type Doc = Order | Invoice
+
+// The private function every path below tries to reach.
+int Priv(Order o)
+Priv(o) -> o.Total
+
+// A. the record taken directly.
+public int Direct(Order o)
+Direct(o) -> Priv(o)
+
+// B. one level down in a record field: the exported guard tests Wrapper's tag
+//    and nothing deeper.
+public int ViaNested(Wrapper w)
+ViaNested(w) -> Priv(w.Inner)
+
+// C. one level down in a list.
+public int ViaList(list<Order> os)
+ViaList([o, .._]) -> Priv(o)
+ViaList([])        -> 0
+
+// D. one level down in a tuple.
+public int ViaTuple((int, Order) p)
+ViaTuple((_, o)) -> Priv(o)
+
+// E. a union narrowed by a record pattern: the pattern is itself the tag test.
+public int ViaUnion(Doc d)
+ViaUnion(Order o)   -> Priv(o)
+ViaUnion(Invoice i) -> 0
+
+// F. the same function exported, so the ONLY difference from Priv is the keyword.
+public int Pub(Order o)
+Pub(o) -> o.Total
+
+// G. a term decoded by ValidateAs: the full structural check, not just the tag.
+public int ViaValidate(term t)
+ViaValidate(t) -> ValidateAs<Order>(t) switch {
+    (:error, _) => -1,
+    o           => Priv(o)
+}
+
+// H. the int guard, same shape. PrivI's body is total over any term (it returns n), so the
+//    int test is the only thing that could object.
+int PrivI(int n)
+PrivI(n) -> n
+
+public int ViaIntDirect(int n)
+ViaIntDirect(n) -> PrivI(n)
+
+public int ViaIntList(list<int> xs)
+ViaIntList([x, .._]) -> PrivI(x)
+ViaIntList([])       -> 0
+
+// I. the range half (F37), same shape.
+type Octet = int where value >= 0 and value <= 255
+
+int PrivO(Octet n)
+PrivO(n) -> n
+
+public int ViaOctList(list<Octet> xs)
+ViaOctList([x, .._]) -> PrivO(x)
+ViaOctList([])       -> 0

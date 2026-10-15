@@ -1,0 +1,25 @@
+--- term_passed_on
+G/g.bs:8:9: error: F hands Priv an argument it does not accept
+  argument 1 is not covered by Priv's declared type:
+    term
+  the clause to add here:
+    F(x) -> ...
+exit=1
+--- term_narrowed
+G/g.bs:8:15: error: F hands Priv an argument it does not accept
+  argument 1 is not covered by Priv's declared type:
+    { Kind: :'G.Order' }
+  the clause to add here:
+    F(Order o) -> ...
+exit=1
+--- union_passed_on
+G/g.bs:8:9: error: F hands Priv an argument it does not accept
+  argument 1 is not covered by Priv's declared type:
+    { Kind: :'G.Invoice' }
+  the clause to add here:
+    F(Invoice i) -> ...
+exit=1
+--- CONTROL_validate
+exit=0
+--- CONTROL_union_narrowed
+exit=0

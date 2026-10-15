@@ -1,0 +1,26 @@
+--- a/src/bs_emit.erl	2026-10-15 23:08:07.374527535 +0000
++++ b/src/bs_emit.erl	2026-10-15 23:10:01.784155473 +0000
+@@ -273,6 +273,7 @@
+ %% has a `maps` part and an integer type does not, so no parameter is a
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
++    _ = Public,
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+@@ -281,13 +282,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from

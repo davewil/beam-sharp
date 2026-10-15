@@ -1,0 +1,40 @@
+##### ALL: is_integer on every function
+PI/1:
+    {line,1}
+    {label,3}
+    {func_info,{atom,'Q'},{atom,'PI'},1}
+    {label,4}
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+    return
+PU/1:
+    {line,3}
+    {label,7}
+    {func_info,{atom,'Q'},{atom,'PU'},1}
+    {label,8}
+    {test,is_integer,{f,7},[{x,0}]}
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}
+    return
+##### HEAD: tag test on every record function
+PR1/1:
+    {line,5}
+    {label,12}
+    {func_info,{atom,'Q'},{atom,'PR1'},1}
+    {label,13}
+    {bif,map_get,{f,12},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}
+    {test,is_eq_exact,{f,12},[{x,1},{atom,'Q.R'}]}
+    {bif,map_get,{f,0},[{atom,'A'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}}
+    return
+PR2/1:
+    {line,7}
+    {label,16}
+    {func_info,{atom,'Q'},{atom,'PR2'},1}
+    {label,17}
+    {bif,map_get,{f,16},[{atom,'Kind'},{x,0}],{x,1}}
+    {test,is_eq_exact,{f,16},[{x,1},{atom,'Q.R'}]}
+    {bif,map_get,{f,0},[{atom,'A'},{tr,{x,0},{t_map,any,any}}],{x,0}}
+    {gc_bif,'+',{f,0},1,[{x,0},{integer,1}],{x,0}}
+    return
+##### instruction counts, ALL vs HEAD compiled Q (int guards only differ)
+HEAD file=1816 code=295 instrs=84
+ALL file=1844 code=300 instrs=85

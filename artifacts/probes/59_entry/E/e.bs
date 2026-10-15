@@ -1,0 +1,18 @@
+module E
+
+// Inner is EXPORTED: its int guard sits at its one entry label, so the local call below pays it.
+public int Inner(int n)
+Inner(n) -> n
+
+// Outer's own parameter is a list, so Outer emits no int test (the element is two levels in).
+public int OuterExp(list<int> xs)
+OuterExp([x, .._]) -> Inner(x)
+OuterExp([])       -> 0
+
+// Same shape but the callee is private: the same module-local call pays nothing.
+int InnerP(int n)
+InnerP(n) -> n
+
+public int OuterPriv(list<int> xs)
+OuterPriv([x, .._]) -> InnerP(x)
+OuterPriv([])       -> 0

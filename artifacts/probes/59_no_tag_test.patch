@@ -1,0 +1,12 @@
+--- a/src/bs_emit.erl	2026-10-15 23:08:07.374527535 +0000
++++ b/src/bs_emit.erl	2026-10-15 23:09:24.356148333 +0000
+@@ -279,7 +279,8 @@
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+-                    {Pat1, [tag_test(Var, Tag, Line)]}
++                    _ = tag_test(Var, Tag, Line),
++                    {Pat1, []}
+             end;
+         none when Public ->
+             case kind_only(TypeExpr, Ctx) of

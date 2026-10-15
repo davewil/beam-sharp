@@ -1,0 +1,32 @@
+module Q
+
+record R { A: int, B: int }
+
+// The callee of an already-guarded exported caller: its argument is PROVEN by the caller.
+int PI(int n)
+PI(n) -> n + 1
+
+public int QDirect(int n)
+QDirect(n) -> PI(n)
+
+// The callee of an unguarded exported caller: its argument is NOT proven.
+int PU(int n)
+PU(n) -> n + 1
+
+public int QList(list<int> xs)
+QList([x, .._]) -> PU(x)
+QList([])       -> 0
+
+// Same two shapes for the record tag test.
+int PR1(R r)
+PR1(r) -> r.A + 1
+
+public int QRecDirect(R r)
+QRecDirect(r) -> PR1(r)
+
+int PR2(R r)
+PR2(r) -> r.A + 1
+
+public int QRecList(list<R> xs)
+QRecList([x, .._]) -> PR2(x)
+QRecList([])       -> 0

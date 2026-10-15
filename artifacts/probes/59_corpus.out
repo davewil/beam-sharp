@@ -1,0 +1,8 @@
+rows shown only where the scope choice changes something (priv tag tests under HEAD, or extra private int/float tests under ALL)
+columns: example-dir beam | tag = private fns with the record tag test (HEAD) | int/flt = private fns that GAIN an is_integer/is_float test under ALL | Code-chunk byte deltas
+Fib          Fib.beam             tag=0   int/flt=1   HEAD-EXP=0     ALL-HEAD=0    
+Foreign      Foreign.beam         tag=0   int/flt=1   HEAD-EXP=0     ALL-HEAD=0    
+Frame        Frame.beam           tag=0   int/flt=2   HEAD-EXP=0     ALL-HEAD=0    
+Pipeline     Pipeline.beam        tag=0   int/flt=4   HEAD-EXP=0     ALL-HEAD=0    
+Pipeline     Shop.Collections.Ints.beam tag=0   int/flt=1   HEAD-EXP=0     ALL-HEAD=0    
+beams scanned: 23 ; with a non-zero row: 5 ; private functions in scanned beams: 12

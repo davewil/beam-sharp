@@ -1,0 +1,22 @@
+module T
+
+record R { A: int, B: int, C: int }
+
+// PRIVATE loops. Each iteration re-enters the function, so each iteration pays
+// whatever boundary guards that function carries.
+
+// record loop: HEAD = 1 tag test per iteration (+ is_integer on n is never emitted: private)
+int LoopR(int n, R r, int acc)
+LoopR(0, _, acc) -> acc
+LoopR(n, r, acc) -> LoopR(n - 1, r, acc + r.A)
+
+// int-only loop (no record): ALL = is_integer on each of n and acc per iteration
+int LoopI(int n, int acc)
+LoopI(0, acc) -> acc
+LoopI(n, acc) -> LoopI(n - 1, acc + n)
+
+public int RunR(int n, R r)
+RunR(n, r) -> LoopR(n, r, 0)
+
+public int RunI(int n)
+RunI(n) -> LoopI(n, 0)

@@ -1,0 +1,16 @@
+spec_only(1.5)       [-spec integer()]               -> {ok,1.5}
+door(1.5)            [guard on export]               -> {error,function_clause}
+via_list([1.5])      [reaches unguarded local]       -> {ok,1.5}
+via_nested(#wrapper{inner=#invoice{}}) [local rec pa -> {error,function_clause}
+via_nested(#wrapper{inner=#order{total=<<x>>}})      -> {ok,<<120>>}
+--- stdlib idiom: guard at the exported door, none in the local worker (/nix/store/qlclzl3234h2jwjpvy2gs72vzq2g6wkw-erlang-28.5.0.7/lib/erlang/lib/stdlib-7.3.0.3/src/lists.erl)
+seq(First, Last)
+  when is_integer(First), is_integer(Last), First-1 =< Last ->
+    seq_loop(Last-First+1, Last, []).
+seq_loop(N, X, L) when N >= 4 ->
+    seq_loop(N-4, X-4, [X-3,X-2,X-1,X|L]);
+seq_loop(N, X, L) when N >= 2 ->
+    seq_loop(N-2, X-2, [X-1,X|L]);
+seq_loop(1, X, L) ->
+    [X|L];
+seq_loop(0, _, L) ->
