@@ -1,0 +1,25 @@
+sanity: COMMON on stock must be accepted; SIGNED on stock must be refused:
+0
+(end of stock diagnostics for COMMON: warnings only)
+/tmp/p57t.34UNTx/S/a.bs:2:1: error: this refinement is not a predicate the checker can read
+=== source C (COMMON, lower bound 0)
+stock  lex+parse n=2000 min=77us median=113us | check n=500 min=1261us median=1643us
+stock  lex+parse n=2000 min=89us median=128us | check n=500 min=1223us median=1637us
+gramA  lex+parse n=2000 min=88us median=128us | check n=500 min=1247us median=1537us
+gramB  lex+parse n=2000 min=86us median=116us | check n=500 min=1227us median=1609us
+gramC  lex+parse n=2000 min=78us median=115us | check n=500 min=1482us median=1613us
+chk    lex+parse n=2000 min=101us median=130us | check n=500 min=1486us median=1638us
+=== source S (SIGNED, lower bound -100)
+stock  (refused by design: opaque_refinement; not timed)
+stock  (refused by design: opaque_refinement; not timed)
+gramA  lex+parse n=2000 min=98us median=117us | check n=500 min=1515us median=1626us
+gramB  lex+parse n=2000 min=76us median=91us | check n=500 min=1206us median=1554us
+gramC  lex+parse n=2000 min=105us median=172us | check n=500 min=1545us median=1631us
+chk    lex+parse n=2000 min=95us median=115us | check n=500 min=1223us median=1355us
+=== CLI wall clock, n=9, ms (COMMON source; second 'stock' row is the noise control)
+stock  min=398ms median=466ms
+stock  min=480ms median=494ms
+gramA  min=396ms median=440ms
+gramB  min=384ms median=486ms
+gramC  min=428ms median=487ms
+chk    min=422ms median=485ms

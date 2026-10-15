@@ -1,0 +1,62 @@
+## A. stock: bare int, signed bounded complement written with patterns (-10..10 is the gap)
+a.bs:2:13: error: F is not exhaustive
+  no clause matches:
+    F(>= -10 and <= -1) -> ...
+    F(>= 1 and <= 10) -> ...
+  pasted:
+    F(>= -10 and <= -1) -> :new
+    F(>= 1 and <= 10) -> :new
+  -> pasted program: ACCEPTED
+
+## B. stock: the same domain as a TYPE (what the ticket wants to be able to write)
+a.bs:2:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+  reason about it: comparisons on `value`, joined with `and`/`or`.
+  `int where value >= 0 and value <= 255` is one.
+  A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+  is the O(n) tier. It is established once at a boundary and never
+  reasoned about, and this compiler has no site to establish it at.
+  (no pasteable heads in the diagnostic)
+
+## C. stock: a guard containing -5 (unread guard credits nothing)
+a.bs:2:13: error: F is not exhaustive
+  no clause matches:
+    F(n) -> ...
+  pasted:
+    F(n) -> :new
+  -> pasted program: ACCEPTED
+
+## D. stock control: the same guards with 0 instead of -5
+a.bs:2:13: error: F is not exhaustive
+  no clause matches:
+    F(<= -1) -> ...
+  pasted:
+    F(<= -1) -> :new
+  -> pasted program: ACCEPTED
+
+## E. grammar-fix build: D = -10..10, only 0 handled -> residual, then paste
+a.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(>= -10 and <= -1) -> ...
+    F(>= 1 and <= 10) -> ...
+  pasted:
+    F(>= -10 and <= -1) -> :new
+    F(>= 1 and <= 10) -> :new
+  -> pasted program: ACCEPTED
+
+## F. grammar-fix build: D = -10..10, F(<= -1) and F(>= 2) handled -> residual 0..1
+a.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(>= 0 and <= 1) -> ...
+  pasted:
+    F(>= 0 and <= 1) -> :new
+  -> pasted program: ACCEPTED
+
+## G. the algebra itself (bs_types), independent of any printer
+subtract(-10..10, 0) = #{lists => [],maps => [],
+                         atoms => {finite,[]},
+                         funs => [],
+                         floats => {finite,[]},
+                         tuples => [],bins => [],opaques => [],
+                         ints => [{-10,-1},{1,10}]}
+is_subtype(-10..-1, result) = true ; is_subtype(0..0, result) = false

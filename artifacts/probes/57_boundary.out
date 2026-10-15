@@ -1,0 +1,22 @@
+== stock
+  compile: REFUSED (error: this refinement is not a predicate the checker can read)
+== gramA
+  Id(-101) -> crashed: error:function_clause 
+  Id(-100) -> -100 
+  Id(-1) -> -1 
+  Id(0) -> 0 
+  Id(100) -> 100 
+  Id(101) -> crashed: error:function_clause 
+  Sign(-100) -> :neg
+  Sign(0) -> :zero
+  Sign(100) -> :pos
+== chk
+  Id(-101) -> crashed: error:function_clause 
+  Id(-100) -> -100 
+  Id(-1) -> -1 
+  Id(0) -> 0 
+  Id(100) -> 100 
+  Id(101) -> crashed: error:function_clause 
+  Sign(-100) -> :neg
+  Sign(0) -> :zero
+  Sign(100) -> :pos

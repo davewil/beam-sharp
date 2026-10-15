@@ -1,0 +1,49 @@
+0.19.2
+expr  v = -5                           accepted
+expr  v = -(-5)                        accepted
+expr  v = 5 - -5                       accepted
+expr  v = 2 * -3                       accepted
+compare  f x = x >= -5                 accepted
+compare  f x = x >= 2 + 3              accepted
+pattern  -5                            REFUSED
+      Verifying dependencies (0/2)Verifying dependencies (1/2)Verifying dependencies (2/2)                            Dependencies ready!
+      Compiling ...-- PROBLEM IN PATTERN --------------------------------------------- src/Main.elm
+      I wanted to parse a pattern next, but I got stuck here:
+      5|         -5 -> "m5"
+                 ^
+      I am not sure why I am getting stuck exactly. I just know that I want a pattern
+      next. Something as simple as maybeHeight or result would work!
+pattern  -(-5) (MUST refuse)           REFUSED
+      Verifying dependencies (0/2)Verifying dependencies (1/2)Verifying dependencies (2/2)                            Dependencies ready!
+      Compiling ...-- PROBLEM IN PATTERN --------------------------------------------- src/Main.elm
+      I wanted to parse a pattern next, but I got stuck here:
+      5|         -(-5) -> "p5"
+                 ^
+      I am not sure why I am getting stuck exactly. I just know that I want a pattern
+      next. Something as simple as maybeHeight or result would work!
+pattern  2 + 3 (MUST refuse)           REFUSED
+      Verifying dependencies (1/2)Verifying dependencies (2/2)                            Dependencies ready!
+      Compiling ...-- MISSING ARROW -------------------------------------------------- src/Main.elm
+      I am partway through parsing a `case` expression, but I got stuck here:
+      4|     case x of
+      5|         2 + 3 -> "five"
+                   ^
+      I was expecting to see an arrow next.
+pattern  5 + catch-all (control)       accepted
+no catch-all, no negative (MUST ref)   REFUSED
+      Verifying dependencies (0/2)Verifying dependencies (1/2)Verifying dependencies (2/2)                            Dependencies ready!
+      Compiling ...-- MISSING PATTERNS ----------------------------------------------- src/Main.elm
+      This `case` does not have branches for all possibilities:
+      4|>    case x of
+      5|>        5 -> "p5"
+      6|>        0 -> "z"
+      Missing possibilities include:
+pattern  -5.0 float (MUST refuse)      REFUSED
+      Verifying dependencies (0/2)Verifying dependencies (1/2)Verifying dependencies (2/2)                            Dependencies ready!
+      Compiling ...-- PROBLEM IN PATTERN --------------------------------------------- src/Main.elm
+      I wanted to parse a pattern next, but I got stuck here:
+      5|         -5.0 -> "m"
+                 ^
+      I am not sure why I am getting stuck exactly. I just know that I want a pattern
+      next. Something as simple as maybeHeight or result would work!
+case with if-guard-free  n>=-5         accepted

@@ -1,0 +1,76 @@
+=== stock
+type T = int where value >= -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_int,l,5}}}}
+type T = int where value >= 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,5}}}
+type T = int where value >= -5.0
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_float,l,-5.0}}}
+type T = int where value >= -(-5)
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_neg,l,{e_int,l,5}}}}}
+type T = int where value >= -5 + 10
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'+',{e_neg,l,{e_int,l,5}},{e_int,l,10}}}}
+type T = int where value >= 1 - -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'-',{e_int,l,1},{e_neg,l,{e_int,l,5}}}}}
+type T = int where value >= -2 * 3
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_op,l,'*',{e_int,l,2},{e_int,l,3}}}}}
+type T = int where value >= - 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_int,l,5}}}}
+F(n) when n >= -5 -> n
+   {clause,l,'F',[{p_var,l,n}],{guard,{e_op,l,'>=',{e_var,l,n},{e_neg,l,{e_int,l,5}}}},{e_var,l,n}}
+=== gramA
+type T = int where value >= -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,-5}}}
+type T = int where value >= 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,5}}}
+type T = int where value >= -5.0
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_float,l,-5.0}}}
+type T = int where value >= -(-5)
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,5}}}
+type T = int where value >= -5 + 10
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'+',{e_int,l,-5},{e_int,l,10}}}}
+type T = int where value >= 1 - -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'-',{e_int,l,1},{e_int,l,-5}}}}
+type T = int where value >= -2 * 3
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_op,l,'*',{e_int,l,2},{e_int,l,3}}}}}
+type T = int where value >= - 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,-5}}}
+F(n) when n >= -5 -> n
+   {clause,l,'F',[{p_var,l,n}],{guard,{e_op,l,'>=',{e_var,l,n},{e_int,l,-5}}},{e_var,l,n}}
+=== gramB
+type T = int where value >= -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,-5}}}
+type T = int where value >= 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,5}}}
+type T = int where value >= -5.0
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_float,l,-5.0}}}
+type T = int where value >= -(-5)
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_int,l,-5}}}}
+type T = int where value >= -5 + 10
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'+',{e_int,l,-5},{e_int,l,10}}}}
+type T = int where value >= 1 - -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'-',{e_int,l,1},{e_int,l,-5}}}}
+type T = int where value >= -2 * 3
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'*',{e_int,l,-2},{e_int,l,3}}}}
+type T = int where value >= - 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,-5}}}
+F(n) when n >= -5 -> n
+   {clause,l,'F',[{p_var,l,n}],{guard,{e_op,l,'>=',{e_var,l,n},{e_int,l,-5}}},{e_var,l,n}}
+=== gramC
+type T = int where value >= -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,-5}}}
+type T = int where value >= 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,5}}}
+type T = int where value >= -5.0
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_float,l,-5.0}}}
+type T = int where value >= -(-5)
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_neg,l,{e_int,l,5}}}}}
+type T = int where value >= -5 + 10
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'+',{e_int,l,-5},{e_int,l,10}}}}
+type T = int where value >= 1 - -5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_op,l,'-',{e_int,l,1},{e_int,l,-5}}}}
+type T = int where value >= -2 * 3
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_neg,l,{e_op,l,'*',{e_int,l,2},{e_int,l,3}}}}}
+type T = int where value >= - 5
+   {type_refined,l,'T',{t_builtin,int},{e_op,l,'>=',{e_var,l,value},{e_int,l,-5}}}
+F(n) when n >= -5 -> n
+   {clause,l,'F',[{p_var,l,n}],{guard,{e_op,l,'>=',{e_var,l,n},{e_neg,l,{e_int,l,5}}}},{e_var,l,n}}

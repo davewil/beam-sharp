@@ -1,0 +1,24 @@
+stock
+   size=1392B beam_lib:md5=45fba1a1c7ab36517fb253c77efd2740
+   Lit abstract: [[{clause,l,[],[],[{op,l,'-',{integer,l,5}}]}]]
+   run: Lit=-5 Sum(10)=5 Mix=6 Neg2=5 Mul=-6 Div=-3 Rem=-2 Big=-9223372036854775808
+stock
+   size=1392B beam_lib:md5=45fba1a1c7ab36517fb253c77efd2740
+   Lit abstract: [[{clause,l,[],[],[{op,l,'-',{integer,l,5}}]}]]
+   run: Lit=-5 Sum(10)=5 Mix=6 Neg2=5 Mul=-6 Div=-3 Rem=-2 Big=-9223372036854775808
+gramA
+   size=1376B beam_lib:md5=45fba1a1c7ab36517fb253c77efd2740
+   Lit abstract: [[{clause,l,[],[],[{integer,l,-5}]}]]
+   run: Lit=-5 Sum(10)=5 Mix=6 Neg2=5 Mul=-6 Div=-3 Rem=-2 Big=-9223372036854775808
+gramB
+   size=1372B beam_lib:md5=45fba1a1c7ab36517fb253c77efd2740
+   Lit abstract: [[{clause,l,[],[],[{integer,l,-5}]}]]
+   run: Lit=-5 Sum(10)=5 Mix=6 Neg2=5 Mul=-6 Div=-3 Rem=-2 Big=-9223372036854775808
+gramC
+   size=1392B beam_lib:md5=45fba1a1c7ab36517fb253c77efd2740
+   Lit abstract: [[{clause,l,[],[],[{op,l,'-',{integer,l,5}}]}]]
+   run: Lit=-5 Sum(10)=5 Mix=6 Neg2=5 Mul=-6 Div=-3 Rem=-2 Big=-9223372036854775808
+chk
+   size=1392B beam_lib:md5=45fba1a1c7ab36517fb253c77efd2740
+   Lit abstract: [[{clause,l,[],[],[{op,l,'-',{integer,l,5}}]}]]
+   run: Lit=-5 Sum(10)=5 Mix=6 Neg2=5 Mul=-6 Div=-3 Rem=-2 Big=-9223372036854775808

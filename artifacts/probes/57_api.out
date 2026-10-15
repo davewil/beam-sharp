@@ -1,0 +1,5 @@
+-- gramA: bsc --api
+module M
+atom Sign(-100..100)
+type X = 1..5 (stock)              refused   L2 syntax error before: 1
+type X = -5..5 (stock)             refused   L2 syntax error before: '-'

@@ -1,0 +1,36 @@
+gleam 1.19.2
+expr  -5                                 accepted ; run: -5 
+expr  - -5                               accepted ; run: warning: Unnecessary double negation (--) on integer   ┌─ /tmp/probe.zRrcb5/proj/src/probe.gleam:4:22   │ 4 │ pub fn main() { show(- -5) }   │                      ^^^ You can safely remove this. 5 
+expr  5 - -5                             accepted ; run: 10 
+expr  -2 * 3                             accepted ; run: -6 
+const lo = -5                            accepted ; run: -5 
+const lo = 2 + 3 (const expr)            REFUSED
+      error: Unsupported operator in constant expression
+        ┌─ /tmp/probe.zRrcb5/proj/src/probe.gleam:4:14
+        │
+      4 │ const lo = 2 + 3
+pattern -5                               accepted ; run: {<<"m5">>,<<"other">>} 
+pattern - -5 (MUST refuse)               REFUSED
+      error: Syntax error
+        ┌─ /tmp/probe.zRrcb5/proj/src/probe.gleam:4:25
+        │
+      4 │ fn f(x: Int) { case x { - -5 -> "p5" _ -> "other" } }
+pattern 2 + 3 (MUST refuse)              REFUSED
+      error: Syntax error
+        ┌─ /tmp/probe.zRrcb5/proj/src/probe.gleam:4:27
+        │
+      4 │ fn f(x: Int) { case x { 2 + 3 -> "five" _ -> "other" } }
+guard  n if n >= -5                      accepted ; run: {<<"ge">>,<<"lt">>} 
+guard  n if n >= 2 + 3                   accepted ; run: {<<"ge">>,<<"lt">>} 
+guard  n if n >= - -5                    REFUSED
+      error: Syntax error
+        ┌─ /tmp/probe.zRrcb5/proj/src/probe.gleam:4:32
+        │
+      4 │ fn f(x: Int) { case x { n if n >= - -5 -> "ge" _ -> "lt" } }
+guard  n if n >= m (var)                 accepted ; run: {<<"ge">>,<<"lt">>} 
+exhaustive: n>=-5 / n< -5 no catch-all (MUST refuse) REFUSED
+      error: Inexhaustive patterns
+        ┌─ /tmp/probe.zRrcb5/proj/src/probe.gleam:4:16
+        │
+      4 │ fn f(x: Int) { case x { n if n >= -5 -> "ge" n if n < -5 -> "lt" } }
+float pattern -5.0                       accepted ; run: <<"m">> 

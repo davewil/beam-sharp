@@ -1,0 +1,45 @@
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -5013,8 +5013,18 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) when element(1, R) =/= e_atom, element(1, R) =/= e_str,
++                                                 element(1, R) =/= e_var ->
++    case const_int(R) of
++        {ok, K} -> int_cmp(Op, V, K);
++        error   -> unknown
++    end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when element(1, L) =/= e_atom, element(1, L) =/= e_str,
++                                                 element(1, L) =/= e_var ->
++    case const_int(L) of
++        {ok, K} -> int_cmp(flip(Op), V, K);
++        error   -> unknown
++    end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -5027,6 +5037,21 @@
+ comparison(_) ->
+     unknown.
+ 
++%% PROTOTYPE (ticket 57, checker-side fold): a comparand is constant when it is
++%% an integer literal or `-`, `+`, `-`, `*` over constants. `/` and `%` are not
++%% folded (their rounding is ticket 38's, not this fold's).
++const_int({e_int, _, K})            -> {ok, K};
++const_int({e_neg, _, E})            -> neg_ok(const_int(E));
++const_int({e_op, _, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_int(A), const_int(B)} of
++        {{ok, X}, {ok, Y}} -> {ok, case Op of '+' -> X + Y; '-' -> X - Y; '*' -> X * Y end};
++        _                  -> error
++    end;
++const_int(_)                        -> error.
++
++neg_ok({ok, K}) -> {ok, -K};
++neg_ok(error)   -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

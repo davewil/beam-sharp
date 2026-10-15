@@ -1,0 +1,10 @@
+--- a/compiler/src/bs_parser.yrl
++++ b/compiler/src/bs_parser.yrl
+@@ -588,6 +588,7 @@
+ %% `0 - e`, and under ticket 80 that is an `int` beside a `float` when `e` is
+ %% one, refused. A negated float LITERAL folds to the literal, so `-0.0` is
+ %% the platform's negative zero and not `0 - 0.0`, which is `0.0`.
++expr_low -> '-' integer : {e_int, line('$1'), -value('$2')}.
+ expr_low -> '-' expr_low : negate(line('$1'), '$2').
+ expr_low -> atom_lit : {e_atom, line('$1'), value('$1')}.
+ expr_low -> string_lit : {e_str, line('$1'), value('$1')}.

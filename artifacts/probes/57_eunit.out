@@ -1,0 +1,24 @@
+== stock
+  body_check_tests: every_aoc_program_still_compiles_test FAILED
+  cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each FAILED
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test FAILED
+  non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test FAILED
+  Failed: 4.  Skipped: 0.  Passed: 1444.
+== gramA
+  body_check_tests: every_aoc_program_still_compiles_test FAILED
+  cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each FAILED
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test FAILED
+  non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test FAILED
+  Failed: 4.  Skipped: 0.  Passed: 1444.
+== gramB
+  body_check_tests: every_aoc_program_still_compiles_test FAILED
+  cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each FAILED
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test FAILED
+  non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test FAILED
+  Failed: 4.  Skipped: 0.  Passed: 1444.
+== chk
+  body_check_tests: every_aoc_program_still_compiles_test FAILED
+  cli_tests: batch_runs_every_entry_in_one_vm_and_attributes_each FAILED
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test FAILED
+  non_numeric_operand_tests: a_non_ascii_literal_is_advised_as_written_test FAILED
+  Failed: 4.  Skipped: 0.  Passed: 1444.

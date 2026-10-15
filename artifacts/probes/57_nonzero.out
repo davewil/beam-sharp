@@ -1,0 +1,7 @@
+-- residual of F(>= 1) over NZ:
+a.bs:3:13: error: F is not exhaustive
+  no clause matches:
+    F(<= -1) -> ...
+Id(-1) -> -1
+Id(0) -> crashed: error:function_clause
+Id(1) -> 1

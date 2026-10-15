@@ -1,0 +1,38 @@
+R01 value >= -5                    refused   L2 this refinement is not a predicate the checker can read
+R02 >= -5 and <= 5                 refused   L2 this refinement is not a predicate the checker can read
+R03 >= 1 or <= -1                  refused   L2 this refinement is not a predicate the checker can read
+R04 <= 3 or >= 10 (control)        accepted
+R05 != 0 (control)                 accepted
+R06 value >= -(-5)                 refused   L2 this refinement is not a predicate the checker can read
+R07 value >= -5 + 10               refused   L2 this refinement is not a predicate the checker can read
+R08 value >= 2 + 3                 refused   L2 this refinement is not a predicate the checker can read
+R09 value >= 2 * 3                 refused   L2 this refinement is not a predicate the checker can read
+R10 value >= 10 % 3                refused   L2 this refinement is not a predicate the checker can read
+R11 value >= n (MUST refuse)       refused   L2 this refinement is not a predicate the checker can read
+R12 value >= 5 - value (MUST ref.) refused   L2 this refinement is not a predicate the checker can read
+R13 5 - value >= 0 (MUST refuse)   refused   L2 this refinement is not a predicate the checker can read
+R14 -value >= 5 (MUST refuse)      refused   L2 this refinement is not a predicate the checker can read
+R15 -5 <= value (flipped)          refused   L2 this refinement is not a predicate the checker can read
+R16 value > -1                     refused   L2 this refinement is not a predicate the checker can read
+R17 value == -3                    refused   L2 this refinement is not a predicate the checker can read
+R18 value != -3                    refused   L2 this refinement is not a predicate the checker can read
+R19 value >= - 5 (space)           refused   L2 this refinement is not a predicate the checker can read
+R20 value >= -0                    refused   L2 this refinement is not a predicate the checker can read
+R21 Delta -100..100                refused   L2 this refinement is not a predicate the checker can read
+R22 >=-5 and <=-10 (MUST empty)    refused   L2 this refinement is not a predicate the checker can read
+R23 value >= -5.0 (float lit)      refused   L2 this refinement is not a predicate the checker can read
+G01 guard n>=-5 / n<-5 (exhaust.)  refused   L2 F is not exhaustive
+G02 guard n>=0 / n<0 (control)     accepted
+G03 guard n>=-5 + catch-all n      accepted
+G04 guard n>=2+3 / n<5 (exhaust.)  refused   L2 F is not exhaustive
+P01 pattern >= -5 / < -5           accepted
+P02 pattern literal -5 + n         accepted
+P03 pattern >= -(-5) (MUST refuse) refused   L3 syntax error before: '('
+S01 Delta param, total on Delta    refused   L2 this refinement is not a predicate the checker can read
+E01 Delta fn returns -100          refused   L2 this refinement is not a predicate the checker can read
+E02 Delta returns -101 (MUST ref)  refused   L2 this refinement is not a predicate the checker can read
+E03 Neg = <= -1, fn returns -1     refused   L2 this refinement is not a predicate the checker can read
+E04 fn returns -1 as int (control) accepted
+D01 n / -0 (zero divisor)          accepted
+D02 n / 0 (control: refused)       refused   L3 the right-hand side of `/` in D is always zero
+D03 n / (0 - 0) (control)          accepted

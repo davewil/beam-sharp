@@ -1,0 +1,17 @@
+parse -5.            -> [{op,l,'-',{integer,1,5}}]
+parse - 5.           -> [{op,l,'-',{integer,1,5}}]
+parse -(-5).         -> [{op,l,'-',{op,l,'-',{integer,1,5}}}]
+parse -5 + 10.       -> [{op,l,'+',{op,l,'-',{integer,1,5}},{integer,1,10}}]
+parse -2 * 3.        -> [{op,l,'*',{op,l,'-',{integer,1,2}},{integer,1,3}}]
+parse 2 + 3.         -> [{op,l,'+',{integer,1,2},{integer,1,3}}]
+erl_eval:partial_eval(-5) = {integer,1,-5} ; (-(-5)) = {integer,1,5} ; (2+3) = {integer,1,5} ; (N+1) = {op,l,'+',{var,l,'N'},{integer,1,1}}
+guard  f(X) when X >= -5           accepted ; core guard/lit: call 'erlang':'>=' -5 call 'erlang':'get_module_info'
+guard  f(X) when X >= 2+3          accepted ; core guard/lit: call 'erlang':'>=' 5 call 'erlang':'get_module_info'
+guard  f(X) when X >= -(-5)        accepted ; core guard/lit: call 'erlang':'>=' 5 call 'erlang':'get_module_info'
+pattern f(-5)                      accepted ; core guard/lit: -5 call 'erlang':'get_module_info' call 'erlang':'get_module_info'
+pattern f(2+3)                     accepted ; core guard/lit: 5 call 'erlang':'get_module_info' call 'erlang':'get_module_info'
+pattern f(-(-5))                   accepted ; core guard/lit: 5 call 'erlang':'get_module_info' call 'erlang':'get_module_info'
+pattern f(-2*3)                    accepted ; core guard/lit: call 'erlang':'get_module_info' call 'erlang':'get_module_info'
+pattern f(10 div 3)                accepted ; core guard/lit: call 'erlang':'get_module_info' call 'erlang':'get_module_info'
+:1: illegal pattern
+pattern f(N+1) (MUST refuse)       REFUSED [{[],[{1,erl_lint,illegal_pattern}]}]

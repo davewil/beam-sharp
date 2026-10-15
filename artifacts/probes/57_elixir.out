@@ -1,0 +1,18 @@
+quote -5         => {:-, [line: 1], [5]}
+quote - 5        => {:-, [line: 1], [5]}
+quote -(-5)      => {:-, [line: 1], [{:-, [line: 1], [5]}]}
+quote -5 + 10    => {:+, [line: 1], [{:-, [line: 1], [5]}, 10]}
+quote -2 * 3     => {:*, [line: 1], [{:-, [line: 1], [2]}, 3]}
+quote x >= -5    => {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+guard  when x >= -5                    accepted
+guard  when x >= 2 + 3                 accepted
+guard  when x >= -(-5)                 accepted
+pattern f(-5)                          accepted
+error: cannot invoke remote function :erlang.+/2 inside a match
+\x{2514}\x{2500} nofile:1:25: P2.f/1
+pattern f(2 + 3) (MUST refuse)         REFUSED nofile: cannot compile module P2 (errors have been logged)
+error: cannot invoke remote function :erlang.-/1 inside a match
+\x{2514}\x{2500} nofile:1:23: P3.f/1
+pattern f(-(-5))                       REFUSED nofile: cannot compile module P3 (errors have been logged)
+module attr @min -5 in guard           accepted
+run: G1.f(-5)=:a G1.f(-6)=:b P1.f(-5)=:a G3.f(5)=:a

@@ -1,0 +1,15 @@
+stock  run F(-6),F(-5),F(0) = :b :a :a 
+   refinement  >= -5               refused   L2 this refinement is not a predicate the checker can read
+   guard-exhaust n>=-5/n<-5        refused   L2 G is not exhaustive
+gramA  run F(-6),F(-5),F(0) = :b :a :a 
+   refinement  >= -5               accepted
+   guard-exhaust n>=-5/n<-5        accepted
+gramB  run F(-6),F(-5),F(0) = :b :a :a 
+   refinement  >= -5               accepted
+   guard-exhaust n>=-5/n<-5        accepted
+gramC  run F(-6),F(-5),F(0) = :b :a :a 
+   refinement  >= -5               accepted
+   guard-exhaust n>=-5/n<-5        refused   L2 G is not exhaustive
+chk    run F(-6),F(-5),F(0) = :b :a :a 
+   refinement  >= -5               accepted
+   guard-exhaust n>=-5/n<-5        accepted
