@@ -1,0 +1,42 @@
+=== Go: a/internal/other imports a/internal/b/internal/c (prototype would ALLOW; Go rule is parent of LAST internal)
+package example.com/m/a/internal/other
+	a/internal/other/o.go:2:8: use of internal package example.com/m/a/internal/b/internal/c not allowed
+exit 1
+=== Gleam: path dep, FULL unfiltered output of gleam build / gleam check / gleam run
+  Resolving versions
+      Added libpkg v1.0.0
+  Compiling libpkg
+  Compiling app
+   Compiled in 0.60s
+build exit 0
+  Resolving versions
+   Compiled in 0.50s
+check exit 0
+   Compiled in 0.43s
+    Running app.main
+run exit 0
+=== Gleam: same package, internal module imported by a public module and a test
+  Resolving versions
+  Compiling libpkg
+   Compiled in 0.51s
+exit 0
+=== Gleam: warning text search in binary for 'internal' import diagnostics
+=== BEAM: Twice/1 disassembly (brief claims call_only to Pub guarded entry)
+Pub/1
+  [{line,1},
+   {label,3},
+   {func_info,{atom,'Guard'},{atom,'Pub'},1},
+   {label,4},
+   {test,is_integer,{f,3},[{x,0}]},
+   {allocate,0,1},
+   {call,1,{'Guard','Priv',1}},
+   {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}},
+   {deallocate,0},
+   return]
+Twice/1
+  [{line,3},
+   {label,7},
+   {func_info,{atom,'Guard'},{atom,'Twice'},1},
+   {label,8},
+   {test,is_integer,{f,7},[{x,0}]},
+   {call_only,1,{'Guard','Pub',1}}]

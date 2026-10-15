@@ -1,0 +1,49 @@
+diffstat stock-source vs patched-source:
+  added lines (incl blank+): 32
+  removed lines: 2
+  of which blank: 3
+=== E1 shared helper between two NON-nested top-level modules (Billing, Inventory), helper placed at Common.Internal
+  Billing -> Common.Internal:
+  [stock] exit 0 | 101
+  [patched] exit 1 | Billing/B.bs:2:1: error: Common.Internal is internal to Common and Billing is outside it
+=== E1b same, helper hoisted to root-level 'Internal' (module Internal.Fmt): is it protected at all?
+  Audit (unrelated) -> root Internal:
+  [stock] exit 0 | 101
+  [patched] exit 0 | 101
+=== E1c shared helper hoisted to common ancestor App.Internal; App.Billing + App.Inventory use it (plausible layout)
+  App.Billing:
+  [stock] exit 0 | 101
+  [patched] exit 0 | 101
+  App.Inventory:
+  [stock] exit 0 | 101
+  [patched] exit 0 | 101
+  Outside (must be refused patched only):
+  [stock] exit 0 | 101
+  [patched] exit 1 | Outside/O.bs:2:1: error: App.Internal is internal to App and Outside is outside it
+=== E2 test modules: sibling-in-tree (Shop.Orders.Tests) vs parallel test tree (Tests.Shop.Orders) naming Shop.Orders.Internal
+  Shop.Orders.Tests (in tree):
+  [stock] exit 0 | 4
+  [patched] exit 0 | 4
+  Tests.Shop.Orders (parallel tree):
+  [stock] exit 0 | 4
+  [patched] exit 1 | Tests/Shop/Orders/T.bs:2:1: error: Shop.Orders.Internal is internal to Shop.Orders and Tests.Shop.Orders is outside it
+=== E3 nesting: a/Internal/b/Internal/c named from a.Internal.Other (Go uses the LAST internal element)
+  A.Internal.Other -> A.Internal.B.Internal.C (Go would refuse: not under A/internal/B):
+  [stock] exit 0 | 1
+  [patched] exit 0 | 1
+=== E4 segment-spelling hole: Shop.InternalTools.Internal.Secret (a real Internal segment after a longer name starting with Internal)
+  Audit -> Shop.InternalTools.Internal (should be refused by the rule's intent):
+  [stock] exit 0 | 1
+  [patched] exit 0 | 1
+=== E5 lenient/--api mode on an outsider (LSP/doc path): does the rule skip?
+  patched --api Billing:
+module Billing
+int Bill(int)
+=== E6 option C for the 24 s2 case: a B# test module naming Orders and calling the private RecomputeTotal
+  stock bsc (no rule at all), test calls private helper:
+  exit 1 | OrdersTest/T.bs:4:9: error: T calls RecomputeTotal/2, which Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Orders, or move the call inside it.
+=== E7 control: prebuilt $BSC vs stock rebuilt from source agree on proto outsider fixture?
+  compiler/..: exit 0 | 1
+  compiler/..: exit 0 | 1
