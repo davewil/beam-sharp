@@ -1,0 +1,22 @@
+emitted guards on the loops:
+ [HEAD]
+   LoopR/3          private  tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+   LoopI/2          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+   RunR/2           exported tag_guard=Y   tag_in_head=n   is_integer=Y   is_float=n  
+   RunI/1           exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ [EXP]
+   LoopR/3          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+   LoopI/2          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+   RunR/2           exported tag_guard=Y   tag_in_head=n   is_integer=Y   is_float=n  
+   RunI/1           exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ [ALL]
+   LoopR/3          private  tag_guard=Y   tag_in_head=n   is_integer=Y   is_float=n  
+   LoopI/2          private  tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+   RunR/2           exported tag_guard=Y   tag_in_head=n   is_integer=Y   is_float=n  
+   RunI/1           exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+n=15 runs, 10000000 iterations each, ns/iteration
+HEAD     RunR(record loop) min=  6.979 median=  8.293 max=  9.779 | RunI(int loop) min=  1.012 median=  1.333 max=  2.785
+EXP      RunR(record loop) min=  1.896 median=  2.461 max=  3.941 | RunI(int loop) min=  1.041 median=  1.333 max=  2.061
+ALL      RunR(record loop) min=  6.004 median=  7.601 max=  9.621 | RunI(int loop) min=  1.010 median=  1.288 max=  1.788
+NOTAG    RunR(record loop) min=  2.234 median=  3.203 max=  3.977 | RunI(int loop) min=  0.956 median=  1.419 max=  2.955
+(the node: OTP 28, x86_64-pc-linux-gnu, JIT=jit)

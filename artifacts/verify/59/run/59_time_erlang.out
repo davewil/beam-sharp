@@ -1,0 +1,5 @@
+n=15 runs, 10000000 iterations each, ns/iteration
+record unguarded         min=  2.255 median=  2.874 max=  6.508
+record tag-guarded       min=  5.924 median=  7.608 max=  9.093
+int unguarded            min=  0.940 median=  1.207 max=  2.076
+int is_integer-guarded   min=  1.013 median=  1.300 max=  2.460

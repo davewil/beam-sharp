@@ -1,0 +1,35 @@
+module R
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Wrapper { Id: int, Inner: Order }
+
+int Priv(Order o)
+Priv(o) -> o.Total
+
+// destructuring the field in the head: pattern itself names the Order type
+public int ViaPat(Wrapper w)
+ViaPat(Wrapper { Inner: Order o }) -> Priv(o)
+
+// binder from a nested record pattern without type prefix
+public int ViaPat2(Wrapper w)
+ViaPat2(Wrapper { Inner: o }) -> Priv(o)
+
+// switch on the projection
+public int ViaSwitch(Wrapper w)
+ViaSwitch(w) -> w.Inner switch {
+    Order o => Priv(o)
+}
+
+
+// let-binding the projection, then calling
+public int ViaLet(Wrapper w)
+ViaLet(w) ->
+    var i = w.Inner
+    Priv(i)
+
+// two-level private chain
+int Priv2(Wrapper w)
+Priv2(w) -> Priv(w.Inner)
+public int ViaChain(Wrapper w)
+ViaChain(w) -> Priv2(w)

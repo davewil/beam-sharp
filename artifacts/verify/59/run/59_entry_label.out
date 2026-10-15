@@ -1,0 +1,53 @@
+=== emitted guards (HEAD)
+Inner/1          exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+OuterExp/1       exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+InnerP/1         private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+OuterPriv/1      exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+=== behaviour (the B# source type-checks; the arguments are forged from Erlang)
+E:OuterExp[[1]] -> ok 1
+E:OuterExp[[1.5]] -> error:function_clause
+E:OuterPriv[[1]] -> ok 1
+E:OuterPriv[[1.5]] -> ok 1.5
+=== export table as stored in the file (function/arity -> entry label)
+    'Inner'/1 -> label 4
+    'OuterExp'/1 -> label 6
+    'OuterPriv'/1 -> label 11
+    bs@type_atoms/0 -> label 2
+=== assembly with labels: the local call in OuterExp targets the entry label of Inner
+Inner/1:
+    {label,3}
+    {line,[{location,"E/e.bs",5}]}
+    {func_info,{atom,'E'},{atom,'Inner'},1}
+    {label,4}
+    {test,is_integer,{f,3},[{x,0}]}
+    return
+OuterExp/1:
+    {label,5}
+    {line,[{location,"E/e.bs",9}]}
+    {func_info,{atom,'E'},{atom,'OuterExp'},1}
+    {label,6}
+    {test,is_nonempty_list,{f,7},[{x,0}]}
+    {get_hd,{x,0},{x,0}}
+    {call_only,1,{f,4}}
+    {label,7}
+    {test,is_nil,{f,5},[{x,0}]}
+    {move,{integer,0},{x,0}}
+    return
+=== pure Erlang control
+    inner/1 -> label 2
+    outer/1 -> label 4
+inner/1:
+    {label,1}
+    {line,[{location,"c.erl",3}]}
+    {func_info,{atom,c},{atom,inner},1}
+    {label,2}
+    {test,is_integer,{f,1},[{x,0}]}
+    return
+outer/1:
+    {label,3}
+    {line,[{location,"c.erl",4}]}
+    {func_info,{atom,c},{atom,outer},1}
+    {label,4}
+    {test,is_nonempty_list,{f,3},[{x,0}]}
+    {get_hd,{x,0},{x,0}}
+    {call_only,1,{f,2}}

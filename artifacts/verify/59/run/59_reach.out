@@ -1,0 +1,150 @@
+=== HEAD : emitted guards ===
+Priv/1           private  tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+Direct/1         exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaNested/1      exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaList/1        exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaTuple/1       exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaUnion/1       exported tag_guard=n   tag_in_head=Y   is_integer=n   is_float=n  
+Pub/1            exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaValidate/1    exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+PrivI/1          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaIntDirect/1   exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ViaIntList/1     exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+PrivO/1          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaOctList/1     exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+--- HEAD : forged calls ---
+Direct        valid Order                      -> ok 5
+Direct        Invoice-tagged, same fields      -> error:function_clause
+Direct        42 (not a map)                   -> error:function_clause
+Direct        Order tag, Total = <<"x">>       -> ok <<"x">>
+Direct        Order tag, no Total key          -> error:{badkey,'Total'}
+Pub           Invoice-tagged, same fields      -> error:function_clause
+ViaNested     valid                            -> ok 5
+ViaNested     Inner Invoice-tagged             -> error:function_clause
+ViaNested     Inner = 42                       -> error:function_clause
+ViaNested     Inner Order tag, no Total key    -> error:{badkey,'Total'}
+ViaNested     Inner Order tag, Total=<<x>>     -> ok <<"x">>
+ViaList       valid                            -> ok 5
+ViaList       element Invoice-tagged           -> error:function_clause
+ViaTuple      valid                            -> ok 5
+ViaTuple      component Invoice-tagged         -> error:function_clause
+ViaUnion      Order                            -> ok 5
+ViaUnion      Invoice                          -> ok 0
+ViaUnion      unknown tag                      -> error:function_clause
+ViaUnion      Order tag, Total=<<x>>           -> ok <<"x">>
+ViaIntDirect  1                                -> ok 1
+ViaIntDirect  1.5 (float)                      -> error:function_clause
+ViaIntList    [1]                              -> ok 1
+ViaIntList    [1.5] (float element)            -> ok 1.5
+ViaOctList    [100]                            -> ok 100
+ViaOctList    [300] (out of range)             -> ok 300
+ViaOctList    [1.5] (float)                    -> ok 1.5
+ViaValidate   valid Order                      -> ok 5
+ViaValidate   Invoice-tagged                   -> ok -1
+ViaValidate   Order tag, Total=<<x>>           -> ok -1
+
+=== EXP : emitted guards ===
+Priv/1           private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+Direct/1         exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaNested/1      exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaList/1        exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaTuple/1       exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaUnion/1       exported tag_guard=n   tag_in_head=Y   is_integer=n   is_float=n  
+Pub/1            exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaValidate/1    exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+PrivI/1          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaIntDirect/1   exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ViaIntList/1     exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+PrivO/1          private  tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaOctList/1     exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+--- EXP : forged calls ---
+Direct        valid Order                      -> ok 5
+Direct        Invoice-tagged, same fields      -> error:function_clause
+Direct        42 (not a map)                   -> error:function_clause
+Direct        Order tag, Total = <<"x">>       -> ok <<"x">>
+Direct        Order tag, no Total key          -> error:{badkey,'Total'}
+Pub           Invoice-tagged, same fields      -> error:function_clause
+ViaNested     valid                            -> ok 5
+ViaNested     Inner Invoice-tagged             -> ok 5
+ViaNested     Inner = 42                       -> error:badmap
+ViaNested     Inner Order tag, no Total key    -> error:{badkey,'Total'}
+ViaNested     Inner Order tag, Total=<<x>>     -> ok <<"x">>
+ViaList       valid                            -> ok 5
+ViaList       element Invoice-tagged           -> ok 5
+ViaTuple      valid                            -> ok 5
+ViaTuple      component Invoice-tagged         -> ok 5
+ViaUnion      Order                            -> ok 5
+ViaUnion      Invoice                          -> ok 0
+ViaUnion      unknown tag                      -> error:function_clause
+ViaUnion      Order tag, Total=<<x>>           -> ok <<"x">>
+ViaIntDirect  1                                -> ok 1
+ViaIntDirect  1.5 (float)                      -> error:function_clause
+ViaIntList    [1]                              -> ok 1
+ViaIntList    [1.5] (float element)            -> ok 1.5
+ViaOctList    [100]                            -> ok 100
+ViaOctList    [300] (out of range)             -> ok 300
+ViaOctList    [1.5] (float)                    -> ok 1.5
+ViaValidate   valid Order                      -> ok 5
+ViaValidate   Invoice-tagged                   -> ok -1
+ViaValidate   Order tag, Total=<<x>>           -> ok -1
+
+=== ALL : emitted guards ===
+Priv/1           private  tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+Direct/1         exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaNested/1      exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaList/1        exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaTuple/1       exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+ViaUnion/1       exported tag_guard=n   tag_in_head=Y   is_integer=n   is_float=n  
+Pub/1            exported tag_guard=Y   tag_in_head=n   is_integer=n   is_float=n  
+ViaValidate/1    exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+PrivI/1          private  tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ViaIntDirect/1   exported tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ViaIntList/1     exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+PrivO/1          private  tag_guard=n   tag_in_head=n   is_integer=Y   is_float=n  
+ViaOctList/1     exported tag_guard=n   tag_in_head=n   is_integer=n   is_float=n  
+--- ALL : forged calls ---
+Direct        valid Order                      -> ok 5
+Direct        Invoice-tagged, same fields      -> error:function_clause
+Direct        42 (not a map)                   -> error:function_clause
+Direct        Order tag, Total = <<"x">>       -> ok <<"x">>
+Direct        Order tag, no Total key          -> error:{badkey,'Total'}
+Pub           Invoice-tagged, same fields      -> error:function_clause
+ViaNested     valid                            -> ok 5
+ViaNested     Inner Invoice-tagged             -> error:function_clause
+ViaNested     Inner = 42                       -> error:function_clause
+ViaNested     Inner Order tag, no Total key    -> error:{badkey,'Total'}
+ViaNested     Inner Order tag, Total=<<x>>     -> ok <<"x">>
+ViaList       valid                            -> ok 5
+ViaList       element Invoice-tagged           -> error:function_clause
+ViaTuple      valid                            -> ok 5
+ViaTuple      component Invoice-tagged         -> error:function_clause
+ViaUnion      Order                            -> ok 5
+ViaUnion      Invoice                          -> ok 0
+ViaUnion      unknown tag                      -> error:function_clause
+ViaUnion      Order tag, Total=<<x>>           -> ok <<"x">>
+ViaIntDirect  1                                -> ok 1
+ViaIntDirect  1.5 (float)                      -> error:function_clause
+ViaIntList    [1]                              -> ok 1
+ViaIntList    [1.5] (float element)            -> error:function_clause
+ViaOctList    [100]                            -> ok 100
+ViaOctList    [300] (out of range)             -> error:function_clause
+ViaOctList    [1.5] (float)                    -> error:function_clause
+ViaValidate   valid Order                      -> ok 5
+ViaValidate   Invoice-tagged                   -> ok -1
+ViaValidate   Order tag, Total=<<x>>           -> ok -1
+
+=== diff HEAD vs EXP forged calls (lines that CHANGE when the private tag test is removed) ===
+8,9c8,9
+< ViaNested     Inner Invoice-tagged             -> error:function_clause
+< ViaNested     Inner = 42                       -> error:function_clause
+---
+> ViaNested     Inner Invoice-tagged             -> ok 5
+> ViaNested     Inner = 42                       -> error:badmap
+13c13
+< ViaList       element Invoice-tagged           -> error:function_clause
+---
+> ViaList       element Invoice-tagged           -> ok 5
+15c15
+< ViaTuple      component Invoice-tagged         -> error:function_clause
+---
+> ViaTuple      component Invoice-tagged         -> ok 5

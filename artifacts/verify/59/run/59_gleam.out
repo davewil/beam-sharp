@@ -1,0 +1,48 @@
+  Resolving versions
+  Compiling g59
+   Compiled in 1.90s
+=== emitted BEAM code of the compiled module (beam_disasm): note: no is_integer / element(1) test in any prologue
+direct/1:
+    {label,1}
+    {line,1}
+    {func_info,{atom,g59},{atom,direct},1}
+    {label,2}
+    {line,2}
+    {bif,element,{f,0},[{integer,3},{x,0}],{x,0}}
+    return
+pub_total/1:
+    {line,3}
+    {label,3}
+    {func_info,{atom,g59},{atom,pub_total},1}
+    {label,4}
+    {line,4}
+    {bif,element,{f,0},[{integer,3},{x,0}],{x,0}}
+    return
+pub_case/1:
+    {line,5}
+    {label,5}
+    {func_info,{atom,g59},{atom,pub_case},1}
+    {label,6}
+    {test,is_tagged_tuple,{f,7},[{x,0},3,{atom,order}]}
+    {get_tuple_element,{x,0},2,{x,0}}
+    return
+    {label,7}
+    {line,6}
+    {case_end,{x,0}}
+add/2:
+    {line,7}
+    {label,8}
+    {func_info,{atom,g59},{atom,add},2}
+    {label,9}
+    {line,8}
+    {gc_bif,'+',{f,0},2,[{x,0},{x,1}],{x,0}}
+    return
+=== forged calls from Erlang (wrong tag / wrong payload / float)
+direct({invoice,1,5})         (Order expected)      -> {ok,5}
+pub_total({invoice,1,5})      (Order, field access) -> {ok,5}
+pub_case({invoice,1,5})       (Order, case)         -> {error,case_clause}
+pub_total(42)                                       -> {error,badarg}
+pub_total({order,1,<<"x">>})  (payload forged)      -> {ok,<<120>>}
+add(1.5, 2.5)                                       -> {ok,4.0}
+via_list([1.5]) (private priv_add)                  -> {ok,2.5}
+sealed_total({invoice,1,5}) (opaque)                -> {ok,5}

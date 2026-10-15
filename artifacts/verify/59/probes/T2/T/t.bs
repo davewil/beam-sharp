@@ -1,0 +1,18 @@
+module T
+
+record R { A: int, B: int, C: int }
+
+int LoopI(int n, int acc)
+LoopI(0, acc) -> acc
+LoopI(n, acc) -> LoopI(n - 1, acc + n)
+
+public int RunU(list<int> xs)
+RunU([n, .._]) -> LoopI(n, 0)
+RunU([]) -> 0
+
+int LoopR(int n, R r, int acc)
+LoopR(0, _, acc) -> acc
+LoopR(n, r, acc) -> LoopR(n - 1, r, acc + r.A)
+
+public int RunR(int n, R r)
+RunR(n, r) -> LoopR(n, r, 0)

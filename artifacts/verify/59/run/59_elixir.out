@@ -1,0 +1,36 @@
+def nopattern(Invoice-tagged)  [@spec Order.t()]        {:ok, %Invoice{id: 1, total: 5}}
+def pub(%Order{})  valid                                {:ok, 5}
+def pub(%Order{})  Invoice-tagged                       {:raised, FunctionClauseError}
+def pub(%Order{})  Order tag, total: "str"              {:ok, "str"}
+pub_untagged(Invoice-tagged) -> defp priv_plain         {:ok, %Invoice{id: 1, total: 5}}
+via_nested(%Wrapper{inner: Invoice-tagged}) -> defp priv_tagged{:raised, FunctionClauseError}
+via_nested_plain(... Invoice-tagged) -> defp priv_plain {:ok, %Invoice{id: 1, total: 5}}
+@enforce_keys: %Order{total: 1} (no :id)                {:raised, ArgumentError}
+@enforce_keys: %{valid | id: nil}  (update)             {:ok, %Order{id: nil, total: 5}}
+@enforce_keys: struct!(Order, total: 1)                 {:raised, ArgumentError}
+@enforce_keys: hand-built %{__struct__: Order}          {:ok, %{total: 1, __struct__: Order}}
+    warning: incompatible types given to M.pub/1:
+
+        M.pub(forged_invoice)
+
+    given types:
+
+        -%Invoice{id: integer(), total: integer()}-
+
+    but expected one of:
+
+        dynamic(%Order{id: term(), total: term()})
+
+    where "forged_invoice" was given the type:
+
+        # type: %Invoice{id: integer(), total: integer()}
+        # from: 59_elixir.exs:36:20
+        forged_invoice = %{__struct__: Invoice, id: 1, total: 5}
+
+    typing violation found at:
+    \x{2502}
+ 47 \x{2502}     run.("def pub(%Order{})  Invoice-tagged", fn -> M.pub(forged_invoice) end)
+    \x{2502}                                                       ~
+    \x{2502}
+    \x{2514}\x{2500} 59_elixir.exs:47:55: Runner.go/0
+

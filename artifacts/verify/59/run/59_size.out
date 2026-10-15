@@ -1,0 +1,23 @@
+K=8 functions per kind; sizes (bytes):
+HEAD file=8800 code=2285 instrs=627
+EXP file=8132 code=2065 instrs=595
+ALL file=8948 code=2316 instrs=635
+NOTAG file=7452 code=1842 instrs=563
+
+emitted guards, HEAD (count of functions carrying each test):
+  PrivI private tag=tag_guard=n int=is_integer=n x8
+  PrivR3 private tag=tag_guard=Y int=is_integer=n x8
+  PrivR8 private tag=tag_guard=Y int=is_integer=n x8
+  PubI exported tag=tag_guard=n int=is_integer=Y x8
+  PubR3 exported tag=tag_guard=Y int=is_integer=n x8
+  PubR8 exported tag=tag_guard=Y int=is_integer=n x8
+  UseI exported tag=tag_guard=n int=is_integer=n x8
+  UseR3 exported tag=tag_guard=n int=is_integer=n x8
+  UseR8 exported tag=tag_guard=n int=is_integer=n x8
+
+Deltas (Code-chunk bytes / file bytes / instructions):
+  HEAD - EXP   = 220 / 668 / 32   -> 16 private record fns lose the tag test (K R3 + K R8): 13.75 B per test
+  ALL  - HEAD  = 31 / 148 / 8   -> 8 private int fns gain is_integer: 3.88 B per test
+  HEAD - NOTAG = 443 / 1348 / 64   -> 32 tag tests (K priv+K pub, R3 and R8)
+  record with 3 fields: HEAD code=595 EXP code=487 delta=108 over 8 private tag tests = 13.5 B each
+  record with 8 fields: HEAD code=595 EXP code=487 delta=108 over 8 private tag tests = 13.5 B each

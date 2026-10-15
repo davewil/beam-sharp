@@ -1,0 +1,4 @@
+one: remote inner(1.5) -> {error,function_clause} ; local-path outer([1.5]) -> {error,function_clause} ; outer([1]) -> {ok,1}
+two: remote inner(1.5) -> {error,function_clause} ; local-path outer([1.5]) -> {ok,1.5} ; outer([1]) -> {ok,1}
+one Code chunk: 89 bytes
+two Code chunk: 102 bytes

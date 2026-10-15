@@ -1,0 +1,60 @@
+module L
+
+type Octet = int where value >= 0 and value <= 255
+type Num = int | float
+type F = { "price": float }
+
+// recursive private helper with accumulators
+int SumTo(int n, int acc)
+SumTo(0, acc) -> acc
+SumTo(n, acc) -> SumTo(n - 1, acc + n)
+
+public int Total(int n)
+Total(n) -> SumTo(n, 0)
+
+// private refined int param
+int Bump(Octet o)
+Bump(o) when o < 255 -> o + 1
+Bump(255) -> 0
+
+public int Wrap(Octet o)
+Wrap(o) -> Bump(o)
+
+public int WrapList(list<Octet> os)
+WrapList([]) -> 0
+WrapList([o, ..rest]) -> Bump(o) + WrapList(rest)
+
+// private float params, float accumulator, recursion
+float Half(float x)
+Half(x) -> x / 2.0
+
+float Geo(int n, float acc)
+Geo(0, acc) -> acc
+Geo(n, acc) -> Geo(n - 1, Half(acc))
+
+public float Decay(int n, float start)
+Decay(n, start) -> Geo(n, start)
+
+public float FromInts(list<int> xs)
+FromInts([]) -> 0.0
+FromInts([x, ..rest]) -> Half(Float.FromInt(x)) + FromInts(rest)
+
+// JSON-decoded float field to private float helper
+public float Price(string body)
+Price(body) -> FromJson<F>(body) switch {
+    { "price": p } => Half(p),
+    (:error, _) => 0.0
+}
+
+// private fn used as a function value
+int Twice(int n)
+Twice(n) -> n * 2
+
+public list<int> Doubled(list<int> xs)
+Doubled(xs) -> List.Map(xs, Twice)
+
+// numeric union param private: no kind guard expected
+int Floor(Num n)
+Floor(n) -> 0
+public int ViaNum(Num n)
+ViaNum(n) -> Floor(n)

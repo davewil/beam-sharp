@@ -1,0 +1,45 @@
+== uniform_exported_only: 1 changed lines
+@@ -274,6 +274,7 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        {ok, _} when not Public -> {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};
+== uniform_all_functions: 7 changed lines
+@@ -273,6 +273,7 @@
+ %% has a `maps` part and an integer type does not, so no parameter is a
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
++    _ = Public,
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+@@ -281,13 +282,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from
+== no_tag_test: 3 changed lines
+@@ -279,7 +279,8 @@
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+-                    {Pat1, [tag_test(Var, Tag, Line)]}
++                    _ = tag_test(Var, Tag, Line),
++                    {Pat1, []}
+             end;
+         none when Public ->
+             case kind_only(TypeExpr, Ctx) of
