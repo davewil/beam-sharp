@@ -1,0 +1,38 @@
+module G59
+
+type Byte = int where value >= 0 and value <= 255
+
+record Order { Id: int, Total: int }
+
+// Exported, record param: the tag test is emitted here (F3).
+public int One(Order o)
+One(o) -> Inner(o)
+
+// Exported, list of records: nested elements are NOT tested at the boundary.
+public int SumAll(list<Order> os)
+SumAll([])        -> 0
+SumAll([o, ..t])  -> Inner(o) + SumAll(t)
+
+// PRIVATE record param: asymmetry 1 (receives the tag test today).
+Order Id(Order o)
+Id(o) -> o
+
+int Inner(Order o)
+Inner(o) -> o.Total
+
+// Exported int param: kind test emitted. Private int param: none (asymmetry 2).
+public int Pub(Byte n)
+Pub(n) -> Priv(n)
+
+int Priv(Byte n)
+Priv(n) -> n + 1
+
+// Nested refined ints: the same route as SumAll, for the int kind/range guard.
+public int SumB(list<Byte> bs)
+SumB([])        -> 0
+SumB([b, ..t])  -> Priv(b) + SumB(t)
+
+// No private call at all: the nested element is used directly in the exported body.
+public int SumC(list<Byte> bs)
+SumC([])        -> 0
+SumC([b, ..t])  -> b + 1 + SumC(t)

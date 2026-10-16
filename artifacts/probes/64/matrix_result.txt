@@ -1,0 +1,11 @@
+OptTerm          REFUSED    error: `:nothing` is absorbed by `term`
+OptInt           accepted   api: :nothing | int FindB(map<string, int>, string)
+ResTermA         REFUSED    error: `(:error, atom)` is absorbed by `term`
+ResIntTerm       accepted   api: int | (:error, term) FindD(map<string, int>, string)
+ResTermTerm      REFUSED    error: `(:error, term)` is absorbed by `term`
+Handrolled       accepted   api: :absent | (:ok, term) FindF(map<string, term>, string)
+BareUnion        REFUSED    error: `:nothing` is absorbed by `term`
+ParamAlias       accepted   api: :absent | (:found, term) FindH(map<string, term>, string)
+AtomNothing      REFUSED    error: `:nothing` is absorbed by `atom`
+NestedOpt        REFUSED    error: `:nothing` is absorbed by `:nothing | int`
+NestedFound      accepted   api: :absent | (:found, :absent | (:found, int)) FindK(string)

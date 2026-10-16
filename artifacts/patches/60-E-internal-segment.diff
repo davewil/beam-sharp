@@ -1,0 +1,60 @@
+--- a/src/bs_check.erl	2026-10-14 23:03:16.887562627 +0000
++++ b/src/bs_check.erl	2026-10-16 23:29:10.456443341 +0000
+@@ -497,17 +497,32 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> visible_or_error(L, M, Self), add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+-            case {children(M, Known) -- [Self], Mode} of
++            case {[C || C <- children(M, Known) -- [Self], visible(C, Self)], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+                 {Children, _} -> add_namespace_import(M, Children, Acc)
+             end
+     end.
+ 
++%% PROTOTYPE 60/E (Go's `internal/` rule): a module path with a segment `Internal` may be
++%% named only by modules under the path before that segment.
++visible_or_error(L, M, Self) ->
++    case visible(M, Self) of true -> ok; false -> erlang:error({not_visible, M, Self, L}) end.
++
++visible(M, Self) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []} -> true;
++        {Before, _} ->
++            Prefix = lists:flatten(lists:join(".", Before)),
++            SelfS = atom_to_list(Self),
++            Prefix =:= "" orelse SelfS =:= Prefix orelse lists:prefix(Prefix ++ ".", SelfS)
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- a/src/bs_diag.erl	2026-10-14 23:03:16.887562627 +0000
++++ b/src/bs_diag.erl	2026-10-16 23:16:49.354503542 +0000
+@@ -657,6 +657,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible, Mod, Self, Line}) ->
++    #{tag => not_visible, severity => error, file => Path, line => Line,
++      module => Mod, importer => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible, file := P, line := L, column := C, module := Mod, importer := Self}) ->
++    {"~s:~p:~p: error: ~s may not name ~s~n"
++     "  a module path with an `Internal` segment is visible only under the path before it.~n",
++     [P, L, C, Self, Mod]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

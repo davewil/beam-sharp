@@ -1,0 +1,27 @@
+[shipped]
+  SumAll([good])                     -> 7
+  SumAll([forged tag])               -> {error,function_clause}
+  SumAll([map with no Kind])         -> {error,function_clause}
+  One(forged tag)  (exported)        -> {error,function_clause}
+  SumB([300])  (nested, out of range -> 301
+  SumB([2.5]) (nested, a float)      -> 3.5
+  SumC([300]) (nested, NO private ca -> 301
+  Pub(3.5)         (exported)        -> {error,function_clause}
+[C_private_tag_removed]
+  SumAll([good])                     -> 7
+  SumAll([forged tag])               -> 99
+  SumAll([map with no Kind])         -> 5
+  One(forged tag)  (exported)        -> {error,function_clause}
+  SumB([300])  (nested, out of range -> 301
+  SumB([2.5]) (nested, a float)      -> 3.5
+  SumC([300]) (nested, NO private ca -> 301
+  Pub(3.5)         (exported)        -> {error,function_clause}
+[D_private_int_guard_added]
+  SumAll([good])                     -> 7
+  SumAll([forged tag])               -> {error,function_clause}
+  SumAll([map with no Kind])         -> {error,function_clause}
+  One(forged tag)  (exported)        -> {error,function_clause}
+  SumB([300])  (nested, out of range -> {error,function_clause}
+  SumB([2.5]) (nested, a float)      -> {error,function_clause}
+  SumC([300]) (nested, NO private ca -> 301
+  Pub(3.5)         (exported)        -> {error,function_clause}

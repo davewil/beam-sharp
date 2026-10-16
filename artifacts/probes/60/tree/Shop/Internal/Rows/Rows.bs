@@ -1,0 +1,4 @@
+module Shop.Internal.Rows
+
+public int RecomputeTotal(int n)
+RecomputeTotal(n) -> n * 2

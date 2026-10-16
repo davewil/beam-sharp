@@ -1,0 +1,6 @@
+module Shop.Billing
+
+using Shop.Internal.Rows
+
+public int Invoice(int n)
+Invoice(n) -> RecomputeTotal(n) + 1

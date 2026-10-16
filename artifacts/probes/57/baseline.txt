@@ -1,0 +1,21 @@
+T57GeNeg                           type T = int where value >= -5                 refused: error: this refinement is not a predicate the checker can read
+T57Band                            type T = int where value >= -5 and value <= 5  refused: error: this refinement is not a predicate the checker can read
+T57Outer                           type T = int where value >= 1 or value <= -1   refused: error: this refinement is not a predicate the checker can read
+T57Disjoint                        type T = int where value <= 3 or value >= 10   accepted
+T57NeZero                          type T = int where value != 0                  accepted
+T57ParenNeg                        type T = int where value >= (-5)               refused: error: this refinement is not a predicate the checker can read
+T57Flip                            type T = int where -5 <= value                 refused: error: this refinement is not a predicate the checker can read
+T57Sum                             type T = int where value >= 2 + 3              refused: error: this refinement is not a predicate the checker can read
+T57ZeroMinus                       type T = int where value >= 0 - 5              refused: error: this refinement is not a predicate the checker can read
+T57NegExpr                         type T = int where value >= -(5)               refused: error: this refinement is not a predicate the checker can read
+T57VarBound                        type T = int where value >= n                  refused: error: this refinement is not a predicate the checker can read
+T57DoubleNeg                       type T = int where value >= - -5               refused: error: this refinement is not a predicate the checker can read
+T57PatRel                          public atom Sign(int n)
+Sign(<= -1) -> :neg
+Sign(_) -> :nonneg accepted
+T57GuardNeg                        public atom Sign(int n)
+Sign(n) when n < -1 -> :neg
+Sign(_) -> :nonneg accepted
+T57ExhGuard                        public atom Sign(int n)
+Sign(n) when n < -1 -> :neg
+Sign(n) when n >= -1 -> :nonneg refused: error: Sign is not exhaustive

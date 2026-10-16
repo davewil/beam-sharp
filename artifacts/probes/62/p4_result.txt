@@ -1,0 +1,6 @@
+files scanned: modules=72 distinct public function names=114
+names where the two common rules DISAGREE: 0
+names containing a digit (Base64, Utf8 ...): 0  e.g. []
+rule_a: modules with an intra-module collision after derivation: 0
+rule_b: modules with an intra-module collision after derivation: 0
+derived names that equal an OTP callback / well-known export: ['HandleCall', 'HandleCast', 'Init']

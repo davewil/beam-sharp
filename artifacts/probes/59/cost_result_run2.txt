@@ -1,0 +1,4 @@
+  Code=370 bytes  rec-loop=12.29 ns/iter  int-loop=9.07 ns/iter
+  Code=360 bytes  rec-loop=11.00 ns/iter  int-loop=8.85 ns/iter
+  Code=324 bytes  rec-loop=9.07 ns/iter  int-loop=8.87 ns/iter
+  Code=360 bytes  rec-loop=11.12 ns/iter  int-loop=8.82 ns/iter

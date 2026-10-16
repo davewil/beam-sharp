@@ -1,0 +1,22 @@
+module Assigns
+
+// The shape every Plug-style `assigns` lookup wants: a value of type term, or "not there".
+type Found<T> = (:found, T) | :absent
+
+using :maps {
+    (:ok, term) | :error find(term key, map<term, term> m)
+}
+
+public Found<term> Get(map<term, term> m, atom k)
+Get(m, k) -> :maps.find(k, m) switch {
+    (:ok, v) => (:found, v),
+    :error   => :absent
+}
+
+// A caller that must tell "absent" from "present and :nothing / nil / false".
+public binary Describe(map<term, term> m, atom k)
+Describe(m, k) -> Get(m, k) switch {
+    (:found, :nothing) => "present, and the atom nothing",
+    (:found, _)        => "present",
+    :absent            => "absent"
+}

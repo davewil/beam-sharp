@@ -1,0 +1,17 @@
+T57GeNeg | type T = int where value >= -5 | accepted
+T57Band | type T = int where value >= -5 and value <= 5 | accepted
+T57Outer | type T = int where value >= 1 or value <= -1 | accepted
+T57Disjoint | type T = int where value <= 3 or value >= 10 | accepted
+T57NeZero | type T = int where value != 0 | accepted
+T57ParenNeg | type T = int where value >= (-5) | accepted
+T57Flip | type T = int where -5 <= value | accepted
+T57Sum | type T = int where value >= 2 + 3 | accepted
+T57ZeroMinus | type T = int where value >= 0 - 5 | accepted
+T57NegExpr | type T = int where value >= -(5) | accepted
+T57VarBound | type T = int where value >= n | refused: error: this refinement is not a predicate the checker can read
+T57DoubleNeg | type T = int where value >= - -5 | accepted
+T57PatRel | public atom Sign(int n) ⏎ Sign(<= -1) -> :neg ⏎ Sign(_) -> :nonneg accepted
+T57GuardNeg | public atom Sign(int n) ⏎ Sign(n) when n < -1 -> :neg ⏎ Sign(_) -> :nonneg accepted
+T57ExhGuard | public atom Sign(int n) ⏎ Sign(n) when n < -1 -> :neg ⏎ Sign(n) when n >= -1 -> :nonneg accepted
+T57ExhGuardPos | public atom Sign(int n) ⏎ Sign(n) when n < 1 -> :neg ⏎ Sign(n) when n >= 1 -> :nonneg accepted
+T57ExhGuardSum | public atom Sign(int n) ⏎ Sign(n) when n < 1 + 1 -> :neg ⏎ Sign(n) when n >= 2 -> :nonneg accepted

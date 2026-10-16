@@ -1,0 +1,24 @@
+module B59
+
+type Byte = int where value >= 0 and value <= 255
+record Order { Id: int, Total: int }
+
+public int RunRec(int n, Order o)
+RunRec(n, o) -> LoopRec(n, o, 0)
+
+int LoopRec(int n, Order o, int acc)
+LoopRec(0, o, acc) -> acc
+LoopRec(n, o, acc) -> LoopRec(n - 1, o, acc + InnerRec(o))
+
+int InnerRec(Order o)
+InnerRec(o) -> o.Total
+
+public int RunInt(int n, Byte b)
+RunInt(n, b) -> LoopInt(n, b, 0)
+
+int LoopInt(int n, Byte b, int acc)
+LoopInt(0, b, acc) -> acc
+LoopInt(n, b, acc) -> LoopInt(n - 1, b, acc + InnerInt(b))
+
+int InnerInt(Byte b)
+InnerInt(b) -> b + 1

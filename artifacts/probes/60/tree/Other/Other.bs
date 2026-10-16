@@ -1,0 +1,6 @@
+module Other
+
+using Shop.Internal.Rows
+
+public int Poke(int n)
+Poke(n) -> RecomputeTotal(n)

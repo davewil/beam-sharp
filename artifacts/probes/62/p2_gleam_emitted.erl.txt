@@ -1,0 +1,24 @@
+-module(g).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+-define(FILEPATH, "src/g.gleam").
+-export([make_it/0, shop_new/1, call/0]).
+-export_type([shape/0, rec/0]).
+
+-type shape() :: {round_thing, integer()} | unit_square.
+
+-type rec() :: {my_rec, integer()}.
+
+-file("src/g.gleam", 3).
+-spec make_it() -> shape().
+make_it() ->
+    {round_thing, 1}.
+
+-file("src/g.gleam", 5).
+-spec shop_new(integer()) -> integer().
+shop_new(A) ->
+    'Shop':'New'(A).
+
+-file("src/g.gleam", 6).
+-spec call() -> integer().
+call() ->
+    'Shop':'New'(1).

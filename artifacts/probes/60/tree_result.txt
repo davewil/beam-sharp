@@ -1,0 +1,8 @@
+== shipped
+  Shop/Billing   accepted
+  Other          accepted
+  Other2         accepted
+== E
+  Shop/Billing   accepted
+  Other          tree/Other/Other.bs:3:1: error: Other may not name Shop.Internal.Rows
+  Other2         tree/Other2/Other2.bs:3:1: error: `using Shop.Internal` names no module and no namespace

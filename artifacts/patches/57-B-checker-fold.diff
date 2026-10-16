@@ -1,0 +1,42 @@
+--- a/src/bs_check.erl	2026-10-14 23:03:16.887562627 +0000
++++ b/src/bs_check.erl	2026-10-16 23:09:54.336043415 +0000
+@@ -5013,18 +5013,32 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison({e_op, L, Op, A, B}) when Op =/= 'and', Op =/= 'or' ->
++    comparison0({e_op, L, Op, fold_consts(A), fold_consts(B)});
++comparison(E) -> comparison0(E).
++
++%% PROTOTYPE 57/B: fold literal arithmetic before asking whether a comparand is constant.
++fold_consts({e_neg, L, E}) ->
++    case fold_consts(E) of {e_int, _, K} -> {e_int, L, -K}; E1 -> {e_neg, L, E1} end;
++fold_consts({e_op, L, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {fold_consts(A), fold_consts(B)} of
++        {{e_int, _, X}, {e_int, _, Y}} -> {e_int, L, case Op of '+' -> X + Y; '-' -> X - Y; '*' -> X * Y end};
++        {A1, B1} -> {e_op, L, Op, A1, B1}
++    end;
++fold_consts(E) -> E.
++
++comparison0({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
++comparison0({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison0({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison0({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+ %% F68: a string literal is compared as an atom literal is.
+-comparison({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
++comparison0({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {include, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
++comparison0({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {exclude, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison(_) ->
++comparison0(_) ->
+     unknown.
+ 
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};

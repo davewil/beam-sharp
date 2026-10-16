@@ -1,0 +1,4 @@
+name = "appb"
+version = "1.0.0"
+[dependencies]
+liba = { path = "../liba" }

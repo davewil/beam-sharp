@@ -1,0 +1,18 @@
+exports of :Shop (from the beam):
+[
+  bs@type_atoms: 0,
+  Which: 1,
+  Amount: 1,
+  New: 1,
+  Pay: 1,
+  Band: 1,
+  Total: 1,
+  Squared: 1,
+  Bump: 1
+]
+  :Shop.New(1)                                 SYNTAX_ERROR
+  :Shop."New"(1)  (quoted function name)       %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  apply(:Shop, :New, [1])                      %{Kind: :"Shop.Order", Total: 0, Id: 1}
+  :Shop.new(1)  (snake alias; absent today)    RAISED UndefinedFunctionError
+  Record in: :Shop."Which"(%{Kind: :"Shop.Order", Id: 1, Total: 2}) :order
+  Elixir struct in: :Shop."Which"(%URI{})      RAISED FunctionClauseError

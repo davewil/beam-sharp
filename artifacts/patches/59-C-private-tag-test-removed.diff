@@ -1,0 +1,11 @@
+--- a/src/bs_emit.erl	2026-10-14 23:03:16.887562627 +0000
++++ b/src/bs_emit.erl	2026-10-16 23:12:45.421805216 +0000
+@@ -275,7 +275,7 @@
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+-            case constrains_kind(Pat) of
++            case constrains_kind(Pat) orelse not Public of   %% PROTOTYPE 59/C: tag test exported-only
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),

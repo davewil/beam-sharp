@@ -1,0 +1,40 @@
+--- a/src/bs_emit.erl	2026-10-14 23:03:16.887562627 +0000
++++ b/src/bs_emit.erl	2026-10-16 23:23:39.235790459 +0000
+@@ -74,7 +74,8 @@
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+-                             ++ [{type_atoms_name(), 0}]}]
++                             ++ [{type_atoms_name(), 0}]
++                             ++ [{S, A} || {S, A, _} <- snake_aliases(Fns, Behaviours)]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.
+@@ -89,8 +90,27 @@
+     %% `ToJson<T>` generates does, on a value its validator refused, and the
+     %% stack still names the B# function that called it.
+     ++ validator_forms(Validators)
++    ++ [snake_form(S, A, P) || {S, A, P} <- snake_aliases(Fns, Behaviours)]
+     ++ reserved_forms(Fns).
+ 
++%% PROTOTYPE 62/F: snake_case alias exports for Elixir callers.
++snake_aliases(Fns, Behaviours) ->
++    Own = sets:from_list([{name(F, Behaviours), arity(F)} || F <- Fns]),
++    lists:usort([{list_to_atom(SL), arity(F), name(F, Behaviours)}
++                 || F <- Fns, is_public(F),
++                    N <- [name(F, Behaviours)],
++                    N =:= element(2, F),                 %% skip callback-renamed
++                    SL <- [snake(atom_to_list(N))], SL =/= atom_to_list(N),
++                    not sets:is_element({list_to_atom(SL), arity(F)}, Own)]
++               ).
++snake_form(S, A, P) ->
++    Vars = [{var, ?A, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, A)],
++    {function, ?A, S, A, [{clause, ?A, Vars, [], [{call, ?A, {atom, ?A, P}, Vars}]}]}.
++snake(N) ->
++    S1 = re:replace(N, "([A-Z]+)([A-Z][a-z])", "\\1_\\2", [global, {return, list}]),
++    S2 = re:replace(S1, "([a-z0-9])([A-Z])", "\\1_\\2", [global, {return, list}]),
++    string:lowercase(S2).
++
+ %% `undefined` is the one-source callers (`compile_string/2`, the REPL) that
+ %% have no path to attribute to; no attribute is emitted for them.
+ %% The context names the file being emitted: a position is unique only within
