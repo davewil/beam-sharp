@@ -68,7 +68,7 @@ negate(_L, {e_int, IL, I})   -> {e_int, IL, -I};        % beside the float claus
 Compiler delta: one clause. Patch `artifacts/patches/57-A-grammar-fold.diff`.
 Measured (`result_A_grammar_fold.txt`): every `-5` spelling accepted in refinements **and** the signed guard pair becomes
 exhaustive; `2 + 3`, `0 - 5`, `value >= n`, and the `n < 1 + 1` guard remain refused.
-eunit: no failure beyond the baseline set (4 vs baseline 5, all environmental, see *Caveats*).
+eunit: no failure beyond the baseline set (see *Caveats*).
 
 *Strongest counterargument.* It folds only the literal. The next author to write `value <= 255 * 4` or `n < 1 + 1` meets
 the same `opaque_refinement` whose text says "a comparison on `value`" is readable. The wall moves, it does not go.
@@ -103,10 +103,19 @@ Separately, reword `opaque_refinement` so it names what is readable ("a comparis
 ## Caveats and honesty notes
 
 - Built and run on **OTP 28.0**, the repo pins 28.5 (`.tool-versions`). No result here depends on a 28.5 feature that I could find.
-- eunit (`rebar3 eunit`, 1448 tests): baseline fails 5, A and B fail 4. All five are environmental or flaky in this sandbox
+- eunit (`rebar3 eunit`, 1448 tests): **my** runs showed baseline failing 5 and A/B failing 4; the verifier's runs show **5 in all three, an identical set**
   (`every_aoc_program_still_compiles`, `batch_runs_every_entry_in_one_vm…`, `a_path_is_utf8_on_the_wire`,
-  `a_non_ascii_literal_is_advised_as_written`, and `the_diagnostics_gate_passes` in baseline only). Logs: not kept in `artifacts/`
-  (size); the verifier re-ran them, see its report.
+  `a_non_ascii_literal_is_advised_as_written`, `the_diagnostics_gate_passes`). The fifth is not flaky: it runs `bin/check-diagnostics.sh`, which needs a pre-built `bsc`
+  (my A/B copies had one by then, the verifier's did not). So the correct statement is: **A and B add no failure beyond the baseline**; my "4 vs 5" was an artefact. The other four are environmental here.
 - Elm was **not executed**. Cited from source only.
 - Exemplar corpus effect (do any existing programs change meaning under A?) is covered by the eunit corpus tests; no
   separate corpus run was made.
+
+## Verifier (independent re-run; full report `verification/57-verifier.md`)
+
+**CIRCULAR: no.** Rebuilt A and B from the patches; outcomes identical to the stored files (which are reformatted, not raw script output). Expected outcomes are not in the script; it prints the compiler's own answer.
+The verifier added 49 rows of its own, including: empty range (`>= -5 and <= -10` → "admits no values at all", correct), i64 extremes (accepted, BEAM bignums), operator folds (`-5 - 1`, `2 * -3`, `5 - -5`: A refuses, B accepts),
+`- - -5`, `== -5`, `!= -5`, `-0`, and still-unsupported shapes refused by both (`value + 1 >= -5`, `-value >= 5`, `>= -5.0`, `10 / 2`, `7 % 4`).
+**Exactness check** (guard coverage as an oracle): with `type T = int where value >= -5`, a guard `n >= -5` is exhaustive and `n >= -4` is not, so the computed bound is exact, not off by one; same for B's folded `2+3`, `0-5`, `2 * -3`.
+Run-time results of negated expressions are identical under base, A and B (`-2147483648 - 1`, `n - -5`, `-(-5)`).
+Caveats it raised: A changes the node for **every** negated int literal in all expression contexts (no outcome change seen); B also changes guard exhaustiveness analysis (wider than refinements); neither was tested on non-int negation.
