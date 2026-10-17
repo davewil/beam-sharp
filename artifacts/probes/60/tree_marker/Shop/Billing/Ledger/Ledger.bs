@@ -1,0 +1,5 @@
+module Shop.Billing.Ledger
+internal
+
+public int Recompute(int net, int tax)
+Recompute(net, tax) -> net + tax

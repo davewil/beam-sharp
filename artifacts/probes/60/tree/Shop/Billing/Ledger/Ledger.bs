@@ -1,0 +1,7 @@
+module Shop.Billing.Ledger
+
+// Public because Shop.Billing, a different module, must call it. `private`
+// means "this module only" (F12), so a helper shared by a module's own
+// subtree has no spelling today other than `public`.
+public int Recompute(int net, int tax)
+Recompute(net, tax) -> net + tax

@@ -1,0 +1,5 @@
+module Shop.Orders
+
+// Ticket 24 §2's `unclassified` helper. A sibling FILE of the same module: `private` reaches it.
+private int RecomputeTotal(int net, int tax)
+RecomputeTotal(net, tax) -> net + tax

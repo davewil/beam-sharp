@@ -1,0 +1,4 @@
+module Shop.Orders
+
+public int Apply(int net, int tax)
+Apply(net, tax) -> RecomputeTotal(net, tax)

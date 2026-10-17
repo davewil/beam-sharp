@@ -1,0 +1,100 @@
+
+######## p1_baseline.sh /tmp/claude-0/-home-user-beam-sharp/9b30e02b-d742-5d59-8509-86bd14e28edc/scratchpad/p60/full/base
+== 1a Reports reaches into Shop.Billing.Ledger (the subtree-internal helper)
+5
+== 1b Reports2 calls Shop.Billing's PRIVATE Secret (existing rule: private = module-only)
+compile: /home/user/beam-sharp/artifacts/probes/60/tree/Shop/Billing/Billing.bs:0: Warning: function 'Secret'/1 is unused
+/home/user/beam-sharp/artifacts/probes/60/tree/Shop/Reports2/Reports2.bs:7:1: error: Peek calls Secret/1, which Shop.Billing declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Billing, or move the call inside it.
+== 1c the legitimate edge: Billing -> Ledger
+compile: /home/user/beam-sharp/artifacts/probes/60/tree/Shop/Billing/Billing.bs:0: Warning: function 'Secret'/1 is unused
+7
+== 1d is there any construct in the checker/parser that spells 'who'?
+/home/user/beam-sharp/artifacts/probes/60/../../../compiler/src/bs_check.erl:2801:    case erl_internal:guard_bif(Fun, length(Args)) of
+(grep hits above are only prose/identifier hits; empty = none)
+
+######## p2_beam_side.sh /tmp/claude-0/-home-user-beam-sharp/9b30e02b-d742-5d59-8509-86bd14e28edc/scratchpad/p60/full/base
+Shop.Billing.Ledger.beam
+Shop.Billing.beam
+Shop.Reports.beam
+2a exports of Ledger: [{bs@type_atoms,0},{'Recompute',2}]
+2b attributes of Ledger: [{vsn,[121695624591338546713375672021938193125]}]
+2c Erlang caller, not bsc, calls Ledger:Recompute(40,2) = 42
+2d same via apply/3 (no static edge for any tool): 2
+2e beam_lib attributes chunk: [{vsn,[121695624591338546713375672021938193125]}]
+== 2f Elixir caller
+Elixir calls Ledger: 42
+== 2g an attribute CAN ride in the beam (hand-written module, not bsc) and nothing enforces it
+attrs=[{vsn,[170233365344734114630511007647772415428]},
+       {bs_visible_to,['Shop.Billing']}]
+called from shell (not Shop.Billing) = 3
+
+######## p5_private_covers_siblings.sh /tmp/claude-0/-home-user-beam-sharp/9b30e02b-d742-5d59-8509-86bd14e28edc/scratchpad/p60/full/base
+5a Apply (public) calls RecomputeTotal (private, sibling file):
+42
+5b exports of the emitted module (RecomputeTotal absent = the client API is exactly the public set):
+[{'Apply',2}]
+
+######## p4_checker_cost.sh /tmp/claude-0/-home-user-beam-sharp/9b30e02b-d742-5d59-8509-86bd14e28edc/scratchpad/p60/full/base /tmp/claude-0/-home-user-beam-sharp/9b30e02b
+base: N=120 K=6 modules, compile-all ms (9 runs, min/median), exit status [0]: 390 / 500
+p1: N=120 K=6 modules, compile-all ms (9 runs, min/median), exit status [0]: 433 / 513
+base: N=120 K=6 modules, compile-all ms (9 runs, min/median), exit status [0]: 478 / 503
+p1: N=120 K=6 modules, compile-all ms (9 runs, min/median), exit status [0]: 498 / 538
+
+######## p7_matrix.sh /tmp/claude-0/-home-user-beam-sharp/9b30e02b-d742-5d59-8509-86bd14e28edc/scratchpad/p60/full/base /tmp/claude-0/-home-user-beam-sharp/9b30e02b-d742-
+today (tree, plain Ledger)         Billing->Ledger: 7        Reports->Ledger: 5
+P1 segment (tree_internal)         Billing->Ledger: 7        Reports->Ledger: /home/user/beam-sharp/artifacts/probes/60/tree_internal/Shop/Reports/Reports.bs:3:1: error: 
+P2 marker  (tree_marker)           Billing->Ledger: 7        Reports->Ledger: /home/user/beam-sharp/artifacts/probes/60/tree_marker/Shop/Reports/Reports.bs:3:1: error: `u
+-- controls: each prototype on the PLAIN tree must change nothing (no regression):
+P1 compiler, plain tree            Billing->Ledger: 7        Reports->Ledger: 5
+P2 compiler, plain tree            Billing->Ledger: 7        Reports->Ledger: 5
+-- and today's compiler on the prototype trees accepts them (the marker/segment is inert there? P2 needs the keyword):
+today's compiler, Internal-segment tree Billing->Ledger: 7        Reports->Ledger: 5
+today's compiler, marker tree      Billing->Ledger: /home/user/beam-sharp/artifacts/probes/60/tree_marker/Shop/Billing/Billing.bs:3:1: error: `using Shop.Billing.Ledger` 
+
+######## p6_elixir_hidden_not_refused.sh
+6a Reports calling the @moduledoc-false module: compiled, no error/warning above
+6b docs chunk of the hidden module:
+moduledoc: :hidden
+Reports.restate(5): 5
+6c mix xref graph --sink: the tooling answers 'who names Ledger' but refuses nobody:
+lib/billing.ex
+`-- lib/ledger.ex
+lib/reports.ex
+`-- lib/ledger.ex
+
+######## p8_gleam_internal.sh
+[90msrc/app.gleam:3[39m
+42
+[90msrc/app.gleam:3[39m
+41
+
+######## p9_go_internal.sh
+billing -> internal/ledger: ok
+	shop/reports/reports.go:2:8: use of internal package example.com/shop/shop/billing/internal/ledger not allowed
+
+######## p10_corpus.sh
+.bs files in repo outside artifacts/: 163
+files containing word 'internal' (any case): 0
+module declarations with an 'Internal' segment: 0
+files hand-listing keyword 'private' (proxy for editor sites a new keyword touches):
+editor/syntect/BeamSharp.sublime-syntax
+editor/nvim/syntax/bs.vim
+editor/vscode/syntaxes/beam-sharp.tmLanguage.json
+editor/vscode/package.json
+editor/tree-sitter-beam-sharp/grammar.js
+editor/tree-sitter-beam-sharp/queries/highlights.scm
+editor/bin/check-syntect.sh
+
+######## p3
+tail-called callee sees frames [who,main,do_apply,exprs,start_it,start_em,
+                                do_boot]; body-called sees {[who,body_caller,
+                                                             main,do_apply,
+                                                             exprs,start_it,
+                                                             start_em,
+                                                             do_boot]}
+OTP 25 plain 9 ns/call, stacktrace-checked 340 ns/call, ratio 35.9x
+
+######## p4b
+visible_to: 2048 ns/import; a 720-import tree pays 1475 us in total

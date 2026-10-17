@@ -1,0 +1,62 @@
+--- a/bs_check.erl	2026-10-17 23:11:13.310453378 +0000
++++ b/bs_check.erl	2026-10-17 23:11:13.330228532 +0000
+@@ -497,11 +497,15 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            %% Ticket 60 probe P1: `using` is the one place a module is named.
++            Mode =:= strict andalso not visible_to(M, Self)
++                andalso erlang:error({not_visible, M, Self, L}),
++            add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+-            case {children(M, Known) -- [Self], Mode} of
++            case {[C || C <- children(M, Known) -- [Self], visible_to(C, Self)], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+                 {Children, _} -> add_namespace_import(M, Children, Acc)
+@@ -587,6 +591,18 @@
+                                 end, Acc, Ex)
+               end, #{}, World).
+ 
++%% A module with an `Internal` segment may be named only from the subtree that
++%% holds that segment's parent: Shop.Billing.Internal.Ledger <- Shop.Billing.*
++%% (Go's `internal/` rule; Gleam's `internal_modules` default is the same shape).
++visible_to(M, Self) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}      -> true;
++        {Parent, _}  ->
++            SelfSegs = string:split(atom_to_list(Self), ".", all),
++            lists:prefix(Parent, SelfSegs)
++    end.
++
+ children(Prefix, Known) ->
+     P = atom_to_list(Prefix) ++ ".",
+     [M || M <- Known, lists:prefix(P, atom_to_list(M))].
+--- a/bs_diag.erl	2026-10-17 23:11:13.311635681 +0000
++++ b/bs_diag.erl	2026-10-17 23:11:13.331149469 +0000
+@@ -657,6 +657,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible, Mod, Self, Line}) ->
++    #{tag => not_visible, severity => error, file => Path, line => Line,
++      module => Mod, from => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,10 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible, file := P, line := L, column := C, module := Mod, from := Self}) ->
++    {"~s:~p:~p: error: `using ~s` names a module ~s may not reach~n"
++     "  it sits under an `Internal` segment, so only modules under its parent may name it.~n",
++     [P, L, C, Mod, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"

@@ -1,0 +1,108 @@
+--- a/bs_check.erl	2026-10-17 23:13:35.650156892 +0000
++++ b/bs_check.erl	2026-10-17 23:13:35.674475463 +0000
+@@ -497,11 +497,14 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  ->
++            Mode =:= strict andalso not visible_to(M, Self, World)
++                andalso erlang:error({not_visible, M, Self, L}),
++            add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+-            case {children(M, Known) -- [Self], Mode} of
++            case {[C || C <- children(M, Known) -- [Self], visible_to(C, Self, World)], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+                 {Children, _} -> add_namespace_import(M, Children, Acc)
+@@ -587,6 +590,15 @@
+                                 end, Acc, Ex)
+               end, #{}, World).
+ 
++%% An `internal` module may be named only from the subtree under its parent.
++visible_to(M, Self, World) ->
++    case maps:get(internal, maps:get(M, World, #{}), false) of
++        false -> true;
++        true  ->
++            Parent = lists:droplast(string:split(atom_to_list(M), ".", all)),
++            lists:prefix(Parent, string:split(atom_to_list(Self), ".", all))
++    end.
++
+ children(Prefix, Known) ->
+     P = atom_to_list(Prefix) ++ ".",
+     [M || M <- Known, lists:prefix(P, atom_to_list(M))].
+--- a/bs_diag.erl	2026-10-17 23:13:35.650402149 +0000
++++ b/bs_diag.erl	2026-10-17 23:13:35.675443389 +0000
+@@ -657,6 +657,9 @@
+       name => Name, arity => Arity, candidates => Mods,
+       heads => [lists:flatten(io_lib:format("~s.~s(...)", [M, Name]))
+                 || M <- Mods]};
++built(Path, {not_visible, Mod, Self, Line}) ->
++    #{tag => not_visible, severity => error, file => Path, line => Line,
++      module => Mod, from => Self};
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2070,6 +2073,9 @@
+      "~s",
+      [P, L, C, Name, Arity, length(Mods),
+       [io_lib:format("    ~s.~s(...)~n", [M, Name]) || M <- Mods]]};
++message(#{tag := not_visible, file := P, line := L, column := C, module := Mod, from := Self}) ->
++    {"~s:~p:~p: error: `using ~s` names an `internal` module ~s may not reach~n",
++     [P, L, C, Mod, Self]};
+ message(#{tag := unknown_module, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: `using ~s` names no module and no namespace~n"
+      "  a module is a source file this invocation can reach; a namespace~n"
+--- a/bs_lexer.xrl	2026-10-17 23:13:35.650530858 +0000
++++ b/bs_lexer.xrl	2026-10-17 23:13:35.667774724 +0000
+@@ -42,6 +42,7 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++internal                : {token, {'internal', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+--- a/bs_parser.yrl	2026-10-17 23:13:35.650577186 +0000
++++ b/bs_parser.yrl	2026-10-17 23:13:35.669717340 +0000
+@@ -25,7 +25,7 @@
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'internal' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -81,6 +81,8 @@
+ decls -> decl decls : ['$1' | '$2'].
+ 
+ decl -> module_decl : '$1'.
++%% Ticket 60 probe P2: a bare `internal` line marks the module.
++decl -> 'internal' : {internal, line('$1')}.
+ decl -> type_decl   : '$1'.
+ decl -> signature   : '$1'.
+ decl -> clause      : '$1'.
+--- a/bsc.erl	2026-10-17 23:13:35.650630785 +0000
++++ b/bsc.erl	2026-10-17 23:13:35.673047861 +0000
+@@ -224,7 +224,8 @@
+     case check_and_emit(Dir, Sources, Opts, World) of
+         {ok, Beam} ->
+             Decls = decls(Sources),
+-            World1 = World#{Mod => #{exports => bs_check:exports_of(Decls, World),
++            World1 = World#{Mod => #{internal => lists:keymember(internal, 1, Decls),
++                                     exports => bs_check:exports_of(Decls, World),
+                                      %% Polymorphic templates a dependent
+                                      %% solves against.
+                                      %% Rationale:
+@@ -290,7 +291,7 @@
+                   true  -> World;
+                   false ->
+                       Decls = decls(Sources),
+-                      try World#{M => #{exports => #{}, private => #{},
++                      try World#{M => #{internal => lists:keymember(internal, 1, Decls), exports => #{}, private => #{},
+                                         behaviours => [],
+                                         types => bs_check:types_of(Decls, M, World),
+                                         %% A module whose implementations do not

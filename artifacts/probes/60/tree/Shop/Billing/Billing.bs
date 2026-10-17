@@ -1,0 +1,9 @@
+module Shop.Billing
+
+using Shop.Billing.Ledger
+
+public int Charge(int net, int tax)
+Charge(net, tax) -> Recompute(net, tax)
+
+private int Secret(int n)
+Secret(n) -> n + 1

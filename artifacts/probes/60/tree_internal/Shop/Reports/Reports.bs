@@ -1,0 +1,7 @@
+module Shop.Reports
+
+using Shop.Billing.Internal.Ledger
+
+// Reaches into Billing's helper. Nothing today can say this is wrong.
+public int Restate(int n)
+Restate(n) -> Recompute(n, 0)

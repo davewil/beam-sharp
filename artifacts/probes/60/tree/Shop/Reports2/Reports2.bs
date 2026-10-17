@@ -1,0 +1,7 @@
+module Shop.Reports2
+
+using Shop.Billing
+
+// Calls a PRIVATE function of another module: the existing "who" rule is only "private = nobody else".
+public int Peek(int n)
+Peek(n) -> Secret(n)
