@@ -1,0 +1,113 @@
+
+################ p1_missing_module.sh
+--- control: ERL_LIBS unset (module absent)
+crashed: error:undef
+--- ERL_LIBS=fake lib (module present)
+(:request, [(:n, 1)])
+--- compile only, ERL_LIBS unset: does bsc accept the module at all?
+compile-only exit=0
+
+################ p2_otp_introspection.sh
+--- module present on path, app NOT loaded
+code:which(fakereq)        = "/tmp/tmp.q0zxuHsufH/lib/fakereq-1.2.3/ebin/fakereq.beam"
+code:which(nope)           = non_existing
+code:lib_dir(fakereq)      = "/tmp/tmp.q0zxuHsufH/lib/fakereq-1.2.3"
+code:lib_dir(nope)         = {error,bad_name}
+get_application(fakereq)   = undefined
+get_key(fakereq,vsn)       = undefined
+--- after application:load(fakereq)
+get_key(fakereq,vsn)       = {ok,"1.2.3"}
+get_key(fakereq,modules)   = {ok,[fakereq]}
+get_application(fakereq)   = {ok,fakereq}
+--- module -> app is known to OTP only through a LOADED .app file, and the names differ (Elixir.Logger lives in app logger)
+code:which('Elixir.String') = "/usr/lib/elixir/lib/elixir/ebin/Elixir.String.beam"
+code:which('Elixir.Logger') = "/usr/lib/elixir/lib/logger/ebin/Elixir.Logger.beam"
+get_application('Elixir.String') = {ok,elixir}  (module String lives in app elixir)
+get_application('Elixir.Logger') = {ok,logger}  (module Logger lives in app logger)
+--- app lookup by file when module is absent but app dir exists with the .app file
+code:where_is_file("fakereq.app") = "/tmp/tmp.q0zxuHsufH/lib/fakereq-1.2.3/ebin/fakereq.app"
+code:where_is_file("req.app")     = non_existing
+--- scan ERL_LIBS-style path for an .app declaring a module (cost, 1 call)
+scanned 38 .app files in 4028 us
+
+################ p3_compile_time_check.sh
+1
+--- module absent
+probe52: line {3,1}: using fakereq: module not on the code path
+probe52: check of 2 foreign module(s) took 1931437 ns
+--- module present
+probe52: check of 2 foreign module(s) took 420407 ns
+--- micro: code:which/1 cost, 2000 calls each (OTP25, this box)
+present (fakereq): 112.14 us/call
+stdlib  (lists):   3.10 us/call
+absent  (nope):    1209.87 us/call
+
+################ p4_attribute_cost.sh
+Interop.abstr
+Interop.beam
+control: bsc's own Interop.beam = 1384 bytes
+module 'Interop', forms 10
+none                                             1324 bytes  (+0)
+-bs_requires([req])                              1368 bytes  (+44)
+   beam_lib:chunks(attributes) (no load) -> [req]
+   module_info(attributes) after load    -> [req]
+-bs_requires([req,jason,plug_cowboy])            1408 bytes  (+84)
+-bs_requires([{req,"~> 0.7"}]) (version)         1392 bytes  (+68)
+3 attrs, one per using block                     1440 bytes  (+116)
+
+################ p5_neighbours.sh
+=== Elixir 1.14: elixirc on a call to an absent module
+warning: Req.new/1 is undefined (module Req is not available or is yet to be defined)
+  a.ex:2: A.f/0
+
+(elixirc exit=0)
+
+=== Elixir 1.14: mix, a module of an app the project does not depend on (Logger without :logger in extra_applications)
+warning: Logger.__do_log__/4 defined in application :logger is used by the current application but the current application does not depend on :logger. To fix this, you must do one of:
+
+  1. If :logger is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
+
+  2. If :logger is a dependency, make sure it is listed under "def deps" in your mix.exs
+
+  3. In case you don't want to add a requirement to :logger, you may optionally skip this warning by adding [xref: [exclude: [Logger]]] to your "def project" in mix.exs
+
+
+=== Erlang: erlc, absent module (no check) then xref (the check lives in a separate tool)
+(erlc exit=0 -> compiled without complaint)
+xref undefined_function_calls = {ok,[{{b,f,0},{nosuch,call,1}}]}
+
+=== Erlang release: .app `applications` is enforced by systools, not by the compiler
+    [{error_reading,{fakereq,{not_found,"fakereq.app"}}},
+
+################ p8_gleam.sh
+--- (a) import of a module that no package provides
+error: Unknown module
+  ┌─ /tmp/tmp.AGgqNMAYuZ/g/src/g.gleam:1:1
+--
+No module has been found with the name `nothere/thing`.
+
+--- (b) import of a module from a TRANSITIVE-only package (leaf, via mid)
+warning: Transitive dependency imported
+  ┌─ /tmp/tmp.AGgqNMAYuZ/g/src/g.gleam:1:1
+  │
+1 │ import leaf
+  │ ^^^^^^^^^^^
+
+--- (c) import of a declared direct dependency
+   Compiled in 0.39s
+
+################ p6_elixir_source_lines.exs
+"yet to be defined"  Elixir.Module.Types.Of  lib/module/types/of.ex:332  " is not available or is yet to be defined)"
+"extra_applications"  Elixir.Mix.Tasks.Compile.App  lib/mix/tasks/compile.app.ex:288  "Application extra applications (:extra_applications) should be a list of atoms or "
+
+################ p7_version_strings.exs
+kernel 8.5.4.2        REFUSED by Version.parse/1
+stdlib 4.3.1.3        REFUSED by Version.parse/1
+ssl 10.9.1.3          REFUSED by Version.parse/1
+crypto 5.1.4.1        REFUSED by Version.parse/1
+elixir 1.14.0         parses as 1.14.0
+logger 1.14.0         parses as 1.14.0
+mix 1.14.0            parses as 1.14.0
+
+Version.match?("1.14.0", "~> 1.14")  = true
+Version.match?("1.2.3", "~> 1.2")    = true   <- fakereq's vsn against a '~>' requirement
