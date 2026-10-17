@@ -1,0 +1,61 @@
+== ticket 57 table, verbatim ==
+T1 int where value >= -5  [value >= -5]              accepted
+      cover  {>= -5}  ok (exhaustive)
+      short  {>= -4}  ok (refused)
+T2 -5..5  [value >= -5 and value <= 5]               accepted
+      cover  {>= -5}  ok (exhaustive)
+      short  {>= -4}  ok (refused)
+      short  {<= 4}  ok (refused)
+T3 or  [value >= 1 or value <= -1]                   accepted
+      cover  {>= 1|<= -1}  ok (exhaustive)
+      short  {>= 2|<= -1}  ok (refused)
+      short  {>= 1|<= -2}  ok (refused)
+T4 disjoint, no negative (control)  [value <= 3 or value >= 10] accepted
+      cover  {<= 3|>= 10}  ok (exhaustive)
+      short  {<= 2|>= 10}  ok (refused)
+      short  {<= 3|>= 11}  ok (refused)
+T5 != 0 (control)  [value != 0]                      accepted
+      cover  {>= 1|<= -1}  ok (exhaustive)
+      short  {>= 2|<= -1}  ok (refused)
+      short  {>= 1|<= -2}  ok (refused)
+
+== extensions: where would a fold stop? ==
+E1 negative on the LEFT   -5 <= value  [-5 <= value] accepted
+      cover  {>= -5}  ok (exhaustive)
+      short  {>= -4}  ok (refused)
+E2 -0  [value >= -0]                                 accepted
+      cover  {>= 0}  ok (exhaustive)
+      short  {>= 1}  ok (refused)
+E3 double negation  --5  [value >= --5]              accepted
+      cover  {>= 5}  ok (exhaustive)
+      short  {>= 6}  ok (refused)
+E4 parenthesised    -(5)  [value >= -(5)]            accepted
+      cover  {>= -5}  ok (exhaustive)
+      short  {>= -4}  ok (refused)
+E5 literal arith    2 + 3  [value >= 2 + 3]          refused
+E6 literal arith    0 - 5  [value >= 0 - 5]          refused
+E7 literal arith    2 * -3  [value >= 2 * -3]        refused
+E8 negative equality  value == -3  [value == -3]     accepted-by-checker(erlc-OTP25-singleton-range)
+E9 negative !=  [value != -3]                        accepted
+      cover  {>= -2|<= -4}  ok (exhaustive)
+      short  {>= -1|<= -4}  ok (refused)
+      short  {>= -2|<= -5}  ok (refused)
+E10 spaced  - 5  [value >= - 5]                      accepted
+      cover  {>= -5}  ok (exhaustive)
+      short  {>= -4}  ok (refused)
+E11 a variable (must stay refused)  [value >= n]     refused
+
+== guards: does the same literal in a GUARD behave? (exhaustiveness credit) ==
+G1 'when n >= -5' + 'when n < -5' (exhaustive?)      accepted
+G2 same with 0 (control; must be accepted)           accepted
+G3 relational pattern <= -1 (control)                accepted
+G4 'x - 5' still an ordinary subtraction             accepted
+G5 '0 - 5' still an ordinary subtraction             accepted
+L1 literal -1 passed to a 'value != 0' param         accepted
+L2 literal  1 passed to the same param (control)     accepted
+L3 guard pair 'n <= -1' / 'n >= 0' (negative literal in a guard) accepted
+G6 '-x' still negates a variable                     accepted
+G7 '-5' as a body value, run result is checked below accepted
+
+== run-time value of a folded expression is unchanged ==
+  -5 + 2 * -(3) - -1 evaluates to: -10   (expected -10)

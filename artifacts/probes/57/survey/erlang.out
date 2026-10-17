@@ -1,0 +1,12 @@
+pattern   f(-5) -> ok.            [{op,1,'-',{integer,1,5}}]
+expr      f() -> -5.              [{op,1,'-',{integer,1,5}}]
+guard     f(X) when X >= -5 -> X. [[{op,1,'>=',
+                                     {var,1,'X'},
+                                     {op,1,'-',{integer,1,5}}}]]
+-type t() :: -5..5                  accepted
+-type t() :: -(5)..5                accepted
+-type t() :: - -5..9                accepted
+-type t() :: (2+3)..10              accepted
+-type t() :: 0-5..5                 accepted
+-type t() :: 2*-3..5                accepted
+-type t() :: (1 bsl 3)..10          accepted

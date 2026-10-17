@@ -1,0 +1,34 @@
+--- bs_check.erl
++++ bs_check.erl
+@@ -5013,6 +5013,14 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
++comparison({e_op, _, Op, {e_var, _, V}, R = {e_neg, _, _}}) ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L = {e_neg, _, _}, {e_var, _, V}}) ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
++comparison({e_op, _, Op, {e_var, _, V}, R = {e_op, _, _, _, _}}) ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L = {e_op, _, _, _, _}, {e_var, _, V}}) ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+ comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -5027,6 +5035,16 @@
+ comparison(_) ->
+     unknown.
+ 
++%% PROTOTYPE (probe 57, option A2): as A1, and + - * over constants fold too.
++const_int({e_int, _, K})  -> {ok, K};
++const_int({e_neg, _, E})  -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int({e_op, _, Op, L, R}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {const_int(L), const_int(R)} of
++        {{ok, A}, {ok, B}} -> {ok, case Op of '+' -> A + B; '-' -> A - B; '*' -> A * B end};
++        _ -> error
++    end;
++const_int(_)              -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

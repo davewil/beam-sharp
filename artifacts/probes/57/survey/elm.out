@@ -1,0 +1,2 @@
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})

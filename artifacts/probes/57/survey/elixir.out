@@ -1,0 +1,20 @@
+warning: variable "e" is unused (if the variable is not meant to be used, prefix it with an underscore)
+  elixir.exs:6
+
+expr  -5        : {:-, [line: 1], [5]}
+expr  - 5       : {:-, [line: 1], [5]}
+expr  -(5)      : {:-, [line: 1], [5]}
+expr  2 + 3     : {:+, [line: 1], [2, 3]}
+pattern -5      : {:case, [line: 1],
+ [{:x, [line: 1], nil}, [do: [{:->, [line: 1], [[{:-, [line: 1], [5]}], 1]}]]]}
+guard x >= -5   : {:def, [line: 1],
+ [
+   {:when, [line: 1],
+    [
+      {:f, [line: 1], [{:x, [line: 1], nil}]},
+      {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+    ]},
+   [do: {:x, [line: 1], nil}]
+ ]}
+--5 : SyntaxError (`--` is the list-subtract operator)
+behaviour (expected {:in,:out,:in,:out,:neg,:ok}): {:in, :out, :in, :out, :neg, :ok}

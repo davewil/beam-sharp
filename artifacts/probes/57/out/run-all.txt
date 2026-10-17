@@ -1,0 +1,279 @@
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+built /tmp/p57work/base (1 yecc conflict line(s))
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+built /tmp/p57work/optA1 (1 yecc conflict line(s))
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+built /tmp/p57work/optA2 (1 yecc conflict line(s))
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+built /tmp/p57work/optB (1 yecc conflict line(s))
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+built /tmp/p57work/optC (1 yecc conflict line(s))
+##### optA1 vs base (lines that changed)
+> T1 int where value >= -5  [value >= -5]              accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> T2 -5..5  [value >= -5 and value <= 5]               accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+>       short  {<= 4}  ok (refused)
+> T3 or  [value >= 1 or value <= -1]                   accepted
+>       cover  {>= 1|<= -1}  ok (exhaustive)
+>       short  {>= 2|<= -1}  ok (refused)
+>       short  {>= 1|<= -2}  ok (refused)
+> E1 negative on the LEFT   -5 <= value  [-5 <= value] accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E2 -0  [value >= -0]                                 accepted
+>       cover  {>= 0}  ok (exhaustive)
+>       short  {>= 1}  ok (refused)
+> E3 double negation  --5  [value >= --5]              accepted
+>       cover  {>= 5}  ok (exhaustive)
+>       short  {>= 6}  ok (refused)
+> E4 parenthesised    -(5)  [value >= -(5)]            accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E8 negative equality  value == -3  [value == -3]     accepted-by-checker(erlc-OTP25-singleton-range)
+> E9 negative !=  [value != -3]                        accepted
+>       cover  {>= -2|<= -4}  ok (exhaustive)
+>       short  {>= -1|<= -4}  ok (refused)
+>       short  {>= -2|<= -5}  ok (refused)
+> E10 spaced  - 5  [value >= - 5]                      accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> G1 'when n >= -5' + 'when n < -5' (exhaustive?)      accepted
+> L3 guard pair 'n <= -1' / 'n >= 0' (negative literal in a guard) accepted
+##### optA2 vs base (lines that changed)
+> T1 int where value >= -5  [value >= -5]              accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> T2 -5..5  [value >= -5 and value <= 5]               accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+>       short  {<= 4}  ok (refused)
+> T3 or  [value >= 1 or value <= -1]                   accepted
+>       cover  {>= 1|<= -1}  ok (exhaustive)
+>       short  {>= 2|<= -1}  ok (refused)
+>       short  {>= 1|<= -2}  ok (refused)
+> E1 negative on the LEFT   -5 <= value  [-5 <= value] accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E2 -0  [value >= -0]                                 accepted
+>       cover  {>= 0}  ok (exhaustive)
+>       short  {>= 1}  ok (refused)
+> E3 double negation  --5  [value >= --5]              accepted
+>       cover  {>= 5}  ok (exhaustive)
+>       short  {>= 6}  ok (refused)
+> E4 parenthesised    -(5)  [value >= -(5)]            accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E5 literal arith    2 + 3  [value >= 2 + 3]          accepted
+>       cover  {>= 5}  ok (exhaustive)
+>       short  {>= 6}  ok (refused)
+> E6 literal arith    0 - 5  [value >= 0 - 5]          accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E7 literal arith    2 * -3  [value >= 2 * -3]        accepted
+>       cover  {>= -6}  ok (exhaustive)
+>       short  {>= -5}  ok (refused)
+> E8 negative equality  value == -3  [value == -3]     accepted-by-checker(erlc-OTP25-singleton-range)
+> E9 negative !=  [value != -3]                        accepted
+>       cover  {>= -2|<= -4}  ok (exhaustive)
+>       short  {>= -1|<= -4}  ok (refused)
+>       short  {>= -2|<= -5}  ok (refused)
+> E10 spaced  - 5  [value >= - 5]                      accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> G1 'when n >= -5' + 'when n < -5' (exhaustive?)      accepted
+> L3 guard pair 'n <= -1' / 'n >= 0' (negative literal in a guard) accepted
+##### optB vs base (lines that changed)
+> T1 int where value >= -5  [value >= -5]              accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> T2 -5..5  [value >= -5 and value <= 5]               accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+>       short  {<= 4}  ok (refused)
+> T3 or  [value >= 1 or value <= -1]                   accepted
+>       cover  {>= 1|<= -1}  ok (exhaustive)
+>       short  {>= 2|<= -1}  ok (refused)
+>       short  {>= 1|<= -2}  ok (refused)
+> E1 negative on the LEFT   -5 <= value  [-5 <= value] accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E2 -0  [value >= -0]                                 accepted
+>       cover  {>= 0}  ok (exhaustive)
+>       short  {>= 1}  ok (refused)
+> E3 double negation  --5  [value >= --5]              accepted
+>       cover  {>= 5}  ok (exhaustive)
+>       short  {>= 6}  ok (refused)
+> E4 parenthesised    -(5)  [value >= -(5)]            accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> E8 negative equality  value == -3  [value == -3]     accepted-by-checker(erlc-OTP25-singleton-range)
+> E9 negative !=  [value != -3]                        accepted
+>       cover  {>= -2|<= -4}  ok (exhaustive)
+>       short  {>= -1|<= -4}  ok (refused)
+>       short  {>= -2|<= -5}  ok (refused)
+> E10 spaced  - 5  [value >= - 5]                      accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> G1 'when n >= -5' + 'when n < -5' (exhaustive?)      accepted
+> L1 literal -1 passed to a 'value != 0' param         accepted
+> L3 guard pair 'n <= -1' / 'n >= 0' (negative literal in a guard) accepted
+##### optC vs base (lines that changed)
+> T1 int where value >= -5  [value >= -5]              accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+> T2 -5..5  [value >= -5 and value <= 5]               accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+>       short  {<= 4}  ok (refused)
+> T3 or  [value >= 1 or value <= -1]                   accepted
+>       cover  {>= 1|<= -1}  ok (exhaustive)
+>       short  {>= 2|<= -1}  ok (refused)
+>       short  {>= 1|<= -2}  ok (refused)
+> E2 -0  [value >= -0]                                 accepted
+>       cover  {>= 0}  ok (exhaustive)
+>       short  {>= 1}  ok (refused)
+> E8 negative equality  value == -3  [value == -3]     accepted-by-checker(erlc-OTP25-singleton-range)
+> E9 negative !=  [value != -3]                        accepted
+>       cover  {>= -2|<= -4}  ok (exhaustive)
+>       short  {>= -1|<= -4}  ok (refused)
+>       short  {>= -2|<= -5}  ok (refused)
+> E10 spaced  - 5  [value >= - 5]                      accepted
+>       cover  {>= -5}  ok (exhaustive)
+>       short  {>= -4}  ok (refused)
+
+##### WRONG markers (must be 0 everywhere):
+out/base.txt:0
+out/optA1.txt:0
+out/optA2.txt:0
+out/optB.txt:0
+out/optC.txt:0
+out/run-all.txt:1
+
+== base
+  comparand AST : {e_op,{2,1},'>=',{e_var,{2,1},value},{e_neg,{2,1},{e_int,{2,1},5}}}
+  flat_size     : 30 words
+  (whole module AST: 106 words)
+== optA1
+  comparand AST : {e_op,{2,1},'>=',{e_var,{2,1},value},{e_neg,{2,1},{e_int,{2,1},5}}}
+  flat_size     : 30 words
+  (whole module AST: 106 words)
+== optA2
+  comparand AST : {e_op,{2,1},'>=',{e_var,{2,1},value},{e_neg,{2,1},{e_int,{2,1},5}}}
+  flat_size     : 30 words
+  (whole module AST: 106 words)
+== optB
+  comparand AST : {e_op,{2,1},'>=',{e_var,{2,1},value},{e_int,{2,1},-5}}
+  flat_size     : 23 words
+  (whole module AST: 99 words)
+== optC
+  comparand AST : {e_op,{2,1},'>=',{e_var,{2,1},value},{e_int,0,-5}}
+  flat_size     : 20 words
+  (whole module AST: 96 words)
+
+##### residual round trip: base
+-- step 1: delete the negative clause; the compiler's residual:
+   /tmp/tmp.TWB7MutMal/R1/a.bs:2:1: error: this refinement is not a predicate the checker can read
+     a refinement narrows a type, so the compiler has to be able to
+     reason about it: comparisons on `value`, joined with `and`/`or`.
+     `int where value >= 0 and value <= 255` is one.
+     A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+     is the O(n) tier. It is established once at a boundary and never
+     reasoned about, and this compiler has no site to establish it at.
+-- extracted residual text: []
+-- step 2: paste it back as a clause:
+   /tmp/tmp.TWB7MutMal/R2/a.bs:2:1: error: this refinement is not a predicate the checker can read
+     a refinement narrows a type, so the compiler has to be able to
+     reason about it: comparisons on `value`, joined with `and`/`or`.
+     `int where value >= 0 and value <= 255` is one.
+     A predicate that reads the value instead \x{2014} `WellFormed(value)` \x{2014}
+     is the O(n) tier. It is established once at a boundary and never
+     reasoned about, and this compiler has no site to establish it at.
+##### residual round trip: optA1
+-- step 1: delete the negative clause; the compiler's residual:
+   /tmp/tmp.PeeL5g8gga/R1/a.bs:3:1: error: K is not exhaustive
+     no clause matches:
+       K(>= -10 and <= -1) -> ...
+-- extracted residual text: [>= -10 and <= -1]
+-- step 2: paste it back as a clause:
+   accepted (round-trips)
+##### residual round trip: optB
+-- step 1: delete the negative clause; the compiler's residual:
+   /tmp/tmp.PUKmy9qdQK/R1/a.bs:3:1: error: K is not exhaustive
+     no clause matches:
+       K(>= -10 and <= -1) -> ...
+-- extracted residual text: [>= -10 and <= -1]
+-- step 2: paste it back as a clause:
+   accepted (round-trips)
+
+-5                         => -5
+- 5                        => -5
+-(5)                       => -5
+--5                        => 5
+-0                         => 0
+5 - -5                     => 10
+-5 - 3                     => -8
+-2 * 3                     => -6
+-2 * -3 + 1                => 7
+2 * -3                     => -6
+0 - 5                      => -5
+-9223372036854775808       => -9223372036854775808
+-2147483648 - 1            => -2147483649
+-5 / 2                     => -2
+-7 % 3                     => -1
+optB: identical to base on all 15 expressions
+optA2: identical to base (as expected: checker-only change)
+
+base   parse-only min 8.44 us/iter
+optA1  parse-only min 7.19 us/iter
+optA2  parse-only min 6.55 us/iter
+optB   parse-only min 7.37 us/iter
+optC   parse-only min 7.48 us/iter
+
+##### repo eunit suite, delta vs base (slow, ~30s per variant)
+base: 586 failing tests; eunit totals: failed=586 passed=862
+optA1: 586 failing tests; eunit totals: failed=586 passed=862
+optA2: 586 failing tests; eunit totals: failed=586 passed=862
+optB: 586 failing tests; eunit totals: failed=586 passed=862
+optC: 587 failing tests; eunit totals: failed=587 passed=861
+new failures in optA1 vs base:
+new failures in optA2 vs base:
+new failures in optB vs base:
+new failures in optC vs base:
+intervals_tests: an_unreadable_refinement_predicate_is_an_error_test
+
+##### survey
+pattern   f(-5) -> ok.            [{op,1,'-',{integer,1,5}}]
+expr      f() -> -5.              [{op,1,'-',{integer,1,5}}]
+guard     f(X) when X >= -5 -> X. [[{op,1,'>=',
+                                     {var,1,'X'},
+                                     {op,1,'-',{integer,1,5}}}]]
+-type t() :: -5..5                  accepted
+-type t() :: -(5)..5                accepted
+-type t() :: - -5..9                accepted
+-type t() :: (2+3)..10              accepted
+-type t() :: 0-5..5                 accepted
+-type t() :: 2*-3..5                accepted
+-type t() :: (1 bsl 3)..10          accepted
+  survey/elixir.exs:6
+
+expr  -5        : {:-, [line: 1], [5]}
+expr  - 5       : {:-, [line: 1], [5]}
+expr  -(5)      : {:-, [line: 1], [5]}
+expr  2 + 3     : {:+, [line: 1], [2, 3]}
+pattern -5      : {:case, [line: 1],
+ [{:x, [line: 1], nil}, [do: [{:->, [line: 1], [[{:-, [line: 1], [5]}], 1]}]]]}
+guard x >= -5   : {:def, [line: 1],
+ [
+   {:when, [line: 1],
+    [
+      {:f, [line: 1], [{:x, [line: 1], nil}]},
+      {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+    ]},
+   [do: {:x, [line: 1], nil}]
+ ]}
+--5 : SyntaxError (`--` is the list-subtract operator)
+behaviour (expected {:in,:out,:in,:out,:neg,:ok}): {:in, :out, :in, :out, :neg, :ok}
+done rc=0
