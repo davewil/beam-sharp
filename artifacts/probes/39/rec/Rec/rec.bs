@@ -1,0 +1,20 @@
+module Rec
+
+record Tag { Name: string, Weight: int }
+
+public int WeightOf(Tag t)
+WeightOf(t) -> t.Weight
+
+private int WeightP(Tag t)
+WeightP(t) -> t.Weight
+
+public Tag Make(int w)
+Make(w) -> Tag { Name = "x", Weight = w }
+
+public int SumPub(list<Tag> ts, int acc)
+SumPub([], acc) -> acc
+SumPub([t, ..rest], acc) -> SumPub(rest, acc + WeightOf(t))
+
+public int SumPriv(list<Tag> ts, int acc)
+SumPriv([], acc) -> acc
+SumPriv([t, ..rest], acc) -> SumPriv(rest, acc + WeightP(t))

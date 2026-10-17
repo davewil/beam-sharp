@@ -1,0 +1,158 @@
+## 0. environment
+OTP 25, jit, "x86_64-pc-linux-gnu"
+
+## 1. build: bsc on aoc/bench/Day01, hand-written Erlang variants, beam-sharp variants
+
+## 2. disassembly: do the hot functions carry the same {tr,_,Type} annotations?
+   (digest equal  <=> instruction stream identical modulo labels/names)
+/tmp/w39/final/e/e0.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  spin  insns=19  tr_annotations=4  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2175485888
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+/tmp/w39/final/v/bs0.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+  spin  insns=19  tr_annotations=4  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2175485888
+/tmp/w39/final/v/bs1.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+  spin  insns=19  tr_annotations=4  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2175485888
+/tmp/w39/final/v/bs2.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+  spin  insns=19  tr_annotations=4  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2175485888
+/tmp/w39/final/v/bs3.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+  spin  insns=19  tr_annotations=4  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2175485888
+/tmp/w39/final/e/e1.S
+  wrap  insns=4   tr_annotations=3  types=[number,{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2213300913
+  spin  insns=19  tr_annotations=3  types=[{t_integer,any},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2753047411
+  hit   insns=5   tr_annotations=0  types=[] digest=2565933496
+/tmp/w39/final/e/e2.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=3689865860
+  spin  insns=25  tr_annotations=8  types=[{t_integer,any},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=1894780248
+  hit   insns=5   tr_annotations=0  types=[] digest=2565933496
+/tmp/w39/final/e/e3.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  spin  insns=19  tr_annotations=4  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=2175485888
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+/tmp/w39/final/e/e4.S
+  spin  insns=15  tr_annotations=8  types=[{t_integer,any},{t_integer,{-100,100}},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}},{t_integer,{0,99}},{t_integer,{1,199}}] digest=784669427
+/tmp/w39/final/v/bs4.S
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+  spin  insns=19  tr_annotations=5  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=1064748854
+/tmp/w39/final/v/bs5.S
+  spin  insns=15  tr_annotations=8  types=[{t_integer,any},{t_integer,{-100,100}},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}},{t_integer,{0,99}},{t_integer,{1,199}}] digest=784669427
+
+## 3. Elixir: same loop through elixirc, forms recovered and re-listed
+/tmp/w39/final/ex/ex.S
+  hit   insns=5   tr_annotations=1  types=[{t_integer,{-99,99}}] digest=2203081286
+  spin  insns=19  tr_annotations=6  types=[number,{t_integer,any},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}}] digest=1346069959
+  wrap  insns=4   tr_annotations=3  types=[{t_integer,any},{t_integer,{-99,99}},{t_integer,{1,199}}] digest=2384507592
+
+## 4. Gleam: its generated Erlang header and listing
+-module(bench_gleam).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch, inline]).
+/tmp/w39/final/gl/build/dev/erlang/bench_gleam/_gleam_artefacts/bench_gleam.S
+  spin  insns=15  tr_annotations=8  types=[{t_integer,any},{t_integer,{-100,100}},{t_integer,{-99,99}},{t_integer,{-1,1}},{t_integer,{0,1}},{t_integer,{0,99}},{t_integer,{1,199}}] digest=784669427
+
+## 5. timing (interleaved, 41 rounds each; run 3 times to show run-to-run spread)
+-- run 1
+OTP 25, 4732 rotations, 670911 clicks
+e0     min  10.783 ms  med  11.509 ms  rel(min) 1.143
+e0b    min  10.771 ms  med  11.472 ms  rel(min) 1.141
+bs0    min  10.793 ms  med  11.500 ms  rel(min) 1.144
+bs1    min  10.760 ms  med  11.496 ms  rel(min) 1.140
+bs2    min  10.760 ms  med  11.475 ms  rel(min) 1.140
+bs3    min  10.754 ms  med  11.488 ms  rel(min) 1.139
+e1     min  10.829 ms  med  11.540 ms  rel(min) 1.147
+e2     min  10.823 ms  med  11.501 ms  rel(min) 1.147
+e3     min  10.807 ms  med  11.508 ms  rel(min) 1.145
+e4     min   9.438 ms  med  10.105 ms  rel(min) 1.000
+bs4    min   9.689 ms  med  10.324 ms  rel(min) 1.027
+bs5    min   9.498 ms  med  10.083 ms  rel(min) 1.006
+bench_ min   9.492 ms  med  10.124 ms  rel(min) 1.006
+Elixir min  10.837 ms  med  11.536 ms  rel(min) 1.148
+-- run 2
+OTP 25, 4732 rotations, 670911 clicks
+e0     min  10.578 ms  med  11.633 ms  rel(min) 1.177
+e0b    min  10.766 ms  med  11.648 ms  rel(min) 1.197
+bs0    min  10.645 ms  med  11.579 ms  rel(min) 1.184
+bs1    min  10.522 ms  med  11.532 ms  rel(min) 1.170
+bs2    min  10.791 ms  med  11.492 ms  rel(min) 1.200
+bs3    min  10.492 ms  med  11.673 ms  rel(min) 1.167
+e1     min  10.512 ms  med  11.667 ms  rel(min) 1.169
+e2     min  10.595 ms  med  11.506 ms  rel(min) 1.178
+e3     min  10.404 ms  med  11.553 ms  rel(min) 1.157
+e4     min   9.031 ms  med  10.099 ms  rel(min) 1.004
+bs4    min   9.244 ms  med  10.397 ms  rel(min) 1.028
+bs5    min   8.991 ms  med  10.196 ms  rel(min) 1.000
+bench_ min   9.038 ms  med  10.099 ms  rel(min) 1.005
+Elixir min  10.332 ms  med  11.573 ms  rel(min) 1.149
+-- run 3
+OTP 25, 4732 rotations, 670911 clicks
+e0     min  10.754 ms  med  11.528 ms  rel(min) 1.136
+e0b    min  10.766 ms  med  11.486 ms  rel(min) 1.137
+bs0    min  10.790 ms  med  11.510 ms  rel(min) 1.140
+bs1    min  10.739 ms  med  11.534 ms  rel(min) 1.135
+bs2    min  10.569 ms  med  11.553 ms  rel(min) 1.117
+bs3    min  10.450 ms  med  11.507 ms  rel(min) 1.104
+e1     min  10.502 ms  med  11.559 ms  rel(min) 1.110
+e2     min  10.619 ms  med  11.477 ms  rel(min) 1.122
+e3     min  10.767 ms  med  11.538 ms  rel(min) 1.138
+e4     min   9.485 ms  med  10.109 ms  rel(min) 1.002
+bs4    min   9.653 ms  med  10.332 ms  rel(min) 1.020
+bs5    min   9.465 ms  med  10.107 ms  rel(min) 1.000
+bench_ min   9.482 ms  med  10.085 ms  rel(min) 1.002
+Elixir min  10.847 ms  med  11.549 ms  rel(min) 1.146
+
+## 6. record Kind-tag guard (ticket 39 §3 'never measured'; also ticket 59's private-function claim)
+-- tag test present in private WeightP? (expect map_get Kind + is_eq_exact)
+    {bif,map_get,{f,5},[{atom,'Kind'},{x,0}],{x,1}}.
+    {test,is_eq_exact,{f,5},[{x,1},{atom,'Rec.Tag'}]}.
+    {bif,map_get,{f,0},[{atom,'Weight'},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+-- run 1
+OTP 25 answer 99900000
+tag_pub   min  3.318 ms  med  3.586 ms  rel 1.414
+notag_pub min  2.346 ms  med  2.613 ms  rel 1.000
+tag_priv  min  3.444 ms  med  3.708 ms  rel 1.468
+notag_pri min  2.391 ms  med  2.668 ms  rel 1.019
+-- run 2
+OTP 25 answer 99900000
+tag_pub   min  3.324 ms  med  3.576 ms  rel 1.474
+notag_pub min  2.430 ms  med  2.621 ms  rel 1.078
+tag_priv  min  3.206 ms  med  3.605 ms  rel 1.422
+notag_pri min  2.255 ms  med  2.582 ms  rel 1.000
+-- run 3
+OTP 25 answer 99900000
+tag_pub   min  3.424 ms  med  3.719 ms  rel 1.386
+notag_pub min  2.532 ms  med  2.911 ms  rel 1.025
+tag_priv  min  3.253 ms  med  3.572 ms  rel 1.317
+notag_pri min  2.470 ms  med  2.778 ms  rel 1.000
+
+## 7. what -compile(inline) costs: bytes and stack frames
+-- .beam bytes (stripped of nothing; debug_info included)
+e0.beam                2040
+e4.beam                1972
+bs0.beam               2092
+bs4.beam               1988
+bs5.beam               1928
+-- stack trace of a crash inside a helper, without and with -compile(inline)
+st0 function_clause [{st0,helper,[-1]},
+                     {st0,run,1},
+                     {erl_eval,do_apply,7},
+                     {erl_eval,try_clauses,10},
+                     {erl_eval,exprs,6},
+                     {init,start_it,1},
+                     {init,start_em,1},
+                     {init,do_boot,3}]
+st1 function_clause [{st1,'-inlined-helper/1-',[-1]},
+                     {erl_eval,do_apply,7},
+                     {erl_eval,try_clauses,10},
+                     {erl_eval,exprs,6},
+                     {init,start_it,1},
+                     {init,start_em,1},
+                     {init,do_boot,3}]
+
+workdir: /tmp/w39/final
