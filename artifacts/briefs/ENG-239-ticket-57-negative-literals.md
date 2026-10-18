@@ -11,7 +11,7 @@ Everything else (how far the fold goes, what the message says) follows from the 
 
 ## What the ticket got wrong, found by running it
 
-1. **The mechanism it describes is out of date.** The ticket says `-5` reaches the checker as `0 - 5`. Since F51 the parser emits a node of its own: `{e_neg,{2,29},{e_int,{2,30},5}}` (probe 57/probe P7, `bs_parser.yrl:591`, `:947-948`). `negate/2` already folds a negated **float** literal and leaves an **integer** one as `e_neg`.
+1. **The mechanism it describes is out of date.** The ticket says `-5` reaches the checker as `0 - 5`. Since F51 the parser emits a node of its own: `{e_neg,{2,29},{e_int,{2,30},5}}` (probe 57/probe P7, `bs_parser.yrl:590`, `:947-948`). `negate/2` already folds a negated **float** literal and leaves an **integer** one as `e_neg`.
 2. **The defect is not refinement-only.** Refinements and guards both read through `alternatives/1` → `comparison/1` (`bs_check.erl:4998-5027`). Probe P6: two guards that cover `int` compile with `5` and are refused with `-5`:
 
    ```csharp
@@ -48,9 +48,11 @@ Everything else (how far the fold goes, what the message says) follows from the 
 
 The probes were chosen before the patches were written and were run unchanged against all three builds; they are the ticket's own repro plus the guard case (the guard case was not in the ticket).
 
+**Verifier finding: A and B are not equivalent** (`artifacts/verification/ENG-239.md`). Beyond the author's probes: `value < -(-5)` and `value >= - -5` are accepted by B and refused by A; a refinement `-9..-1` with `G() -> -4` compiles under B and is refused under A ("returns a value its signature does not declare") because `type_of(e_neg)` answers plain `int`; and `x / -0` crashes at run time under baseline and A while B refuses it at compile time. Every difference favours B, but B changes expression typing and the zero-divisor check, so the gates matter more for B than I implied.
+
 **Cost.**
 - Term size of the node the checker sees: `e_neg(e_int 5)` = **14 words**, folded `e_int -5` = **7 words** (`measure.sh`, `erts_debug:flat_size`).
-- Compile time of a 7-line module with one refinement and two guards, 200 compiles in one VM: baseline 5272 µs, checker fold 5027 µs, parser fold 5354 µs each. That is **noise, not a difference**; the fold costs nothing measurable.
+- Compile time of a 7-line module with one refinement and two guards, 200 compiles in one VM: saved run 4811 / 4830 / 4902 µs (baseline / checker / parser); the verifier's rerun 5248 / 5542 / 5462 µs. That is **noise, not a difference**; neither the numbers nor any ordering between variants should be read.
 - Regression signal is weak, say so plainly: the existing eunit suite has **448 failures on this toolchain even on the unmodified compiler** (OTP 29 / no rebar3; tests expecting diagnostics on stderr see empty output). The failing set is identical across baseline, A and B (`57/eunit.sh`), so the suite neither supports nor contradicts either patch. The `compiler/` gates should be run on the chosen option (`./bin/verify.sh`) before any claim.
 
 ## Survey (what neighbouring languages do with a negative literal)
@@ -75,14 +77,14 @@ type T = int where value >= 2 + 3                       // still refused
 Strongest counterargument: it fixes the reader, not the AST, so every *future* consumer of an `e_int` comparand (a residual printer, `with` diagnostics, F48's "AST as a B# value") has to remember the same two clauses. The float case already went the other way.
 
 **B. Fold in the parser, as floats already are.** `negate(_L, {e_int,IL,K}) -> {e_int,IL,-K}` (patch: 1 line, `bs_parser.yrl:947`).
-Same acceptance set as A in every probe above, and the emitted `.abstr` holds a literal `-5` (what Elixir hands Erlang).
+Same acceptance as A in every probe above. (I claimed the emitted `.abstr` then holds a literal `-5`; the verifier's grep found nothing under any variant, so that is unbacked.)
 Strongest counterargument: it changes the AST shape for **every** pass at once, not just the two readers measured here — I ran only the (environment-broken) eunit suite against it, and only the probes above. Any pass that matched `{e_neg,_,{e_int,…}}` to recover how the author wrote the number loses it; `grep -n e_neg compiler/src` finds `expr_vars` (`bs_check.erl:2601`), `type_of` (`:2889`), `used_vars` and `expr` in `bs_emit.erl` (`:743`, `:1067`) — grep shows they all handle `e_neg` generically rather than matching an int inside it, but I read only the matching lines, not the passes, and did not run the full gates.
 
 **C. The ticket's first option: narrow the grammar at the refinement site only.** Not built. P6 shows the guard reader fails identically, so C leaves guards broken and re-creates the two-readers split the checker's `refinement` comment says it exists to prevent.
 
 ## Recommendation
 
-**B**, conditional on `./bin/verify.sh` passing twice on a real toolchain. Same acceptance as A, one line instead of two clauses plus their mirror, 7 words of AST instead of 14, and it makes every present and future consumer of an integer comparand agree by construction — the floats precedent (`bs_parser.yrl:947`) says the project already prefers this. If David would rather keep `e_neg` visible for diagnostics (F48 will want the author's spelling), take A. Evidence here does not separate them on behaviour; the choice is about where the next consumer's bug would come from.
+**B**, conditional on `./bin/verify.sh` passing twice on a real toolchain — more strictly than I first wrote, since B alters typing of negative literals and the zero-divisor check (verifier-measured). On every extra input tried it accepts more correct programs than A; one line instead of two clauses plus their mirror, 7 words of AST instead of 14, and it makes every present and future consumer of an integer comparand agree by construction — the floats precedent (`bs_parser.yrl:947`) says the project already prefers this. If David would rather keep `e_neg` visible for diagnostics (F48 will want the author's spelling), take A. Evidence here does not separate them on behaviour; the choice is about where the next consumer's bug would come from.
 
 ## Not done / limits
 
