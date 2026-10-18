@@ -1,0 +1,10 @@
+eunit (compiler/test/*_tests.erl, 1448 tests) per variant, OTP 25.3, lexer columns approximate.
+v0: Failed: 183. Skipped: 0. Passed: 1265.
+v1: Failed: 183. Skipped: 0. Passed: 1265.
+v2: Failed: 185. Skipped: 0. Passed: 1263.
+
+failing-set diff v0 vs v1:
+  (identical)
+failing-set diff v0 vs v2 (extra failures under v2):
+> boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
+> boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*

@@ -1,0 +1,18 @@
+--- bs_emit.erl
++++ bs_emit.erl
+@@ -281,13 +281,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from

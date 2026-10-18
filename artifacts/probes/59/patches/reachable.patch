@@ -1,0 +1,29 @@
+--- bs_emit.erl
++++ bs_emit.erl
+@@ -160,9 +160,16 @@
+     %% read here, the one place the `#fn` record is in scope, and handed to
+     %% the clause as a boolean.
+     %% Rationale: compiler/features/F24-boundary-kind.md.
+-    Public = is_public(F),
++    Public = is_public(F) orelse escapes(F, Ctx),
+     {function, ?A, Name, Arity, [clause(C, Params, Ctx, Public) || C <- Clauses]}.
+ 
++%% PROTOTYPE (ticket 59, option C): a private function whose name is taken as a
++%% value anywhere in the module (`Free`, `Double/1`) can be called by whoever the
++%% fun is handed to, so it is reachable by an unchecked caller exactly as an
++%% exported one is. `fnames` holds one `{Name, Arity}` per such site.
++escapes(F, #{fnames := FN}) -> lists:member({element(2, F), arity(F)}, maps:values(FN));
++escapes(_, _) -> false.
++
+ %% A parameter the body and guard never mention lowers to a `_`-prefixed
+ %% variable, because Erlang warns on an unused one and `(:ok, n) -> :negative`
+ %% is idiomatic B#, with the name as documentation.
+@@ -275,7 +282,7 @@
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
+         {ok, Tag} ->
+-            case constrains_kind(Pat) of
++            case constrains_kind(Pat) orelse not Public of
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
