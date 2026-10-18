@@ -12,7 +12,7 @@ Ticket 60 §1. Direction (§2) and marker-vs-construct (§3) follow: a list live
 ## Measured facts that shape the question
 
 1. **Today nothing restricts naming.** Baseline (`output-probe.txt`, variant `c`): `Other.App` does `using Shop.Internal.Tax` and calls `Vat(n)` — it compiles with no output. The checker's import site (`bs_check.erl:498`, `add_import/7` → `add_module_import/3` at `:512`) reads only the callee's export set; confirmed the ticket's measurement at the current tree.
-2. **`using` is already the single gate.** A qualified call that skips it is refused: `Other/App2/App2.bs:3:31: error: Shop.Internal.Tax is called but never imported`. So one check at `add_import` covers both spellings; no second site in the qualified-call path (`bs_check.erl:3173`, `qual_table` at `:537`) is needed.
+2. **`using` gates qualified calls, but the prototype's one check does not cover every `using`.** A qualified call that skips `using` is refused (`Other/App2/App2.bs:3:31: error: Shop.Internal.Tax is called but never imported`; the gate is `qualified_module`/`require_imported`, `bs_check.erl:4420-4431`). **Verifier correction:** the prototype checks only `add_module_import`. A *namespace* import, `using Shop.Internal` followed by `Tax.Vat(n)`, compiles under the prototype and resolves to the internal module, because it goes through `add_namespace_import`, which the patch never touches. A real implementation needs the rule at both import paths.
 3. **The consumer from ticket 24 is real but unmeasured here.** I did not measure how many functions land `unclassified`; this brief says nothing about that.
 
 ## Sub-decisions
@@ -37,7 +37,7 @@ public int Vat(int net)  ;  Vat(n) -> n / 5
 // Other/App/App.bs          — refused under the prototype:   using Shop.Internal.Tax
 ```
 
-Measured (`output-probe.txt`): baseline compiles both; prototype compiles `Shop.Billing` and refuses `Other.App`. The prototype reuses the `unknown_module` diagnostic, whose text ("names no module and no namespace") is wrong for this case; a real version needs its own `internal_module` tag in `bs_diag.erl` (`built/2` and `message/1` — `message/1` has no catch-all, so a missing clause crashes, per the lexer note in `rebar.config`).
+Measured (`output-probe.txt`): baseline compiles both; prototype compiles `Shop.Billing` and refuses `Other.App`. **Verifier-found gaps in the prototype (`artifacts/verification/ENG-242.md`):** the namespace-import bypass above; a top-level `Internal.Util` is refused to every caller including `Internal.Sib`; with nested `A.Internal.B.Internal.C` the patch splits at the first `Internal`, so `A.User` is allowed. The rule needs to say which `Internal` counts and what a top-level one means. The prototype reuses the `unknown_module` diagnostic, whose text ("names no module and no namespace") is wrong for this case; a real version needs its own `internal_module` tag in `bs_diag.erl` (`built/2` and `message/1` — `message/1` has no catch-all, so a missing clause crashes, per the lexer note in `rebar.config`).
 
 An early bug in my prototype (`lists:join` returns a deep list; `lists:prefix` then never matched, so it refused `Shop.Billing` too) shows the helper is easy to get subtly wrong; the patch committed in the probes directory is the fixed one and the output above is from it.
 
@@ -45,7 +45,7 @@ An early bug in my prototype (`lists:join` returns a deep list; `lists:prefix` t
 
 | language | mechanism | does it stop a caller? | evidence |
 |---|---|---|---|
-| Gleam 1.19.1 | `internal_modules = [...]` in `gleam.toml`; `@internal` attribute on a `pub` item | **not observed**: a second package (path dependency) imported `lib/internal/secret` and called an `@internal pub fn`; both built with no error and no warning | `60/probe.sh` (executed). I cannot rule out enforcement for registry packages or in `gleam publish`/docs, which this sandbox cannot reach (hex.pm blocked) |
+| Gleam 1.19.1 | `internal_modules = [...]` in `gleam.toml`; `@internal` attribute on a `pub` item | **not enforced at build** (full `gleam build` shows no warning; the verifier confirmed the key spelling), though `package-interface` and docs do hide the internal items: a second package (path dependency) imported `lib/internal/secret` and called an `@internal pub fn`; both built with no error and no warning | `60/probe.sh` (executed). I cannot rule out enforcement for registry packages or in `gleam publish`/docs, which this sandbox cannot reach (hex.pm blocked) |
 | Elixir 1.20.4 | `@moduledoc false` / `@doc false` | no: `Other.App.cheat(50)` called `Shop.Internal.Tax.vat` → 10 | `60/probe.sh` (executed) |
 | Erlang | `-export` only (function-level, caller-blind) | n/a | not probed; from the language definition |
 | Elm | `exposed-modules` in `elm.json`, package-level | not probed — package server unreachable | — |
@@ -70,7 +70,7 @@ Strongest counterargument: measured — baseline lets `Other.App` call `Shop.Int
 
 ## Recommendation
 
-**A**, narrowly: it is the only option whose cost I could measure (≈17 lines, one check site, no syntax), it uses the one unit the language already has, and `using` being the single gate means it cannot be bypassed by a qualified call. Do not ship it before the diagnostic exists and a test seen to fail (the project's "gate believed only once seen to fail" rule). Prefer **C** if David judges that no one has yet been harmed by the absence; the ticket itself says "not owed a decision soon", and nothing measured here contradicts that.
+**A**, narrowly: it is the only option whose cost I could measure (≈17 lines at one of the two import paths — the second is unmeasured — no syntax), it uses the one unit the language already has, and a qualified call cannot bypass `using`. Do not ship it before the diagnostic exists and a test seen to fail (the project's "gate believed only once seen to fail" rule). Prefer **C** if David judges that no one has yet been harmed by the absence; the ticket itself says "not owed a decision soon", and nothing measured here contradicts that.
 
 ## Not done / limits
 
