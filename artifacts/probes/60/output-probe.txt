@@ -1,0 +1,30 @@
+=============== bsc variant c  (baseline)
+Shop/Billing   
+Other/App      
+Other/App2     Other/App2/App2.bs:3:31: error: Shop.Internal.Tax is called but never imported
+
+=============== bsc variant c60  (prototype: Internal segment => nameable only from its parent namespace)
+Shop/Billing   
+Other/App      Other/App/App.bs:2:1: error: `using Shop.Internal.Tax` names no module and no namespace
+
+Other/App2     Other/App2/App2.bs:3:31: error: Shop.Internal.Tax is called but never imported
+
+### baseline: does a qualified call skip 'using'? (App2 above) -> the 'never imported' error shows 'using' is already the single gate
+
+### Gleam: @internal attribute, and internal_modules in gleam.toml across a path dependency
+--- app (another package) imports lib/internal/secret:
+  Resolving versions
+      Added lib v1.0.0
+  Compiling lib
+  Compiling app
+   Compiled in 0.45s
+--- app calls lib's @internal pub fn flagged():
+  Resolving versions
+  Compiling app
+   Compiled in 0.37s
+--- lib itself (same package) imports its own internal module: builds?
+  Compiling lib
+   Compiled in 0.41s
+
+### Elixir: @moduledoc false / @doc false — does either stop a caller?
+Other.App.cheat(50): 10

@@ -1,0 +1,6 @@
+=== variant c
+  SpinRec 43 ms   SpinInt 36 ms   (min of 15, 5000000 calls each)
+=== variant c59_narrow
+  SpinRec 41 ms   SpinInt 38 ms   (min of 15, 5000000 calls each)
+=== variant c59_wide
+  SpinRec 47 ms   SpinInt 39 ms   (min of 15, 5000000 calls each)

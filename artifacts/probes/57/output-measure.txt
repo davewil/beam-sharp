@@ -1,0 +1,4 @@
+words  e_neg(e_int 5) = 14   folded e_int -5 = 7
+c              200 compiles of a 7-line module with a refinement and two guards: 962 ms total (4811 us each)
+c57_checker    200 compiles of a 7-line module with a refinement and two guards: 966 ms total (4830 us each)
+c57_parser     200 compiles of a 7-line module with a refinement and two guards: 980 ms total (4902 us each)

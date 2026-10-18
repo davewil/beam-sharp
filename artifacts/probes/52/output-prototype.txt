@@ -1,0 +1,18 @@
+=== variant c
+  R: 
+  A: 
+=== variant c52
+  R: R/R.bs:2:1: error: `using Elixir.Req` names no module and no namespace
+
+  A: A/A.bs:2:1: error: `using analytics_db` names no module and no namespace
+
+--- foreign modules named across shipped examples + docs, and which resolve on this machine:
+  distinct foreign modules named: 10, resolvable now: 8, absent: 2 [{3,
+                                                                     "analytics_db"},
+                                                                    {1,
+                                                                     "epgsql"}]
+--- which files name the absent ones:
+/home/user/beam-sharp/compiler/examples/exemplars/25d-database-querying/index.bs
+/home/user/beam-sharp/LANGUAGE.md
+--- today's parser has no attribute syntax at all: ticket 52's [app: req] spelling
+T/T.bs:2:1: error: syntax error before: '['

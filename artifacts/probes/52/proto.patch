@@ -1,0 +1,11 @@
+--- /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/c/src/bs_check.erl	2026-10-18 23:09:05.873300332 +0000
++++ src/bs_check.erl	2026-10-18 23:25:17.787102226 +0000
+@@ -321,6 +321,8 @@
+     implements_refused(Decls),
+     %% Imports must precede the type environment: local declarations may refer
+     %% to imported records and aliases.
++    [case code:which(FM) of non_existing -> erlang:error({unknown_module, FM, FL}); _ -> ok end
++     || {foreign, FL, FM, _} <- Decls],
+     Self = module_name(Decls),
+     Imports = import_env(Decls, Self, World, Mode),
+     Env = type_env(Decls, Imports, World),

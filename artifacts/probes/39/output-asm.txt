@@ -1,0 +1,10 @@
+=== otp28: OTP 28 erts-16.4
+  wrap  instruction stream identical incl. {tr,..}/var_info type facts: True  (252 vs 252 chars; {tr,} erlc=3 bsc=3)
+  hit   instruction stream identical incl. {tr,..}/var_info type facts: True  (140 vs 140 chars; {tr,} erlc=1 bsc=1)
+  spin  instruction stream identical incl. {tr,..}/var_info type facts: True  (605 vs 605 chars; {tr,} erlc=4 bsc=4)
+  (sign/size_/clicks differ because the two SOURCES differ: Erlang guards D>0 / D<0, B# orders d<0 first)
+=== beam: OTP 29 erts-17.1.1
+  wrap  instruction stream identical incl. {tr,..}/var_info type facts: True  (240 vs 240 chars; {tr,} erlc=3 bsc=3)
+  hit   instruction stream identical incl. {tr,..}/var_info type facts: True  (142 vs 142 chars; {tr,} erlc=1 bsc=1)
+  spin  instruction stream identical incl. {tr,..}/var_info type facts: True  (607 vs 607 chars; {tr,} erlc=4 bsc=4)
+  (sign/size_/clicks differ because the two SOURCES differ: Erlang guards D>0 / D<0, B# orders d<0 first)

@@ -1,0 +1,46 @@
+### P1 repro: refinement with -5 (ticket says refused)
+A/A.bs:2:1: error: this refinement is not a predicate the checker can read
+  a refinement narrows a type, so the compiler has to be able to
+### P2 same literal, same operator, as a pattern (ticket says compiles)
+:neg
+### P3 the same comparison as a GUARD (does the guard path read -5?)
+-3
+### P4 guard vs refinement on 2 + 3 (is the split only about negation?)
+9
+E/E.bs:2:1: error: this refinement is not a predicate the checker can read
+### P5 other spellings of a negative bound in a refinement
+(-5)     -> S/S.bs:2:1: error: this refinement is not a predicate the checker can 
+
+0 - 5    -> S/S.bs:2:1: error: this refinement is not a predicate the checker can 
+
+-(5)     -> S/S.bs:2:1: error: this refinement is not a predicate the checker can 
+
+- 5      -> S/S.bs:2:1: error: this refinement is not a predicate the checker can 
+
+### P6 does the GUARD path read -5? Exhaustiveness is the witness: two guards that cover int.
+  with 5:
+:lo
+  with -5:
+G/G.bs:2:13: error: H is not exhaustive
+  no clause matches:
+    H(n) -> ...
+### P7 what the parser hands the checker for -5 (term shape)
+{ok,[{module,{1,1},'M'},
+     {type_refined,{2,1},
+                   'T',
+                   {t_builtin,int},
+                   {e_op,{2,26},
+                         '>=',
+                         {e_var,{2,20},value},
+                         {e_neg,{2,29},{e_int,{2,30},5}}}}]}
+### P8 Erlang: how the real compiler treats -5 (guard + pattern), parse form then core
+parse: {op,1,'>=',{var,1,'X'},{op,1,'-',{integer,1,5}}}
+pattern parse: {function,1,f,1,
+                         [{clause,1,
+                                  [{op,1,'-',{integer,1,5}}],
+                                  [],
+                                  [{atom,1,a}]}]}
+18:			 -5) ->
+30:	      <-5> when 'true' ->
+15:    {test,is_ge,{f,3},[{x,0},{integer,-5}]}.
+28:    {test,is_eq_exact,{f,6},[{x,0},{integer,-5}]}.

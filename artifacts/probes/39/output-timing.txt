@@ -1,0 +1,16 @@
+=== otp28 (OTP 28) run 1
+  erlang     min   8.88  p25  10.82  median  11.49  p75  12.48  ms
+  beamsharp  min   8.97  p25  10.92  median  11.54  p75  12.42  ms
+  paired rounds where beam-sharp was slower than Erlang: 255 of 400;   median ratio 1.004   min ratio 1.010
+=== otp28 (OTP 28) run 2
+  erlang     min   8.99  p25  10.95  median  11.46  p75  12.50  ms
+  beamsharp  min   9.37  p25  10.98  median  11.58  p75  12.54  ms
+  paired rounds where beam-sharp was slower than Erlang: 256 of 400;   median ratio 1.010   min ratio 1.042
+=== beam (OTP 29) run 1
+  erlang     min  10.04  p25  10.80  median  11.51  p75  12.56  ms
+  beamsharp  min   9.84  p25  10.96  median  11.68  p75  12.52  ms
+  paired rounds where beam-sharp was slower than Erlang: 274 of 400;   median ratio 1.015   min ratio 0.980
+=== beam (OTP 29) run 2
+  erlang     min   9.06  p25  11.35  median  11.54  p75  13.38  ms
+  beamsharp  min   9.19  p25  11.46  median  11.57  p75  12.12  ms
+  paired rounds where beam-sharp was slower than Erlang: 249 of 400;   median ratio 1.003   min ratio 1.014

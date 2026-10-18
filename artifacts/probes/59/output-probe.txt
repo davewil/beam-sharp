@@ -1,0 +1,24 @@
+=============== variant c
+  First([Order])       genuine Order           {returned,9}
+  First([Order])       forged Other            {error,function_clause}
+  Direct(Order)        forged Other            {error,function_clause}
+  FirstOctet([Octet])  200                     {returned,1}
+  FirstOctet([Octet])  200.5 (a float)         {returned,1}
+  Direct2(Octet)       200.5 (a float)         {error,function_clause}
+  G.beam 1904 bytes; tag tests (map_get) in G.abstr: 4
+=============== variant c59_narrow
+  First([Order])       genuine Order           {returned,9}
+  First([Order])       forged Other            {returned,77}
+  Direct(Order)        forged Other            {error,function_clause}
+  FirstOctet([Octet])  200                     {returned,1}
+  FirstOctet([Octet])  200.5 (a float)         {returned,1}
+  Direct2(Octet)       200.5 (a float)         {error,function_clause}
+  G.beam 1880 bytes; tag tests (map_get) in G.abstr: 3
+=============== variant c59_wide
+  First([Order])       genuine Order           {returned,9}
+  First([Order])       forged Other            {error,function_clause}
+  Direct(Order)        forged Other            {error,function_clause}
+  FirstOctet([Octet])  200                     {returned,1}
+  FirstOctet([Octet])  200.5 (a float)         {error,function_clause}
+  Direct2(Octet)       200.5 (a float)         {error,function_clause}
+  G.beam 1976 bytes; tag tests (map_get) in G.abstr: 4

@@ -1,0 +1,12 @@
+=== otp28
+  min-of-25 block time, mean over 12 repeats (ms):
+    erlang    when timed first   10.90
+    erlang    when timed second  10.82
+    beamsharp when timed first   10.58
+    beamsharp when timed second  10.67
+=== beam
+  min-of-25 block time, mean over 12 repeats (ms):
+    erlang    when timed first   10.20
+    erlang    when timed second  10.21
+    beamsharp when timed first   10.54
+    beamsharp when timed second  10.33

@@ -1,0 +1,11 @@
+--- /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/c/src/bs_check.erl	2026-10-18 23:09:05.873300332 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/c57_checker/src/bs_check.erl	2026-10-18 23:10:55.841128757 +0000
+@@ -5014,6 +5014,8 @@
+     end.
+ 
+ comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
++comparison({e_op, _, Op, {e_var, _, V}, {e_neg, _, {e_int, _, K}}}) -> int_cmp(Op, V, -K);
++comparison({e_op, _, Op, {e_neg, _, {e_int, _, K}}, {e_var, _, V}}) -> int_cmp(flip(Op), V, -K);
+ comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};

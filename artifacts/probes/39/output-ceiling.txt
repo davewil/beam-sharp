@@ -1,0 +1,4 @@
+=== otp28: {tr,} operands in mix/mixb asm: 19
+  unbounded  42.90 ms   range-guarded  45.02 ms   ratio 1.049   (3000000 iterations, min of 25)
+=== beam: {tr,} operands in mix/mixb asm: 19
+  unbounded  50.14 ms   range-guarded  48.22 ms   ratio 0.962   (3000000 iterations, min of 25)

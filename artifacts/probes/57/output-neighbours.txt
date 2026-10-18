@@ -1,0 +1,38 @@
+### Elixir: AST of -5 (is it folded into the literal at parse time?)
+{:-, [line: 1], [5]}
+{:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+{:-, [line: 1], [5]}
+{:-, [line: 1], [5]}
+### Elixir: -5 as a pattern and in a guard compiles and matches
+{:a, :b, :c}
+### Elixir: what the Erlang compiler receives for the guard (abstract code of the compiled module)
+[
+  {:clause, {2, 7}, [{:var, {2, 9}, :_x@1}],
+   [[{:op, {2, 19}, :>=, {:var, {2, 17}, :_x@1}, {:integer, {2, 19}, -5}}]],
+   [{:atom, {2, 7}, :b}]},
+  {:clause, {3, 7}, [{:var, {3, 9}, :_}], [], [{:atom, {3, 7}, :c}]}
+]
+### Gleam: negative literal as pattern, in guard, and the Erlang it emits
+  Resolving versions
+  Compiling g
+   Compiled in 0.44s
+{test,is_eq_exact,{f,3},[{x,0},{integer,-5}]}
+{test,is_ge,{f,4},[{x,0},{integer,-5}]}
+### Gleam: is there a refinement/where-type? (try one)
+error: Syntax error
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/work/57n/g/src/g.gleam:1:18
+  │
+1 │ pub type T = Int where value >= 0
+  │                  ^^^^^ I was not expecting this
+
+### Elm: needs elm/core from package.elm-lang.org, which this sandbox cannot reach
+package.elm-lang.org -> HTTP 000
+### Elm: negative pattern literal (expected to fail on dependency fetch, not on the language)
+-- MISSING DEPENDENCY ------------------------------------------------- elm.json
+
+I need to see an "elm/json" dependency your elm.json file. It helps me handle
+flags and ports.
+
+If you modified your elm.json by hand, try to change it back! And if you are
+having trouble getting back to a working elm.json, it may be easier to delete it
+and use `elm init` to start fresh.

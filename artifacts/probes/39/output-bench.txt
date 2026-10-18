@@ -1,0 +1,36 @@
+toolchain: OTP 29  Elixir 1.20.4 (compiled with Erlang/OTP 27)  gleam 1.19.1
+JIT: jit
+Day01.abstr
+Day01.beam
+Elixir.BenchEx.beam
+bench.beam
+bench_erl.beam
+bench_gleam.beam
+--- run 1
+
+             answer      min ms    med ms      rel
+Erlang       6770         10.52     11.02    1.19x
+Elixir       6770         10.31     10.72    1.17x
+Gleam        6770          8.85      8.95    1.00x
+beam-sharp   6770         10.07     10.54    1.14x
+
+all four agree on 6770
+--- run 2
+
+             answer      min ms    med ms      rel
+Erlang       6770          9.17     11.18    1.00x
+Elixir       6770          9.26     10.13    1.01x
+Gleam        6770         10.01     10.33    1.09x
+beam-sharp   6770         10.67     11.11    1.16x
+
+all four agree on 6770
+--- run 3
+
+             answer      min ms    med ms      rel
+Erlang       6770          8.83      9.13    1.00x
+Elixir       6770         11.25     11.49    1.27x
+Gleam        6770          9.90     10.06    1.12x
+beam-sharp   6770         11.27     11.47    1.28x
+
+all four agree on 6770
+OUT=/tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/work/39/out

@@ -1,0 +1,11 @@
+### Gleam: public and private function over a record; call each with a forged tuple of the same arity
+   Compiled in 0.42s
+  pub_total({other,1,77})            {returned,77}
+  via_priv([{other,1,77}])           {returned,77}
+  pub_double(2.5)                    {returned,5.0}
+  pub_total: 0 type-test instructions
+  pub_double: 0 type-test instructions
+### Elixir: struct pattern in def vs defp — the match is in the head either way
+  pub(forged struct)                       {:error, FunctionClauseError}
+  via_priv([forged struct])  (defp %O{} head) {:error, FunctionClauseError}
+  pub_untyped(forged)        (no head match) {:returned, 77}

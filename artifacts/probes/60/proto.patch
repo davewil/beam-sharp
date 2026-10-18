@@ -1,0 +1,33 @@
+--- /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/c/src/bs_check.erl	2026-10-18 23:09:05.873300332 +0000
++++ src/bs_check.erl	2026-10-18 23:23:19.685134325 +0000
+@@ -497,7 +497,12 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true when not is_atom(Self) -> add_module_import(M, World, Acc);
++        true  ->
++            case may_name(Self, M) of
++                true  -> add_module_import(M, World, Acc);
++                false -> erlang:error({unknown_module, M, L})
++            end;
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+@@ -5098,3 +5103,16 @@
+ 
+ setnth(1, [_ | T], V) -> [V | T];
+ setnth(N, [H | T], V) -> [H | setnth(N - 1, T, V)].
++
++
++%% PROTOTYPE (ticket 60): a module with an  segment in its name may be
++%% named only from inside the namespace that holds that segment.
++may_name(Self, M) ->
++    Segs = string:split(atom_to_list(M), ".", all),
++    case lists:splitwith(fun(S) -> S =/= "Internal" end, Segs) of
++        {_, []}     -> true;
++        {Parent, _} ->
++            P = lists:flatten(lists:join(".", Parent)),
++            SelfS = atom_to_list(Self),
++            SelfS =:= P orelse lists:prefix(P ++ ".", SelfS)
++    end.

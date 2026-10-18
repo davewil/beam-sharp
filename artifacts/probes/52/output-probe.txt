@@ -1,0 +1,43 @@
+### P1 baseline: the dependency is absent (no ERL_LIBS) — does bsc say anything at compile time?
+compile exit=0   beam written: R.beam
+### P2 ...and at run time
+crashed: error:undef
+### P3 does the .beam or .abstr record any application? (grep for req)
+1
+beam attributes: [{vsn,[139710966173411054926878865829272230830]}]
+
+### P4 what the VM itself can answer at compile time, and what each answer costs (mean of 20000 calls)
+  code:which(lists)        -> "/tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/mamba/envs/beam/lib/erlang/lib/stdlib-8.1.1/ebin/lists.beam"
+  code:which('Elixir.Req') -> non_existing
+  code:lib_dir(stdlib)     -> "/tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/mamba/envs/beam/lib/erlang/lib/stdlib-8.1.1"
+  code:lib_dir(req)        -> {error,bad_name}
+  code:which(Module), loaded                   17.84 us
+  code:which(Module), absent (scans path)      29.65 us
+  code:lib_dir(App), present                   5.76 us
+  code:lib_dir(App), absent                    1.47 us
+
+### P5 module -> application is derivable from where the module was found (no declaration needed)
+  {lists,"stdlib"}
+  {'Elixir.Req',absent}
+### P6 an Elixir module is only found if Elixir's lib dir is on the path:
+  Logger lives in app dir: "logger"
+  without elixir on the path: code:which(Elixir.Logger) -> non_existing
+
+### Gleam: external to a missing module — compile-time check?
+  Compiling g
+   Compiled in 0.41s
+
+### Elixir: call into a module that is not available — compile-time?
+    warning: Req.new/1 is undefined (module Req is not available or is yet to be defined). Make sure the module name is correct and has been specified in full (or that an alias has been defined)
+    │
+  2 │   def go, do: Req.new([])
+    │                   ~
+    │
+    └─ m.ex:2:19: M.go/0
+
+### Erlang: erlc on a call to an absent module
+erlc: compiled silently (exit 0)
+e.erl:3:1: Warning: missing specification for function go/0
+%    3| go() -> 'Elixir.Req':new([]).
+--- erlang's xref does the check, outside the compiler:
+  xref undefined_function_calls: [{{e,go,0},{'Elixir.Req',new,1}}]

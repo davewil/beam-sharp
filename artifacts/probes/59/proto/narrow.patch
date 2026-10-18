@@ -1,0 +1,25 @@
+--- /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/c/src/bs_emit.erl	2026-10-18 23:09:05.873697723 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/9e1be94a-467c-500c-b3af-f1c9458ae78e/scratchpad/c59_narrow/src/bs_emit.erl	2026-10-18 23:20:11.398257163 +0000
+@@ -274,19 +274,19 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
+-        {ok, Tag} ->
++        {ok, Tag} when Public ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        _ when Public ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+             end;
+-        none ->
++        _ ->
+             {Pat, []}
+     end.
+ 

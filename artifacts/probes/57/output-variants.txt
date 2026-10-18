@@ -1,0 +1,30 @@
+=================== variant: c
+-- refinement Delta = -100..100:
+A/A.bs:2:1: error: this refinement is not a predicate the checker can read
+-- two guards over -5 (exhaustive?):
+G/G.bs:2:13: error: H is not exhaustive
+-- emitted -5 / min_int / --5 evaluate to:
+Neg=-5
+Min=-9223372036854775808
+Dbl=5
+-- what -5 compiles to in the .abstr (negative literal vs unary op):
+=================== variant: c57_checker
+-- refinement Delta = -100..100:
+-7
+-- two guards over -5 (exhaustive?):
+:lo
+-- emitted -5 / min_int / --5 evaluate to:
+Neg=-5
+Min=-9223372036854775808
+Dbl=5
+-- what -5 compiles to in the .abstr (negative literal vs unary op):
+=================== variant: c57_parser
+-- refinement Delta = -100..100:
+-7
+-- two guards over -5 (exhaustive?):
+:lo
+-- emitted -5 / min_int / --5 evaluate to:
+Neg=-5
+Min=-9223372036854775808
+Dbl=5
+-- what -5 compiles to in the .abstr (negative literal vs unary op):
