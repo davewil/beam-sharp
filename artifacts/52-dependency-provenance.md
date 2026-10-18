@@ -162,3 +162,14 @@ Compiler delta: everything in B, plus a requirement parser/comparator in `bsc` a
 * **P5/P8** neighbour behaviour is observed on the versions installed here (Elixir 1.14, Gleam 1.12), not the OTP 28 / Elixir 1.19 the tickets use; Gleam's "may become a compile error" wording is from 1.12 and could differ later.
 * Elm and the Gleam/Elixir source files were unreachable; no `file:line` is cited where none was read.
 * The spelling `using :'Elixir.Req' app req { }` is a placeholder, not a design.
+
+## Independent verification (separate agent, re-ran every probe from clean copies)
+
+Verdict: **sound with caveats.** P1-P8 reproduced; the author's `run.out` differs from a fresh run only in timings. Mutations behaved as predicted: without the `code:which` hook no diagnostic appears; swapping `:fakereq` for `:string` gives no diagnostic; misspelling the attribute name makes both readers return `undefined`; a `using :fakereq` block that is never called does not crash (the `undef` comes from the call, not the declaration). Citations verified: `bs_check.erl:99`, `:623`, `bs_parser.yrl:170`, `bs_emit.erl:73-77`, `systools_make.erl:589`. Located the line the worker could not: Mix's "does not depend on" warning is `lib/mix/lib/mix/compilers/application_tracer.ex:176` (Elixir v1.14.0 source fetched from GitHub); the absent-module message text is at `of.ex:337` (the `format_warning` clause is `:332`).
+
+Caveats:
+1. P3's hook is the author's own `code:which` call and prints its own message: it proves feasibility and cost (0.3-4.4 ms per call across runs), not that the diagnostic is what David wants.
+2. P4's baseline is `.abstr` recompiled through `compile:forms` (1324 bytes vs bsc's own 1384); only the deltas (+44 bytes for `-bs_requires([req])`) are claimed.
+3. The Option B spelling (`app req`) is a placeholder and was not prototyped through bsc's real parser and emitter.
+4. Elm is not reproduced (registry 403); the Gleam row is executed output only.
+5. OTP 25.3 / Elixir 1.14, not OTP 28 / 1.19. The recommendation is judgment: the probes say it is cheap and feasible, nothing about whether David wants the dependency named twice.
