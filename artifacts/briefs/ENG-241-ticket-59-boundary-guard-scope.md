@@ -60,11 +60,13 @@ Reading the table:
 
 | build | record loop (2 tag tests/iteration) | int loop (Octet) | `G.beam` bytes (probe module) |
 |---|---|---|---|
-| c (today) | 53 ms | 40 ms | 1904 |
-| narrow | **38 ms** | 42 ms | 1880 (−24) |
-| wide | 56 ms | 40 ms | 1976 (+72) |
+| c (today) | 43 ms (saved run; 50 median of 4 runs) | 40 ms | 1904 |
+| narrow | 41 ms (41 median of 4) | 42 ms | 1880 (−24) |
+| wide | 47 ms (52 median of 4) | 40 ms | 1976 (+72) |
 
-- The tag test costs about **1.5 ns per test** (15 ms over 10 M tests) — real, small.
+(**Verifier correction:** my first draft quoted 53/38/56 ms from one early run; repeated runs spread by as much as the effect.)
+
+- The tag test costs roughly **0.8 ns per test** (≈8 ms over 10 M tests across repeated runs; narrow was faster in 4 of 4 runs) — real, small, and no larger than the run-to-run spread.
 - The kind test on a *private* function costs **nothing detectable** in a loop: 40 ms in both c and wide. The JIT already knows the argument is an integer.
 - 26a measured the tag test at +14 bytes flat; 18 measured `is_integer` at +3–5 bytes. This module's totals agree in order of magnitude.
 
@@ -83,14 +85,14 @@ Reading: no neighbour distinguishes public from private for the check. Gleam tru
 
 ## Options
 
-**A. Leave the code; write the rule down.** Tag test everywhere because container contents are unchecked; kind test exported-only. Delta: none in code; ticket 18 §4 gains a sentence, `bs_emit.erl:332`'s comment ("that asymmetry is deliberate") gains its reason.
+**A. Leave the code; write the rule down.** Tag test everywhere because container contents are unchecked; kind test exported-only. Delta: none in code; ticket 18 §4 gains a sentence, `bs_emit.erl:333`'s comment ("that asymmetry is deliberate") gains its reason.
 Strongest counterargument: the table above — `FirstOctet([200.5])` returns `1` today. A rule that protects `list<Order>` and not `list<Octet>` is the same gap with a different spelling, and the comment would be defending it.
 
 **B. Narrow: exported-only for both** (`59/proto/narrow.patch`, 3 changed lines in `guard_one`). Matches 18 §4 literally and the cost section's "elided entirely".
-Strongest counterargument: `First([forged Other])` **returns 77** (measured). It trades 1.5 ns per private call for a silent wrong answer on forged container contents, and the ticket's own sentence says the cost of getting it wrong is asymmetric in that direction.
+Strongest counterargument: `First([forged Other])` **returns 77** (measured). It trades about 1 ns per private call for a silent wrong answer on forged container contents, and the ticket's own sentence says the cost of getting it wrong is asymmetric in that direction.
 
 **C. Wide: exported and private alike for both** (`59/proto/wide.patch`, one changed line). Closes the `FirstOctet([200.5])` row.
-Strongest counterargument: it contradicts 18's "non-exported function has the test elided entirely" and puts a kind-and-range guard on every private `int`-refined parameter, on top of the tag test private record parameters already carry. Measured here: nothing detectable in the int loop (40 ms vs 40 ms), **+72 bytes** in the probe module (one private function gained its guard), and the tag test's ~1.5 ns stays. It also still does not check *deep* contents (a `list<list<Octet>>` passes the outer guard) — that needs the boundary walk 18 §4 declined.
+Strongest counterargument: it contradicts 18's "non-exported function has the test elided entirely" and puts a kind-and-range guard on every private `int`-refined parameter, on top of the tag test private record parameters already carry. Measured here: nothing detectable in the int loop (40 ms vs 40 ms), **+72 bytes** in the probe module (one private function gained its guard), and the tag test's ~0.8 ns stays. It does not close union-typed containers: a forged record in `list<Order | int>` passes all three builds (verifier-measured), which needs the boundary walk 18 §4 declined.
 
 ## Recommendation
 
@@ -99,6 +101,6 @@ Strongest counterargument: it contradicts 18's "non-exported function has the te
 ## Not done / limits
 
 - No gate run; same environmental limits as the other briefs (README).
-- Timings are single executions on a shared VM; the 53→38 ms record-loop difference is large relative to the noise seen elsewhere (≈1–5 %) but I did not repeat it.
-- The deep-container case (`list<list<Octet>>`) was reasoned, not run.
+- Timings are on a shared VM; the record-loop difference (~8 ms of ~45) is about the size of the run-to-run spread.
+- Verifier probes (`artifacts/verification/ENG-241.md`): **wide does reject `[[200.5]]` in `list<list<Octet>>`** when the element reaches a private function (my claim that it does not was wrong); out-of-range ints (300) leak through today's build exactly as floats do; a forged record inside `list<Order | int>` is accepted by **all three** builds (the tag test covers only a single closed record); and wide also adds a float guard on private functions, which I did not cost.
 - Erlang's row in the survey is not an executed probe.
