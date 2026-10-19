@@ -52,7 +52,7 @@ the callee lists compile. Today all three compile, because `RecomputeTotal` must
 - Privacy is checked at a second site: `private_callee/3` at `:4332` reads the `privates` table built at `:557`.
   `qual_table/1` starts at `:537` and `private_table/1` at `:555`; `add_module_import` also reads `types`. A qualified call without `using` is already refused ("called but never imported", verifier ran it), and a qualified private call is refused at the call site, so **the check belongs at the call site, not only at `using`**.
 - The emitter needs nothing: ticket 18 §5 (cited in the ticket) says one entry label per function and `internal` would be
-  compile-time only. Run-time cost: 0.
+  compile-time only. Run-time cost: 0 (taken from ticket 18, not measured).
 
 **What the corpus can say** (`probes/60/corpus_edges.py`): 115 B# modules, **7** B#-to-B# `using` edges: 4 between unrelated
 roots (`Jev -> Support.Triage`, `Triage -> Jev`, `Triage -> Support.Triage`, `Pipeline -> Shop.Collections`; three of the 7 edges target namespaces, not modules; an eighth `using Shop.Orders` in exemplar `25a-http-api-server/index.bs` is skipped because that file has no `module` line), 2 sibling/cousin (`Shop.Reports -> Shop.Collections[.Ints]`), 1 to an ancestor
