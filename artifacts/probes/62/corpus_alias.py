@@ -3,7 +3,7 @@
 # report names whose alias is NOT the obvious one, or collides inside one file.
 import re,sys,pathlib,collections
 root=pathlib.Path(sys.argv[1])
-sig=re.compile(r'^\s*public\s+[\w<>,\s\(\)\?\.]*?\b([A-Z]\w*)\s*\(')
+sig=re.compile(r"^\s*public\s+[\w<>,\s\(\)\?\.:|']*?\b([A-Z]\w*)\s*\(")
 def snake(n): # the Gleam-like rule: split before an uppercase that follows a lowercase/digit
     s=re.sub(r'(?<=[a-z0-9])(?=[A-Z])','_',n); return s.lower()
 def snake2(n): # acronym-aware: HTTPServer -> http_server

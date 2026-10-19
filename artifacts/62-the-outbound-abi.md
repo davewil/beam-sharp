@@ -29,16 +29,15 @@ emission. Measured (`probes/62/gl/`, Gleam 1.12.0): `OrderCreated(id)` emits `{o
 emitted unchanged. Gleam has no PascalCase functions and so never derives a function alias. It is evidence for "BEAM
 convention is snake_case atoms", not for "a neighbour ships alias exports".
 
-**B# already emits one snake_case name per callback.** `bs_otp.erl:42` maps `HandleCall` to `handle_call` (ticket 35). A
-general alias rule would derive the same atom for a user's `HandleCall`; the emitter must not export it twice.
+**B# has a fixed callback table, not a naming rule.** `bs_otp.erl:42` is one row mapping `HandleCall` to `handle_call`, applied only when the module declares the behaviour (ticket 35); without a `behaviour` line it stays `'HandleCall'`. A general alias rule would derive the same atom for a callback; the emitter must not export it twice.
 
 ## Measurements
 | What | Result | Probe |
 |---|---|---|
-| Public functions in the repo's `.bs` corpus | 244 (file, name) pairs in 137 files | `corpus_alias.py` |
+| Public functions in the repo's `.bs` corpus | 256 (file, name) pairs in 142 files (a first version of the regex missed 12 tuple/atom-union signatures; fixed) | `corpus_alias.py` |
 | Alias collisions inside one module under `PascalCase -> snake_case` | **0** | same |
 | Names where an acronym-aware rule and a naive rule disagree | **0** (corpus has no `HTTPServer`-shaped name) | same |
-| BEAM bytes per alias (cheapest form, `new(X) -> 'New'(X).`) | **~39 B** (N=100: 9188 -> 13084 B); exports double | `alias_cost.sh` |
+| BEAM bytes per alias (cheapest form, `new(X) -> 'New'(X).`) | **~39 B** without `debug_info` (N=100: 9188 -> 13084 B); **~70 B with `+debug_info`** (verifier: 15912 -> 22940 B); a `-spec` per alias ~12 B more; exports double | `alias_cost.sh` (compiles without `debug_info`) |
 | `erlc` time with aliases | not distinguishable from noise (261–313 ms across all runs) | same |
 
 The alias form measured is hand-written Erlang, not `bsc` output; `bsc`'s emitter may add a `-spec` per alias, which would
@@ -52,7 +51,7 @@ cost more. Not measured.
   may take them for a bug, and formatters/linters in a host codebase may rewrite them. Also not measured on Elixir newer than 1.14.
 
 **B. Emit a snake_case alias beside each public function.** `:Shop.new(1)` works.
-- Evidence: 0 corpus collisions; ~39 B per alias; the callback table already proves the emitter can produce a snake_case atom.
+- Evidence: 0 corpus collisions; ~39 B per alias; none for the rule itself: **ticket 32 settled that there is no snake_case⇄PascalCase rule anywhere in the language** (`wayfinder/issues/32-*.md:204`), and ticket 35 repeats it, so B reopens that decision. The `bs_otp` table is a fixed lookup, not a rule.
 - Strongest counterargument: it doubles the export surface and makes every public name a pair that must be kept
   collision-free forever. A user who writes `public int New` and `public int new` is impossible today (`uident` is
   PascalCase by construction, ticket 35), but a *foreign* module that exports `new/1` beside `'New'/1` is not, and no
