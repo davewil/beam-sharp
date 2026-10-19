@@ -1,0 +1,6 @@
+module Many
+
+record Order { Id: int, Total: int }
+
+public string Body(list<Order> os)
+Body(os) -> ToJson<list<Order>>(os)

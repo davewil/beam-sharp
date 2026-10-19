@@ -1,0 +1,5 @@
+module T66f
+record A { Id: int }
+type U = atom | :none
+public atom Take(U u)
+Take(u) -> :ok

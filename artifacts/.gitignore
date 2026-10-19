@@ -1,0 +1,7 @@
+# build output and scratch from re-running the probes
+build/
+out/
+cost/
+attr/
+lowering_tmp/
+*.log

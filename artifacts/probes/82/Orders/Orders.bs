@@ -1,0 +1,6 @@
+module Orders
+
+record Order { Id: int, Total: int }
+
+public string OrderBody(Order o)
+OrderBody(o) -> ToJson<Order>(o)

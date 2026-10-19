@@ -1,0 +1,7 @@
+module Nested
+
+record Line { Sku: int, Qty: int }
+record Order { Id: int, Line: Line }
+
+public string Body(Order o)
+Body(o) -> ToJson<Order>(o)

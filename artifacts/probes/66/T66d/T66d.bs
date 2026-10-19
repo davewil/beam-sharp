@@ -1,0 +1,10 @@
+module T66d
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+type D = A | B | :none
+public atom Handle(D d)
+Handle(A a) -> :ab
+Handle(B b) -> :ab
+Handle(:none) -> :none

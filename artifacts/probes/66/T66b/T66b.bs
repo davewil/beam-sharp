@@ -1,0 +1,10 @@
+module T66b
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+type D = A | B | :none
+public int Take(C c)
+Take(c) -> c.Id
+public int Bad()
+Bad() -> Take(5)

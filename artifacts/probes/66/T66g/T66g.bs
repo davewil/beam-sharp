@@ -1,0 +1,6 @@
+module T66g
+record A { Id: int }
+record B { Id: int }
+type C = A | B
+public atom Handle(C c)
+Handle(A a) -> :a

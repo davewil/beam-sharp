@@ -1,0 +1,10 @@
+module T66e
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+type D = A | B | :none
+public atom Bad(C c)
+Bad(A a) -> :a
+Bad(B b) -> :b
+Bad(E e) -> :e
