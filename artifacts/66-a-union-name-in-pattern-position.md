@@ -33,13 +33,11 @@ now also says "a part is named by the part itself, lowercase"), as the ticket pr
 
 ## Measurements
 
-**Decision 5 is answered.** `type U = atom | :none` followed by `Take(U u)` is refused **at the declaration**, before any
-pattern is reached: `error: `:none` is absorbed by `atom``. A named union that reaches pattern position is therefore already
-collapse-free. No interaction (`probes/66/T66f`).
+**Decision 5 is argued, not measured.** `type U = atom | :none` followed by `Take(U u)` is refused **at the declaration**: `error: `:none` is absorbed by `atom`` (`probes/66/T66f`). That is a different check from ticket 15 §1, which is the failure-channel collapse on generic instantiation (the verifier ran `option<atom>`, refused). The `C c` pattern path does not exist yet, so the interaction itself cannot be probed. Verifier variants did not falsify "no collapse": `A | {Id:int}` is accepted at declaration (though the open pattern `{ Id: _ }` matches an `A`, and a later clause is flagged unreachable); `A | term` is refused; `type X = C | E` compiles; `type D = C | :none` with `Handle(C c)` is refused today with the same `not_a_record`, so nested aliases would need resolving too.
 
 **Decision 3 is half-answered.** For a union *parameter* the residual already spells the members: deleting `Handle(B b)` from
 `Handle(C c)` prints `no clause matches: Handle(B b) -> ...` (`probes/66/T66g`), pasteable, with `C` never appearing. Only the
-**warning** of exemplar 5 prints erased notation (`{ Kind: :'T66e.A' } | { Kind: :'T66e.B' }`, `bs_diag.erl:1162`).
+**warning** of exemplar 5 prints erased notation (`{ Kind: :'T66e.A' } | { Kind: :'T66e.B' }`, `bs_diag.erl:1160`).
 
 **Cost of the lowering** (`probes/66/lowering_cost.escript`, OTP 28; hand-written Erlang of the three shapes, same body):
 | members N | duplicated clauses | one clause + guard disjunction | heads sharing one body fn |
@@ -48,14 +46,14 @@ collapse-free. No interaction (`probes/66/T66f`).
 | 5 | 1292 B | 908 B | 948 B |
 | 20 | 2972 B | 1040 B | 1080 B |
 
-Run time at the *last* member, N=20, four runs: 40.9-46.0 ns/call for all three, **indistinguishable**, except that the
+Run time at the *last* member, N=20, four runs: 40.9-46.0 ns/call for all three, **indistinguishable** (verifier: 41-47 ns over four runs with outliers to 74 ns, and first/middle/last member no different; ~40 of the ~42 ns is the remote call, which would hide a small dispatch difference), except that the
 first run's `dup` read 56.6 ns (the first form timed; I take it as warm-up, and the three later runs read 42.2-46.0). Duplication grows
 ~100 B per member; the guard form ~7 B. So the cost of today's workaround is **size, not speed**, and the compiler can
 lower `C c` to the guard form or the shared-body form with no run-time penalty measured.
 
 **What neighbours do with the same two questions** (`probes/66/nbr/`):
 - Gleam 1.12.0: `Circle(..) as c | Square(..) as c -> c.id` **compiles** — an alternative pattern binding the whole value, the
-  closest existing spelling to `C c`. Gleam has no named union *alias*; the union is the type. An unreachable clause
+  closest existing spelling to `C c`. Its generated Erlang is two heads, each binding the whole value (`{circle,_} = C`): duplication of heads, not a tag disjunction. Gleam has no named union *alias*; the union is the type. An unreachable clause
   (`_ -> 1` then `Square(..) -> 2`) is a **warning**, rc=0 (`Unreachable pattern ... can be safely removed`).
 - Elixir 1.14.0: the same is a **warning** (`this clause for f/1 cannot match because a previous clause at line 3 always matches`),
   rc=0; a union of two structs is `when is_struct(c, P) or is_struct(c, Q)`.
@@ -73,9 +71,7 @@ lower `C c` to the guard form or the shared-body form with no run-time penalty m
   compiles the equivalent alternative pattern; absorption is refused at declaration so no collapse hazard (T66f).
 - Strongest counterargument: three neighbours measured (Erlang, Elixir, Gleam) all **warn** on an unreachable clause, so an
   error departs from the field, and raising severity makes a currently green program red (exemplar 5 compiles today).
-  Against that, the project's own standing rule points the other way: ticket 12 §1 (`wayfinder/issues/12-*.md:119`) holds
-  that *"a warning is something an agent in a loop steps over; an error is a task"* — so the counterargument is the field's
-  habit, not the project's.
+  Against that, the project's own rule points the other way, by inference: ticket 12 §1 (`wayfinder/issues/12-*.md:118-119`) is about non-exhaustive functions and holds that *"a warning is something an agent in a loop steps over; an error is a task"*. Applying it to dead clauses is my inference; the ticket itself points at §2.
 
 **B. Allow only unions of records** (`C c` where every member is a record), `D = A | B | :none` still refused.
 - Evidence: the smallest delta — ticket 55's record prefix generalised by one step, the residual already spells members.
@@ -89,9 +85,12 @@ lower `C c` to the guard form or the shared-body form with no run-time penalty m
 
 ## Recommendation
 **A, and ask decision 4 on its own first.** Decision 4 does not need 1 to be answered and every other language measured treats
-the same finding as a warning while the project's own rule (12 §1) favours an error, so it is the one place David's taste is the deciding input. Ask it as two programs: one
+the same finding as a warning while the project's rule on exhaustiveness (12 §1) suggests an error, so it is the one place David's taste is the deciding input. Ask it as two programs: one
 with the dead clause compiling with a warning, one refused. Decide 1 and 2 together with ticket 85, as that ticket proposes.
 
 ## Not measured
 Elm. `check-residual-pasteable.sh`'s `RecordUnion` shape under a lowered `C c` (the gate was not run). Run-time cost on a
 non-last member and with N > 20. The lowerings are hand-written Erlang, not `bsc` output, because `bsc` does not yet accept `C c`.
+
+## Verifier note on sizes
+Verifier's sizes were 956/860/896 B (N=2) and 2944/1012/1052 B (N=20): a constant 28 B lower, because beams embed the compile path. Ratios hold.
