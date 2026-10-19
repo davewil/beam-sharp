@@ -34,18 +34,19 @@ absent it maps to nothing**: `Elixir.Req`, `epgsql` and `json` (OTP 25 lacks `js
 So the two nearest languages split: Elixir warns and offers an opt-out; Erlang and Gleam are silent. Gleam keeps its
 dependencies in `gleam.toml`, away from the `@external`.
 
-**Cost of the check** (`probes/52/probe.sh`, OTP 25): `code:lib_dir(missing_app)` = `{error, bad_name}` in **2.1 µs**;
-`code:which(missing_module)` = `non_existing` in **~430-520 µs** (it scans the whole code path). The application check is
-~200x cheaper than the module check.
+**Cost of the check** (`probes/52/probe.sh`, OTP 25): `code:lib_dir(missing_app)` = `{error, bad_name}` in ~2 µs;
+on OTP 25, `code:which(missing_module)` takes ~450-1350 µs (it scans the code path; varies with path length), on OTP 28 ~8 µs;
+`code:lib_dir(missing_app)` takes ~2 µs on both. For a module that is present, `code:which` (~5 µs) and `code:lib_dir` (~5 µs) cost
+the same. **Speed does not separate the options**; a ~200x gap appears on OTP 25 only, from its scan for a missing module.
 
 **Cost of recording it in the `.beam`** (`probes/52/attr_cost.sh`): a `-bsharp_requires` attribute adds **40 B** for one
-dependency (644 -> 684 B) and **76 B** for three.
+dependency and **68-76 B** for three depending on OTP (592 -> 632 B on OTP 25, 580 -> 620 B on OTP 28 for one).
 
 ## Options
 
 **A. Nothing in the source; the compiler derives and records.** `bsc` resolves each `using` module with `code:which` and
 writes the application names into the `.beam` attribute.
-- Evidence: derivation works for 11 of 14 modules in the table above, including both Elixir-stdlib and OTP ones.
+- Evidence: derivation yields an application for 10 of 14 modules in the table above (`erlang` is preloaded and has no application; `json`, `Elixir.Req`, `epgsql` are absent on OTP 25).
 - Strongest counterargument: it fails on precisely the case the ticket exists for. A machine whose `ERL_LIBS` lacks `req`
   cannot map `Elixir.Req` to anything, so the compile either refuses without a useful name or succeeds silently. Source
   that "records nothing" is also what the ticket calls un-handoff-able.
@@ -53,8 +54,8 @@ writes the application names into the `.beam` attribute.
 **B. A name-only application on the `using` declaration.** For example
 `using :'Elixir.Req' app req { ... }` (the spelling is not decided here; the ticket's `[external: elixir, app: req]` is one candidate).
 The compiler checks `code:lib_dir(req)` and a missing application becomes a diagnostic instead of `error:undef`.
-- Evidence: the check costs 2.1 µs; 2 of 30 foreign `using` blocks would need it if OTP and Elixir's own application are
-  implicit; recording costs 40 B.
+- Evidence: the check costs ~2 µs (no cheaper than checking the module on OTP 28); 2 of 30 foreign `using` blocks would need it if OTP and Elixir's own application are
+  implicit (`Elixir.Req` appears only in the 51a prototype, `epgsql` only in exemplar 25d: two samples, one synthetic); recording costs 40 B.
 - Strongest counterargument: the rule "implicit for OTP and Elixir, explicit otherwise" needs a list of which applications
   are implicit, and `json` shows that list is OTP-version-dependent (absent on OTP 25, present on 27+). A name does not
   record that the program needs OTP 27. Written naively it also repeats the name on every block that draws on one application.
@@ -66,11 +67,11 @@ The compiler checks `code:lib_dir(req)` and a missing application becomes a diag
   a foreign thing. It also separates the application from the call it justifies, so removing a `using` leaves a dead requirement.
 
 ## Recommendation
-**B, name-only, checked at compile time and written into the `.beam`; version stays refused.** The 2.1 µs check turns the
+**B, name-only, checked at compile time and written into the `.beam`; version stays refused.** The check turns the
 only observed failure (`error:undef`) into a diagnostic, which is also what Elixir does by default, and it is the smallest
 extension of the construct tickets 32 and 50 already use. Settle first the one thing the probes cannot: whether OTP-version
 requirements (`json` = OTP 27+) belong in this ticket or a separate one.
 
 ## Not measured
 Elm. Whether `rebar3`/`mix` already put the application list where `bsc` could read it instead of `code:lib_dir` (ticket 51's
-territory). Behaviour on OTP 28 for the `code:` probes (run on OTP 25).
+territory). The verifier re-ran the timing on OTP 28 (reported above).
