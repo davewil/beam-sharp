@@ -17,7 +17,7 @@ quoted-call form works directly, with no `apply`:
 :Shop.New(1)                -> SyntaxError (as the ticket says)
 :Shop."New"(1)              -> %{Id: 1, Kind: :"Shop.Order", Total: 0}      <- not in the ticket
 f = :Shop; f."New"(1)       -> works
-&:Shop."New"/1              -> works (a capture)
+&:Shop."New"/1              -> inspected in probe.sh, not called there (verifier called it in a compiled module: works)
 :"Elixir.Shop"."New"(1)     -> UndefinedFunctionError (module is Shop, not Elixir.Shop) — the module name, not the syntax
 ```
 Probe: `probes/62/probe.sh` (OTP 25, Elixir 1.14.0). So candidate 1 ("accept it") costs one pair of quotes per call site,
@@ -26,7 +26,7 @@ not an `apply/3` rewrite. That is a different price from the one the ticket reco
 **Gleam is a precedent for constructor names, not function names.** The ticket cites Gleam as downcasing PascalCase on
 emission. Measured (`probes/62/gl/`, Gleam 1.12.0): `OrderCreated(id)` emits `{order_created, Id}` and `OrderShipped` emits
 `order_shipped`, so values and types are downcased. But Gleam *functions* are written snake_case in source (`new_order`) and
-emitted unchanged. Gleam has no PascalCase functions and so never derives a function alias. It is evidence for "BEAM
+emitted unchanged; `pub fn NewOrder()` is a syntax error, so Gleam rejects PascalCase function names outright. Gleam has no PascalCase functions and so never derives a function alias. It is evidence for "BEAM
 convention is snake_case atoms", not for "a neighbour ships alias exports".
 
 **B# has a fixed callback table, not a naming rule.** `bs_otp.erl:42` is one row mapping `HandleCall` to `handle_call`, applied only when the module declares the behaviour (ticket 35); without a `behaviour` line it stays `'HandleCall'`. A general alias rule would derive the same atom for a callback; the emitter must not export it twice.
@@ -48,7 +48,7 @@ cost more. Not measured.
 **A. Accept it; document the quoted call.** `:Shop."New"(1)` from Elixir; `LANGUAGE.md` §12 gains one line.
 - Evidence: the form works today on Elixir 1.14.0 with no compiler change; 0 B.
 - Strongest counterargument: every call site reads as odd Elixir. Quoted function names are rare enough that a reader
-  may take them for a bug, and formatters/linters in a host codebase may rewrite them. Also not measured on Elixir newer than 1.14.
+  may take them for a bug. The Elixir formatter preserves the quoted form (verifier); the one measured cost is that `elixirc` warns `:Shop."New"/1 is undefined` when the beam is not on the compile path, which fails under `--warnings-as-errors`. Not measured on Elixir newer than 1.14.
 
 **B. Emit a snake_case alias beside each public function.** `:Shop.new(1)` works.
 - Evidence: 0 corpus collisions; ~39 B per alias; none for the rule itself: **ticket 32 settled that there is no snake_case⇄PascalCase rule anywhere in the language** (`wayfinder/issues/32-*.md:204`), and ticket 35 repeats it, so B reopens that decision. The `bs_otp` table is a fixed lookup, not a rule.
@@ -65,5 +65,5 @@ ABI surface the spec must carry before anyone has asked for it. If B is later wa
 split-at-lowercase-to-uppercase one (0 corpus collisions, no acronym cases to adjudicate).
 
 ## Not measured
-Elixir newer than 1.14; `bsc`-emitted alias size with specs; whether Dialyzer accepts the alias specs; Gleam calling B#
-(the ticket says `@external` compiles; the call was not run there and not here either).
+Elixir newer than 1.14; `bsc`-emitted alias size with specs; whether Dialyzer accepts the alias specs; a real B#-built beam called from Gleam
+(Gleam 1.12.0 `@external(erlang, "Shop", "New")` emits `'Shop':'New'(Id)` and returns the map, per the verifier, against a hand-written `Shop.erl`).
