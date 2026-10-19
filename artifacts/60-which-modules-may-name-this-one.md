@@ -36,13 +36,13 @@ the callee lists compile. Today all three compile, because `RecomputeTotal` must
 
 **Nothing a neighbour ships enforces "who".** Both implemented mechanisms are documentation-only:
 - **Gleam 1.12.0** (`probes/60/gl/`): `internal_modules = ["lib/internal", "lib/internal/*"]` in the library's `gleam.toml`
-  and an `@internal` item. A second package importing `lib/internal/secret` and calling both the plain and the `@internal`
-  function builds with **rc=0 and no warning**. The one effect is on generated docs: `package-interface.json` lists only
+  and an `@internal` item (the verifier notes Gleam already hides `lib/internal` by default, so the fixture's line restates the default). A second package importing `lib/internal/secret` and calling both the plain and the `@internal`
+  function builds with **rc=0 and no warning**. The verifier tried `internal_modules` set to the exact module, `lib/*`, `lib/internal` only, absent, and a different module, under `gleam build` (Erlang and JavaScript targets) and `gleam check`: all rc=0, no warnings. Shown for path dependencies only; Hex dependencies could not be tried offline. The one effect is on generated docs: `package-interface.json` lists only
   module `lib`; the internal module is absent.
 - **Elixir 1.14.0** (`probes/60/probe_elixir.sh`): a `@moduledoc false` / `@doc false` function is **called successfully**
   (`42`); the docs chunk reads `:hidden`. Docs only.
 - **Erlang**: `-export` is the whole mechanism; the language has no caller-scoped form. (Not probed; stated from the
-  language, and OTP 28's `xref` can *report* but not *refuse*.)
+  language, and I did not probe whether `xref` can refuse; the "report but not refuse" statement is unsupported.)
 - **Elm**: not measured (package host unreachable); `exposed-modules` in a package's `elm.json` is the mechanism it uses and was not run.
 
 **B#'s own tree** (`compiler/src/bs_check.erl`, HEAD `019533d`; the ticket's cited lines `407-425` have moved):
@@ -50,13 +50,12 @@ the callee lists compile. Today all three compile, because `RecomputeTotal` must
 - A dotted-prefix test over module names already exists: `children/2` at `:590-592`
   (`lists:prefix(atom_to_list(Prefix) ++ ".", atom_to_list(M))`). It answers "is X under Y" today, with no new data.
 - Privacy is checked at a second site: `private_callee/3` at `:4332` reads the `privates` table built at `:557`.
-  A qualified call (`Shop.Orders.RecomputeTotal(o)`) reaches `qual_table/1` at `:538` without an import, so **the check
-  has to sit at the call site, not only at `using`**.
+  `qual_table/1` starts at `:537` and `private_table/1` at `:555`; `add_module_import` also reads `types`. A qualified call without `using` is already refused ("called but never imported", verifier ran it), and a qualified private call is refused at the call site, so **the check belongs at the call site, not only at `using`**.
 - The emitter needs nothing: ticket 18 §5 (cited in the ticket) says one entry label per function and `internal` would be
   compile-time only. Run-time cost: 0.
 
 **What the corpus can say** (`probes/60/corpus_edges.py`): 115 B# modules, **7** B#-to-B# `using` edges: 4 between unrelated
-roots (`Jev <-> Support.Triage`), 2 sibling/cousin (`Shop.Reports -> Shop.Collections[.Ints]`), 1 to an ancestor
+roots (`Jev -> Support.Triage`, `Triage -> Jev`, `Triage -> Support.Triage`, `Pipeline -> Shop.Collections`; three of the 7 edges target namespaces, not modules; an eighth `using Shop.Orders` in exemplar `25a-http-api-server/index.bs` is skipped because that file has no `module` line), 2 sibling/cousin (`Shop.Reports -> Shop.Collections[.Ints]`), 1 to an ancestor
 (`Shop.Billing -> Shop`), **0 into the caller's own subtree**. That is too few edges to choose a unit by evidence. It does
 say a "descendants only" unit would have refused both sibling edges had those callees been marked.
 
