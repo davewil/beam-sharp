@@ -1,0 +1,9 @@
+OTP 28
+int test, 1 private fns: plain 560 B, guarded 608 B, delta 48 B (48.0 B per guard)
+int test, 10 private fns: plain 956 B, guarded 1176 B, delta 220 B (22.0 B per guard)
+int test, 100 private fns: plain 5360 B, guarded 7468 B, delta 2108 B (21.1 B per guard)
+int test, 50000000 calls: plain 476 ms, guarded 510 ms, delta 0.687 ns/call
+1 private fns: plain 592 B, with tag test 616 B, delta 24 B (24.0 B per guard)
+10 private fns: plain 1040 B, with tag test 1184 B, delta 144 B (14.4 B per guard)
+100 private fns: plain 5988 B, with tag test 7396 B, delta 1408 B (14.1 B per guard)
+50000000 calls: plain 490 ms, guarded 566 ms, delta 1.529 ns/call (loop overhead included in both)

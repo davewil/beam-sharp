@@ -1,7 +1,7 @@
 #!/usr/bin/env escript
 %% 59 / probe 4 — what does ONE private tag test cost on the BEAM?
 %% Hand-written Erlang in the exact shape bsc emits (guard `map_get('Kind', O) =:= Tag`), the same
-%% function with and without it, default compiler options (as bsc uses). This prices the guard; it does not
+%% function with and without it, the compiler options bsc uses for the final step (`debug_info`, bsc.erl:843). This prices the guard; it does not
 %% claim bsc would emit these modules. Bytes: beam size of K private functions. Time: ns per call, best of 7.
 main(_) ->
     io:format("OTP ~s~n", [erlang:system_info(otp_release)]),
@@ -31,8 +31,8 @@ forms(Src) -> {ok, T, _} = erl_scan:string(Src), parse(T, []).
 parse([], Acc) -> lists:reverse(Acc);
 parse(T, Acc) -> {F, R} = lists:splitwith(fun(X) -> element(1, X) =/= dot end, T),
                  {ok, Form} = erl_parse:parse_form(F ++ [hd(R)]), parse(tl(R), [Form | Acc]).
-size_of(Src) -> {ok, _, Bin} = compile:forms(forms(Src), [binary]), byte_size(Bin).
-load(Src) -> {ok, M, Bin} = compile:forms(forms(Src), [binary]), {module, M} = code:load_binary(M, "m.beam", Bin), {M, Bin}.
+size_of(Src) -> {ok, _, Bin} = compile:forms(forms(Src), [binary, debug_info]), byte_size(Bin).
+load(Src) -> {ok, M, Bin} = compile:forms(forms(Src), [binary, debug_info]), {module, M} = code:load_binary(M, "m.beam", Bin), {M, Bin}.
 
 %% the int kind+range test (F24 + F37 shape): `is_integer(O) andalso O >= 0 andalso O =< 255`
 int_part() ->

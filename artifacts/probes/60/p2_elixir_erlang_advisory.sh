@@ -1,6 +1,7 @@
 #!/bin/sh
 # 60 / probe 2 — Elixir `@moduledoc false` and Erlang `-moduledoc false` (OTP 27+): hidden from docs, callable by anyone?
-# Elixir runs on the system OTP (PATH without OTP 28); the Erlang half needs OTP >= 27 (PATH=otp28/bin).
+# Run with env.sh sourced (OTP 28, Elixir 1.18.4). Shows only that the module stays CALLABLE without a warning;
+# that it is hidden from generated docs is the documented behaviour, not shown here.
 set -u
 W=${PROBE_TMP:-$(mktemp -d)}
 echo '== Elixir'; elixir --version | tail -1

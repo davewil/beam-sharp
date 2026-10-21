@@ -61,7 +61,7 @@ that is a recurring tax on exactly the first user.
 Compiler delta: in `bs_emit` after the export list is built, for each `{Name,Arity}` add one clause calling the original,
 one `-export`, one copied `-spec`; a refusal at the declaration for two exports that derive the same alias.
 Measured (`62-p4`, real `.abstr` of the 31 modules bsc builds from `compiler/examples`, aliases added to the same forms
-and both versions compiled by the same call): **109 aliases, +34.1 B each, +3720 B total = +9.8% of beam size**
+and both versions compiled by the same call): **109 aliases, +65.0 B each, +7080 B total = +10.5% of beam size** (compiled with `debug_info` as bsc does; without it the probe read 34.1 B / 9.8%)
 (3 of 112 exports are already lowercase OTP callbacks and need none). The derivation rule is a design choice that
 matters: on the real corpus Gleam's rule and Elixir's `Macro.underscore` agree on all 86 distinct names and neither
 collides inside a module (`62-p3`), but they diverge on acronyms an author can write today:
@@ -82,7 +82,7 @@ new surface and a second spelling of every export is permanent ABI.
 public order New(int id)       // exports 'New'/1 and new/1
 ```
 Compiler delta: an attribute production, the same per-function alias emission as B restricted to annotated
-functions, a collision check on the chosen names (no derivation rule at all). Cost is B's 34 B, paid only where used.
+functions, a collision check on the chosen names (no derivation rule at all). Cost is B's ≈65 B, paid only where used.
 *Strongest counterargument:* it adds a language-level concept (an attribute that exists only for another language's
 syntax) and asks the author to do per call what A asks the adopter to do per call; the burden only moves.
 
@@ -94,7 +94,7 @@ surface the language is premised on, and nothing in a probe bears on it.)
 **A now**, with the §12 correction, because the measured friction is a pair of quotes and a one-line shim, not an
 impossibility, and A costs no bytes and no permanent ABI. If adopters report the quoting as a barrier, **C** is the
 upgrade: it adds no derivation rule, no collision surface and no cost for functions nobody calls from Elixir.
-**B** is the option I would not take blind: it doubles the export surface of every module (+9.8%), it needs a
+**B** is the option I would not take blind: it doubles the export surface of every module (+10.5%), it needs a
 derivation rule whose acronym behaviour two reference implementations disagree on, and the evidence for it (the
 "Gleam precedent") does not hold.
 

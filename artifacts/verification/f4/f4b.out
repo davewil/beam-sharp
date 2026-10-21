@@ -1,0 +1,7 @@
+-- plain VM, no clobber:
+[2]
+-- -pz (B# beam at END of path):
+[2]
+~c"/tmp/tc/src/elixir/bin/../lib/elixir/ebin/Elixir.Enum.beam"
+-- -pa (B# beam at FRONT of path):
+[2]

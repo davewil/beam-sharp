@@ -13,7 +13,8 @@ sizes() ->
                                        erts_debug:flat_size({some,V}) - erts_debug:flat_size(V)]) || {N,V} <- Vals],
     io:format("(extra = the 2-tuple: 1 header word + tag word + payload slot, 3 words; payload itself is shared)~n").
 
-%% The defect itself, executed: with a BARE success, a stored value that IS the atom `nothing`
+%% NOTE: the finders below are hand-written, so this block only restates the encoding; the evidence that B#
+%% itself loses the information is 64-p4. The defect, restated: with a BARE success, a stored value that IS the atom `nothing`
 %% cannot be told from "absent".
 ambiguity() ->
     M = #{present_but_nothing => nothing, other => 1},
@@ -24,10 +25,17 @@ ambiguity() ->
     io:format("tagged : present_but_nothing -> ~w ; missing -> ~w ; distinguishable? ~w~n",
         [FindTagged(present_but_nothing), FindTagged(missing), FindTagged(present_but_nothing) =/= FindTagged(missing)]).
 
-bare(0, _) -> ok;
-bare(N, V) -> put(k, V), bare(N-1, V).
-tagged(0, _) -> ok;
-tagged(N, V) -> put(k, {some, V}), tagged(N-1, V).   % put/2 makes the tuple escape: the optimiser cannot delete the allocation
+%% Returned-and-matched, as a lookup's caller sees it: the callee returns bare V or {some,V}; the caller unwraps
+%% and accumulates, so neither the allocation nor the match can be removed. wrap/1 and id/1 are not inlined.
+-compile({no_inline, [{wrap, 1}, {id, 1}]}).
+id(V) -> V.
+wrap(V) -> {some, V}.
+bare(N, V) -> bare(N, V, 0).
+bare(0, _, Acc) -> Acc;
+bare(N, V, Acc) -> Y = id(V), bare(N-1, V, Acc + Y).
+tagged(N, V) -> tagged(N, V, 0).
+tagged(0, _, Acc) -> Acc;
+tagged(N, V, Acc) -> {some, Y} = wrap(V), tagged(N-1, V, Acc + Y).
 
 time(N) ->
     V = erlang:phash2(make_ref(), 100) + 1000,     % unknown to the compiler

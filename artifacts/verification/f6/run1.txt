@@ -6,3 +6,4 @@ int test, 50000000 calls: plain 474 ms, guarded 504 ms, delta 0.601 ns/call
 1 private fns: plain 592 B, with tag test 616 B, delta 24 B (24.0 B per guard)
 10 private fns: plain 1040 B, with tag test 1184 B, delta 144 B (14.4 B per guard)
 100 private fns: plain 5988 B, with tag test 7396 B, delta 1408 B (14.1 B per guard)
+50000000 calls: plain 485 ms, guarded 570 ms, delta 1.700 ns/call (loop overhead included in both)

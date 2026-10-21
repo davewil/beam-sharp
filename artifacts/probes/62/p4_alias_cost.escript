@@ -38,7 +38,7 @@ insert(Forms, Extra) ->
     {Pre, Rest} = lists:splitwith(fun(X) -> element(1, X) =/= function end, Forms),
     Pre ++ Attrs ++ Rest ++ Fns.
 size_of(Forms) ->
-    case compile:forms(Forms, [binary, return_errors]) of
+    case compile:forms(Forms, [binary, return_errors, debug_info]) of
         {ok, _, B} -> byte_size(B); {ok, _, B, _} -> byte_size(B);
         Err -> io:format("compile error ~P~n", [Err, 12]), 0 end.
 

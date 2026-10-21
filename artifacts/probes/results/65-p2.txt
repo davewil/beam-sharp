@@ -5,7 +5,7 @@
   1 \x{2502} defmodule Map do
     \x{2502} ~~~~~~~~~~~~~~~~
     \x{2502}
-    \x{2514}\x{2500} /tmp/tmp.OJXKnRuNnW/map.exs:1: Map (module)
+    \x{2514}\x{2500} /tmp/tmp.2odwSgQuYA/map.exs:1: Map (module)
 
 Map.hello(): :mine
 Map.get/2 still exported?: false
@@ -18,7 +18,7 @@ OTP 25: t.erl:3:2: type map() is a builtin type; it cannot be redefined %    3| 
 OTP 28: t.erl:3:2: Warning: local redefinition of built-in type: map() %    3| -type map() :: {my, map}. (exit 0)
 
 == Gleam gleam 1.12.0: user type named like a prelude type; user module named like a stdlib module
-type Result / type Bool shadowing the prelude -> src/g.gleam:4:17: Warning: type bool() is now called boolean(); please use the new name instead    Compiled in 0.83s 
-src/list.gleam beside import gleam/list     ->   Compiling g    Compiled in 0.37s 
-src/gleam/list.gleam (same path as stdlib)  ->   Compiling g    Compiled in 0.39s 
+type Result / type Bool shadowing the prelude -> src/g.gleam:4:17: Warning: type bool() is now called boolean(); please use the new name instead    Compiled in 0.74s 
+src/list.gleam beside import gleam/list     ->   Compiling g    Compiled in 0.35s 
+src/gleam/list.gleam (same path as stdlib)  ->   Compiling g    Compiled in 0.38s 
 exit=0

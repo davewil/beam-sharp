@@ -3,7 +3,7 @@
 Map.get   (present-nil, missing): {nil, nil}
 Map.fetch (present-nil, missing): {{:ok, nil}, :error}
 == Gleam: Option(Dynamic) and dict.get at a dynamic value type
-   Compiled in 0.83s
+   Compiled in 0.88s
 #(Ok(Nil), Error(Nil))
 #(Some(Nil), None)
 -- emitted Erlang for the Option type:

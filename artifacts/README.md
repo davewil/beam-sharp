@@ -44,7 +44,19 @@ tickets (ENG-244 *Improvement*, ENG-248 *Bug*, ENG-250 a defect report) were ski
 
 ### Limits that apply to every brief
 
+- Result files record `exit=` of the last pipeline stage only, so `exit=0` does not mean every step passed; read the output. (Verifier finding.)
+- Corpus probes (`59-p3`, `62-p3`, `62-p4`) skip 7 fragment directories under `compiler/examples/exemplars/` that are not buildable alone; the count is printed, individual names are partly hidden by `tail`.
 - Timings are wall clock on a shared 4-core container (the OTP build had finished): treat nanosecond figures as ±0.3.
 - A "what-if" is only used to price a cost (guards, aliases) by compiling the *same forms* with and without the extra
   code through one `compile:forms` call; no probe patches the compiler to manufacture a behaviour, and the forged-record
   results in brief 59 are `bsc`'s own output on unmodified source.
+
+### Verification (separate agent, `verification/verifier-report.md`)
+
+All 19 probes re-ran and reproduce; five falsification attempts (quoted Elixir call, forged nested records, collapse
+matrix, `Elixir.*` roots, Gleam duplicate module) confirmed the claims. It found problems that this commit fixes:
+guard/alias byte figures omitted `debug_info` (roughly halved; now corrected in briefs 59 and 62), the int-guard ns
+figure and the tagged-success ns figure were too high (64's first draft measured `put/2`; replaced), a tautological
+Erlang block in `64-p1` (now labelled as a restatement; `64-p4` is the evidence), and stale saved results (re-run).
+Not fixed, noted: result files record only the last stage's exit status; `65-p1` rows C1/C3 are parse errors, not
+reservations (brief 65 says so); `62-p3`'s regex finds 101 of 107 names (zero collisions either way).

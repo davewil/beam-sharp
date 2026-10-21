@@ -43,8 +43,7 @@ Describe      k=:a kvs=[(:b, 1)]        -> :absent
 DescribeBare  k=:a kvs=[(:a, :nothing)] -> :absent_or_nothing         // bare `term`, the only honest signature
 DescribeBare  k=:a kvs=[(:b, 1)]        -> :absent_or_nothing
 ```
-(the bare form cannot tell a stored `:nothing` from a missing key; `64-p1` shows the same in Erlang:
-`present_but_nothing -> nothing ; missing -> nothing ; distinguishable? false`.) The collapse is therefore not a
+(the bare form cannot tell a stored `:nothing` from a missing key. `64-p1` restates this in hand-written Erlang, which is a restatement of the encoding, not independent evidence; `64-p4` is the evidence.) The collapse is therefore not a
 type-checker artefact: the bare encoding **loses information at run time**, and the compiler is right to refuse it.
 
 Neighbours (all run, `64-p2`; sources cited):
@@ -61,9 +60,7 @@ silently be vacuous.
 ## Cost of a tagged success (`64-p1`, OTP 28)
 
 `{some, V}` is **3 words (24 bytes) extra for any payload** — small int, atom, 20-byte binary, 8-element list, 3-key map
-all measured +3 words, payload shared. Allocate-and-store 50M times: bare 817 ms, tagged 1385 ms → ≈ 11 ns/op
-**upper bound** (it includes `put/2` and the GC of the extra tuple; the allocation itself is a small part of
-it). A lookup that already walks a map or list is dominated by the walk.
+all measured +3 words, payload shared. Returned-and-matched 50M times (callee returns `V` or `{some,V}`, caller unwraps and accumulates, not inlined): bare 506 ms, tagged 534 ms → ≈ **0.6 ns/op** (verifier: 0.6–1.1). A lookup that already walks a map or list is dominated by the walk.
 
 Blast radius of changing `option<T>` itself: 32 `option<` mentions in 15 `.bs` files, and ticket 26 §4 /
 F61 decided that an absent record key *is* `:nothing` at the boundary, so `option<int>` fields are bare on the wire.
@@ -122,4 +119,4 @@ pay for a case that only a `term`-valued container creates.
 
 - Whether the instantiation-dependent shape in B actually hurts in practice (no generic user code exists to test it).
 - Elm's behaviour (the compiler cannot fetch its package registry here); the Elm row is source-cited only.
-- The 11 ns figure is a ceiling from a micro-loop on a shared 4-core container, not a per-lookup cost.
+- The 0.6 ns figure is a micro-loop on a shared 4-core container, not a per-lookup cost. My first draft stored the tuple in the process dictionary and read ≈11 ns; the verifier showed that measured `put/2`, so it was replaced.

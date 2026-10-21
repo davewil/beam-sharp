@@ -8,9 +8,9 @@ gleam 1.12.0
   Compiling gleam_stdlib
   Compiling lib
   Compiling app
-   Compiled in 0.85s
+   Compiled in 0.86s
 exit=0
 == (b) consumer calls an @internal function of a public module
   Compiling app
-   Compiled in 0.39s
+   Compiled in 0.40s
 exit=0

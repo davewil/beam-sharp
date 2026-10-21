@@ -11,4 +11,7 @@ apply(:Shop, :New, [1])                        -> %{Id: 1, Kind: :"Shop.Order", 
 --- defdelegate shim, one line per function, in the adopter's own code
 %{Id: 7, Kind: :"Shop.Order", Total: 0}
 :order
+--- does the Elixir formatter keep the quoted spelling, and does a plain compile warn?
+x = :Shop."New"(1)
+%{Id: 1, Kind: :"Shop.Order", Total: 0}
 exit=0

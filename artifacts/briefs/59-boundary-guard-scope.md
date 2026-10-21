@@ -59,15 +59,14 @@ option below; closing it is a different change (guards on nested positions), not
 
 ## Costs (what each scope pays)
 
-`59-p4`, hand-written Erlang in exactly the emitted shape, default compiler options, OTP 28:
+`59-p4`, hand-written Erlang in exactly the emitted shape, compiled with `debug_info` as `bsc.erl:843` does, OTP 28 (the first draft of this probe omitted `debug_info` and roughly halved the byte figures; the verifier caught it):
 
 | guard on a private function | bytes | per call (50M calls, best of 7) |
 |---|---|---|
-| tag test `map_get('Kind',O) =:= Tag` | **14.1 B** (100 functions: 1408 B) | ≈ 1.6 ns |
-| int kind+range `is_integer(O) andalso O>=0 andalso O=<255` | **21.1 B** (100 functions: 2108 B) | ≈ 0.75 ns |
+| tag test `map_get('Kind',O) =:= Tag` | **26.4 B** (100 functions: 2644 B) | ≈ 1.6–1.7 ns |
+| int kind+range `is_integer(O) andalso O>=0 andalso O=<255` | **48.1 B** (100 functions: 4812 B) | ≈ 0.6 ns (0.58–0.67 in three runs; verifier 0.42–0.69) |
 
-18's "+3–5 bytes, below ±0.09 ns" was `is_integer` alone; with F37's range it is larger. The 14-byte tag
-figure matches 26a. Timings are wall clock on a shared 4-core container: treat the ns figures as ±0.3.
+18's "+3–5 bytes, below ±0.09 ns" was `is_integer` alone; with F37's range it is larger. 26a's "+14 bytes" was measured without `debug_info`; I could not reproduce it as a figure for what bsc ships. Timings are wall clock on a shared 4-core container: treat the ns figures as ±0.3.
 
 How neighbours place the same test (`59-p5`, Elixir 1.18.4, `Code.compile_string` then the debug-info
 forms): a `defp` whose head says `%Probe{}` keeps `#{'__struct__' := 'Elixir.Probe'}` in the private
@@ -84,7 +83,7 @@ compiler-inserted guard at all; the question is B#'s alone.
 int PrivTotal(Order o)   // emitted with NO tag test
 ```
 Compiler delta: `boundary_guards/6` already receives `Public` (`bs_emit.erl:195,265`); gate the record clause
-on it, as the int clause already is. Saves 14.1 B and ≈1.6 ns per private record-taking function (zero
+on it, as the int clause already is. Saves ≈26 B and ≈1.6 ns per private record-taking function (zero
 such functions in the corpus). Under A, `ViaTuple`/`ViaList` above go from **crash to silent 999**, i.e. they
 become `Inline`.
 *Strongest counterargument:* it turns a loud crash into silent wrong data on a path the ticket's own
@@ -98,7 +97,7 @@ type it cannot prove from its own head).
 int PrivOctet(Octet n)   // emitted WITH is_integer/range
 ```
 Compiler delta: delete the `Public` condition from the int clause and from `is_public/1`'s use there; F24's
-tests and `check-boundary-kind.sh` change polarity for private functions. Costs 21.1 B and ≈0.75 ns per
+tests and `check-boundary-kind.sh` change polarity for private functions. Costs ≈48 B and ≈0.6 ns per
 private refined-int function. Under B, `OctetViaTuple((300,1))` becomes a `function_clause` crash.
 *Strongest counterargument:* it reopens a decision 18 §4 and §5 took explicitly (guards are
 exported-only; a private function is "the shape C wanted anyway"), and it taxes hot private helpers
@@ -115,8 +114,7 @@ principled — a reader who sees `PrivTotal` guarded and `PrivOctet` not will st
 ## Recommendation
 
 **B**, as the single stated rule — "a guard is emitted wherever a parameter's type is not proved by that
-function's own head, exported or not" — because the cost is priced (21 B / 0.75 ns, both flat in field
-count) and the failure mode it removes is the silent one, and the ticket itself says "too narrow is a silent
+function's own head, exported or not" — because the cost is priced (≈48 B / 0.6 ns for the int test, ≈26 B / 1.6 ns for the tag test) and the failure mode it removes is the silent one, and the ticket itself says "too narrow is a silent
 hole, too wide is measurable and loud." It also deletes a rule instead of adding one: the emitter would stop
 consulting `is_public/1` for guards. Pair it with a separate ticket for guards on nested positions
 (`Inline`), which no scope choice here fixes. If David prefers 18 §4 as written, **C** is the honest
