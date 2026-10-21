@@ -89,9 +89,10 @@ validated twice.
 - **The refusal stands down further than the typing.** A body that joins a variable with
   `atom`, `[x, ..ys]` with `ys` a `list<atom>`, absorbs the variable's singleton into `atom`,
   and nothing names it any more. The sought-value check therefore asks
-  `bs_types:admits_atom/2`, *could* this type hold the variable, and stands down if so: it
-  costs the diagnostic over a plain `atom` inside a polymorphic function, and never refuses a
-  program a caller's choice makes right. The absorption itself is an F45 defect, measured on
+  `bs_types:admits_atom/2`, *could* this type hold the variable, and stands down if so: inside
+  a polymorphic function it costs the diagnostic wherever either side holds `atom` (or `term`)
+  at any depth, `List.Contains(list<atom>, 5)` among them, and it never refuses a program a
+  caller's choice makes right. The absorption itself is an F45 defect, measured on
   master before this feature: `G<T>(T x, list<atom> ys) -> [x, ..ys]` is accepted as
   `list<atom>` and returns `[[5], :a]`. Filed as
   [ENG-881](https://linear.app/davewil/issue/ENG-881); `List.Flatten` over such a list
