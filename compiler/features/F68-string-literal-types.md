@@ -1,7 +1,8 @@
 # F68 — a string literal is a type: `{ "type": "ping", .. }`
 
-**Status**      **in progress** — built 2026-10-08 and 2026-10-09, 17 tests in
-                `string_literal_type_tests`; closing is David's call
+**Status**      **done** — built 2026-10-08 and 2026-10-09, 17 tests in
+                `string_literal_type_tests`; closed by David 2026-10-21, its *Left*
+                accepted as outside the done-when
 **Implements**  [ticket 78](../../wayfinder/issues/78-the-decode-direction.md)
                 Q5 and [ticket 117](../../wayfinder/issues/117-a-literal-tagged-field-set-and-the-catch-all.md),
                 which this build raised. Decides nothing
