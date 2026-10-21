@@ -208,6 +208,20 @@ validate_as_the_json_value_type_round_trips_objects_test() ->
     ?assertEqual(bs_test_support:validation_error([<<"[:a]">>], <<"string">>),
                  M:'Check'(#{a => 1})).
 
+%% The spec's round trip: out through `ToJson` and back through `FromJson`,
+%% which validates against the same unfolded type on the way in.
+a_nested_json_value_round_trips_through_its_text_test() ->
+    M = bs_test_support:build_and_load(
+          "module JsonTrip\n" ++ json() ++
+          "public string Out(Json j)\n"
+          "Out(j) -> ToJson<Json>(j)\n\n"
+          "public result<Json, ValidationError> Back(string s)\n"
+          "Back(s) -> FromJson<Json>(s)\n", 'JsonTrip'),
+    V = #{<<"rows">> => [#{<<"a">> => #{<<"b">> => [null, true, 1.5]}}]},
+    Text = M:'Out'(V),
+    ?assertEqual(<<"{\"rows\":[{\"a\":{\"b\":[null,true,1.5]}}]}">>, Text),
+    ?assertEqual(V, M:'Back'(Text)).
+
 a_parameter_of_the_json_value_type_returns_test() ->
     M = bs_test_support:build_and_load(
           "module JsonId\n" ++ json() ++

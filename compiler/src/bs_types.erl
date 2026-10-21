@@ -160,17 +160,9 @@ subst_rec(T, N, Sub) ->
                  end,
        lists  => [sp_map(fun(C) -> subst_rec(C, N, Sub) end, S)
                   || S <- maps:get(lists, T)],
-       %% Domain rules must survive substitution: a 2-tuple generator would
-       %% skip them, and every unfolding would drop the `map<K, V>` member.
        maps   => case maps:get(maps, T) of
                      top -> top;
-                     Ms  -> [case M of
-                                 {dom, K, V} -> {dom, subst_rec(K, N, Sub),
-                                                 subst_rec(V, N, Sub)};
-                                 {Kind, F}   -> {Kind, maps:map(fun(_, C) ->
-                                                                    subst_rec(C, N, Sub)
-                                                                end, F)}
-                             end || M <- Ms]
+                     Ms  -> map_members(fun(C) -> subst_rec(C, N, Sub) end, Ms)
                  end,
        funs   => case maps:get(funs, T) of
                      top -> top;
@@ -183,6 +175,15 @@ mentions(N, #{mu := N})      -> false;                       % shadowed
 mentions(N, #{mu := _, body := B}) -> mentions(N, B);
 mentions(N, T) ->
     lists:any(fun(C) -> mentions(N, C) end, components(T)).
+
+%% Apply `F` to every type a map member holds, domain rules included. A
+%% `{K, F} <- Ms` generator skips the 3-tuple domain rule in silence; one walk
+%% here keeps rewriting walks from repeating that (ENG-552).
+map_members(F, Ms) ->
+    [case M of
+         {dom, K, V} -> {dom, F(K), F(V)};
+         {Kind, Fs}  -> {Kind, maps:map(fun(_, C) -> F(C) end, Fs)}
+     end || M <- Ms].
 
 %% Neither helper may descend into `any`: it is a tail marker, not a type.
 sp_map(F, {P, closed})      -> {[F(C) || C <- P], closed};
@@ -264,10 +265,7 @@ widen_strs(T) ->
        lists  => [sp_map(W, S) || S <- maps:get(lists, T)],
        maps   => case maps:get(maps, T) of
                      top -> top;
-                     Ms  -> [case M of
-                                 {dom, K, V} -> {dom, W(K), W(V)};
-                                 {Kind, Fs}  -> {Kind, maps:map(fun(_, C) -> W(C) end, Fs)}
-                             end || M <- Ms]
+                     Ms  -> map_members(W, Ms)
                  end,
        funs   => case maps:get(funs, T) of
                      top -> top;

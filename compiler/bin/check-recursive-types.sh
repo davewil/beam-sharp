@@ -484,8 +484,8 @@ if [ "${1:-}" = "--self-test" ]; then
   type to hold it."
 
   # stub <name> <R1> <R2> <R3> <R4> <R5> <R6> <R6b> <R7> <R8> <R9> <R10> <R11>
-  # R12 and R13, the map-member probes, take their correct output here; only
-  # `map_dropped` overrides them, so each defect is seen by the probe aimed at it.
+  # R12 to R15, the map-member probes, take their correct output here; each
+  # `map_*` stub below breaks exactly one of them.
   # every .st is `ok` unless overridden afterwards.
   stub() {
     local d="$W/$1"; shift
@@ -556,23 +556,44 @@ if [ "${1:-}" = "--self-test" ]; then
 
   # THE MAP MEMBER DROPPED ON UNFOLDING (ENG-552), as it shipped from F28 until
   # 2026-10-21. Every other probe is green over it, because none of them has a
-  # map member: the recursive type checks and validates, minus one member.
-  # The checker refuses `Flat`, the validator refuses every JSON object, and a
-  # match over the type -- R14's parameter, R15's clauses -- never returns.
-  # Measured on master at 019533d, before the fix.
-  MAPDROP='R12.bs:6:1: error: Flat returns a value its signature does not declare
+  # map member. Measured on master at 019533d, before the fix: the checker
+  # refused `Flat`, the validator refused every JSON object, and a match over
+  # the type -- R14's parameter, R15's clauses -- never returned.
+  #
+  # ONE STUB PER PROBE, AND EACH MUST BE RED ON ITS OWN PROBE. One stub breaking
+  # all four would let any one carry the red, and a deleted assertion would go
+  # unseen. `map_residual_silent` is not a measured face: it is what R15's name
+  # check exists for, a residual that comes back but omits the member.
+  map_stub() {
+    stub "$1" "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
+    printf 'rc1' > "$W/$1/R6.st"; printf 'rc1' > "$W/$1/R6b.st"
+    printf 'rc1' > "$W/$1/R8.st"
+  }
+  map_stub map_refused
+  printf '%s' 'R12.bs:6:1: error: Flat returns a value its signature does not declare
   not covered by the declared return type:
-    { "ok": _ }'
-  MAPREFUSED="(:error, {Kind = :'ValidationError', Expected = \"Json\", Path = [], Reason = :mismatch})"
-  stub map_dropped "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
-  printf 'rc1' > "$W/map_dropped/R6.st"; printf 'rc1' > "$W/map_dropped/R6b.st"
-  printf 'rc1' > "$W/map_dropped/R8.st"
-  printf '%s' "$MAPDROP" > "$W/map_dropped/R12.out"; printf 'rc1' > "$W/map_dropped/R12.st"
-  printf '%s' "$MAPREFUSED" > "$W/map_dropped/R13.out"
-  printf '' > "$W/map_dropped/R14.out"; printf 'hung' > "$W/map_dropped/R14.st"
-  printf '' > "$W/map_dropped/R15.out"; printf 'hung' > "$W/map_dropped/R15.st"
+    { "ok": _ }' > "$W/map_refused/R12.out"
+  printf 'rc1' > "$W/map_refused/R12.st"
+  map_stub map_validator_refuses
+  printf '%s' "(:error, {Kind = :'ValidationError', Expected = \"Json\", Path = [], Reason = :mismatch})" \
+    > "$W/map_validator_refuses/R13.out"
+  map_stub map_param_hangs
+  printf '' > "$W/map_param_hangs/R14.out"; printf 'hung' > "$W/map_param_hangs/R14.st"
+  map_stub map_residual_silent
+  printf '%s' 'R15.bs:5:13: error: Kind is not exhaustive
+  no clause matches:
+    Kind(_) -> ...' > "$W/map_residual_silent/R15.out"
 
-  for bad in silent unsound hung name_keyed isorecursive list_blind non_regular_accepted map_dropped; do
+  for pair in map_refused:R12 map_validator_refuses:R13 map_param_hangs:R14 map_residual_silent:R15; do
+    bad="${pair%%:*}"; probe_id="${pair##*:}"
+    if judge "$W/$bad" | grep -q "^$probe_id:"; then
+      echo "  ok red on $bad, at $probe_id"
+    else
+      echo "  x SELF-TEST: '$bad' was not reported by $probe_id - the probe aimed at it cannot see it"; fail=1
+    fi
+  done
+
+  for bad in silent unsound hung name_keyed isorecursive list_blind non_regular_accepted; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -637,7 +658,7 @@ if [ "${1:-}" = "--self-test" ]; then
   fi
 
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: eight stubbed defects and one real hang, correct form accepted"
+  echo "self-test passed: eleven stubbed defects and one real hang, correct form accepted"
   exit 0
 fi
 
