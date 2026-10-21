@@ -1,0 +1,9 @@
+module Bk
+type Octet = int where value >= 0 and value <= 255
+type Band = :low | :high
+record Bucket { Count: Octet }
+public Band Run(Bucket b)
+Run(b) -> Classify(b.Count)
+Band Classify(Octet n)
+Classify(>= 9) -> :high
+Classify(<= 8) -> :low

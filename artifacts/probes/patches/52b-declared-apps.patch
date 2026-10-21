@@ -1,0 +1,65 @@
+--- a/bs_check.erl	2026-10-20 23:27:31.110832115 +0000
++++ b/bs_check.erl	2026-10-20 23:27:31.123909672 +0000
+@@ -80,9 +80,36 @@
+ %%% A warning, not an error: `bsc` may compile on a machine that is not the one
+ %%% that runs the program. `preloaded` and `cover_compiled` are present.
+ foreign_unavailable(Sources) ->
+-    [{P, {warning, L, <<"using">>, {foreign_module_unavailable, Mod}}}
+-     || {P, Ds} <- Sources, {foreign, L, Mod, _} <- Ds,
+-        code:which(Mod) =:= non_existing].
++    Declared = declared_apps(),
++    lists:append(
++      [case code:which(Mod) of
++           non_existing -> [{P, {warning, L, <<"using">>, {foreign_module_unavailable, Mod}}}];
++           Path when is_list(Path), Declared =/= any ->
++               App = owner_app(Path),
++               case App =:= otp orelse lists:member(App, Declared) of
++                   true  -> [];
++                   false -> [{P, {warning, L, <<"using">>, {foreign_app_undeclared, Mod, App}}}]
++               end;
++           _ -> []
++       end || {P, Ds} <- Sources, {foreign, L, Mod, _} <- Ds]).
++
++%% Prototype B: the applications the build declares (rebar.config / .app.src),
++%% handed over as a comma list. `any` when nothing was declared.
++declared_apps() ->
++    case os:getenv("BSC_APPS") of
++        false -> any;
++        S     -> [list_to_atom(A) || A <- string:lexemes(S, ",")]
++    end.
++
++%% `.../req-0.5.0/ebin/Elixir.Req.beam` is application `req`; anything under
++%% the OTP lib directory is `otp`, which is always present.
++owner_app(Path) ->
++    case lists:prefix(code:lib_dir(), Path) of
++        true  -> otp;
++        false ->
++            [_Beam, "ebin", AppDir | _] = lists:reverse(filename:split(Path)),
++            list_to_atom(hd(string:split(AppDir, "-", trailing)))
++    end.
+ 
+ %%% Checking a directory
+ %%% The declaration pass covers the whole directory; functions are checked per
+--- a/bs_diag.erl	2026-10-20 23:27:31.111010667 +0000
++++ b/bs_diag.erl	2026-10-20 23:27:31.125137639 +0000
+@@ -243,6 +243,8 @@
+ built(Path, {Sev, Line, Fn, {vacuous_arm, N, Domain}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => vacuous_arm, arm_number => N,
+                                domain => residual(Domain)};
++built(Path, {Sev, Line, Fn, {foreign_app_undeclared, Mod, App}}) ->
++    (at(Sev, Path, Line, Fn))#{tag => foreign_app_undeclared, module => Mod, app => App};
+ built(Path, {Sev, Line, Fn, {foreign_module_unavailable, Mod}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => foreign_module_unavailable, module => Mod};
+ built(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
+@@ -1054,6 +1056,11 @@
+      [P, L, C, N, Fn, Dom]};
+ %% Must not name the type: the pattern is a good member of it, and the guard is
+ %% what admits nothing.
++message(#{tag := foreign_app_undeclared, file := P, line := L, column := C, module := M, app := A}) ->
++    {"~s:~p:~p: warning: `using` names ~p, which application `~s` provides~n"
++     "  `~s` is not in the application list this build declares. Add it to the~n"
++     "  `applications` of your .app.src (rebar3) or `deps` (mix).~n",
++     [P, L, C, M, A, A]};
+ message(#{tag := foreign_module_unavailable, file := P, line := L, column := C, module := M}) ->
+     {"~s:~p:~p: warning: `using` names ~p, which is not on the code path here~n"
+      "  the program compiles, and will fail with `undef` where this module is absent.~n",

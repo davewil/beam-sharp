@@ -1,0 +1,7 @@
+module Rc
+record Customer { Name: string }
+record Order { Id: int, Who: Customer }
+public string Run(Order o)
+Run(o) -> Greet(o.Who)
+string Greet(Customer c)
+Greet(c) -> c.Name

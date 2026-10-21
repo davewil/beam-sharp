@@ -1,0 +1,11 @@
+module Tp
+type Band = :low | :high
+public Band Run((:pair, int) t)
+Run(t) -> Hop1(t)
+Band Hop1((:pair, int) t)
+Hop1(t) -> Hop2(t)
+Band Hop2((:pair, int) t)
+Hop2((:pair, n)) -> Cls(n)
+Band Cls(int n)
+Cls(>= 9) -> :high
+Cls(_) -> :low

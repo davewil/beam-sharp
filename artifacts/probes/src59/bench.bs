@@ -1,0 +1,10 @@
+module Bn
+type Band = :low | :high
+public int Run(list<int> xs)
+Run(xs) -> Count(xs, 0)
+int Count(list<int> xs, int acc)
+Count([], acc) -> acc
+Count([x, ..rest], acc) -> Count(rest, acc + Weigh(x))
+int Weigh(int n)
+Weigh(>= 9) -> 2
+Weigh(<= 8) -> 1

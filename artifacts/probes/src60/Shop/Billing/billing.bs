@@ -1,0 +1,4 @@
+module Shop.Billing
+using Shop
+public int Invoice(int qty)
+Invoice(q) -> Orders.RecomputeTotal(q)

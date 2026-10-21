@@ -1,0 +1,4 @@
+module Other
+using Shop
+public int Sneak(int qty)
+Sneak(q) -> Orders.RecomputeTotal(q)

@@ -1,0 +1,119 @@
+--- a/bs_lexer.xrl	2026-10-20 23:23:34.241982413 +0000
++++ b/bs_lexer.xrl	2026-10-20 23:23:34.255240666 +0000
+@@ -56,6 +56,7 @@
+ %% function and there is no separate export list (F12, ticket 40 §3).
+ public                  : {token, {'public',  TokenLoc}}.
+ private                 : {token, {'private', TokenLoc}}.
++internal                : {token, {'internal', TokenLoc}}.
+ %% `record` declares a record type (ticket 26 §1).
+ record                  : {token, {'record', TokenLoc}}.
+ %% `o with { Total = 500 }` updates a record without changing its field set;
+--- a/bs_parser.yrl	2026-10-20 23:23:34.242042719 +0000
++++ b/bs_parser.yrl	2026-10-20 23:23:34.256103432 +0000
+@@ -26,7 +26,7 @@
+ 
+ Terminals
+   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
++  'and' 'or' 'where' 'public' 'private' 'internal' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+@@ -324,6 +324,7 @@
+ 
+ visibility -> 'public'  : public.
+ visibility -> 'private' : private.
++visibility -> 'internal' : internal.
+ 
+ params -> '$empty'    : [].
+ params -> param_list  : '$1'.
+--- a/bs_check.erl	2026-10-20 23:23:34.241587073 +0000
++++ b/bs_check.erl	2026-10-20 23:23:53.650125487 +0000
+@@ -10,7 +10,7 @@
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+--export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
++-export([exports_of/1, exports_of/2, exports_of/3, private_of/1, internal_of/1, types_of/3, hinted/2]).
+ %% The emitter publishes polymorphic signatures under the erased environment.
+ -export([polys_of/2, erased_env/2, type_source/1]).
+ %% F64: which records implement a protocol, for a dependent's World entry, and
+@@ -362,7 +362,21 @@
+     behaviours_satisfied(Decls),
+     maps:from_list([{{N, length(Ps)},
+                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
+-                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
++                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public orelse V =:= internal]).
++
++%% Ticket 60 (prototype): an `internal` function is callable from every module
++%% sharing the first segment of its own module's name.
++internal_of(Decls) ->
++    Scope = scope(module_name(Decls)),
++    maps:from_list([{{N, length(Ps)}, Scope}
++                    || {signature, _, N, _, Ps, internal, _} <- Decls]).
++
++scope(M) -> hd(string:split(atom_to_list(M), ".")).
++
++%% The `{q, M, N, A}` keys of other modules' internal functions that `Self` may not call.
++hidden_internals(Self, World) ->
++    [{M, K} || M <- maps:keys(World), {K, S} <- maps:to_list(maps:get(internal, maps:get(M, World), #{})),
++               S =/= scope(Self)].
+ 
+ %% Build public polymorphic templates under the same environment as
+ %% `exports_of/2`, so dependents resolve names consistently.
+@@ -476,7 +490,7 @@
+ 
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+-                                       V =/= public],
++                                       V =/= public, V =/= internal],
+                    true).
+ 
+ %% Import tables use modules checked in this invocation:
+@@ -489,10 +503,13 @@
+ import_env(Decls, Self, World, Mode) ->
+     Imports = [{L, M} || {import, L, M} <- Decls],
+     Known = maps:keys(World),
++    Hidden = hidden_internals(Self, World),
++    Qual = maps:without([{q, M, N, A} || {M, {N, A}} <- Hidden], qual_table(World)),
++    Priv = maps:merge(private_table(World), maps:from_list([{{q, M, N, A}, true} || {M, {N, A}} <- Hidden])),
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+-                #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+-                  polys => poly_table(World),
+-                  privates => private_table(World), imported => []},
++                #{funs => #{}, mods => #{}, types => #{}, qual => Qual,
++                  polys => poly_table(World), hidden => Hidden,
++                  privates => Priv, imported => []},
+                 Imports).
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+@@ -511,7 +528,7 @@
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+-    Exports = maps:get(exports, Entry),
++    Exports = maps:without([K || {M1, K} <- maps:get(hidden, Acc, []), M1 =:= M], maps:get(exports, Entry)),
+     Funs0 = maps:get(funs, Acc),
+     Funs = maps:fold(fun(K, _Sig, F) ->
+                              %% Collisions are errors only at use sites.
+--- a/bsc.erl	2026-10-20 23:23:34.242228013 +0000
++++ b/bsc.erl	2026-10-20 23:23:34.259757265 +0000
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     internal => bs_check:internal_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+--- a/bs_emit.erl	2026-10-20 23:23:34.241890265 +0000
++++ b/bs_emit.erl	2026-10-20 23:23:34.260274046 +0000
+@@ -138,7 +138,7 @@
+ arity(F) -> length(element(5, F)).              % length(#fn.params)
+ %% Private is the default, so the test is `=:= public` and not `=/= private`;
+ %% the other spelling would export every unmarked function.
+-is_public(F) -> element(7, F) =:= public.       % #fn.vis
++is_public(F) -> lists:member(element(7, F), [public, internal]).       % #fn.vis
+ 
+ %%% ---------------------------------------------------------------------------
+ %%% Functions and clauses

@@ -1,0 +1,11 @@
+module Un
+record Person { Name: string }
+record Company { Name: string }
+type Party = Person | Company
+record Order { Id: int, Who: Party }
+public string Run(Order o)
+Run(o) -> Hop1(o.Who)
+string Hop1(Party p)
+Hop1(p) -> Hop2(p)
+string Hop2(Party p)
+Hop2(p) -> p.Name

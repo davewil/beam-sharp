@@ -1,0 +1,49 @@
+--- a/bs_check.erl	2026-10-20 23:20:59.608437272 +0000
++++ b/bs_check.erl	2026-10-20 23:20:59.624511157 +0000
+@@ -76,6 +76,14 @@
+         {error, Tagged}      -> {error, [D || {_, D} <- Tagged]}
+     end.
+ 
++%%% Ticket 52 (prototype): a `using` names a module the build machine cannot load.
++%%% A warning, not an error: `bsc` may compile on a machine that is not the one
++%%% that runs the program. `preloaded` and `cover_compiled` are present.
++foreign_unavailable(Sources) ->
++    [{P, {warning, L, <<"using">>, {foreign_module_unavailable, Mod}}}
++     || {P, Ds} <- Sources, {foreign, L, Mod, _} <- Ds,
++        code:which(Mod) =:= non_existing].
++
+ %%% Checking a directory
+ %%% The declaration pass covers the whole directory; functions are checked per
+ %%% file to preserve diagnostic paths. A name alone cannot identify a file
+@@ -105,7 +113,8 @@
+                impls = maps:merge(world_impls(World),
+                                   local_impls(lists:append([D || {_, D} <- Sources0]),
+                                               Module, Env))},
+-    Tagged0 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile]),
++    Tagged0 = lists:append([check_file(P, Fs, Ctx) || {P, Fs} <- PerFile])
++        ++ foreign_unavailable(Sources0),
+     %% Internal notes travel through the diagnostic channel; remove them before
+     %% printing diagnostics.
+     {Notes, Tagged} = lists:partition(
+--- a/bs_diag.erl	2026-10-20 23:20:59.608692980 +0000
++++ b/bs_diag.erl	2026-10-20 23:20:59.625463062 +0000
+@@ -243,6 +243,8 @@
+ built(Path, {Sev, Line, Fn, {vacuous_arm, N, Domain}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => vacuous_arm, arm_number => N,
+                                domain => residual(Domain)};
++built(Path, {Sev, Line, Fn, {foreign_module_unavailable, Mod}}) ->
++    (at(Sev, Path, Line, Fn))#{tag => foreign_module_unavailable, module => Mod};
+ built(Path, {Sev, Line, Fn, {unsatisfiable_arm_guard, N}}) ->
+     (at(Sev, Path, Line, Fn))#{tag => unsatisfiable_arm_guard, arm_number => N};
+ built(Path, {Sev, Line, Fn, switch_in_guard}) ->
+@@ -1052,6 +1054,10 @@
+      [P, L, C, N, Fn, Dom]};
+ %% Must not name the type: the pattern is a good member of it, and the guard is
+ %% what admits nothing.
++message(#{tag := foreign_module_unavailable, file := P, line := L, column := C, module := M}) ->
++    {"~s:~p:~p: warning: `using` names ~p, which is not on the code path here~n"
++     "  the program compiles, and will fail with `undef` where this module is absent.~n",
++     [P, L, C, M]};
+ message(#{tag := unsatisfiable_arm_guard, file := P, line := L, column := C, function := Fn,
+           arm_number := N}) ->
+     {"~s:~p:~p: warning: arm ~p of this switch in ~s has an unsatisfiable guard~n"

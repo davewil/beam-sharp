@@ -1,0 +1,11 @@
+--- a/bsc.erl	2026-10-20 23:52:22.800455219 +0000
++++ b/bsc.erl	2026-10-20 23:52:22.806782529 +0000
+@@ -840,7 +840,7 @@
+ %% external `erlc` always works. The compiler's report text is captured and
+ %% still arrives on stderr, under the `compile: ` prefix.
+ build(AbstrPath, Dir, Opts) ->
+-    Options = [from_abstr, debug_info, {outdir, Dir},
++    Options = [from_abstr, debug_info, inline, {outdir, Dir},
+                report_errors, report_warnings],
+     {Outcome, {_Stdout, _Stderr, Merged}} =
+         bs_capture:run(fun() -> compile:file(AbstrPath, Options) end, infinity),

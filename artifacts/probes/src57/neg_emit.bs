@@ -1,0 +1,5 @@
+module Ng
+public int F(int x)
+F(x) -> x - -5
+public int G()
+G() -> -5

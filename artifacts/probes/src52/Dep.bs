@@ -1,0 +1,6 @@
+module Dep
+using :mydep {
+    int answer()
+}
+public int Ask()
+Ask() -> :mydep.answer()

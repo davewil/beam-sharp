@@ -1,0 +1,5 @@
+module Shop.Orders
+public int Place(int qty)
+Place(q) -> RecomputeTotal(q)
+internal int RecomputeTotal(int q)
+RecomputeTotal(q) -> q * 100

@@ -1,0 +1,9 @@
+module Hp
+record Customer { Name: string }
+record Order { Id: int, Who: Customer }
+public string Run(Order o)
+Run(o) -> Hop1(o.Who)
+string Hop1(Customer c)
+Hop1(c) -> Hop2(c)
+string Hop2(Customer c)
+Hop2(c) -> c.Name

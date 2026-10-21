@@ -1,0 +1,7 @@
+module Ls
+type Band = :low | :high
+public list<Band> Run(list<int> xs)
+Run(xs) -> [Classify(x) for x in xs]
+Band Classify(int n)
+Classify(>= 9) -> :high
+Classify(_) -> :low

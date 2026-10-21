@@ -1,0 +1,50 @@
+--- a/bs_check.erl	2026-10-20 23:14:18.672599022 +0000
++++ b/bs_check.erl	2026-10-20 23:14:30.340775217 +0000
+@@ -5013,18 +5013,40 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
+-comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison({e_op, L, Op, A, B}) ->
++    comparison_folded({e_op, L, Op, fold_int(A), fold_int(B)});
++comparison(_) ->
++    unknown.
++
++%% Ticket 57 (prototype B): a literal integer expression is a constant.
++fold_int({e_neg, L, E}) ->
++    case fold_int(E) of
++        {e_int, IL, N} -> {e_int, IL, -N};
++        E2             -> {e_neg, L, E2}
++    end;
++fold_int({e_op, L, Op, A, B}) when Op =:= '+'; Op =:= '-'; Op =:= '*' ->
++    case {fold_int(A), fold_int(B)} of
++        {{e_int, IL, X}, {e_int, _, Y}} -> {e_int, IL, arith(Op, X, Y)};
++        {A2, B2}                        -> {e_op, L, Op, A2, B2}
++    end;
++fold_int(E) -> E.
++
++arith('+', X, Y) -> X + Y;
++arith('-', X, Y) -> X - Y;
++arith('*', X, Y) -> X * Y.
++
++comparison_folded({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
++comparison_folded({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison_folded({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
++comparison_folded({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {exclude, bs_types:atom_lit(A)}};
+ %% F68: a string literal is compared as an atom literal is.
+-comparison({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
++comparison_folded({e_op, _, '==', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {include, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
++comparison_folded({e_op, _, '!=', {e_var, _, V}, {e_str, _, S}}) ->
+     {V, {exclude, bs_types:str_lit(iolist_to_binary(S))}};
+-comparison(_) ->
++comparison_folded(_) ->
+     unknown.
+ 
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};

@@ -1,0 +1,25 @@
+--- a/bs_emit.erl	2026-10-20 23:18:01.964906546 +0000
++++ b/bs_emit.erl	2026-10-20 23:18:01.983176574 +0000
+@@ -274,19 +274,19 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
+-        {ok, Tag} ->
++        {ok, Tag} when Public ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};
+                 false ->
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        _ when Public ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+             end;
+-        none ->
++        _ ->
+             {Pat, []}
+     end.
+ 
