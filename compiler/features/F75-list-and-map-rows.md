@@ -1,6 +1,6 @@
 # F75 — `List` and `Map` rows: what is specific to each, over `lists` and `maps`
 
-**Status**      **built 2026-10-21, not closed** — 37 tests in `standard_rows_tests`;
+**Status**      **built 2026-10-21, not closed** — 41 tests in `standard_rows_tests`;
                 `check-reserved-qualifiers.sh` gained P8, seen red on master first,
                 twelve red stubs and one green. Closing is David's call
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1, Q2
@@ -69,12 +69,16 @@ validated twice.
   looked for as `term`, so the signature accepts anything and widens nothing, and
   `bs_check:sought_row/1` says which argument is searched for which: when its type has no
   overlap with the element or key type, the call is refused as `sought_never_found`, naming
-  both. An empty collection, or an argument already refused, refuses nothing.
+  both. An empty collection, or an argument already refused, refuses nothing; nor does a
+  type variable inside a polymorphic function, which a caller may choose to hold the value.
 - **`List.Flatten` is Elixir's, at every depth** (ticket 118 Q2), over `lists:flatten/1`. Its
   return is computed, because no signature text says *"the innermost element"*: a
   `reserved_sig/4` clause returns `list<flat(element)>`, where `bs_types:flat_elem/1` opens
   every list member at every depth and a type met a second time adds nothing, so
-  `type Tree = int | list<Tree>` opens to `int`.
+  `type Tree = int | list<Tree>` opens to `int`. Inside a polymorphic function a `list<T>` is
+  read as `list<term>`: `T` has no shape until a caller picks one (F45), and a caller may pick
+  a list, so `List.Flatten` over it cannot promise `list<T>` back. The cold review found this
+  promise being made and kept by the checker while the value broke it.
 - **`List.Insert` is Elixir's `insert_at`** (ticket 118 Q3): no OTP function inserts at an
   index, so it is the second `generated` row after `Term.Compare`, a local function over
   `lists:split/2` written into the module that calls it. An index past the end appends; a
@@ -180,7 +184,7 @@ after: both compile, and both replays return what they returned.
 | F75.6 | one program calling every row | the import chunk holds each row's OTP function, `maps:put` and `maps:is_key` excepted, and no `List` or `Map` |
 | F75.7 | a user's `map<K, V> Same<K, V>(map<K, V> m)` returned as `map<string, int>` | compiles |
 | F75.8 | `List.Zip([5, 2], [:a])`; its import chunk | `[(5, :a)]`; `{lists, zip, 3}` |
-| F75.9 | `List.Flatten([[5, [2]], [3]])`; `List.Flatten([[], [5]])`; a `list<int \| list<int \| list<int>>>` and a `list<Tree>` returned as `list<int>`; a `list<list<string>>` returned as `list<int>` | `[5, 2, 3]`; `[5]`; compile; refused, naming `string` |
+| F75.9 | `List.Flatten([[5, [2]], [3]])`; `List.Flatten([[], [5]])`; a `list<int \| list<int \| list<int>>>` and a `list<Tree>` returned as `list<int>`; a `list<list<string>>` returned as `list<int>`; `list<T> G<T>(list<T> xs) -> List.Flatten(xs)` | `[5, 2, 3]`; `[5]`; compile; refused, naming `string`; refused, `G` returning a value its signature does not declare |
 | F75.10 | `List.Insert([1, 2, 3], i, 9)` at `i` = 1, 10, -1, -2, -10; `:x` into a `list<int>` returned as `list<int>` | `[1, 9, 2, 3]`, `[1, 2, 3, 9]`, `[1, 2, 3, 9]`, `[1, 2, 9, 3]`, `[9, 1, 2, 3]`; refused |
 | F75.11 | `Map.Update(m, k, 0, n => n + 1)` over `{"a" = 1}` at `"a"` and `"b"`; as `map<string, int>`; `Map.Update/3` | `{"a" = 2}`, `{"a" = 1, "b" = 0}`; compiles; refused |
-| F75.12 | `List.Contains(list<int>, "x")`; `Map.Has`, `Remove`, `Take`, `Drop` and `List.Delete` with a value no key or element could equal; the same over `list<int \| string>`, `list<term>`, `[]` and a `term` key | refused as `sought_never_found`, naming both; refused; compile |
+| F75.12 | `List.Contains(list<int>, "x")`; `Map.Has`, `Remove`, `Take`, `Drop` and `List.Delete` with a value no key or element could equal; the same over `list<int \| string>`, `list<term>`, `[]` and a `term` key; `List.Contains(list<T>, "x")` in a polymorphic function; `Map.Has` of a record; `Map.Take(m, [1])` | refused as `sought_never_found`, naming both; refused; compile; compiles; refused once, as an argument not accepted; *"an element of argument 2"* |

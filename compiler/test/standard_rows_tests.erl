@@ -333,3 +333,39 @@ a_sought_value_that_could_be_present_is_accepted_test() ->
          "public bool Go(int n)\nGo(n) -> List.Contains([], n)\n",
          "public bool Go(map<string, int> m, term k)\nGo(m, k) -> Map.Has(m, k)\n",
          "public map<string, int> Go(map<string, int> m)\nGo(m) -> Map.Take(m, [\"a\"])\n"]].
+
+%%% Inside a polymorphic function, `T` has no shape until a caller picks one
+%%% (F45), so a row that opens or compares a `T` reads it at its extent.
+
+%% F75.9 — flattening a `list<T>` may open a `T` that is a list, so it cannot
+%% promise `list<T>` back; the caller's `[[n]]` would come back as `[n]`.
+list_flatten_of_a_variable_element_does_not_promise_it_back_test() ->
+    Out = compile("public list<list<int>> H(int n)\n"
+                  "H(n) -> G([[n]])\n\n"
+                  "private list<T> G<T>(list<T> xs)\n"
+                  "G(xs) -> List.Flatten(xs)\n"),
+    bad_rc(Out),
+    has(Out, "G returns a value its signature does not declare").
+
+%% F75.12 — a `T` may hold a string, so looking for one is not fixed in advance.
+a_sought_value_against_a_variable_element_is_accepted_test() ->
+    ok_rc(compile("public bool H(list<string> xs)\n"
+                  "H(xs) -> C(xs)\n\n"
+                  "private bool C<T>(list<T> xs)\n"
+                  "C(xs) -> List.Contains(xs, \"x\")\n")).
+
+%% An argument the row already refused has its diagnostic; a second, naming a
+%% record's hidden `Kind`, would only mislead.
+a_refused_collection_is_not_also_reported_as_never_found_test() ->
+    Out = compile("record Pt { X: int, Y: int }\n\n"
+                  "public bool Go(Pt p)\n"
+                  "Go(p) -> Map.Has(p, 1)\n"),
+    bad_rc(Out),
+    has(Out, "does not accept"),
+    ?assertEqual(nomatch, string:find(Out, "never equal")).
+
+%% `Take` looks for each key in its list, and the message says so.
+a_sought_key_list_is_named_by_its_elements_test() ->
+    has(compile("public map<string, int> Go(map<string, int> m)\n"
+                "Go(m) -> Map.Take(m, [1])\n"),
+        "an element of argument 2 can never equal").

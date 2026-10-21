@@ -377,9 +377,10 @@ built(Path, {Sev, Line, Fn,
     (at(Sev, Path, Line, Fn))#{tag => unknown_reserved_operation,
                                qualifier => Q, operation => Op,
                                got => Got, declared => Have};
-built(Path, {Sev, Line, Fn, {sought_never_found, Op, Pos, Sought, Part, Held}}) ->
+built(Path, {Sev, Line, Fn, {sought_never_found, Op, Pos, Shape, Sought, Part, Held}}) ->
     (at(Sev, Path, Line, Fn))#{tag => sought_never_found, operation => Op,
-                               position => Pos, sought => bs_types:to_string(Sought),
+                               position => Pos, shape => Shape,
+                               sought => bs_types:to_string(Sought),
                                part => Part, held => bs_types:to_string(Held)};
 built(Path, {Sev, Line, Fn, {duplicate_field, Key}}) ->
     (at(Sev, Path, Line, Fn))#{tag => duplicate_field, field => Key};
@@ -1434,11 +1435,16 @@ message(#{tag := unknown_reserved_operation, file := P, line := L, column := C,
                            case A of 1 -> ""; _ -> "s" end] || A <- Have])]};
 %% Ticket 118 Q5: a lookup that cannot succeed is a mistake, not a `false`.
 message(#{tag := sought_never_found, file := P, line := L, column := C, function := Fn,
-          operation := Op, position := Pos, sought := Sought, part := Part, held := Held}) ->
+          operation := Op, position := Pos, shape := Shape, sought := Sought,
+          part := Part, held := Held}) ->
     {"~s:~p:~p: error: ~s has ~s look for ~s in a collection whose ~s are ~s~n"
-     "  argument ~p can never equal one of them, so the answer is fixed~n"
+     "  ~s can never equal one of them, so the answer is fixed~n"
      "  before the program runs.~n",
-     [P, L, C, Fn, Op, Sought, case Part of elem -> "elements"; key -> "keys" end, Held, Pos]};
+     [P, L, C, Fn, Op, Sought, case Part of elem -> "elements"; key -> "keys" end, Held,
+      case Shape of
+          one  -> io_lib:format("argument ~p", [Pos]);
+          each -> io_lib:format("an element of argument ~p", [Pos])
+      end]};
 %% F57: a map literal would keep the last value; the brace expression refuses.
 message(#{tag := duplicate_field, file := P, line := L, column := C, function := Fn,
           field := Key}) ->

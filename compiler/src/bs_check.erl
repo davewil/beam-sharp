@@ -3297,18 +3297,18 @@ reserved_call(L, Q, Fun, Args, S, C) ->
 reserved_op(L, Q, Fun, Args, S, C) ->
     case declared_sig({Q, Fun, length(Args)}) of
         {ok, Sig} ->
-            {Ret, D} = declared_op(L, qualified_name(Q, Fun), Sig, Args, S, C),
-            {Ret, D ++ sought_diags(L, Q, Fun, Args, S, C)};
+            {Ret, D, ATys} = declared_op(L, qualified_name(Q, Fun), Sig, Args, S, C),
+            {Ret, D ++ sought_diags(L, Q, Fun, ATys, D, C)};
         none -> written_op(L, Q, Fun, Args, S, C)
     end.
 
-%% An empty collection or an argument already refused says nothing, so only
-%% two inhabited types with no overlap are refused.
-sought_diags(L, Q, Fun, Args, S, C) ->
-    case sought_row({Q, Fun, length(Args)}) of
-        none -> [];
-        {CI, Part, SI, Shape} ->
-            {ATys, _} = type_of_all(Args, S, C),
+%% Only two inhabited types with no overlap are refused. An empty collection
+%% says nothing, an argument already refused has its diagnostic, and a type
+%% variable has no shape until a caller picks one (F45), so it could hold the
+%% value sought.
+sought_diags(L, Q, Fun, ATys, D, C) ->
+    case {sought_row({Q, Fun, length(ATys)}), [E || E = {error, _, _, _} <- D]} of
+        {{CI, Part, SI, Shape}, []} ->
             Coll = bs_types:unfold(lists:nth(CI, ATys)),
             Held = case Part of
                        elem -> bs_types:list_elem(Coll);
@@ -3319,12 +3319,22 @@ sought_diags(L, Q, Fun, Args, S, C) ->
                          each -> bs_types:list_elem(bs_types:unfold(lists:nth(SI, ATys)))
                      end,
             case bs_types:is_none(Held) orelse bs_types:is_none(Sought)
+                 orelse holds_variable(Held, C) orelse holds_variable(Sought, C)
                  orelse not bs_types:is_none(bs_types:intersect(Held, Sought)) of
                 true  -> [];
                 false -> [{error, L, C#ctx.fname,
-                           {sought_never_found, qualified_name(Q, Fun), SI, Sought, Part, Held}}]
-            end
+                           {sought_never_found, qualified_name(Q, Fun), SI, Shape,
+                            Sought, Part, Held}}]
+            end;
+        _ -> []
     end.
+
+%% A declaration's type variables are opaque atoms while its body is checked
+%% (F45); a type touching one could be anything a caller chooses.
+holds_variable(_Ty, #ctx{tvars = []}) -> false;
+holds_variable(Ty, #ctx{tvars = Vars}) ->
+    not bs_types:is_none(
+          bs_types:intersect(Ty, bs_types:union([bs_types:atom_lit(V) || V <- Vars]))).
 
 %% A row's text names builtins and its own variables only, so it resolves in
 %% an empty environment, where no author's alias can capture a name it uses.
@@ -3334,7 +3344,7 @@ declared_op(L, Shown, {signature, _, _, R, Ps, _, TV}, Args, S, C) ->
                    [] -> undefined;
                    _  -> template(TV, Ps, R, Env)
                end,
-    checked_call(L, Shown, Args, erased_sig(Ps, R, TV, Env), Template, S, C).
+    checked_call_typed(L, Shown, Args, erased_sig(Ps, R, TV, Env), Template, S, C).
 
 written_op(L, Q, Fun, Args, S, C) ->
     {ATys, D} = reserved_args(Q, Fun, Args, S, C),
@@ -3361,6 +3371,14 @@ reserved_args('List', Op, [Xs, Seed, F], S, C) when Op =:= 'Fold'; Op =:= 'FoldR
     {STy, D2} = type_of(Seed, S, C),
     {FTy, D3} = fold_fun(F, STy, elem_expected(XTy), S, C, 3),
     {[XTy, STy, FTy], D1 ++ D2 ++ D3};
+%% Flattening opens every list member, so a type variable, which a caller may
+%% choose to be a list, is read at its extent: the result cannot promise it.
+reserved_args('List', 'Flatten', [Xs], S, C) ->
+    {XTy, D} = type_of(Xs, S, C),
+    case holds_variable(bs_types:list_elem(bs_types:unfold(XTy)), C) of
+        true  -> {[bs_types:list(bs_types:term())], D};
+        false -> {[XTy], D}
+    end;
 reserved_args(_Q, _Fun, Args, S, C) ->
     type_of_all(Args, S, C).
 
@@ -4391,24 +4409,29 @@ call(L, Key, Shown, Args, S, C) ->
     end.
 
 %% A resolved callee's arguments against its signature, solving its template
-%% first when it has one. A declared standard row arrives here too.
-checked_call(L, Shown, Args, {Ps, Ret}, undefined, S, C) ->
+%% first when it has one. A declared standard row arrives here too, and keeps
+%% the argument types for its own checks.
+checked_call(L, Shown, Args, Sig, Template, S, C) ->
+    {Ret, D, _ATys} = checked_call_typed(L, Shown, Args, Sig, Template, S, C),
+    {Ret, D}.
+
+checked_call_typed(L, Shown, Args, {Ps, Ret}, undefined, S, C) ->
     {ATys, D} = expected_all(Args, Ps, S, C),
-    {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D};
-checked_call(L, Shown, Args, {Ps, _Ret}, Template = {poly, _, PsT, RetT, _}, S, C) ->
+    {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D, ATys};
+checked_call_typed(L, Shown, Args, {Ps, _Ret}, Template = {poly, _, PsT, RetT, _}, S, C) ->
     {ATys, D} = poly_args(Template, Args, S, C),
     {Sub, Conflicts} = solution(Template, ATys),
     case Conflicts of
         [] ->
             Inst = [subst_tpl(PT, Sub) || PT <- PsT],
             {subst_tpl(RetT, Sub),
-             poly_arg_diags(L, Shown, Args, ATys, Ps, Inst, C) ++ D};
+             poly_arg_diags(L, Shown, Args, ATys, Ps, Inst, C) ++ D, ATys};
         _ ->
             {reported(),
              arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++
              [{error, L, C#ctx.fname,
                {instantiation_conflict, Shown, V, LI, Lo, UI, Up}}
-              || {V, {LI, Lo, UI, Up}} <- Conflicts] ++ D}
+              || {V, {LI, Lo, UI, Up}} <- Conflicts] ++ D, ATys}
     end.
 
 %% Type arguments needing no expectation first, at the template's extent. Use
