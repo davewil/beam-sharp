@@ -168,6 +168,26 @@ map_drop_removes_the_named_keys_test() ->
                            "Go(n) -> Map.Drop(Map.FromList([(\"a\", 1), (\"b\", n)]), [\"a\"])\n",
                            "Go 2"))).
 
+%% F75.4 — a field set built in place is a map: its keys are read as the algebra
+%% reads a field's key, a string key as `string` and a name as its atom.
+map_rows_read_a_field_set_built_in_place_test() ->
+    ?assertEqual("[\"a\", \"b\"]",
+                 value(run("public list<string> Go(int n)\n"
+                           "Go(n) -> Map.Keys({ \"a\" = n, \"b\" = 2 })\n", "Go 1"))),
+    ?assertEqual("[4, 2]",
+                 value(run("public list<int> Go(int n)\n"
+                           "Go(n) -> Map.Values({ \"a\" = n, \"b\" = 2 })\n", "Go 4"))),
+    ok_rc(compile("public list<atom> Go(int n)\n"
+                  "Go(n) -> Map.Keys({ A = n })\n")).
+
+%% An open field set may hold `Kind`, so it is not a domain map: refused by
+%% name, not crashed on, when a row solves a variable from it.
+an_open_field_set_is_refused_by_a_polymorphic_row_test() ->
+    Out = compile("public list<term> Go({ Name: string, .. } x)\n"
+                  "Go(x) -> Map.Keys(x)\n"),
+    bad_rc(Out),
+    has(Out, "does not accept").
+
 %% F75.5 — a record is not a domain map (F33), so a Map row refuses one.
 a_map_row_refuses_a_record_test() ->
     Out = compile("record Order { Status: int }\n\n"

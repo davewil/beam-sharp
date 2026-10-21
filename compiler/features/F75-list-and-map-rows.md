@@ -1,6 +1,6 @@
 # F75 — `List` and `Map` rows: what is specific to each, over `lists` and `maps`
 
-**Status**      **built 2026-10-21, not closed** — 24 tests in `standard_rows_tests`;
+**Status**      **built 2026-10-21, not closed** — 26 tests in `standard_rows_tests`;
                 `check-reserved-qualifiers.sh` gained P8, seen red on master first,
                 twelve red stubs and one green. Closing is David's call
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1, Q2
@@ -13,7 +13,8 @@
 **Leaves**      the pairs (`Map.Get`, `Map.Find`, `List.First`, `Last`, `At`), which wait on
                 [ENG-324](https://linear.app/davewil/issue/ENG-324) building ticket 108's `?`;
                 `List.Flatten`, `List.Insert` and `Map.Update`, each of which needs a
-                decision this file does not take; ticket 94's `TryMap`
+                decision this file does not take, raised as [ticket 118](../../wayfinder/issues/118-the-list-and-map-rows-that-need-a-decision.md)
+                ([ENG-878](https://linear.app/davewil/issue/ENG-878)); ticket 94's `TryMap`
                 ([ENG-435](https://linear.app/davewil/issue/ENG-435))
 
 ## Why this one now
@@ -58,11 +59,15 @@ validated twice.
   B#'s second. `bs_emit:otp_args/3` reads it for every declared row; F62's hand-written
   clauses for `Map`, `Filter` and `Fold` stay.
 - **Names and argument order are Elixir's** (ticket 96 Q2): the collection first, so a pipe
-  feeds it. **Behaviour is the OTP function's** (Q1): `List.Zip` of unequal lengths fails as
-  `lists:zip/2` does, and `List.Seq(5, 1)` fails as `lists:seq/2` does.
+  feeds it (David, 2026-10-21: *"should definitely be pipe friendly order"*). **Behaviour is
+  the OTP function's** (Q1): `List.Zip` of unequal lengths fails as `lists:zip/2` does, and
+  `List.Seq(5, 1)` fails as `lists:seq/2` does. Elixir's zip stops at the shorter list instead;
+  which `List.Zip` does is ticket 118 Q1.
 - **A value that can only be looked for is `term`.** `List.Contains`, `List.Delete`,
   `Map.Remove`, `Map.Has`, `Map.Take` and `Map.Drop` take the sought value or keys as `term`:
-  a value of another type is never found, so it neither fails nor widens the result.
+  a value of another type is never found, so it neither fails nor widens the result. Whether
+  such a value should instead be refused is ticket 118 Q5; until it is answered, this is the
+  reading that refuses nothing Elixir accepts.
 
 | Row | Target | Signature |
 |---|---|---|
@@ -92,8 +97,25 @@ anywhere else, a map included. Under that rule every `Map` row above returns
 reads `map<K, V>` the way it reads `list<T>`: `bs_types:map_kv/1` gives the keys and values
 an argument's map part can hold, as `list_elem/1` gives a list's element, and the domain map
 is covariant in both (measured: `map<atom, int>` is within `map<term, int>`, and not the
-reverse). A named field contributes its key as a literal and its value's type; an open field
-set can hold any key, so it contributes `term` for both.
+reverse). A named field contributes its key as `fields_fit/5` reads it, a name as its atom and
+a string key as `string`, and its value's type; an open field set can hold any key, so it
+contributes `term` for both.
+
+**The key is `string`, not the literal, and the review found why it must be.** The first build
+read `{ "a" = n }`'s key as the literal `"a"`, and `Map.Keys({ "a" = n })` was refused: the
+algebra puts `{ "a": int }` within `map<string, int>` but not within `map<"a", int>`, because
+`bs_types:key_type/1` still types a string key as `string`. Its comment says *"the algebra has
+no singleton binary"*, which F68 made untrue. Narrowing `key_type/1` would change what F58 and
+F68 built, so it is left; `map_kv/1` reads keys through it, so the solved key always admits the
+field set it came from.
+
+**Why this is the build and not a decision.** Ticket 37 decided that a call's arguments choose
+each variable by matching (*"instantiation is matching"*), and F45 built that matching for the
+positions it reached. Its erasure of a map position is recorded in F45 as a build boundary, not
+as a rule: a value reaching the body through an erased position must not be promised a
+narrower type. `map<K, V>` now has a share to match, the same way `list<T>` has, so the rule
+that erased it no longer applies. Variables under a named field or a refinement are still
+erased, for F45's reason.
 
 This reaches a user's own signature too: `map<K, V> Same<K, V>(map<K, V> m)` called with a
 `map<string, int>` now returns `map<string, int>`, where it returned `map<term, term>` and was
@@ -121,6 +143,9 @@ after: both compile, and both replays return what they returned.
 
 ## Left
 
+Ticket 118 ([ENG-878](https://linear.app/davewil/issue/ENG-878)) holds the four questions
+below that are not pairs, and a fifth, Q5, on the `term` reading of a sought value.
+
 - **The pairs.** `Map.Get`/`Map.?Get`, `Map.Find`, `List.First`, `Last` and `At` are ticket 96
   Q3's pairs, spelled by ticket 108 and built by ENG-324. Each is a declared row once the `?`
   parses.
@@ -142,7 +167,7 @@ after: both compile, and both replays return what they returned.
 | F75.1 | `List.Seq(1, 3)`; `List.Concat([1, 2], [7])`; `List.Zip([5, 2], ["a", "b"])`; `List.Contains([1, 2, 3], 2)`; `List.Delete([1, 5, 1], 1)`; `List.Duplicate(4, 3)` | `[1, 2, 3]`; `[1, 2, 7]`; `[(5, "a"), (2, "b")]`; `:true`; `[5, 1]`; `[4, 4, 4]` |
 | F75.2 | `List.Concat` of `list<int>` and `list<string>`; `List.Zip` returned as `list<(string, int)>`; `List.Delete(xs, :x)` as `list<int>` | `list<int \| string>` and not `list<int>`; refused; compiles |
 | F75.3 | every `Map` row run once | each returns what its OTP function returns, `Merge` preferring the second map's value |
-| F75.4 | `Map.Put(m, "k", n)` as `map<string, int>`; `Map.Put(m, "k", :x)` as the same; `Map.ToList`, `Keys`, `Values` as `list<(string, int)>`, `list<string>`, `list<int>` | compiles; refused, naming `:x`; compiles |
+| F75.4 | `Map.Put(m, "k", n)` as `map<string, int>`; `Map.Put(m, "k", :x)` as the same; `Map.ToList`, `Keys`, `Values` as `list<(string, int)>`, `list<string>`, `list<int>`; `Map.Keys` and `Map.Values` of `{ "a" = n, "b" = 2 }`, and `Map.Keys({ A = n })` as `list<atom>`; `Map.Keys` of an open field set | compiles; refused, naming `:x`; compiles; `["a", "b"]`, `[n, 2]`, compiles; refused, not crashed |
 | F75.5 | `Map.Size` of a record | refused as an argument the row does not accept |
 | F75.6 | one program calling every row | the import chunk holds each row's OTP function, `maps:put` and `maps:is_key` excepted, and no `List` or `Map` |
 | F75.7 | a user's `map<K, V> Same<K, V>(map<K, V> m)` returned as `map<string, int>` | compiles |

@@ -413,7 +413,8 @@ map_dom(K, V) -> (none())#{maps => [{dom, K, V}]}.
 
 %% The keys and values a type's map part can hold, as `{K, V}`: what a
 %% polymorphic `map<K, V>` parameter reads from its argument, as `list_elem/1`
-%% is for `list<T>`. A named field contributes its key as a literal; an open
+%% is for `list<T>`. A named field contributes its key as `fields_fit/5` reads
+%% it, so the solved key type always admits the field set it came from; an open
 %% member can hold any key and value beyond its fields.
 map_kv(#{maps := top}) -> {term(), term()};
 map_kv(#{maps := Ms}) ->
@@ -424,10 +425,7 @@ map_kv(_) -> {none(), none()}.
 kv({dom, K, V})      -> {K, V};
 kv({open, _Fields})  -> {term(), term()};
 kv({closed, Fields}) ->
-    {union([key_lit(K) || K <- maps:keys(Fields)]), union(maps:values(Fields))}.
-
-key_lit(K) when is_atom(K)   -> atom_lit(K);
-key_lit(K) when is_binary(K) -> str_lit(K).
+    {union([key_type(K) || K <- maps:keys(Fields)]), union(maps:values(Fields))}.
 
 %% The checker refuses domain-map patterns based on the type.
 is_dom(#{maps := Ms}) when is_list(Ms) ->

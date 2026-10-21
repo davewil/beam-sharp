@@ -1715,7 +1715,7 @@ standard_table() ->
     ++ [{Key, Target} || {Key, Target, _Order, _Sig} <- declared_rows()].
 
 %% Rows whose signature is B# source, typed as a call to a user's polymorphic
-%% function is (F45), with no clause of its own in `reserved_sig/4`. The order
+%% function is typed (F45), with no clause of its own in `reserved_sig/4`. The order
 %% lists which B# argument OTP takes in each position. Names and argument order
 %% are Elixir's (ticket 96 Q2); behaviour is the OTP function's (Q1).
 %% Rationale: compiler/features/F75-list-and-map-rows.md.

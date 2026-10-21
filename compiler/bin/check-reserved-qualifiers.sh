@@ -217,7 +217,7 @@ called_modules() {
 # --self-test — twelve defects and one correct form.
 #
 # A check that fires on everything passes the red half and is worthless, so the
-# green half is not optional. Three of the nine are CRY-WOLF stubs: they satisfy
+# green half is not optional. Three of the twelve are CRY-WOLF stubs: they satisfy
 # a red probe by being too aggressive, which is the failure mode a gate written
 # only from the refusals cannot see.
 # ---------------------------------------------------------------------------
@@ -234,7 +234,7 @@ if [ "${1:-}" = "--self-test" ]; then
     printf '%s' "$6" > "$W/$1/P5.out"; printf '%s' "$7" > "$W/$1/P6.out"
     printf '%s' "$8" > "$W/$1/P7.out"; printf '%s' "${9:-erlang maps}" > "$W/$1/P8.out"
   }
-  #                 P1    P2                 P3          P4  P5         P6   P7
+  #                 P1    P2                 P3          P4  P5         P6   P7      P8 (default "erlang maps")
   stub good         "6"   "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
   ## 67's (a) WEARING (b)'s OUTPUT — the over-informed stub. Right answer,
   ## wrong design, and only P2 can see it.
@@ -267,7 +267,7 @@ if [ "${1:-}" = "--self-test" ]; then
   ## correct "erlang maps".
   stub shipped_map_row "6" "erlang lists"    "$RESERVED" "1" "$COLLIDE" "6" "$NOOP" "Map erlang"
   stub generated_map   "6" "erlang lists"    "$RESERVED" "1" "$COLLIDE" "6" "$NOOP" "erlang"
-  ## Today's master: `Map.Put` is unknown, so the probe never compiles.
+  ## Master before F75: `Map` had no operation, so the probe never compiled.
   stub no_map_rows     "6" "erlang lists"    "$RESERVED" "1" "$COLLIDE" "6" "$NOOP" "BEAM-UNREADABLE"
 
   for bad in shipped_module shipped_map shipped_enum generated_local no_reservation over_reserved \

@@ -18,7 +18,7 @@ record Issue  { Title: string, Body: string }
 record Config { Send: Send, Token: string }
 
 // The pending requests, by monitor reference, so a crashed one can still be
-// answered. `map<term, term>` because `Map.Get` is not built.
+// answered.
 record State  { Send: Send, Token: string, Pending: map<reference, term> }
 
 // The answers this server asks for, by the names it asked them under. Open,
