@@ -586,7 +586,10 @@ if [ "${1:-}" = "--self-test" ]; then
 
   for pair in map_refused:R12 map_validator_refuses:R13 map_param_hangs:R14 map_residual_silent:R15; do
     bad="${pair%%:*}"; probe_id="${pair##*:}"
-    if judge "$W/$bad" | grep -q "^$probe_id:"; then
+    # Captured first: `grep -q` in a pipe can exit early and SIGPIPE `judge`,
+    # which `pipefail` would turn into a false "not reported".
+    said="$(judge "$W/$bad")"
+    if printf '%s\n' "$said" | grep -q "^$probe_id:"; then
       echo "  ok red on $bad, at $probe_id"
     else
       echo "  x SELF-TEST: '$bad' was not reported by $probe_id - the probe aimed at it cannot see it"; fail=1

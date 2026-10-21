@@ -315,7 +315,8 @@ One cause, four faces, all measured on `019533d`:
 
 The non-recursive twin always compiled, and none of R1–R11 had a map member, so nothing saw it.
 **One probe per constructor kind** is R10's lesson, and the map crossing was the kind without
-one. R12–R15 are those probes, and `--self-test`'s `map_dropped` is the defect as it shipped.
+one. R12–R15 are those probes, and `--self-test` breaks each alone, one `map_*` stub per probe, each
+required red at its own.
 
 ## Out of scope
 

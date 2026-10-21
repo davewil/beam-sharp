@@ -217,9 +217,9 @@ a_nested_json_value_round_trips_through_its_text_test() ->
           "Out(j) -> ToJson<Json>(j)\n\n"
           "public result<Json, ValidationError> Back(string s)\n"
           "Back(s) -> FromJson<Json>(s)\n", 'JsonTrip'),
-    V = #{<<"rows">> => [#{<<"a">> => #{<<"b">> => [null, true, 1.5]}}]},
+    V = #{<<"rows">> => [#{<<"a">> => #{<<"b">> => [null, true, 1.5, <<"s">>]}}]},
     Text = M:'Out'(V),
-    ?assertEqual(<<"{\"rows\":[{\"a\":{\"b\":[null,true,1.5]}}]}">>, Text),
+    ?assertEqual(<<"{\"rows\":[{\"a\":{\"b\":[null,true,1.5,\"s\"]}}]}">>, Text),
     ?assertEqual(V, M:'Back'(Text)).
 
 a_parameter_of_the_json_value_type_returns_test() ->
