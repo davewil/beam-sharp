@@ -1,0 +1,19 @@
+### 62/p2_gleam_external_and_casing.sh
+gleam 1.12.0
+  Compiling gleam_stdlib
+  Compiling proj
+   Compiled in 0.93s
+--- (a) run it, with the Erlang module on the path
+dict.from_list([#(atom.create_from_string("Id"), 5), #(atom.create_from_string("Kind"), atom.create_from_string("Shop.Order")), #(atom.create_from_string("Total"), 0)])
+--- (b1) how Gleam emits a PascalCase CONSTRUCTOR
+7:-type event() :: {order_placed, integer()} | h_t_t_p_get | get_i_d.
+--- (b2) can a Gleam FUNCTION be PascalCase?
+error: Syntax error
+  ┌─ /tmp/tmp.Z8KISiAgrW/proj/src/proj.gleam:1:8
+  │
+1 │ pub fn New(id: Int) -> Int { id }
+  │        ^^^ I'm expecting a lowercase name here
+
+Hint: Variable and module names start with a lowercase letter, and can contain
+a-z, 0-9, or _.
+exit=0

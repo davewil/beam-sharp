@@ -1,0 +1,34 @@
+A1   option<term>                       -> /tmp/tmp.VgAewsmgcv/A1/A1.bs:3:21: error: `:nothing` is absorbed by `term`|  in Go|  the failure channel does not survive normalisation, so the type|
+
+A2   result<term, binary>               -> /tmp/tmp.VgAewsmgcv/A2/A2.bs:3:29: error: `(:error, binary)` is absorbed by `term`|  in Go|  the failure channel does not survive normalisation, so the type|
+
+B1   result<int, term>                  -> module B1|int | (:error, term) Go(int)|
+
+B2   result<binary, term>               -> module B2|(:error, term) | binary Go(int)|
+
+C2   option<map<string, term>>          -> module C2|:nothing | map<string, term> Go(int)|
+
+X1   Box                                -> module X1|{ Kind: :'X1.Box', Items: :nothing | list<term> } Go(int)|
+
+X2   Maybe<term>                        -> module X2|:nothing | (:just, term) Go(int)|
+
+X3   Maybe<int>                         -> module X3|:nothing | (:just, int) Go(int)|
+
+X4   option<Maybe<term>>                -> /tmp/tmp.VgAewsmgcv/X4/X4.bs:5:28: error: `:nothing` is absorbed by `:nothing | (:just, term)`|  in Go|  the failure channel does not survive normalisation, so the type|
+
+X5   Box                                -> /tmp/tmp.VgAewsmgcv/X5/X5.bs:3:1: error: `:nothing` is absorbed by `term`|  in Box.Items|  the failure channel does not survive normalisation, so the type|
+
+X6   Box                                -> /tmp/tmp.VgAewsmgcv/X6/X6.bs:3:1: error: `:nothing` is absorbed by `term`|  in Box.V|  the failure channel does not survive normalisation, so the type|
+
+X7   Box                                -> module X7|{ Kind: :'X7.Box', V: :nothing | int } Go(int)|
+
+X8   option<option<term>>               -> /tmp/tmp.VgAewsmgcv/X8/X8.bs:3:29: error: `:nothing` is absorbed by `term`|  in Go|  the failure channel does not survive normalisation, so the type|
+
+X9   option<(int, term)>                -> module X9|:nothing | (int, term) Go(int)|
+
+Y1   result<option<term>, binary>       -> /tmp/tmp.VgAewsmgcv/Y1/Y1.bs:3:37: error: `:nothing` is absorbed by `term`|  in Go|  the failure channel does not survive normalisation, so the type|
+
+Y2   Wrap<term>                         -> /tmp/tmp.VgAewsmgcv/Y2/Y2.bs:5:19: error: `:nothing` is absorbed by `term`|  in Go|  the failure channel does not survive normalisation, so the type|
+
+Y3   Wrap2<term>                        -> /tmp/tmp.VgAewsmgcv/Y3/Y3.bs:5:20: error: `:nothing` is absorbed by `term`|  in Go.2|  the failure channel does not survive normalisation, so the type|
+

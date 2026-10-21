@@ -1,0 +1,13 @@
+### 64/p1_representation_cost.sh
+OTP 28, word = 8 bytes
+value          bare  {some,V}   extra
+small int         0         3       3
+atom              0         3       3
+binary 20B        5         8       3
+list of 8        16        19       3
+map of 3         10        13       3
+(extra = the 2-tuple: 1 header word + tag word + payload slot, 3 words; payload itself is shared)
+bare   : present_but_nothing -> nothing ; missing -> nothing ; distinguishable? false
+tagged : present_but_nothing -> {some,nothing} ; missing -> nothing ; distinguishable? true
+50000000 round trips: bare 817 ms, tagged 1385 ms, delta 11.366 ns/op
+exit=0

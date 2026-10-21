@@ -1,0 +1,9 @@
+### 62/p3_alias_derivation_corpus.sh
+modules=29 exported-PascalCase-names=101 distinct=86
+gleam to_snake_case: within-module collisions on the corpus = 0 []
+elixir Macro.underscore: within-module collisions on the corpus = 0 []
+rules disagree on: []
+names with a digit or acronym run (where rules diverge in principle): []
+adversarial gleam : {'GetID': 'get_i_d', 'GetId': 'get_id', 'HTTPGet': 'h_t_t_p_get', 'HttpGet': 'http_get', 'Part1': 'part1', 'Part_1': 'part_1', 'ParseJSON': 'parse_j_s_o_n', 'ParseJson': 'parse_json'}
+adversarial elixir: GetID -> get_id; GetId -> get_id; HTTPGet -> http_get; HttpGet -> http_get; Part1 -> part1; Part_1 -> part_1; ParseJSON -> parse_json; ParseJson -> parse_json; 
+exit=0

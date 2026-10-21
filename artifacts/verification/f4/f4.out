@@ -1,0 +1,34 @@
+== module Elixir.Enum
+bsc-exit=0
+Elixir.Enum.abstr Elixir.Enum.beam 
+== module Erlang.Lists
+bsc-exit=0
+Erlang.Lists.abstr Erlang.Lists.beam 
+== module erlang.lists
+/tmp/tmp.VXv6kWIPWh/src/erlang/lists/m.bs:1:8: error: syntax error before: erlang
+bsc-exit=1
+ls: cannot access '/tmp/tmp.VXv6kWIPWh/out_erlang.lists': No such file or directory 
+== module lists
+/tmp/tmp.VXv6kWIPWh/src/lists/m.bs:1:8: error: syntax error before: lists
+bsc-exit=1
+ls: cannot access '/tmp/tmp.VXv6kWIPWh/out_lists': No such file or directory 
+== module Elixir
+bsc-exit=0
+Elixir.abstr Elixir.beam 
+== module Erlang
+bsc-exit=0
+Erlang.abstr Erlang.beam 
+== module Gleam.List
+bsc-exit=0
+Gleam.List.abstr Gleam.List.beam 
+== module kernel
+/tmp/tmp.VXv6kWIPWh/src/kernel/m.bs:1:8: error: syntax error before: kernel
+bsc-exit=1
+ls: cannot access '/tmp/tmp.VXv6kWIPWh/out_kernel': No such file or directory 
+== module Enum.Elixir
+bsc-exit=0
+Enum.Elixir.abstr Enum.Elixir.beam 
+== module Elixir.Enum.Foo
+bsc-exit=0
+Elixir.Enum.Foo.abstr Elixir.Enum.Foo.beam 
+beam module name: 'Elixir.Enum'

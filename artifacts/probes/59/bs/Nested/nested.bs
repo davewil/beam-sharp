@@ -1,0 +1,36 @@
+// 59 / probe 2 — can a FORGED record reach a private function without any exported guard having seen it?
+// Candidate paths: a record nested inside a tuple / list parameter, destructured by the exported head.
+module Nested
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+int PrivTotal(Order o)
+PrivTotal(o) -> o.Total
+
+// (a) record inside a tuple parameter, bound by a bare name
+public int ViaTuple((Order, int) p)
+ViaTuple((o, n)) -> PrivTotal(o)
+
+// (b) record inside a list parameter
+public int ViaList(list<Order> os)
+ViaList([o, ..rest]) -> PrivTotal(o)
+ViaList([])          -> 0
+
+// (c) control: the record is a top-level parameter
+public int Direct(Order o)
+Direct(o) -> PrivTotal(o)
+
+// (d) same nested record, projected in the EXPORTED body itself: no private function, so no second test anywhere
+public int Inline((Order, int) p)
+Inline((o, n)) -> o.Total
+
+// ---- the same nested path for the INT kind/range test (F24/F37), which is exported-only ----
+int PrivOctet(Octet n)
+PrivOctet(n) -> n
+
+public int OctetViaTuple((Octet, int) p)
+OctetViaTuple((n, k)) -> PrivOctet(n)
+
+public int OctetDirect(Octet n)
+OctetDirect(n) -> PrivOctet(n)

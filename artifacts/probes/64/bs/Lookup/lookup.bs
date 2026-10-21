@@ -1,0 +1,35 @@
+// 64 / probe 4 — a lookup at value type `term`, written two ways in today's B#.
+// Run: bsc bs/Lookup Describe ":a" "[(:a, :nothing)]"
+module Lookup
+
+// The author-declared tagged success. Parametric user types are shipped (LANGUAGE.md §Type aliases).
+type Found<T> = (:found, T) | :absent
+
+public Found<term> Find(atom k, list<(atom, term)> kvs)
+
+Find(k, [])                 -> :absent
+Find(k, [(== k, v), ..rest]) -> (:found, v)
+Find(k, [_, ..rest])        -> Find(k, rest)
+
+// The bare form the prelude would give at T = term. `option<term>` is refused, so the honest bare
+// signature is `term`: absence and a stored :nothing are one value.
+public term FindBare(atom k, list<(atom, term)> kvs)
+
+FindBare(k, [])                 -> :nothing
+FindBare(k, [(== k, v), ..rest]) -> v
+FindBare(k, [_, ..rest])        -> FindBare(k, rest)
+
+public atom Describe(atom k, list<(atom, term)> kvs)
+
+Describe(k, kvs) -> Find(k, kvs) switch {
+    (:found, :nothing) => :present_and_nothing,
+    (:found, _)        => :present,
+    :absent            => :absent
+}
+
+public atom DescribeBare(atom k, list<(atom, term)> kvs)
+
+DescribeBare(k, kvs) -> FindBare(k, kvs) switch {
+    :nothing => :absent_or_nothing,
+    _        => :present
+}

@@ -1,0 +1,101 @@
+##### 59-p1.txt
+SAME
+##### 59-p2.txt
+SAME
+##### 59-p3.txt
+SAME
+##### 59-p4.txt
+6c6
+< int test, 50000000 calls: plain 478 ms, guarded 511 ms, delta 0.675 ns/call
+---
+> int test, 50000000 calls: plain 487 ms, guarded 517 ms, delta 0.617 ns/call
+10c10
+< 50000000 calls: plain 495 ms, guarded 569 ms, delta 1.484 ns/call (loop overhead included in both)
+---
+> 50000000 calls: plain 486 ms, guarded 569 ms, delta 1.667 ns/call (loop overhead included in both)
+##### 59-p5.txt
+SAME
+##### 60-p1.txt
+5c5
+<    Compiled in 0.81s
+---
+>    Compiled in 0.95s
+11c11
+<    Compiled in 0.85s
+---
+>    Compiled in 0.99s
+15c15
+<    Compiled in 0.39s
+---
+>    Compiled in 0.41s
+##### 60-p2.txt
+SAME
+##### 60-p3.txt
+SAME
+##### 62-p1.txt
+13a14,16
+> --- does the Elixir formatter keep the quoted spelling, and does a plain compile warn?
+> x = :Shop."New"(1)
+> %{Id: 1, Kind: :"Shop.Order", Total: 0}
+##### 62-p2.txt
+5c5
+<    Compiled in 0.83s
+---
+>    Compiled in 0.93s
+##### 62-p3.txt
+SAME
+##### 62-p4.txt
+5,7c5,7
+<   skipped _tmp_tmp.yEFS6DZixP_1_Counter.abstr: init/1 -> init already exported
+<   skipped _tmp_tmp.yEFS6DZixP_1_Counter.abstr: handle_call/3 -> handle_call already exported
+<   skipped _tmp_tmp.yEFS6DZixP_1_Counter.abstr: handle_cast/2 -> handle_cast already exported
+---
+>   skipped _tmp_tmp.dzk6C5ZErC_1_Counter.abstr: init/1 -> init already exported
+>   skipped _tmp_tmp.dzk6C5ZErC_1_Counter.abstr: handle_call/3 -> handle_call already exported
+>   skipped _tmp_tmp.dzk6C5ZErC_1_Counter.abstr: handle_cast/2 -> handle_cast already exported
+##### 64-p1.txt
+12c12
+< 50000000 round trips: bare 817 ms, tagged 1385 ms, delta 11.366 ns/op
+---
+> 50000000 round trips: bare 792 ms, tagged 1373 ms, delta 11.618 ns/op
+##### 64-p2.txt
+6c6
+<    Compiled in 0.83s
+---
+>    Compiled in 0.88s
+##### 64-p3.txt
+7,8c7,8
+< B1    result<int, term>                  -> module B1
+< B2    result<binary, term>               -> module B2
+---
+> B1    result<int, term>                  -> int | (:error, term) Go(int)
+> B2    result<binary, term>               -> (:error, term) | binary Go(int)
+10,13c10,13
+< C1    option<list<term>>                 -> module C1
+< C2    option<map<string, term>>          -> module C2
+< C3    result<map<string, term>, binary>  -> module C3
+< C4    option<(atom, term)>               -> module C4
+---
+> C1    option<list<term>>                 -> :nothing | list<term> Go(int)
+> C2    option<map<string, term>>          -> :nothing | map<string, term> Go(int)
+> C3    result<map<string, term>, binary>  -> (:error, binary) | map<string, term> Go(int)
+> C4    option<(atom, term)>               -> :nothing | (atom, term) Go(int)
+15,17c15,17
+< D1    F                                  -> module D1
+< D2    F                                  -> module D2
+< D3    Found<term>                        -> module D3
+---
+> D1    F                                  -> :absent | (:ok, term) Go(int)
+> D2    F                                  -> :nothing | (:found, term) Go(int)
+> D3    Found<term>                        -> :absent | (:found, term) Go(int)
+##### 64-p4.txt
+SAME
+##### 65-p1.txt
+SAME
+##### 65-p2.txt
+21c21
+< type Result / type Bool shadowing the prelude -> src/g.gleam:4:17: Warning: type bool() is now called boolean(); please use the new name instead    Compiled in 0.83s 
+---
+> type Result / type Bool shadowing the prelude -> src/g.gleam:4:17: Warning: type bool() is now called boolean(); please use the new name instead    Compiled in 0.88s 
+##### 65-p3.txt
+SAME

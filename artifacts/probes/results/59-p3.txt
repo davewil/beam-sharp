@@ -1,0 +1,7 @@
+### 59/p3_guard_census.sh
+not buildable alone: exemplars/25f-llm-evaluation-client
+not buildable alone: exemplars/25g-jev-server
+compiled-dirs=28 failed-dirs=7 abstr-files=31
+modules=31
+exported fns with a guard: tag=14 int/kind=46 | private fns with a guard: tag=0 int/kind=1
+exit=0

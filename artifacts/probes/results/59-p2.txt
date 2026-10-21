@@ -1,0 +1,29 @@
+### 59/p2_forged_nested.sh
+--- emitted heads
+'PrivTotal'(O) when map_get('Kind', O) =:= 'Nested.Order' ->
+    map_get('Total', O).
+
+'ViaTuple'({O, _N}) ->
+    'PrivTotal'(O).
+
+'ViaList'([O | _Rest]) ->
+    'PrivTotal'(O);
+'ViaList'([]) ->
+    0.
+
+'Direct'(O) when map_get('Kind', O) =:= 'Nested.Order' ->
+    'PrivTotal'(O).
+
+'Inline'({O, _N}) ->
+    map_get('Total', O).
+
+--- run with a FORGED record (wrong Kind): { Kind = :'Other.Order', Id = 1, Total = 999 }
+Direct  : crashed: error:function_clause
+ViaTuple: crashed: error:function_clause
+ViaList : crashed: error:function_clause
+Inline  : 999
+--- the same question for the int test: a float / out-of-range value nested in a tuple, handed to a private Octet parameter
+OctetDirect(100.5)        : crashed: error:function_clause
+OctetViaTuple((100.5, 1)) : 100.5
+OctetViaTuple((300, 1))   : 300
+exit=0

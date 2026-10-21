@@ -1,0 +1,20 @@
+:Shop."New"(1)                       -> %{Id: 1, Kind: :"Shop.Order", Total: 0} 
+
+:Shop.New(1)                         -> ** (SyntaxError) invalid syntax found on nofile:1:21:     error: unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example: 
+
+:Hy."PKCS-1"(1)                      -> {:pkcs, 1} 
+
+:Hy.PKCS-1(1)                        -> ** (SyntaxError) invalid syntax found on nofile:1:16:     error: atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error bef
+
+:Hy."1st"(1)                         -> {:first, 1} 
+
+:Hy.1st(1)                           -> ** (SyntaxError) invalid syntax found on nofile:1:16:     error: invalid character "s" after number 1. If you intended to write a number, make sure to separate the number from the character (using com
+
+:Hy."A b"(1)                         -> {:ab, 1} 
+
+:Hy.New(1)                           -> ** (SyntaxError) invalid syntax found on nofile:1:19:     error: unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example: 
+
+:Hy."New"(1)                         -> {:n, 1} 
+
+:"Hy"."PKCS-1"(1)                    -> {:pkcs, 1} 
+

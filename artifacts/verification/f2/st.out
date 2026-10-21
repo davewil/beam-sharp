@@ -1,0 +1,67 @@
+Direct: function_clause in 'Nested':'Direct'/1
+     {'Nested','Direct',
+               [#{'Kind' => 'Other.Order','Id' => 1,'Total' => 999}],
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,22}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+     {st_escript__escript__1792__625368__950222__962,main,1,
+         [{file,"st.escript"},{line,8}]}
+ViaTuple: function_clause in 'Nested':'PrivTotal'/1
+     {'Nested','PrivTotal',
+               [#{'Kind' => 'Other.Order','Id' => 1,'Total' => 999}],
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,9}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+     {st_escript__escript__1792__625368__950222__962,main,1,
+         [{file,"st.escript"},{line,8}]}
+ViaList: function_clause in 'Nested':'PrivTotal'/1
+     {'Nested','PrivTotal',
+               [#{'Kind' => 'Other.Order','Id' => 1,'Total' => 999}],
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,9}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+     {st_escript__escript__1792__625368__950222__962,main,1,
+         [{file,"st.escript"},{line,8}]}
+Inline: returned 999
+OctetDirect: function_clause in 'Nested':'OctetDirect'/1
+     {'Nested','OctetDirect',
+               [100.5],
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,36}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+     {st_escript__escript__1792__625368__950222__962,main,1,
+         [{file,"st.escript"},{line,9}]}
+OctetViaTuple: returned 100.5
+OctetDirect: function_clause in 'Nested':'OctetDirect'/1
+     {'Nested','OctetDirect',
+               [300],
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,36}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+     {st_escript__escript__1792__625368__950222__962,main,1,
+         [{file,"st.escript"},{line,9}]}
+OctetViaTuple: returned 300
+Direct: {badkey,'Total'} in erlang:map_get/2
+     {erlang,map_get,
+             ['Total',#{'Kind' => 'Nested.Order','Id' => 1}],
+             [{error_info,#{module => erl_erts_errors}}]}
+     {'Nested','PrivTotal',1,
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,9}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+ViaTuple: {badkey,'Total'} in erlang:map_get/2
+     {erlang,map_get,
+             ['Total',#{'Kind' => 'Nested.Order','Id' => 1}],
+             [{error_info,#{module => erl_erts_errors}}]}
+     {'Nested','PrivTotal',1,
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,9}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}
+Inline: {badkey,'Total'} in erlang:map_get/2
+     {erlang,map_get,
+             ['Total',#{'Kind' => 'Nested.Order','Id' => 1}],
+             [{error_info,#{module => erl_erts_errors}}]}
+     {'Nested','Inline',1,
+               [{file,"../../probes/59/bs/Nested/nested.bs"},{line,26}]}
+     {st_escript__escript__1792__625368__950222__962,'-main/1-fun-1-',2,
+         [{file,"st.escript"},{line,5}]}

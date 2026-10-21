@@ -1,0 +1,25 @@
+### 64/p3_collapse_matrix.sh
+## T=term (success position)
+A1    option<term>                       -> /tmp/tmp.RrVoSi3VcK/A1/A1.bs:3:21: error: `:nothing` is absorbed by `term`
+A2    result<term, binary>               -> /tmp/tmp.RrVoSi3VcK/A2/A2.bs:3:29: error: `(:error, binary)` is absorbed by `term`
+A3    result<term, term>                 -> /tmp/tmp.RrVoSi3VcK/A3/A3.bs:3:27: error: `(:error, term)` is absorbed by `term`
+## E=term only (failure position) — ticket 64 Q3
+B1    result<int, term>                  -> int | (:error, term) Go(int)
+B2    result<binary, term>               -> (:error, term) | binary Go(int)
+## a concrete container of term
+C1    option<list<term>>                 -> :nothing | list<term> Go(int)
+C2    option<map<string, term>>          -> :nothing | map<string, term> Go(int)
+C3    result<map<string, term>, binary>  -> (:error, binary) | map<string, term> Go(int)
+C4    option<(atom, term)>               -> :nothing | (atom, term) Go(int)
+## the spellings that DO survive at term
+D1    F                                  -> :absent | (:ok, term) Go(int)
+D2    F                                  -> :nothing | (:found, term) Go(int)
+D3    Found<term>                        -> :absent | (:found, term) Go(int)
+## full text the author sees for option<term>
+Z1    option<term>                       -> /tmp/tmp.RrVoSi3VcK/Z1/Z1.bs:3:21: error: `:nothing` is absorbed by `term`
+  in Go
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, term) | :nothing
+exit=0

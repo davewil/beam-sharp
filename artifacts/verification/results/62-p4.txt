@@ -1,0 +1,10 @@
+### 62/p4_alias_cost.sh
+not buildable alone: exemplars/25f-llm-evaluation-client
+not buildable alone: exemplars/25g-jev-server
+compiled-dirs=28 failed-dirs=7 abstr-files=31
+  skipped _tmp_tmp.dzk6C5ZErC_1_Counter.abstr: init/1 -> init already exported
+  skipped _tmp_tmp.dzk6C5ZErC_1_Counter.abstr: handle_call/3 -> handle_call already exported
+  skipped _tmp_tmp.dzk6C5ZErC_1_Counter.abstr: handle_cast/2 -> handle_cast already exported
+modules=31 exports=112 aliases-added=109 skipped(name-clash)=3
+beam bytes: before=38092 after=41812 delta=3720 (34.1 B per alias, 9.8% growth)
+exit=0

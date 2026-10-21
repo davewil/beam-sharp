@@ -1,0 +1,11 @@
+### 64/p2_neighbours_lookup.sh
+== Elixir: Map.get/2 (bare, nil as absent) vs Map.fetch/2 (tagged)
+Map.get   (present-nil, missing): {nil, nil}
+Map.fetch (present-nil, missing): {{:ok, nil}, :error}
+== Gleam: Option(Dynamic) and dict.get at a dynamic value type
+   Compiled in 0.83s
+#(Ok(Nil), Error(Nil))
+#(Some(Nil), None)
+-- emitted Erlang for the Option type:
+15:-type option(GA) :: {some, GA} | none.
+exit=0

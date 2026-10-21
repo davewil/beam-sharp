@@ -1,0 +1,7 @@
+### 65/p3_elixir_root_clobber.sh
+Enum.map before: [2, 3]
+Logger - error: {removed_failing_filter,logger_translator}
+Runtime terminating during boot ({undef,[{'Elixir.Enum',reverse,[[<<"did_you_mean">>,<<"2-fun-2-">>]],[]},{'Elixir.Code.Identifier',extract_anonymous_fun_parent,1,[{file,"lib/code/identifier.ex"},{lin
+
+Crash dump is being written to: erl_crash.dump...done
+exit=0

@@ -1,0 +1,16 @@
+### 60/p1_gleam_internal.sh
+gleam 1.12.0
+== (c) owning package builds with its own internal import
+  Compiling lib
+   Compiled in 0.95s
+== (a) consumer names an internal module
+  Resolving versions
+  Compiling gleam_stdlib
+  Compiling lib
+  Compiling app
+   Compiled in 0.99s
+exit=0
+== (b) consumer calls an @internal function of a public module
+  Compiling app
+   Compiled in 0.41s
+exit=0

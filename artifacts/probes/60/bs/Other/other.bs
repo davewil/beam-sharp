@@ -1,0 +1,7 @@
+// A module nobody related to Shop.* — nothing in the language can say it may not name Shop.Internal.Pricing.
+module Other
+
+using Shop.Internal
+
+public int Go(int q)
+Go(q) -> Pricing.Total(q)

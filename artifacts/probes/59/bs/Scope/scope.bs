@@ -1,0 +1,26 @@
+// 59 / probe 1 — the same body, once exported and once private, for each of the two boundary guards.
+module Scope
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+// record TAG test (F3): exported and private
+public int PubTotal(Order o)
+PubTotal(o) -> o.Total
+
+int PrivTotal(Order o)
+PrivTotal(o) -> o.Total
+
+// int KIND test (F24): exported and private
+public int PubOctet(Octet n)
+PubOctet(n) -> n
+
+int PrivOctet(Octet n)
+PrivOctet(n) -> n
+
+// the strongest counterargument's path: a private callee reached THROUGH an exported function
+public int Through(Order o)
+Through(o) -> PrivTotal(o)
+
+public int ThroughOctet(Octet n)
+ThroughOctet(n) -> PrivOctet(n)

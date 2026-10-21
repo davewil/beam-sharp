@@ -1,0 +1,145 @@
+=== sanity with valid inputs
+### Direct { Kind = :'Nested.Order', Id = 1, Total = 5 }
+5
+[exit=0]
+
+### ViaTuple ({ Kind = :'Nested.Order', Id = 1, Total = 5 }, 1)
+5
+[exit=0]
+
+### ViaList [{ Kind = :'Nested.Order', Id = 1, Total = 5 }]
+5
+[exit=0]
+
+### Inline ({ Kind = :'Nested.Order', Id = 1, Total = 5 }, 1)
+5
+[exit=0]
+
+### OctetDirect 100
+100
+[exit=0]
+
+### OctetViaTuple (100, 1)
+100
+[exit=0]
+
+=== wrong Kind
+### Direct { Kind = :'Other.Order', Id = 1, Total = 999 }
+crashed: error:function_clause
+[exit=0]
+
+### ViaTuple ({ Kind = :'Other.Order', Id = 1, Total = 999 }, 1)
+crashed: error:function_clause
+[exit=0]
+
+### ViaList [{ Kind = :'Other.Order', Id = 1, Total = 999 }]
+crashed: error:function_clause
+[exit=0]
+
+### Inline ({ Kind = :'Other.Order', Id = 1, Total = 999 }, 1)
+999
+[exit=0]
+
+=== missing field, right Kind
+### Direct { Kind = :'Nested.Order', Id = 1 }
+crashed: badkey :'Total'
+[exit=0]
+
+### ViaTuple ({ Kind = :'Nested.Order', Id = 1 }, 1)
+crashed: badkey :'Total'
+[exit=0]
+
+### ViaList [{ Kind = :'Nested.Order', Id = 1 }]
+crashed: badkey :'Total'
+[exit=0]
+
+### Inline ({ Kind = :'Nested.Order', Id = 1 }, 1)
+crashed: badkey :'Total'
+[exit=0]
+
+=== non-map
+### Direct 5
+crashed: error:function_clause
+[exit=0]
+
+### ViaTuple (5, 1)
+crashed: error:function_clause
+[exit=0]
+
+### ViaList [5]
+crashed: error:function_clause
+[exit=0]
+
+### Inline (5,1)
+crashed: badmap 5
+[exit=0]
+
+=== floats / ints
+### OctetDirect 100.5
+crashed: error:function_clause
+[exit=0]
+
+### OctetViaTuple (100.5, 1)
+100.5
+[exit=0]
+
+### OctetDirect 300
+crashed: error:function_clause
+[exit=0]
+
+### OctetViaTuple (300, 1)
+300
+[exit=0]
+
+### OctetDirect -1
+crashed: error:function_clause
+[exit=0]
+
+### OctetViaTuple (-1, 1)
+-1
+[exit=0]
+
+### OctetViaTuple :a
+crashed: error:function_clause
+[exit=0]
+
+### OctetViaTuple (:a, 1)
+:a
+[exit=0]
+
+=== emitted
+bs@type_atoms() ->
+    ['Id', 'Kind', 'Nested.Order', 'Total'].
+
+'PrivTotal'(O) when map_get('Kind', O) =:= 'Nested.Order' ->
+    map_get('Total', O).
+
+'ViaTuple'({O, _N}) ->
+    'PrivTotal'(O).
+
+'ViaList'([O | _Rest]) ->
+    'PrivTotal'(O);
+'ViaList'([]) ->
+    0.
+
+'Direct'(O) when map_get('Kind', O) =:= 'Nested.Order' ->
+    'PrivTotal'(O).
+
+'Inline'({O, _N}) ->
+    map_get('Total', O).
+
+'PrivOctet'(N) ->
+    N.
+
+'OctetViaTuple'({N, _K}) ->
+    'PrivOctet'(N).
+
+'OctetDirect'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    'PrivOctet'(N).
+

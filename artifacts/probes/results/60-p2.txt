@@ -1,0 +1,10 @@
+### 60/p2_elixir_erlang_advisory.sh
+== Elixir
+Elixir 1.18.4 (compiled with Erlang/OTP 28)
+App.run(): 1
+exit=0
+== Erlang
+OTP 28
+app:run() = 1
+erlc exit=0
+exit=0

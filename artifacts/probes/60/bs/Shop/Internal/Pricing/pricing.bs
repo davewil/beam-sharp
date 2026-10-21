@@ -1,0 +1,7 @@
+module Shop.Internal.Pricing
+
+public int Total(int qty)
+Total(qty) -> Helper(qty)
+
+int Helper(int qty)
+Helper(qty) -> qty * 3

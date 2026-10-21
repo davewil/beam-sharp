@@ -1,0 +1,30 @@
+  Resolving versions
+  Compiling gleam_stdlib
+  Compiling g
+   Compiled in 0.79s
+gleam-build-exit=0
+--- beams named gleam@list
+build/dev/erlang/g/_gleam_artefacts/gleam@list.cache
+build/dev/erlang/g/_gleam_artefacts/gleam@list.cache_meta
+build/dev/erlang/g/_gleam_artefacts/gleam@list.cache_warnings
+build/dev/erlang/g/_gleam_artefacts/gleam@list.erl
+build/dev/erlang/g/ebin/gleam@list.beam
+build/dev/erlang/gleam_stdlib/_gleam_artefacts/gleam@list.cache
+build/dev/erlang/gleam_stdlib/_gleam_artefacts/gleam@list.cache_meta
+build/dev/erlang/gleam_stdlib/_gleam_artefacts/gleam@list.erl
+build/dev/erlang/gleam_stdlib/ebin/gleam@list.beam
+--- sizes/md5
+06dc7a6891ea0fedaf09fb745a5cba62  build/dev/erlang/g/ebin/gleam@list.beam
+0470e592a2ae5647afaabc783730f32e  build/dev/erlang/gleam_stdlib/ebin/gleam@list.beam
+--- g.erl call
+9:    gleam@list:length([1, 2, 3]).
+code path order [g gleam_stdlib]: 3 "/tmp/tmp.nOWKl7Y9fE/g/build/dev/erlang/gleam_stdlib/ebin/gleam@list.beam"
+code path order [gleam_stdlib g]: 99 "/tmp/tmp.nOWKl7Y9fE/g/build/dev/erlang/g/ebin/gleam@list.beam"
+--- gleam_stdlib/ebin also has gleam@list.beam?
+2
+--- does gleam test/run use which path order?
+   Compiled in 0.01s
+    Running g.main
+--- what does stdlib's own code do (e.g. gleam@list:length vs gleam@string using list)
+string.join: <<"a,b">>
+string.join (stdlib first): <<"a,b">>

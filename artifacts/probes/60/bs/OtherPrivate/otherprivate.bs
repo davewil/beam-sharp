@@ -1,0 +1,7 @@
+// Control for the WHAT half: the same unrelated module naming a PRIVATE function.
+module OtherPrivate
+
+using Shop.Internal
+
+public int GoPrivate(int q)
+GoPrivate(q) -> Pricing.Helper(q)

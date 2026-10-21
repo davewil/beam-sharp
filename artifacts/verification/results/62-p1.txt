@@ -1,0 +1,17 @@
+### 62/p1_elixir_call_syntax.sh
+Elixir 1.18.4 (compiled with Erlang/OTP 28)
+:Shop.New(1)                                   -> ** (SyntaxError) invalid syntax found on nofile:1:21:
+:"Shop".New(1)                                 -> ** (SyntaxError) invalid syntax found on nofile:1:23:
+:"BSharp.Shop".New(1)                          -> ** (SyntaxError) invalid syntax found on nofile:1:30:
+:Shop."New"(1)                                 -> %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:"Shop"."New"(1)                               -> %{Id: 1, Kind: :"Shop.Order", Total: 0}
+apply(:Shop, :New, [1])                        -> %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:erlang.apply(:Shop, :New, [1])                -> %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:Shop.new(1)                                   -> %{Id: 1, Kind: :"Shop.Order", Total: 0}
+--- defdelegate shim, one line per function, in the adopter's own code
+%{Id: 7, Kind: :"Shop.Order", Total: 0}
+:order
+--- does the Elixir formatter keep the quoted spelling, and does a plain compile warn?
+x = :Shop."New"(1)
+%{Id: 1, Kind: :"Shop.Order", Total: 0}
+exit=0

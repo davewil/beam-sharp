@@ -1,0 +1,10 @@
+### 60/p3_bsc_who_half.sh
+== the WHO half: an unrelated module names Shop.Internal.Pricing.Total (a public function)
+12
+== control for the WHAT half: an unrelated module names the private Helper
+/home/user/beam-sharp/artifacts/probes/60/bs/OtherPrivate/otherprivate.bs:7:24: error: GoPrivate calls Shop.Internal.Pricing.Helper/1, which Shop.Internal.Pricing declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Internal.Pricing, or move the call inside it.
+== a compile-time rule cannot bind foreign callers: Elixir calls the "internal" module directly
+:"Shop.Internal.Pricing"."Total"(4): 12
+exit=0

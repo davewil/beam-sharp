@@ -1,0 +1,31 @@
+### 59/p5_elixir_defp_struct_head.sh
+Elixir 1.18.4 (compiled with Erlang/OTP 28)
+priv(#{'__struct__' := 'Elixir.Probe'} = _o@1) ->
+    case _o@1 of
+        #{total := _@2} ->
+            _@2;
+        _@2 ->
+            case elixir_erl_pass:no_parens_remote(_@2, total) of
+                {ok, _@1} ->
+                    _@1;
+                _ ->
+                    error({badkey, total, _@2})
+            end
+    end.
+priv_plain(_o@1) ->
+    case _o@1 of
+        #{total := _@2} ->
+            _@2;
+        _@2 ->
+            case elixir_erl_pass:no_parens_remote(_@2, total) of
+                {ok, _@1} ->
+                    _@1;
+                _ ->
+                    error({badkey, total, _@2})
+            end
+    end.
+pub(#{'__struct__' := 'Elixir.Probe'} = _o@1) ->
+    priv(_o@1).
+pub_plain(_o@1) ->
+    priv_plain(_o@1).
+exit=0

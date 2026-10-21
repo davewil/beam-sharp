@@ -1,0 +1,6 @@
+### 64/p4_lookup_in_bsharp.sh
+Describe     k=:a kvs=[(:a, :nothing)]   -> :present_and_nothing
+Describe     k=:a kvs=[(:b, 1)]          -> :absent
+DescribeBare k=:a kvs=[(:a, :nothing)]   -> :absent_or_nothing
+DescribeBare k=:a kvs=[(:b, 1)]          -> :absent_or_nothing
+exit=0

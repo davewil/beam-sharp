@@ -1,0 +1,23 @@
+### 59/p1_emitted_guards.sh
+'PubTotal'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    map_get('Total', O).
+
+'PrivTotal'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    map_get('Total', O).
+
+'PubOctet'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    N.
+
+'PrivOctet'(N) ->
+    N.
+
+'Through'(O) when map_get('Kind', O) =:= 'Scope.Order' ->
+    'PrivTotal'(O).
+
+exit=0

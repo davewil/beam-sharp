@@ -1,0 +1,24 @@
+### 65/p2_neighbours_shadowing.sh
+== Elixir Elixir 1.18.4 (compiled with Erlang/OTP 28): defmodule Map (the standard module's own name)
+    warning: redefining module Map (current version loaded from /tmp/tc/src/elixir/lib/elixir/ebin/Elixir.Map.beam)
+    \x{2502}
+  1 \x{2502} defmodule Map do
+    \x{2502} ~~~~~~~~~~~~~~~~
+    \x{2502}
+    \x{2514}\x{2500} /tmp/tmp.2EDDPpyaAZ/map.exs:1: Map (module)
+
+Map.hello(): :mine
+Map.get/2 still exported?: false
+Enum.into(kw, %{})  (Enum calls into Map): %{a: 1}
+** (EXIT from #PID<0.95.0>) an exception was raised:
+    ** (UndefinedFunctionError) function Map.update!/3 is undefined or private
+
+== Erlang: -type map() / -type list(T) redefining a built-in type, per OTP
+OTP 25: t.erl:3:2: type map() is a builtin type; it cannot be redefined %    3| -type map() :: {my, map}. (exit 0)
+OTP 28: t.erl:3:2: Warning: local redefinition of built-in type: map() %    3| -type map() :: {my, map}. (exit 0)
+
+== Gleam gleam 1.12.0: user type named like a prelude type; user module named like a stdlib module
+type Result / type Bool shadowing the prelude -> src/g.gleam:4:17: Warning: type bool() is now called boolean(); please use the new name instead    Compiled in 0.88s 
+src/list.gleam beside import gleam/list     ->   Compiling g    Compiled in 0.37s 
+src/gleam/list.gleam (same path as stdlib)  ->   Compiling g    Compiled in 0.39s 
+exit=0

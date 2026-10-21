@@ -1,0 +1,30 @@
+### 65/p1_bsc_reserved_surface.sh
+## reserved qualifiers as a module name (bare vs dotted)
+A1   module Map public int Go(int x) Go(x) -> x     -> Map/m.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+A2   module List public int Go(int x) Go(x) -> x    -> List/m.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+A3   module Term public int Go(int x) Go(x) -> x    -> Term/m.bs:1:1: error: `Term` is a reserved qualifier, so no module may be called it
+A4   module Shop.Collections.List public int Go(int -> module Shop.Collections.List
+## names the standard environment has NOT reserved (but ticket 96 plans to qualify)
+B_String module String public int Go(int x) Go(x) -> x  -> module String
+B_Int module Int public int Go(int x) Go(x) -> x     -> module Int
+B_Process module Process public int Go(int x) Go(x) -> x -> module Process
+B_GenServer module GenServer public int Go(int x) Go(x) -> -> module GenServer
+B_Supervisor module Supervisor public int Go(int x) Go(x) - -> module Supervisor
+B_Logger module Logger public int Go(int x) Go(x) -> x  -> module Logger
+B_Json module Json public int Go(int x) Go(x) -> x    -> module Json
+## other positions: a user TYPE or RECORD, FUNCTION, or generic named like a prelude/reserved word
+C1   module TypeOption type option<T> = T | :none p -> TypeOption/m.bs:3:6: error: syntax error before: option
+C2   module TypeMap record Map { Id: int } public i -> module TypeMap
+C3   module TypeTerm type term = int public int Go( -> TypeTerm/m.bs:3:6: error: syntax error before: term
+C4   module FnList public int List(int x) List(x) - -> module FnList
+C5   module FnRaise public int Raise(int x) Raise(x -> module FnRaise
+C6   module FnMapGet public int Map(int x) Map(x) - -> module FnMapGet
+C7   module TypeExit record Exit { Id: int } public -> TypeExit/m.bs:3:1: error: Exit is a compiler-known type and cannot be redeclared
+C8   module TypeDown type Down = int public int Go( -> TypeDown/m.bs:3:1: error: Down is a compiler-known type and cannot be redeclared
+## the compiler-owned export prefix (ticket 87): can an author spell `bs@type_atoms`?
+D1   module AtName public int bs@type_atoms(int x)  -> AtName/m.bs:3:14: error: illegal characters "@"
+D2   module CapName public int Bs(int x) Bs(x) -> x -> module CapName
+## a module whose dotted path starts with a root another BEAM language owns (flat atom namespace)
+E1   module Elixir.Enum -> 
+Elixir.Enum.abstr Elixir.Enum.beam 
+exit=0
