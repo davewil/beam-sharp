@@ -67,7 +67,7 @@ judge() {
   local dir="$1" p st
 
   # --- the stopwatch, over every probe including the controls -------------
-  for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10 R11; do
+  for p in R1 R2 R3 R4 R5 R6 R6b R7 R8 R9 R10 R11 R12 R13 R14 R15; do
     st="$(cat "$dir/$p.st")"
     if [ "$st" = "hung" ]; then
       echo "$p: exceeded the ${BUDGET}s budget -- the walk did not terminate. This is the failure the gate exists for: an unmemoised walk over a regular tree is not slow, it is infinite."
@@ -97,6 +97,19 @@ judge() {
   check_ok R7 ":ok" "EQUIRECURSIVE -- two spellings are one type; a nominal binder fails exactly here"
   check_ok R9 "(:node, :leaf, (:node, :leaf, :leaf))" "ValidateAs over a recursive type terminates AND round-trips a nested value (F18's owed obligation)"
   check_ok R10 ":ok" "recursion through a BARE LIST, matched -- no tuple anywhere, and the shape that hung"
+  check_ok R12 '{"ok" = 1}' "a map<K, V> member of a recursive union holds a map -- the unfolding must keep the member"
+  check_ok R13 '{"rows" = [{"a" = 1}]}' "ValidateAs over ticket 09's JSON value type round-trips a NESTED object"
+  check_ok R14 '1' "a parameter of the JSON value type, returned unchanged -- the shape that hung (ENG-609)"
+
+  # --- R15: a missing map clause is REPORTED, naming the member ------------
+  local r15
+  r15="$(cat "$dir/R15.out")"
+  if [ "$(cat "$dir/R15.st")" != "hung" ]; then
+    case "$r15" in
+      *"map<string, int>"*) ;;
+      *) echo "R15: a function over a recursive union with no clause for its map member must be refused naming \`map<string, int>\` (got '$r15') -- with the member dropped, the residual omits it" ;;
+    esac
+  fi
 
   # --- R8: the residual is computed, names `:leaf`, and RETURNS ------------
   local r8
@@ -360,6 +373,64 @@ public :ok F(T<int> t)
 F(t) -> :ok
 '
   shot R11 R11 F 1
+
+  # R12 -- A MAP MEMBER OF A RECURSIVE UNION (ENG-552). The map member does not
+  # even mention `J`; what matters is that `J` is recursive, so every read of it
+  # goes through `unfold/1`. A `map<K, V>` member is the one map shape held as a
+  # 3-tuple, and an unfolding that walks members as 2-tuples drops it in
+  # silence: `{ "ok" = 1 }` is then "not covered" by a type that names
+  # `map<string, int>` outright. The non-recursive twin always compiled, which
+  # is why no probe above saw it -- R1 to R11 have no map member.
+  mk R12 'module R12
+
+type J = int | map<string, int> | list<J>
+
+public J Flat()
+Flat() -> { "ok" = 1 }
+'
+  shot R12 R12 Flat
+
+  # R13 -- the same member, through the validator and NESTED: ticket 09's own
+  # JSON value type. A flat object is not enough -- the member has to survive
+  # each unfolding the generated validator makes as it descends, and an object
+  # inside a list inside an object makes it descend through both crossings.
+  mk R13 'module R13
+
+type Json = :null | bool | int | float | string | list<Json> | map<string, Json>
+
+public result<Json, ValidationError> Check(term t)
+Check(t) -> ValidateAs<Json>(t)
+'
+  shot R13 R13 Check '#{<<"rows">> => [#{<<"a">> => 1}]}'
+
+  # R14 -- ENG-609's program. MATCHED rather than built: a parameter drives the
+  # subtraction that has to close, and with the map member dropped from one
+  # side of the pair and not the other, the pairs never repeated and the walk
+  # never ended.
+  mk R14 'module R14
+
+type Json = :null | bool | int | float | string | list<Json> | map<string, Json>
+
+public Json F(Json j)
+F(j) -> j
+'
+  shot R14 R14 F 1
+
+  # R15 -- the soundness half. Clauses for every member BUT the map: the
+  # residual is exactly the map member, and must be named. With the member
+  # dropped this did not come back false-exhaustive -- it hung -- but a
+  # residual that silently omits a member is the failure the type system
+  # exists to prevent, so the assertion is on the name, not only the clock.
+  mk R15 'module R15
+
+type J = int | map<string, int> | list<J>
+
+public atom Kind(J j)
+Kind(int n)    -> :int
+Kind([])       -> :list
+Kind([h, ..t]) -> :list
+'
+  shot R15 R15 Kind 3
 }
 
 # ---------------------------------------------------------------------------
@@ -401,13 +472,20 @@ if [ "${1:-}" = "--self-test" ]; then
   # R9's round trip: the nested value comes back unchanged, which it can only do
   # if the generated validator called itself.
   VALID="(:node, :leaf, (:node, :leaf, :leaf))"
+  MAPFLAT='{"ok" = 1}'
+  MAPVALID='{"rows" = [{"a" = 1}]}'
+  MAPRESIDUAL='R15.bs:5:13: error: Kind is not exhaustive
+  no clause matches:
+    Kind(m: map<string, int>) -> ...'
   NONREG="R11.bs: error: T recurs at a different type argument each time
   the recursion passes through a constructor, so the definition is
   contractive -- but each unfolding names a WIDER argument than the
   last, so it never comes back to itself and there is no finite
   type to hold it."
 
-  # stub <name> <R1> <R2> <R3> <R4> <R5> <R6> <R6b> <R7> <R8> <R9>
+  # stub <name> <R1> <R2> <R3> <R4> <R5> <R6> <R6b> <R7> <R8> <R9> <R10> <R11>
+  # R12 and R13, the map-member probes, take their correct output here; only
+  # `map_dropped` overrides them, so each defect is seen by the probe aimed at it.
   # every .st is `ok` unless overridden afterwards.
   stub() {
     local d="$W/$1"; shift
@@ -418,6 +496,10 @@ if [ "${1:-}" = "--self-test" ]; then
       printf 'ok' > "$d/$p.st"
       i=$((i + 1))
     done
+    printf '%s' "$MAPFLAT" > "$d/R12.out"; printf 'ok' > "$d/R12.st"
+    printf '%s' "$MAPVALID" > "$d/R13.out"; printf 'ok' > "$d/R13.st"
+    printf '1' > "$d/R14.out"; printf 'ok' > "$d/R14.st"
+    printf '%s' "$MAPRESIDUAL" > "$d/R15.out"; printf 'rc1' > "$d/R15.st"
   }
 
   # The correct form: positives run, both controls refuse, the residual names
@@ -472,7 +554,25 @@ if [ "${1:-}" = "--self-test" ]; then
   printf 'rc1' > "$W/non_regular_accepted/R6b.st"
   printf 'rc1' > "$W/non_regular_accepted/R8.st"
 
-  for bad in silent unsound hung name_keyed isorecursive list_blind non_regular_accepted; do
+  # THE MAP MEMBER DROPPED ON UNFOLDING (ENG-552), as it shipped from F28 until
+  # 2026-10-21. Every other probe is green over it, because none of them has a
+  # map member: the recursive type checks and validates, minus one member.
+  # The checker refuses `Flat`, the validator refuses every JSON object, and a
+  # match over the type -- R14's parameter, R15's clauses -- never returns.
+  # Measured on master at 019533d, before the fix.
+  MAPDROP='R12.bs:6:1: error: Flat returns a value its signature does not declare
+  not covered by the declared return type:
+    { "ok": _ }'
+  MAPREFUSED="(:error, {Kind = :'ValidationError', Expected = \"Json\", Path = [], Reason = :mismatch})"
+  stub map_dropped "2" ":ok" ":ok" ":ok" ":ok" "$NONCON" "$NONCONB" ":ok" "$RESIDUAL" "$VALID" ":ok" "$NONREG"
+  printf 'rc1' > "$W/map_dropped/R6.st"; printf 'rc1' > "$W/map_dropped/R6b.st"
+  printf 'rc1' > "$W/map_dropped/R8.st"
+  printf '%s' "$MAPDROP" > "$W/map_dropped/R12.out"; printf 'rc1' > "$W/map_dropped/R12.st"
+  printf '%s' "$MAPREFUSED" > "$W/map_dropped/R13.out"
+  printf '' > "$W/map_dropped/R14.out"; printf 'hung' > "$W/map_dropped/R14.st"
+  printf '' > "$W/map_dropped/R15.out"; printf 'hung' > "$W/map_dropped/R15.st"
+
+  for bad in silent unsound hung name_keyed isorecursive list_blind non_regular_accepted map_dropped; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -537,7 +637,7 @@ if [ "${1:-}" = "--self-test" ]; then
   fi
 
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: seven stubbed defects and one real hang, correct form accepted"
+  echo "self-test passed: eight stubbed defects and one real hang, correct form accepted"
   exit 0
 fi
 

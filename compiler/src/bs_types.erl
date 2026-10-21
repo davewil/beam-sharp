@@ -160,10 +160,17 @@ subst_rec(T, N, Sub) ->
                  end,
        lists  => [sp_map(fun(C) -> subst_rec(C, N, Sub) end, S)
                   || S <- maps:get(lists, T)],
+       %% Domain rules must survive substitution: a 2-tuple generator would
+       %% skip them, and every unfolding would drop the `map<K, V>` member.
        maps   => case maps:get(maps, T) of
                      top -> top;
-                     Ms  -> [{K, maps:map(fun(_, C) -> subst_rec(C, N, Sub) end, F)}
-                             || {K, F} <- Ms]
+                     Ms  -> [case M of
+                                 {dom, K, V} -> {dom, subst_rec(K, N, Sub),
+                                                 subst_rec(V, N, Sub)};
+                                 {Kind, F}   -> {Kind, maps:map(fun(_, C) ->
+                                                                    subst_rec(C, N, Sub)
+                                                                end, F)}
+                             end || M <- Ms]
                  end,
        funs   => case maps:get(funs, T) of
                      top -> top;

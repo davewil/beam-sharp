@@ -170,3 +170,57 @@ a_domain_map_prints_as_it_is_written_test() ->
                               "Go(n) -> n\n")]),
     bad_rc(Out),
     has(Out, "map<atom, int>").
+
+%%% A domain member of a recursive union (ENG-552, ENG-609)
+%%%
+%%% Every read of a recursive type unfolds it, and the unfolding walked map
+%%% members as 2-tuples, so a `map<K, V>` member vanished from each one. The
+%%% non-recursive twin always compiled, which is why it went unseen. Four
+%%% faces of the one defect: a map refused where the type names it, a validator
+%%% refusing every JSON object, a match over the type that never returned, and
+%%% a residual that could not name the member it lacked.
+
+json() ->
+    "type Json = :null | bool | int | float | string | list<Json>"
+    " | map<string, Json>\n\n".
+
+a_domain_member_of_a_recursive_union_holds_a_map_test() ->
+    ok_rc(compile_set([caller("type J = int | map<string, int> | list<J>\n\n"
+                              "public J Flat()\n"
+                              "Flat() -> { \"ok\" = 1 }\n")])).
+
+the_json_value_type_holds_a_nested_object_test() ->
+    ok_rc(compile_set([caller(json() ++
+                              "public Json Nested()\n"
+                              "Nested() -> { \"rows\" = [{ \"a\" = 1 }] }\n")])).
+
+validate_as_the_json_value_type_round_trips_objects_test() ->
+    M = bs_test_support:build_and_load(
+          "module VaJson\n" ++ json() ++
+          "public result<Json, ValidationError> Check(term t)\n"
+          "Check(t) -> ValidateAs<Json>(t)\n", 'VaJson'),
+    Flat   = #{<<"a">> => 1},
+    Nested = #{<<"rows">> => [#{<<"a">> => #{<<"b">> => [null, true, 1.5, <<"s">>]}}]},
+    ?assertEqual(Flat, M:'Check'(Flat)),
+    ?assertEqual(Nested, M:'Check'(Nested)),
+    %% The member is offered, not waved through: a key outside `string` is
+    %% still refused, and named where it stands.
+    ?assertEqual(bs_test_support:validation_error([<<"[:a]">>], <<"string">>),
+                 M:'Check'(#{a => 1})).
+
+a_parameter_of_the_json_value_type_returns_test() ->
+    M = bs_test_support:build_and_load(
+          "module JsonId\n" ++ json() ++
+          "public Json F(Json j)\n"
+          "F(j) -> j\n", 'JsonId'),
+    ?assertEqual(#{<<"a">> => [1]}, M:'F'(#{<<"a">> => [1]})).
+
+a_missing_clause_for_the_domain_member_is_named_test() ->
+    Out = compile_set([caller("type J = int | map<string, int> | list<J>\n\n"
+                              "public atom Kind(J j)\n"
+                              "Kind(int n)    -> :int\n"
+                              "Kind([])       -> :list\n"
+                              "Kind([h, ..t]) -> :list\n")]),
+    bad_rc(Out),
+    has(Out, "Kind is not exhaustive"),
+    has(Out, "map<string, int>").

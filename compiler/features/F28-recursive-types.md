@@ -296,6 +296,27 @@ narrower: `children/1` and `validator_form/3` destructure the six-part map and a
 `validator_form/3` now keeps the binder for the **error** — a failure says `expected Tree`, the
 author's own word — and takes the unfolding for the **clauses**.
 
+## A member every unfolding dropped — 2026-10-21, ENG-552 and ENG-609
+
+**`unfold/1` lost the `map<K, V>` member of any recursive union, in silence.** `subst_rec/3`
+walked the map part with a `{K, F} <- Ms` generator. A domain rule is the 3-tuple `{dom, K, V}`,
+held that way on purpose to keep it out of field-set operations, and a generator skips what its
+pattern does not match. Substitution is not a field-set operation, so every unfolding returned the
+union minus its map member. `components/1`, three functions down, already handled `dom`.
+
+One cause, four faces, all measured on `019533d`:
+
+| Program | Before |
+|---|---|
+| `type J = int \| map<string, int> \| list<J>`, `Flat() -> { "ok" = 1 }` | refused: `{ "ok": _ }` not covered |
+| `ValidateAs<Json>` on ticket 09's JSON value type | every object refused, `Path = []` |
+| `F(Json j) -> j` (ENG-609) | **hung** |
+| clauses for every member of `J` but the map | **hung**; never reached a residual |
+
+The non-recursive twin always compiled, and none of R1–R11 had a map member, so nothing saw it.
+**One probe per constructor kind** is R10's lesson, and the map crossing was the kind without
+one. R12–R15 are those probes, and `--self-test`'s `map_dropped` is the defect as it shipped.
+
 ## Out of scope
 
 - **Deciding anything.** Ticket 09 settled equirecursive, contractive, and coinductive subtyping on
