@@ -18,7 +18,9 @@
                 "B# signature (polymorphic ones typed as F45 types a polymorphic call)";
                 here it is still `reserved_sig/4`'s hand-written clauses, one per row,
                 with `Map`/`Filter`/`Fold`'s expectation logic in `reserved_args/5`. The
-                next row that adds a polymorphic signature owes that move
+                next row that adds a polymorphic signature owes that move. **F75 made it
+                (2026-10-21)** for `Sum`, `Length`, `Reverse`, `Sort` and `Float.FromInt`;
+                `Map`, `Filter`, `Fold`, `FoldRight` and `Term.Compare` keep their clauses
 
 ## The program
 

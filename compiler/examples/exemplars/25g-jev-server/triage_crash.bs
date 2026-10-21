@@ -27,5 +27,5 @@ private (:noreply, State) Answered(term from, Labels labels, reference ref, Stat
 
 Answered(from, labels, ref, s) ->
     var _ = :gen_server.reply(from, labels)
-    (:noreply, s with { Pending = :maps.remove(ref, s.Pending) })
+    (:noreply, s with { Pending = Map.Remove(s.Pending, ref) })
 

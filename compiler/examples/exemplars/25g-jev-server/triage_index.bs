@@ -19,7 +19,7 @@ record Config { Send: Send, Token: string }
 
 // The pending requests, by monitor reference, so a crashed one can still be
 // answered. `map<term, term>` because `Map.Get` is not built.
-record State  { Send: Send, Token: string, Pending: map<term, term> }
+record State  { Send: Send, Token: string, Pending: map<reference, term> }
 
 // The answers this server asks for, by the names it asked them under. Open,
 // because the model may answer more than it was asked and 25f's `Answers`
@@ -36,9 +36,6 @@ using :gen_server {
 }
 
 using :maps {
-    map<term, term> from_list(list<(string, Answer)> pairs)
-    map<term, term> put(term key, term value, map<term, term> m)
-    map<term, term> remove(term key, map<term, term> m)
     (:ok, term) | :error find(term key, map<term, term> m)
 }
 

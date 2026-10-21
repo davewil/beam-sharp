@@ -23,7 +23,7 @@
 -export([opaque/1]).
 %% F60: the compiler-known named views of the tuples OTP sends.
 -export([views/0, is_view/1, view_of_tuple/1, view_parts/1]).
--export([map_closed/1, map_open/1, map_dom/2, is_dom/1]).
+-export([map_closed/1, map_open/1, map_dom/2, is_dom/1, map_kv/1]).
 -export([fun_ty/2, arrows/1, funs_of/1]).
 -export([union/2, union/1, intersect/2, subtract/2]).
 -export([is_none/1, is_open/1, is_subtype/2, to_string/1, to_pattern/1,
@@ -410,6 +410,24 @@ map_member(Kind, Fields) when is_map(Fields) ->
 %% The empty map inhabits every domain rule, even with empty K or V. Unlike
 %% required named fields, empty key or value types do not empty it.
 map_dom(K, V) -> (none())#{maps => [{dom, K, V}]}.
+
+%% The keys and values a type's map part can hold, as `{K, V}`: what a
+%% polymorphic `map<K, V>` parameter reads from its argument, as `list_elem/1`
+%% is for `list<T>`. A named field contributes its key as a literal; an open
+%% member can hold any key and value beyond its fields.
+map_kv(#{maps := top}) -> {term(), term()};
+map_kv(#{maps := Ms}) ->
+    Parts = [kv(M) || M <- Ms],
+    {union([K || {K, _} <- Parts]), union([V || {_, V} <- Parts])};
+map_kv(_) -> {none(), none()}.
+
+kv({dom, K, V})      -> {K, V};
+kv({open, _Fields})  -> {term(), term()};
+kv({closed, Fields}) ->
+    {union([key_lit(K) || K <- maps:keys(Fields)]), union(maps:values(Fields))}.
+
+key_lit(K) when is_atom(K)   -> atom_lit(K);
+key_lit(K) when is_binary(K) -> str_lit(K).
 
 %% The checker refuses domain-map patterns based on the type.
 is_dom(#{maps := Ms}) when is_list(Ms) ->

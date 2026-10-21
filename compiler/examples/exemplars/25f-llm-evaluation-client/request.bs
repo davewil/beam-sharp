@@ -21,25 +21,25 @@ Body(m, state, qs) -> :erlang.iolist_to_binary(:json.encode(Envelope(m, state, q
 private map<term, term> Envelope(Model m, Json state, list<(string, Question)> qs)
 
 Envelope(Model { Provider: :typesafe } m, state, qs) ->
-    :maps.from_list([("model", m.Id), ("state", state), ("questions", Wire(qs))])
+    Map.FromList([("model", m.Id), ("state", state), ("questions", Wire(qs))])
 Envelope(Model { Provider: :openrouter } m, state, qs) ->
-    :maps.from_list([("model", m.Id), ("state", state), ("questions", Wire(qs)),
-                     ("provider", :maps.from_list([("zdr", true)]))])
+    Map.FromList([("model", m.Id), ("state", state), ("questions", Wire(qs)),
+                  ("provider", Map.FromList([("zdr", true)]))])
 
 private map<term, term> Wire(list<(string, Question)> qs)
 
-Wire(qs) -> :maps.from_list(List.Map(qs, ((name, q)) => (name, WireQuestion(q))))
+Wire(qs) -> Map.FromList(List.Map(qs, ((name, q)) => (name, WireQuestion(q))))
 
 // A yes/no question goes out as `noul`. ReqLLM's codec renames it on the way
 // out and back; here the rename is one clause each way.
 private map<term, term> WireQuestion(Question q)
 
 WireQuestion(Choice c) ->
-    :maps.from_list([("type", "choice"), ("instructions", c.Instructions),
-                     ("criteria", :maps.from_list(c.Criteria))])
+    Map.FromList([("type", "choice"), ("instructions", c.Instructions),
+                  ("criteria", Map.FromList(c.Criteria))])
 WireQuestion(Score s) ->
-    :maps.from_list([("type", "score"), ("instructions", s.Instructions),
-                     ("criteria", s.Criteria)])
+    Map.FromList([("type", "score"), ("instructions", s.Instructions),
+                  ("criteria", s.Criteria)])
 WireQuestion(YesNo y) ->
-    :maps.from_list([("type", "noul"), ("instructions", y.Instructions)])
+    Map.FromList([("type", "noul"), ("instructions", y.Instructions)])
 

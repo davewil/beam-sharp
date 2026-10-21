@@ -13,7 +13,7 @@ type Labels = list<atom> | (:error, term)
 private Labels HandleAnswer(Outcome a)
 
 HandleAnswer((:error, reason)) -> (:error, reason)
-HandleAnswer(e) -> ValidateAs<TriageReply>(:maps.from_list(e.Answers)) switch {
+HandleAnswer(e) -> ValidateAs<TriageReply>(Map.FromList(e.Answers)) switch {
     (:error, v) => (:error, v),
     reply       => Route(reply)
 }

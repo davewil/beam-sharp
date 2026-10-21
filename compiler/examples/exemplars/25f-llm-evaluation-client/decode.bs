@@ -9,14 +9,11 @@
 
 // `FromJson<ReplyWire>` has validated the whole reply, so what is left is
 // copying it into the domain records, one clause head per object.
-private result<Evaluation, EvalError> Decode(ReplyWire r)
+private Evaluation Decode(ReplyWire r)
 
 Decode({ "model": model, "answers": answers, "usage": usage }) ->
-    ValidateAs<list<(string, AnswerWire)>>(:maps.to_list(answers)) switch {
-        (:error, e) => (:error, (:malformed, e)),
-        pairs       => Evaluation { Model = model, Usage = Tokens(usage),
-                                    Answers = [(name, One(a)) for (name, a) in pairs] }
-    }
+    Evaluation { Model = model, Usage = Tokens(usage),
+                 Answers = [(name, One(a)) for (name, a) in Map.ToList(answers)] }
 
 private Usage Tokens(UsageWire u)
 

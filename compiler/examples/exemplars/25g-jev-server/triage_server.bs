@@ -9,7 +9,7 @@
 
 public (:ok, State) Init(Config c)
 
-Init(c) -> (:ok, State { Send = c.Send, Token = c.Token, Pending = :maps.from_list([]) })
+Init(c) -> (:ok, State { Send = c.Send, Token = c.Token, Pending = Map.FromList([]) })
 
 // Jev.Server's `{:reply, {from, issue, questions}, s}`, as a call.
 public (:noreply, State) HandleCall((:labels, Issue) req, term from, State s)
@@ -17,7 +17,7 @@ public (:noreply, State) HandleCall((:labels, Issue) req, term from, State s)
 HandleCall((:labels, issue), from, s) ->
     var ref = Ask(s.Send, s.Token, "typesafe:jev-latest", Self(), from,
                   { "title" = issue.Title, "body" = issue.Body }, Questions())
-    (:noreply, s with { Pending = :maps.put(ref, from, s.Pending) })
+    (:noreply, s with { Pending = Map.Put(s.Pending, ref, from) })
 
 public (:noreply, State) HandleCast(term msg, State s)
 
@@ -31,7 +31,7 @@ HandleInfo((:jev, from, answer), s) ->
     var _ = :gen_server.reply(from, HandleAnswer(answer))
     (:noreply, s)
 HandleInfo(Down { Ref: ref, Reason: :normal }, s) ->
-    (:noreply, s with { Pending = :maps.remove(ref, s.Pending) })
+    (:noreply, s with { Pending = Map.Remove(s.Pending, ref) })
 HandleInfo(Down { Ref: ref, Reason: reason }, s) ->
     Crashed(ref, reason, s)
 

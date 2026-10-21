@@ -36,6 +36,11 @@
 #      is refused                          import: "add `using List`" is advice
 #                                          that can never work
 #
+# P8 IS P2 FOR `Map`, which held no operation until F75. Its rows lower to
+# `maps`, so the beam of a program calling them must call `maps` and no
+# capitalised module. P2 alone cannot see a `Map` row that generated a local
+# walker: the probe there calls only `List`.
+#
 # P7's second half is a real regression risk rather than a hypothetical. Measured
 # on 2026-09-04, before this feature: `List.Frobnicate([n])` was refused with
 # "List is called but never imported", hinting "add `using List`". Falling back to
@@ -52,11 +57,11 @@ BSC="$HERE/_build/default/bin/bsc"
 # drives THIS code path against fixtures rather than a second copy of it.
 # ---------------------------------------------------------------------------
 judge() {
-  local dir="$1" p1 p2 p3 p4 p5 p6 p7
+  local dir="$1" p1 p2 p3 p4 p5 p6 p7 p8
   p1="$(cat "$dir/P1.out")"; p2="$(cat "$dir/P2.out")"
   p3="$(cat "$dir/P3.out")"; p4="$(cat "$dir/P4.out")"
   p5="$(cat "$dir/P5.out")"; p6="$(cat "$dir/P6.out")"
-  p7="$(cat "$dir/P7.out")"
+  p7="$(cat "$dir/P7.out")"; p8="$(cat "$dir/P8.out")"
 
   [ "$p1" = "6" ] || \
     echo "P1: List.Sum([2,2,2]) gave '$p1', wanted 6 — the reserved qualifier does not resolve"
@@ -79,6 +84,16 @@ judge() {
       echo "P2: the beam calls out to a capitalised module ('$p2') — a reserved qualifier names no module B# ships" ;;
     *" lists "*) ;;
     *) echo "P2: the beam does not call 'lists' ('$p2') — 96 Q1 lowers List.Sum to lists:sum/1, not to a generated local form" ;;
+  esac
+
+  ## P2's three arms over a program calling `Map`'s rows (F75).
+  case " $p8 " in
+    *" BEAM-UNREADABLE "*|*" NO-BEAM "*)
+      echo "P8: called_modules could not read the Map probe's beam — it did not compile, or the chunk was unreadable" ;;
+    *" "[[:upper:]]*)
+      echo "P8: the Map probe's beam calls out to a capitalised module ('$p8') — \`Map\` names no module B# ships" ;;
+    *" maps "*) ;;
+    *) echo "P8: the Map probe's beam does not call 'maps' ('$p8') — 96 Q1 lowers Map.Merge to maps:merge/2, not to a generated local form" ;;
   esac
 
   case "$p3" in
@@ -167,6 +182,16 @@ probe() {
   printf 'module P\n\npublic int Go(int n)\nGo(n) -> List.Frobnicate([n])\n' \
     > "$dir/src/P/P.bs"
   "$BSC" --src-root "$dir/src" "$dir/src/P" Go 2 > "$dir/P7.out" 2>&1 || true
+
+  ## P8: as P2, over `Map`'s rows. The same unreadable-beam rule applies.
+  mkdir -p "$dir/src/M" "$dir/mout"
+  ## Rows whose import survives erlc: `maps:put/3` compiles to an instruction.
+  printf 'module M\n\npublic int Go(int n)\nGo(n) -> Map.Size(Map.Merge(Map.FromList([(1, n)]), Map.FromList([(2, n)])))\n' \
+    > "$dir/src/M/M.bs"
+  "$BSC" --src-root "$dir/src" -o "$dir/mout" "$dir/src/M" >/dev/null 2>&1 || true
+  if ! called_modules "$dir/mout/M.beam" > "$dir/P8.out" 2>&1; then
+    printf 'BEAM-UNREADABLE\n' > "$dir/P8.out"
+  fi
 }
 
 # Every module the beam calls remotely, from its own import chunk.
@@ -189,7 +214,7 @@ called_modules() {
 }
 
 # ---------------------------------------------------------------------------
-# --self-test — nine defects and one correct form.
+# --self-test — twelve defects and one correct form.
 #
 # A check that fires on everything passes the red half and is worthless, so the
 # green half is not optional. Three of the nine are CRY-WOLF stubs: they satisfy
@@ -207,7 +232,7 @@ if [ "${1:-}" = "--self-test" ]; then
     printf '%s' "$2" > "$W/$1/P1.out"; printf '%s' "$3" > "$W/$1/P2.out"
     printf '%s' "$4" > "$W/$1/P3.out"; printf '%s' "$5" > "$W/$1/P4.out"
     printf '%s' "$6" > "$W/$1/P5.out"; printf '%s' "$7" > "$W/$1/P6.out"
-    printf '%s' "$8" > "$W/$1/P7.out"
+    printf '%s' "$8" > "$W/$1/P7.out"; printf '%s' "${9:-erlang maps}" > "$W/$1/P8.out"
   }
   #                 P1    P2                 P3          P4  P5         P6   P7
   stub good         "6"   "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
@@ -237,9 +262,16 @@ if [ "${1:-}" = "--self-test" ]; then
   ## The unknown operation falls through to the import advice.
   stub stale_advice   "6" "erlang lists"     "$RESERVED" "1" "$COLLIDE" "6" \
                              "error: List is called but never imported"
+  ## P8, F75: a `Map` row resolved to a shipped `Map` module, and one lowered
+  ## to a generated local walker. The first eight stubs default P8 to the
+  ## correct "erlang maps".
+  stub shipped_map_row "6" "erlang lists"    "$RESERVED" "1" "$COLLIDE" "6" "$NOOP" "Map erlang"
+  stub generated_map   "6" "erlang lists"    "$RESERVED" "1" "$COLLIDE" "6" "$NOOP" "erlang"
+  ## Today's master: `Map.Put` is unknown, so the probe never compiles.
+  stub no_map_rows     "6" "erlang lists"    "$RESERVED" "1" "$COLLIDE" "6" "$NOOP" "BEAM-UNREADABLE"
 
   for bad in shipped_module shipped_map shipped_enum generated_local no_reservation over_reserved \
-             no_collision collides_wide stale_advice; do
+             no_collision collides_wide stale_advice shipped_map_row generated_map no_map_rows; do
     if [ -z "$(judge "$W/$bad")" ]; then
       echo "  x SELF-TEST: '$bad' produced no complaint - the gate cannot see it"; fail=1
     else
@@ -252,7 +284,7 @@ if [ "${1:-}" = "--self-test" ]; then
     echo "  ok green on the correct form"
   fi
   [ "$fail" -eq 0 ] || { echo "self-test FAILED"; exit 1; }
-  echo "self-test passed: nine defects seen, correct form accepted"
+  echo "self-test passed: twelve defects seen, correct form accepted"
   exit 0
 fi
 
@@ -261,4 +293,4 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 probe "$W"
 out="$(judge "$W")"
 if [ -n "$out" ]; then echo "$out"; exit 1; fi
-echo "  ok         List/Term/Map/Float are reserved qualifiers, lowered to OTP at the site and refused when shadowed"
+echo "  ok         List/Term/Map/Float are reserved qualifiers, lowered to OTP at the site and refused when shadowed; Map's rows lower to maps"

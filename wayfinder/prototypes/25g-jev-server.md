@@ -138,7 +138,7 @@ record Config { Send: Send, Token: string }
 
 // The pending requests, by monitor reference, so a crashed one can still be
 // answered. `map<term, term>` because `Map.Get` is not built.
-record State  { Send: Send, Token: string, Pending: map<term, term> }
+record State  { Send: Send, Token: string, Pending: map<reference, term> }
 
 // The answers this server asks for, by the names it asked them under. Open,
 // because the model may answer more than it was asked and 25f's `Answers`
@@ -155,9 +155,6 @@ using :gen_server {
 }
 
 using :maps {
-    map<term, term> from_list(list<(string, Answer)> pairs)
-    map<term, term> put(term key, term value, map<term, term> m)
-    map<term, term> remove(term key, map<term, term> m)
     (:ok, term) | :error find(term key, map<term, term> m)
 }
 ```
@@ -167,7 +164,7 @@ using :maps {
 ```csharp
 public (:ok, State) Init(Config c)
 
-Init(c) -> (:ok, State { Send = c.Send, Token = c.Token, Pending = :maps.from_list([]) })
+Init(c) -> (:ok, State { Send = c.Send, Token = c.Token, Pending = Map.FromList([]) })
 
 // Jev.Server's `{:reply, {from, issue, questions}, s}`, as a call.
 public (:noreply, State) HandleCall((:labels, Issue) req, term from, State s)
@@ -175,7 +172,7 @@ public (:noreply, State) HandleCall((:labels, Issue) req, term from, State s)
 HandleCall((:labels, issue), from, s) ->
     var ref = Ask(s.Send, s.Token, "typesafe:jev-latest", Self(), from,
                   { "title" = issue.Title, "body" = issue.Body }, Questions())
-    (:noreply, s with { Pending = :maps.put(ref, from, s.Pending) })
+    (:noreply, s with { Pending = Map.Put(s.Pending, ref, from) })
 
 public (:noreply, State) HandleCast(term msg, State s)
 
@@ -189,7 +186,7 @@ HandleInfo((:jev, from, answer), s) ->
     var _ = :gen_server.reply(from, HandleAnswer(answer))
     (:noreply, s)
 HandleInfo(Down { Ref: ref, Reason: :normal }, s) ->
-    (:noreply, s with { Pending = :maps.remove(ref, s.Pending) })
+    (:noreply, s with { Pending = Map.Remove(s.Pending, ref) })
 HandleInfo(Down { Ref: ref, Reason: reason }, s) ->
     Crashed(ref, reason, s)
 ```
@@ -232,7 +229,7 @@ type Labels = list<atom> | (:error, term)
 private Labels HandleAnswer(Outcome a)
 
 HandleAnswer((:error, reason)) -> (:error, reason)
-HandleAnswer(e) -> ValidateAs<TriageReply>(:maps.from_list(e.Answers)) switch {
+HandleAnswer(e) -> ValidateAs<TriageReply>(Map.FromList(e.Answers)) switch {
     (:error, v) => (:error, v),
     reply       => Route(reply)
 }
@@ -292,7 +289,7 @@ private (:noreply, State) Answered(term from, Labels labels, reference ref, Stat
 
 Answered(from, labels, ref, s) ->
     var _ = :gen_server.reply(from, labels)
-    (:noreply, s with { Pending = :maps.remove(ref, s.Pending) })
+    (:noreply, s with { Pending = Map.Remove(s.Pending, ref) })
 ```
 
 ---
@@ -353,6 +350,11 @@ one new part of the type algebra, each kind decided by one guard. `Jev.Ask` now 
 A crashed request has to answer its caller, so the server keeps its pending requests by monitor
 reference. `Map.Get` is unbuilt (ticket 48), so the table is `:maps.put`, `:maps.find` and
 `:maps.remove`, declared in a `using :maps` block. It is five lines, and it works.
+
+**F75 (2026-10-21) took two of the three.** `Map.Put` and `Map.Remove` are standard operations,
+and so is `Map.FromList`, so the table is now `map<reference, term>`, which `Map.Put` keeps.
+`:maps.find` stays declared: it is the crash-free half of `Map.Find`, and the `?` that spells
+that half (ticket 108) is [ENG-324](https://linear.app/davewil/issue/ENG-324)'s to build.
 
 ### 6. A compiler crash in F58 — fixed the same day
 

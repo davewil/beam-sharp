@@ -23,7 +23,7 @@
 -export([clause_accepts/2]).
 %% The emitter lowers each reserved call to its row's target and emits only
 %% operations admitted by the checker.
--export([reserved_qualifiers/0, reserved_table/0, standard_target/1]).
+-export([reserved_qualifiers/0, reserved_table/0, standard_target/1, standard_order/1]).
 %% The emitter builds `ParseAtom<T>` arms from the admitted member list.
 -export([parse_atom_members/1, built_obligations/0, codegen_obligations/0]).
 
@@ -799,6 +799,9 @@ erase_ty1({t_tuple, Cs}, Vars, Env, Pol, Seen) ->
     bs_types:tuple([erase_ty(C, Vars, Env, Pol, Seen) || C <- Cs]);
 erase_ty1({t_generic, list, [A]}, Vars, Env, Pol, Seen) ->
     bs_types:list(erase_ty(A, Vars, Env, Pol, Seen));
+%% A domain map is covariant in its key and its value, as a list is in its element.
+erase_ty1({t_generic, map, [K, V]}, Vars, Env, Pol, Seen) ->
+    bs_types:map_dom(erase_ty(K, Vars, Env, Pol, Seen), erase_ty(V, Vars, Env, Pol, Seen));
 erase_ty1({t_generic, N, Args} = T, Vars, Env, Pol, Seen) when N =/= map ->
     case {maps:get(N, Env, undefined), lists:member({N, Args}, Seen)} of
         {{parametric, Params, Body}, false} when length(Params) =:= length(Args) ->
@@ -807,8 +810,8 @@ erase_ty1({t_generic, N, Args} = T, Vars, Env, Pol, Seen) when N =/= map ->
         _ ->
             resolve(T, erased_env(Vars, Env))
     end;
-%% Map fields, refinements and domain maps use the positive extent; `tpl1/5`
-%% records these positions as erased.
+%% Map fields and refinements use the positive extent; `tpl1/5` records these
+%% positions as erased.
 erase_ty1(T, Vars, Env, _Pol, _Seen) ->
     resolve(T, erased_env(Vars, Env)).
 
@@ -825,7 +828,7 @@ polys(Decls, Env, Imports) ->
     maps:merge(maps:get(polys, Imports, #{}), maps:from_list(Local)).
 
 %% Ground parts resolve at the declaration, so consumers need no producer
-%% aliases. Variables survive in lists, tuples, unions and arrows. Other
+%% aliases. Variables survive in lists, domain maps, tuples, unions and arrows. Other
 %% positions erase to their extent and force the variable to `term`: values can
 %% reach the body through those positions.
 %% Rationale: compiler/features/F45-polymorphic-signatures.md.
@@ -846,6 +849,10 @@ tpl1({t_ref, V}, _Vars, _Env, _Seen, Erased) ->
 tpl1({t_generic, list, [A]}, Vars, Env, Seen, Erased) ->
     {A1, E1} = tpl(A, Vars, Env, Seen, Erased),
     {{t_generic, list, [A1]}, E1};
+tpl1({t_generic, map, [K, V]}, Vars, Env, Seen, Erased) ->
+    {K1, E1} = tpl(K, Vars, Env, Seen, Erased),
+    {V1, E2} = tpl(V, Vars, Env, Seen, E1),
+    {{t_generic, map, [K1, V1]}, E2};
 tpl1({t_tuple, Cs}, Vars, Env, Seen, Erased) ->
     {Cs1, E1} = lists:mapfoldl(fun(C, E) -> tpl(C, Vars, Env, Seen, E) end, Erased, Cs),
     {{t_tuple, Cs1}, E1};
@@ -938,6 +945,7 @@ polarity(T, _Pol, Acc) when is_map(T) -> Acc;
 polarity({t_ref, V}, Pol, Acc) ->
     maps:update_with(V, fun(P) when P =:= Pol -> P; (_) -> both end, Pol, Acc);
 polarity({t_generic, list, [E]}, Pol, Acc) -> polarity(E, Pol, Acc);
+polarity({t_generic, map, [K, V]}, Pol, Acc) -> polarity(V, Pol, polarity(K, Pol, Acc));
 polarity({t_tuple, Cs}, Pol, Acc) ->
     lists:foldl(fun(C, A) -> polarity(C, Pol, A) end, Acc, Cs);
 polarity({t_union, Ms}, Pol, Acc) ->
@@ -950,6 +958,7 @@ polarity({t_fun, Ds, C}, Pol, Acc) ->
 extent(T) when is_map(T)         -> T;
 extent({t_ref, _})               -> bs_types:term();
 extent({t_generic, list, [A]})   -> bs_types:list(extent(A));
+extent({t_generic, map, [K, V]}) -> bs_types:map_dom(extent(K), extent(V));
 extent({t_tuple, Cs})            -> bs_types:tuple([extent(C) || C <- Cs]);
 extent({t_union, Ms})            -> bs_types:union([extent(M) || M <- Ms]);
 %% The largest arrow is `fn(none, ...) -> term`: domains are contravariant.
@@ -966,6 +975,9 @@ solve({t_ref, V}, A, Pol, I, Acc) ->
               end};
 solve({t_generic, list, [E]}, A, Pol, I, Acc) ->
     solve(E, bs_types:list_elem(bs_types:unfold(A)), Pol, I, Acc);
+solve({t_generic, map, [K, V]}, A, Pol, I, Acc) ->
+    {AK, AV} = bs_types:map_kv(bs_types:unfold(A)),
+    solve(V, AV, Pol, I, solve(K, AK, Pol, I, Acc));
 solve({t_tuple, Cs}, A, Pol, I, Acc) ->
     N = length(Cs),
     {_, Out} = lists:foldl(fun(C, {J, S}) ->
@@ -998,6 +1010,7 @@ solve({t_fun, Ds, C}, A, Pol, I, Acc) ->
 subst_tpl(T, _S) when is_map(T)       -> T;
 subst_tpl({t_ref, V}, S)              -> maps:get(V, S);
 subst_tpl({t_generic, list, [E]}, S)  -> bs_types:list(subst_tpl(E, S));
+subst_tpl({t_generic, map, [K, V]}, S) -> bs_types:map_dom(subst_tpl(K, S), subst_tpl(V, S));
 subst_tpl({t_tuple, Cs}, S)           -> bs_types:tuple([subst_tpl(C, S) || C <- Cs]);
 subst_tpl({t_union, Ms}, S)           -> bs_types:union([subst_tpl(M, S) || M <- Ms]);
 subst_tpl({t_fun, Ds, C}, S)          -> bs_types:fun_ty([subst_tpl(D, S) || D <- Ds],
@@ -1694,18 +1707,63 @@ reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
 %% silently ignored.
 %% Rationale: compiler/features/F62-standard-signature-table.md.
 standard_table() ->
-    [{{'List', 'Sum', 1},      {lists, sum}},
-     {{'List', 'Length', 1},   {erlang, length}},
-     {{'List', 'Reverse', 1},  {lists, reverse}},
-     {{'List', 'Sort', 1},     {lists, sort}},
-     {{'List', 'Map', 2},      {lists, map}},
+    [{{'List', 'Map', 2},      {lists, map}},
      {{'List', 'Filter', 2},   {lists, filter}},
      {{'List', 'Fold', 3},     {lists, foldl}},
      {{'List', 'FoldRight', 3}, {lists, foldr}},
-     {{'Float', 'FromInt', 1}, {erlang, float}},
-     {{'Term', 'Compare', 2},  generated}].
+     {{'Term', 'Compare', 2},  generated}]
+    ++ [{Key, Target} || {Key, Target, _Order, _Sig} <- declared_rows()].
+
+%% Rows whose signature is B# source, typed as a call to a user's polymorphic
+%% function is (F45), with no clause of its own in `reserved_sig/4`. The order
+%% lists which B# argument OTP takes in each position. Names and argument order
+%% are Elixir's (ticket 96 Q2); behaviour is the OTP function's (Q1).
+%% Rationale: compiler/features/F75-list-and-map-rows.md.
+declared_rows() ->
+    [{{'List', 'Sum', 1},       {lists, sum},       [1],    "int Sum(list<int> xs)"},
+     {{'List', 'Length', 1},    {erlang, length},   [1],    "int Length(list<term> xs)"},
+     {{'List', 'Reverse', 1},   {lists, reverse},   [1],    "list<T> Reverse<T>(list<T> xs)"},
+     {{'List', 'Sort', 1},      {lists, sort},      [1],    "list<T> Sort<T>(list<T> xs)"},
+     {{'Float', 'FromInt', 1},  {erlang, float},    [1],    "float FromInt(int n)"},
+     {{'List', 'Seq', 2},       {lists, seq},       [1, 2], "list<int> Seq(int first, int last)"},
+     {{'List', 'Concat', 2},    {erlang, '++'},     [1, 2], "list<T> Concat<T>(list<T> xs, list<T> ys)"},
+     {{'List', 'Zip', 2},       {lists, zip},       [1, 2], "list<(A, B)> Zip<A, B>(list<A> xs, list<B> ys)"},
+     %% A value of another type is never found, so it neither fails nor widens.
+     {{'List', 'Contains', 2},  {lists, member},    [2, 1], "bool Contains(list<term> xs, term x)"},
+     {{'List', 'Delete', 2},    {lists, delete},    [2, 1], "list<T> Delete<T>(list<T> xs, term x)"},
+     {{'List', 'Duplicate', 2}, {lists, duplicate}, [2, 1], "list<T> Duplicate<T>(T x, int n)"},
+     {{'Map', 'FromList', 1},   {maps, from_list},  [1],    "map<K, V> FromList<K, V>(list<(K, V)> pairs)"},
+     {{'Map', 'ToList', 1},     {maps, to_list},    [1],    "list<(K, V)> ToList<K, V>(map<K, V> m)"},
+     {{'Map', 'Put', 3},        {maps, put},        [2, 3, 1], "map<K, V> Put<K, V>(map<K, V> m, K k, V v)"},
+     {{'Map', 'Remove', 2},     {maps, remove},     [2, 1], "map<K, V> Remove<K, V>(map<K, V> m, term k)"},
+     {{'Map', 'Has', 2},        {maps, is_key},     [2, 1], "bool Has(map<term, term> m, term k)"},
+     {{'Map', 'Keys', 1},       {maps, keys},       [1],    "list<K> Keys<K, V>(map<K, V> m)"},
+     {{'Map', 'Values', 1},     {maps, values},     [1],    "list<V> Values<K, V>(map<K, V> m)"},
+     {{'Map', 'Size', 1},       {erlang, map_size}, [1],    "int Size(map<term, term> m)"},
+     {{'Map', 'Merge', 2},      {maps, merge},      [1, 2], "map<K, V> Merge<K, V>(map<K, V> a, map<K, V> b)"},
+     {{'Map', 'Take', 2},       {maps, with},       [2, 1], "map<K, V> Take<K, V>(map<K, V> m, list<term> keys)"},
+     {{'Map', 'Drop', 2},       {maps, without},    [2, 1], "map<K, V> Drop<K, V>(map<K, V> m, list<term> keys)"}].
 
 reserved_table() -> [K || {K, _} <- standard_table()].
+
+%% The emitter's argument order for a declared row, or `none` for the rows
+%% `bs_emit:otp_args/3` orders by hand.
+standard_order(Key) ->
+    case lists:keyfind(Key, 1, declared_rows()) of
+        {Key, _Target, Order, _Sig} -> Order;
+        false                       -> none
+    end.
+
+%% A declared row's signature, parsed as the source declaration it is.
+declared_sig(Key) ->
+    case lists:keyfind(Key, 1, declared_rows()) of
+        {Key, _Target, _Order, Text} ->
+            {ok, Tokens, _} = bs_lexer:string("module Std\npublic " ++ Text ++ "\n"),
+            {ok, Decls} = bs_parser:parse(Tokens),
+            [Sig] = [D || D = {signature, _, _, _, _, _, _} <- Decls],
+            {ok, Sig};
+        false -> none
+    end.
 
 %% Only operations the checker admitted reach the emitter, so a missing row
 %% crashes here rather than as an unmatched `reserved_form/1`.
@@ -1713,16 +1771,8 @@ standard_target(Key) ->
     {Key, Target} = lists:keyfind(Key, 1, standard_table()),
     Target.
 
-%% `Reverse` preserves the call site's element type.
-reserved_sig('List', 'Sum', 1, _ATys) ->
-    {ok, {[bs_types:list(bs_types:int())], bs_types:int()}};
-reserved_sig('Float', 'FromInt', 1, _ATys) ->
-    {ok, {[bs_types:int()], bs_types:float_top()}};
-reserved_sig('List', 'Length', 1, _ATys) ->
-    {ok, {[bs_types:list(bs_types:term())], bs_types:int()}};
-reserved_sig('List', Op, 1, [ATy]) when Op =:= 'Reverse'; Op =:= 'Sort' ->
-    {ok, {[bs_types:list(bs_types:term())],
-          bs_types:list(bs_types:list_elem(ATy))}};
+%% The rows whose signature is not yet B# source: the callbacks' expectations
+%% are computed in `reserved_args/5`, and `Fold` iterates its accumulator.
 %% Function arguments accept wider domains and narrower codomains. `Fold` joins
 %% the seed and callback result for its accumulator type.
 reserved_sig('List', 'Map', 2, [ATy, FTy]) ->
@@ -3219,6 +3269,22 @@ reserved_call(L, Q, Fun, Args, S, C) ->
     end.
 
 reserved_op(L, Q, Fun, Args, S, C) ->
+    case declared_sig({Q, Fun, length(Args)}) of
+        {ok, Sig} -> declared_op(L, qualified_name(Q, Fun), Sig, Args, S, C);
+        none      -> written_op(L, Q, Fun, Args, S, C)
+    end.
+
+%% A row's text names builtins and its own variables only, so it resolves in
+%% an empty environment, where no author's alias can capture a name it uses.
+declared_op(L, Shown, {signature, _, _, R, Ps, _, TV}, Args, S, C) ->
+    Env = #{},
+    Template = case TV of
+                   [] -> undefined;
+                   _  -> template(TV, Ps, R, Env)
+               end,
+    checked_call(L, Shown, Args, erased_sig(Ps, R, TV, Env), Template, S, C).
+
+written_op(L, Q, Fun, Args, S, C) ->
     {ATys, D} = reserved_args(Q, Fun, Args, S, C),
     case reserved_sig(Q, Fun, length(Args), ATys) of
         error ->
@@ -4268,27 +4334,29 @@ call(L, Key, Shown, Args, S, C) ->
             {_ATys, D} = type_of_all(Args, S, C),
             {Ret, [{error, L, C#ctx.fname,
                     {arity_mismatch, Shown, length(Args), length(Ps)}} | D]};
-        {Ps, Ret} ->
-            case maps:get(Key, C#ctx.polys, undefined) of
-                undefined ->
-                    {ATys, D} = expected_all(Args, Ps, S, C),
-                    {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D};
-                Template = {poly, _, PsT, RetT, _} ->
-                    {ATys, D} = poly_args(Template, Args, S, C),
-                    {Sub, Conflicts} = solution(Template, ATys),
-                    case Conflicts of
-                        [] ->
-                            Inst = [subst_tpl(PT, Sub) || PT <- PsT],
-                            {subst_tpl(RetT, Sub),
-                             poly_arg_diags(L, Shown, Args, ATys, Ps, Inst, C) ++ D};
-                        _ ->
-                            {reported(),
-                             arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++
-                             [{error, L, C#ctx.fname,
-                               {instantiation_conflict, Shown, V, LI, Lo, UI, Up}}
-                              || {V, {LI, Lo, UI, Up}} <- Conflicts] ++ D}
-                    end
-            end
+        Sig ->
+            checked_call(L, Shown, Args, Sig, maps:get(Key, C#ctx.polys, undefined), S, C)
+    end.
+
+%% A resolved callee's arguments against its signature, solving its template
+%% first when it has one. A declared standard row arrives here too.
+checked_call(L, Shown, Args, {Ps, Ret}, undefined, S, C) ->
+    {ATys, D} = expected_all(Args, Ps, S, C),
+    {Ret, arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++ D};
+checked_call(L, Shown, Args, {Ps, _Ret}, Template = {poly, _, PsT, RetT, _}, S, C) ->
+    {ATys, D} = poly_args(Template, Args, S, C),
+    {Sub, Conflicts} = solution(Template, ATys),
+    case Conflicts of
+        [] ->
+            Inst = [subst_tpl(PT, Sub) || PT <- PsT],
+            {subst_tpl(RetT, Sub),
+             poly_arg_diags(L, Shown, Args, ATys, Ps, Inst, C) ++ D};
+        _ ->
+            {reported(),
+             arg_diags(L, Shown, Args, ATys, Ps, 1, C) ++
+             [{error, L, C#ctx.fname,
+               {instantiation_conflict, Shown, V, LI, Lo, UI, Up}}
+              || {V, {LI, Lo, UI, Up}} <- Conflicts] ++ D}
     end.
 
 %% Type arguments needing no expectation first, at the template's extent. Use

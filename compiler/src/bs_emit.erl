@@ -2113,8 +2113,11 @@ otp_args({'List', Op, 2}, [Xs, F], _L) when Op =:= 'Map'; Op =:= 'Filter' ->
     [F, Xs];
 otp_args({'List', Op, 3}, [Xs, Seed, F], L) when Op =:= 'Fold'; Op =:= 'FoldRight' ->
     [{call, L, {atom, L, fold_flip_name()}, [F]}, Seed, Xs];
-otp_args(_Key, Es, _L) ->
-    Es.
+otp_args(Key, Es, _L) ->
+    case bs_check:standard_order(Key) of
+        none  -> Es;
+        Order -> [lists:nth(I, Es) || I <- Order]
+    end.
 
 %% One helper serves both folds.
 fold_flip_name() -> 'bs@List@flip'.

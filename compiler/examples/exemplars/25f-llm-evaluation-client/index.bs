@@ -57,8 +57,3 @@ using :erlang {
     binary iolist_to_binary(term data)
 }
 
-using :maps {
-    map<term, term> from_list(list<(binary, term)> pairs)
-    list<term> to_list(map<string, AnswerWire> m)
-}
-

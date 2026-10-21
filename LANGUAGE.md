@@ -2123,6 +2123,12 @@ Ranked(xs) -> List.Sort(xs)
 
 public atom Before(int a, int b)
 Before(a, b) -> Term.Compare(a, b)
+
+public map<string, int> Seen(map<string, int> counts, string word)
+Seen(counts, word) -> Map.Put(counts, word, 1)
+
+public list<(string, int)> Entries(map<string, int> counts)
+Entries(counts) -> Map.ToList(counts)
 ```
 
 `Term.Compare` returns `:lt | :eq | :gt` — the universal-order escape, and an ordinary union a
@@ -2130,12 +2136,16 @@ Before(a, b) -> Term.Compare(a, b)
 into the module that uses it. `List.Map`, `List.Filter` and `List.Fold` take a function value
 (§9), and `List.Fold`'s callback takes the accumulator first, `(acc, x)`, though `lists:foldl`
 calls its fun the other way round. Standard-library breadth is in scope, one row per
-operation; the rows built today are `Sum`, `Length`, `Reverse`, `Sort`, `Map`, `Filter`, `Fold` and
-`FoldRight` under `List`, `Term.Compare` and `Float.FromInt`.
+operation; the rows built today are `Sum`, `Length`, `Reverse`, `Sort`, `Map`, `Filter`, `Fold`,
+`FoldRight`, `Seq`, `Concat`, `Zip`, `Contains`, `Delete` and `Duplicate` under `List`; `FromList`,
+`ToList`, `Put`, `Remove`, `Has`, `Keys`, `Values`, `Size`, `Merge`, `Take` and `Drop` under `Map`;
+`Term.Compare` and `Float.FromInt`. Names and argument order are Elixir's, the collection first,
+so a pipe feeds it. A row keeps its argument's types: `Map.Put` over a `map<string, int>` is a
+`map<string, int>`, and `Map.ToList` of one is a `list<(string, int)>`.
 
-**Three names are reserved: `List`, `Map` and `Term`.** `Map`'s operations are not built yet, and
-the name is taken anyway — reserving it later would mean taking it away from a program that had
-already used it.
+**Three names are reserved: `List`, `Map` and `Term`.** `Map` was reserved before it had an
+operation — reserving it later would have meant taking it away from a program that had already
+used it.
 
 The reservation burns the **bare name only**. `module List` is refused; `module Shop.Collections.List`
 is perfectly legal, and so is any other path with `List` as a segment. What is refused is the one
@@ -2247,11 +2257,11 @@ public term Read(map<atom, term> a)
 Read({ Status: s }) -> s
 ```
 
-Reading a value out therefore needs `Map.Get`, which is not built either — the qualifier `Map` is
-reserved for it. Until it lands this type is for values that pass **through** a program: a foreign
-struct handed to an Erlang or Elixir call, which today would be a `list<(atom, term)>` with no
-checking at all. Coming **in**, it is checked: a map from outside crosses as `map<term, term>`
-and `ValidateAs<map<K, V>>` walks its entries (§4, §10) — **shipped**, F43.
+Reading one value out by its key needs `Map.Get`, which is not built either. Walking all of them
+is built: `Map.ToList`, `Map.Keys` and `Map.Values` keep the map's key and value types, and
+`Map.Put`, `Map.Remove` and `Map.FromList` build one (§8's reserved qualifiers, F75). Coming
+**in**, it is checked: a map from outside crosses as `map<term, term>` and `ValidateAs<map<K, V>>`
+walks its entries (§4, §10) — **shipped**, F43.
 
 ### Polymorphic function signatures — shipped
 
@@ -3775,7 +3785,8 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the diagnostic on the wire (`--diagnostics json`) | **shipped** — F47 |
 | the query mode (`--api`) | **shipped** — F17 |
 | reserved qualifiers — `List.Sum` / `Length` / `Reverse` / `Sort` / `Map` / `Filter` / `Fold` / `FoldRight` lowered to OTP's own function, and `Term.Compare` | **shipped** — F32, F62 |
-| `Map.Get`, under the reserved `Map` | not started — the name is reserved, the operations are not. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |
+| `List.Seq` / `Concat` / `Zip` / `Contains` / `Delete` / `Duplicate`; `Map.FromList` / `ToList` / `Put` / `Remove` / `Has` / `Keys` / `Values` / `Size` / `Merge` / `Take` / `Drop` | **built** — F75, not closed |
+| `Map.Get` and the other operations that can find nothing (`Map.Find`, `List.First` / `Last` / `At`) | not started — the crash-free half is spelled with a `?` after the qualifier's dot, `Map.?Get`, and the `?` is not built. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |
 

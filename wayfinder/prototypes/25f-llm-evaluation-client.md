@@ -149,11 +149,6 @@ using :json {
 using :erlang {
     binary iolist_to_binary(term data)
 }
-
-using :maps {
-    map<term, term> from_list(list<(binary, term)> pairs)
-    list<term> to_list(map<string, AnswerWire> m)
-}
 ```
 
 **The transport is a parameter.** ReqLLM's tests hand Req a plug (`req_http_options: [plug:
@@ -207,33 +202,34 @@ Body(m, state, qs) -> :erlang.iolist_to_binary(:json.encode(Envelope(m, state, q
 private map<term, term> Envelope(Model m, Json state, list<(string, Question)> qs)
 
 Envelope(Model { Provider: :typesafe } m, state, qs) ->
-    :maps.from_list([("model", m.Id), ("state", state), ("questions", Wire(qs))])
+    Map.FromList([("model", m.Id), ("state", state), ("questions", Wire(qs))])
 Envelope(Model { Provider: :openrouter } m, state, qs) ->
-    :maps.from_list([("model", m.Id), ("state", state), ("questions", Wire(qs)),
-                     ("provider", :maps.from_list([("zdr", true)]))])
+    Map.FromList([("model", m.Id), ("state", state), ("questions", Wire(qs)),
+                  ("provider", Map.FromList([("zdr", true)]))])
 
 private map<term, term> Wire(list<(string, Question)> qs)
 
-Wire(qs) -> :maps.from_list(List.Map(qs, ((name, q)) => (name, WireQuestion(q))))
+Wire(qs) -> Map.FromList(List.Map(qs, ((name, q)) => (name, WireQuestion(q))))
 
 // A yes/no question goes out as `noul`. ReqLLM's codec renames it on the way
 // out and back; here the rename is one clause each way.
 private map<term, term> WireQuestion(Question q)
 
 WireQuestion(Choice c) ->
-    :maps.from_list([("type", "choice"), ("instructions", c.Instructions),
-                     ("criteria", :maps.from_list(c.Criteria))])
+    Map.FromList([("type", "choice"), ("instructions", c.Instructions),
+                  ("criteria", Map.FromList(c.Criteria))])
 WireQuestion(Score s) ->
-    :maps.from_list([("type", "score"), ("instructions", s.Instructions),
-                     ("criteria", s.Criteria)])
+    Map.FromList([("type", "score"), ("instructions", s.Instructions),
+                  ("criteria", s.Criteria)])
 WireQuestion(YesNo y) ->
-    :maps.from_list([("type", "noul"), ("instructions", y.Instructions)])
+    Map.FromList([("type", "noul"), ("instructions", y.Instructions)])
 ```
 
 **Every key is built from a pair list.** The author would write the body as a record, or a map
 literal, or `ToJson<T>`. None of those can produce `{"model": …}`, for three separate reasons
-(friction 2). `:maps.from_list` over `(binary, term)` pairs is the spelling that works. It is
-ReqLLM's own `build_body/1` shape with the map literal replaced by a list of pairs.
+(friction 2). `Map.FromList` over `(string, …)` pairs is the spelling that works. It is
+ReqLLM's own `build_body/1` shape with the map literal replaced by a list of pairs. Until F75
+(2026-10-21) it was OTP's `:maps.from_list`, declared in a `using :maps` block.
 
 **`Envelope` dispatches on the record's field.** `Model { Provider: :openrouter } m` picks the
 provider in the head. That is closer to ReqLLM's `prepare_request/4` per provider module than it
@@ -286,14 +282,11 @@ missing heads. The second clause is there because those two ranges are the error
 ```csharp
 // `FromJson<ReplyWire>` has validated the whole reply, so what is left is
 // copying it into the domain records, one clause head per object.
-private result<Evaluation, EvalError> Decode(ReplyWire r)
+private Evaluation Decode(ReplyWire r)
 
 Decode({ "model": model, "answers": answers, "usage": usage }) ->
-    ValidateAs<list<(string, AnswerWire)>>(:maps.to_list(answers)) switch {
-        (:error, e) => (:error, (:malformed, e)),
-        pairs       => Evaluation { Model = model, Usage = Tokens(usage),
-                                    Answers = [(name, One(a)) for (name, a) in pairs] }
-    }
+    Evaluation { Model = model, Usage = Tokens(usage),
+                 Answers = [(name, One(a)) for (name, a) in Map.ToList(answers)] }
 
 private Usage Tokens(UsageWire u)
 
@@ -307,17 +300,18 @@ One({ "type": "score", "score": s, "confidence": p })   -> Scored { Score = s, C
 One({ "type": "noul", "noul": p })                      -> Likely { Probability = p }
 ```
 
-**This was where 101 lines were; it is 16** (20 until F73 removed `Widen`)**.** As first written, each value was read in two steps,
+**This was where 101 lines were; it is 13** (16 until F75 removed the second validation, 20 until F73 removed `Widen`)**.** As first written, each value was read in two steps,
 `:maps.find` for the key and a `ValidateAs` for the type, and most of the file passed failures
 along by hand (frictions 2, 3 and 4). Now `FromJson<ReplyWire>` has checked every key and value
 before `Decode` is called, so `Tokens` and `One` are total: a clause head per object, no failure
 to forward. `One` has no catch-all, and a fourth answer type added to `AnswerWire` makes it fail
 to compile.
 
-One failure arm is left, and it cannot fire. `answers` is a `map<string, AnswerWire>`, and the
-only way to walk a `map<K, V>` today is OTP's `maps:to_list`, whose declared return may promise no
-more than `list<term>`. So the pairs are validated a second time to get their type back. See
-friction 9.
+`Decode` has no failure arm. Until F75 (2026-10-21) it had one that could not fire: `answers` is a
+`map<string, AnswerWire>`, the only way to walk it was OTP's `maps:to_list`, whose declared return
+may promise no more than `list<term>`, and so the pairs were validated a second time to get their
+type back. `Map.ToList` keeps the map's key and value types, so `Decode` returns an `Evaluation`
+and the second validation is gone. See friction 9.
 
 `Widen` is gone (F73, 2026-10-10). JSON writes `1.0` as `1`, so a `confidence` can arrive as an
 integer. Until F73 the wire type said `int | float` at each such key and a four-line `Widen` took
@@ -564,6 +558,10 @@ that cannot fire. Declaring the return `list<(string, AnswerWire)>` is refused, 
 - The `List` and `Map` rows are decided and unbuilt
   ([ENG-454](https://linear.app/davewil/issue/ENG-454)); the pattern form is
   [ENG-323](https://linear.app/davewil/issue/ENG-323).
+- **F75 (2026-10-21) built the walk and the build:** `Map.ToList(answers)` is
+  `list<(string, AnswerWire)>`, so `Decode` lost its failure arm, and `Map.FromList` replaced
+  `:maps.from_list` on the request side. The `using :maps` block is gone. The pattern form is
+  still ENG-323's.
 
 **The request side is not rewritten, and `Json` and `using :json` are still here.** Ticket 78 Q7
 writes it as `ToJson<RequestWire>({ "model" = m.Id, "state" = state, "questions" = qs })`. Two
@@ -580,6 +578,8 @@ things stop that today:
 - `"questions"` is a `map<string, QuestionWire>` built from a list of pairs, which is the first
   item again from the other side: `maps:from_list` hands back `map<term, term>`, so `Body` would
   return a `result` for a failure that cannot happen, twice (the questions, and each `criteria`).
+  F75 (2026-10-21) removed this one: `Map.FromList` over `(string, QuestionWire)` pairs is a
+  `map<string, QuestionWire>`.
 
 So `Body` still builds `map<term, term>` from pairs and calls `:json.encode`, and `ToJson` checks
 nothing about the request.
