@@ -217,7 +217,7 @@ called_modules() {
 # --self-test — twelve defects and one correct form.
 #
 # A check that fires on everything passes the red half and is worthless, so the
-# green half is not optional. Three of the twelve are CRY-WOLF stubs: they satisfy
+# green half is not optional. Two of the twelve are CRY-WOLF stubs: they satisfy
 # a red probe by being too aggressive, which is the failure mode a gate written
 # only from the refusals cannot see.
 # ---------------------------------------------------------------------------
@@ -239,7 +239,7 @@ if [ "${1:-}" = "--self-test" ]; then
   ## 67's (a) WEARING (b)'s OUTPUT — the over-informed stub. Right answer,
   ## wrong design, and only P2 can see it.
   stub shipped_module "6" "List erlang lists" "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
-  ## The same shape under the qualifier that has no operations yet.
+  ## The same shape under `Map`, which had no operation when this stub was written.
   stub shipped_map    "6" "Map erlang lists"  "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
   ## A qualifier ticket 96 adds later, which a list of today's names would miss.
   stub shipped_enum   "6" "Enum erlang lists" "$RESERVED" "1" "$COLLIDE" "6"  "$NOOP"
