@@ -3319,7 +3319,7 @@ sought_diags(L, Q, Fun, ATys, D, C) ->
                          each -> bs_types:list_elem(bs_types:unfold(lists:nth(SI, ATys)))
                      end,
             case bs_types:is_none(Held) orelse bs_types:is_none(Sought)
-                 orelse holds_variable(Held, C) orelse holds_variable(Sought, C)
+                 orelse may_hold_variable(Held, C) orelse may_hold_variable(Sought, C)
                  orelse not bs_types:is_none(bs_types:intersect(Held, Sought)) of
                 true  -> [];
                 false -> [{error, L, C#ctx.fname,
@@ -3334,6 +3334,13 @@ sought_diags(L, Q, Fun, ATys, D, C) ->
 %% chooses there. A plain `atom` admits those atoms without naming them.
 holds_variable(_Ty, #ctx{tvars = []}) -> false;
 holds_variable(Ty, #ctx{tvars = Vars}) -> bs_types:names_atom(Vars, Ty).
+
+%% The refusal's side: a variable joined with `atom` is absorbed and no longer
+%% named, so a refusal stands down wherever one could be, rather than refuse a
+%% program a caller's choice makes right. It costs the diagnostic over a plain
+%% `atom` inside a polymorphic function.
+may_hold_variable(_Ty, #ctx{tvars = []}) -> false;
+may_hold_variable(Ty, #ctx{tvars = Vars}) -> bs_types:admits_atom(Vars, Ty).
 
 %% A row's text names builtins and its own variables only, so it resolves in
 %% an empty environment, where no author's alias can capture a name it uses.

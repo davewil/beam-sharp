@@ -379,14 +379,20 @@ list_flatten_of_a_nested_variable_does_not_promise_it_back_test() ->
     bad_rc(Out),
     has(Out, "G returns a value its signature does not declare").
 
-%% A plain `atom` is not a variable, though a variable is checked as one.
+%% A plain `atom` is not a variable for Flatten's typing, though a variable is
+%% checked as one.
 an_atom_element_is_not_read_as_a_variable_test() ->
     ok_rc(compile("public list<atom> H(list<atom> xs)\n"
                   "H(xs) -> G(xs, 1)\n\n"
                   "private list<atom> G<T>(list<atom> xs, T y)\n"
-                  "G(xs, y) -> List.Flatten(xs)\n")),
-    has(compile("public bool H(list<atom> xs)\n"
-                "H(xs) -> G(xs, 1)\n\n"
-                "private bool G<T>(list<atom> xs, T y)\n"
-                "G(xs, y) -> List.Contains(xs, \"x\")\n"),
-        "never equal").
+                  "G(xs, y) -> List.Flatten(xs)\n")).
+
+%% A variable joined with `atom` in the body is absorbed, and a caller may make
+%% it the value sought: here `T` is `string` and the answer is `:true`.
+a_variable_absorbed_into_atom_is_not_refused_test() ->
+    {Root, Main} = in_dir([caller("public bool H(int n)\n"
+                                  "H(n) -> G(\"x\", [:a])\n\n"
+                                  "private bool G<T>(T x, list<atom> ys)\n"
+                                  "G(x, ys) -> List.Contains([x, ..ys], \"x\")\n")]),
+    ?assertEqual(":true",
+                 value(bs_test_support:run_cli("--src-root " ++ Root ++ " " ++ Main ++ " H 1"))).

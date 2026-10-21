@@ -1,6 +1,6 @@
 # F75 — `List` and `Map` rows: what is specific to each, over `lists` and `maps`
 
-**Status**      **built 2026-10-21, not closed** — 43 tests in `standard_rows_tests`;
+**Status**      **built 2026-10-21, not closed** — 44 tests in `standard_rows_tests`;
                 `check-reserved-qualifiers.sh` gained P8, seen red on master first,
                 twelve red stubs and one green. Closing is David's call
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1, Q2
@@ -86,6 +86,16 @@ validated twice.
   `:T` literal written inside a generic over `T` is the same atom and reads as the variable:
   that is F45's representation, not this feature's, and it only makes these two rules more
   permissive there.
+- **The refusal stands down further than the typing.** A body that joins a variable with
+  `atom`, `[x, ..ys]` with `ys` a `list<atom>`, absorbs the variable's singleton into `atom`,
+  and nothing names it any more. The sought-value check therefore asks
+  `bs_types:admits_atom/2`, *could* this type hold the variable, and stands down if so: it
+  costs the diagnostic over a plain `atom` inside a polymorphic function, and never refuses a
+  program a caller's choice makes right. The absorption itself is an F45 defect, measured on
+  master before this feature: `G<T>(T x, list<atom> ys) -> [x, ..ys]` is accepted as
+  `list<atom>` and returns `[[5], :a]`. Filed as
+  [ENG-881](https://linear.app/davewil/issue/ENG-881); `List.Flatten` over such a list
+  inherits it.
 - **`List.Insert` is Elixir's `insert_at`** (ticket 118 Q3): no OTP function inserts at an
   index, so it is the second `generated` row after `Term.Compare`, a local function over
   `lists:split/2` written into the module that calls it. An index past the end appends; a
@@ -194,4 +204,4 @@ after: both compile, and both replays return what they returned.
 | F75.9 | `List.Flatten([[5, [2]], [3]])`; `List.Flatten([[], [5]])`; a `list<int \| list<int \| list<int>>>` and a `list<Tree>` returned as `list<int>`; a `list<list<string>>` returned as `list<int>`; `list<T> G<T>(list<T> xs) -> List.Flatten(xs)` | `[5, 2, 3]`; `[5]`; compile; refused, naming `string`; refused, `G` returning a value its signature does not declare |
 | F75.10 | `List.Insert([1, 2, 3], i, 9)` at `i` = 1, 10, -1, -2, -10; `:x` into a `list<int>` returned as `list<int>` | `[1, 9, 2, 3]`, `[1, 2, 3, 9]`, `[1, 2, 3, 9]`, `[1, 2, 9, 3]`, `[9, 1, 2, 3]`; refused |
 | F75.11 | `Map.Update(m, k, 0, n => n + 1)` over `{"a" = 1}` at `"a"` and `"b"`; as `map<string, int>`; `Map.Update/3` | `{"a" = 2}`, `{"a" = 1, "b" = 0}`; compiles; refused |
-| F75.12 | `List.Contains(list<int>, "x")`; `Map.Has`, `Remove`, `Take`, `Drop` and `List.Delete` with a value no key or element could equal; the same over `list<int \| string>`, `list<term>`, `[]` and a `term` key; `List.Contains(list<T>, "x")` in a polymorphic function; `Map.Has` of a record; `Map.Take(m, [1])` | refused as `sought_never_found`, naming both; refused; compile; compiles; refused once, as an argument not accepted; *"an element of argument 2"* |
+| F75.12 | `List.Contains(list<int>, "x")`; `Map.Has`, `Remove`, `Take`, `Drop` and `List.Delete` with a value no key or element could equal; the same over `list<int \| string>`, `list<term>`, `[]` and a `term` key; `List.Contains(list<T>, "x")` in a polymorphic function, and `List.Contains([x, ..ys], "x")` with `x : T` and `ys : list<atom>`, called with `T` a `string`; `Map.Has` of a record; `Map.Take(m, [1])` | refused as `sought_never_found`, naming both; refused; compile; compiles, and the second answers `:true`; refused once, as an argument not accepted; *"an element of argument 2"* |

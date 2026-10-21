@@ -15,7 +15,7 @@
 -export([key_str/1]).
 -export([nil/0, cons/1, list/1]).
 %% Callers query list properties through this API, not the spine shape.
--export([list_elem/1, flat_elem/1, names_atom/2, has_lists/1, has_nil/1, has_cons/1, spine/2]).
+-export([list_elem/1, flat_elem/1, names_atom/2, admits_atom/2, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 %% Signature inference uses the union of types at a tuple position.
 -export([tuple_comp/3]).
 -export([binary_top/0, string/0, str_lit/1, only_str_lits/1, widen_strs/1]).
@@ -347,17 +347,23 @@ list_elem(#{lists := Ss}) -> l_elem(Ss).
 %% depth. A cofinite set such as `atom` admits every atom without naming one,
 %% which is the difference between a written `atom` and the singleton a type
 %% variable is checked as (F45). A recursive type is opened once.
-names_atom(Atoms, T) -> names_atom(Atoms, T, []).
+names_atom(Atoms, T) -> atom_walk(fun({finite, L}, A) -> lists:member(A, L);
+                                     (_, _) -> false
+                                  end, Atoms, T, []).
 
-names_atom(Atoms, #{mu := _} = M, Seen) ->
-    not lists:member(M, Seen) andalso names_atom(Atoms, unfold(M), [M | Seen]);
-names_atom(_Atoms, #{recvar := _}, _Seen) -> false;
-names_atom(Atoms, T, Seen) ->
-    Here = case maps:get(atoms, T) of
-               {finite, L} -> lists:any(fun(A) -> lists:member(A, L) end, Atoms);
-               _           -> false
-           end,
-    Here orelse lists:any(fun(C) -> names_atom(Atoms, C, Seen) end, components(T)).
+%% Whether `T` could hold one of `Atoms` at any depth, named or not: a union
+%% with `atom` absorbs a variable's singleton, and only this sees it there.
+admits_atom(Atoms, T) -> atom_walk(fun({finite, L}, A) -> lists:member(A, L);
+                                      ({cofinite, L}, A) -> not lists:member(A, L)
+                                   end, Atoms, T, []).
+
+atom_walk(Test, Atoms, #{mu := _} = M, Seen) ->
+    not lists:member(M, Seen) andalso atom_walk(Test, Atoms, unfold(M), [M | Seen]);
+atom_walk(_Test, _Atoms, #{recvar := _}, _Seen) -> false;
+atom_walk(Test, Atoms, T, Seen) ->
+    Set = maps:get(atoms, T),
+    lists:any(fun(A) -> Test(Set, A) end, Atoms)
+        orelse lists:any(fun(C) -> atom_walk(Test, Atoms, C, Seen) end, components(T)).
 
 %% What `lists:flatten/1` leaves of an element type: the part that is not a
 %% list, joined with the same of the element of the part that is, at every
