@@ -1,7 +1,7 @@
 # 118 — The `List` and `Map` rows a build could not take on ticket 96's words alone
 
 Type: grilling
-Status: open — [ENG-878](https://linear.app/davewil/issue/ENG-878). Raised 2026-10-21 by the F75 build
+Status: resolved 2026-10-21 — [ENG-878](https://linear.app/davewil/issue/ENG-878). Raised 2026-10-21 by the F75 build
 ([ENG-454](https://linear.app/davewil/issue/ENG-454)); one round, five questions
 Blocked by: —
 
@@ -101,3 +101,60 @@ Under yes: each of the six refuses an argument whose type has no overlap with th
 key) type, naming both. Compiler delta: a new diagnostic, an overlap check
 (`bs_types:intersect/2` is `none`) in the six rows. The signature text cannot say it, so it is
 the first per-row check outside a declared signature. Under no: nothing changes.
+
+**Answered 2026-10-21 (David): Q1 yes, Q3 yes, Q4 yes, Q5 yes. Q2: *"work out how B# can do
+Elixir's flatten"*.** So `List.Flatten` flattens at every depth, as Elixir's does, and the
+question left is how its result is typed. That is worked out below; it needs no new syntax.
+
+## Q2, worked out: Elixir's flatten, typed
+
+```csharp
+public list<int> All(list<int | list<int | list<int>>> xs)
+All(xs) -> List.Flatten(xs)          // [[1, [2]], 3] -> [1, 2, 3]
+
+type Tree = int | list<Tree>
+
+public list<int> Leaves(list<Tree> ts)
+Leaves(ts) -> List.Flatten(ts)
+```
+
+`List.Flatten` is `lists:flatten/1`. Its result is a list of the argument's element **with every
+list member opened, at every depth**:
+
+- `flat(T)` is the part of `T` that is not a list, joined with `flat` of the element of the part
+  that is;
+- a recursive type met a second time while opening contributes nothing more, so `Tree` opens to
+  `int` and stops;
+- `list<term>`'s element is `term`, which opens to every term that is not a list.
+
+So `All` and `Leaves` both compile as `list<int>`, and `List.Flatten(xs)` over a `list<term>` is a
+list of non-list terms. An empty inner list opens to nothing.
+
+**Why the signature text cannot say it.** A declared row's signature is a B# signature, and no B#
+type means *"the innermost element of"*. Adding one would be a new type operator in the language
+for one operation. Instead the row's return is computed by the checker, the seam `List.Fold`
+already uses for its accumulator: one `reserved_sig/4` clause whose return is
+`list<flat(element of the argument)>`.
+
+Compiler delta: `bs_types:flat_elem/1`, the opening above, with a seen-set over recursive binders;
+one `reserved_sig/4` clause and one `standard_table/0` row, `{lists, flatten}`. No grammar, no
+emitter change.
+
+## Decisions entry
+
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
+```decisions-entry
+- [The `List` and `Map` rows a build could not take on ticket 96's words alone](issues/118-the-list-and-map-rows-that-need-a-decision.md)
+  — **Elixir's behaviour, each time: `List.Zip` stops at the shorter list (`lists:zip/3` with
+  `trim`); `List.Flatten` flattens at every depth (`lists:flatten/1`), its result typed by opening
+  every list member of the element, recursive types included; `List.Insert` takes `insert_at`'s
+  index rules (past the end appends, a negative index counts from the end); `Map.Update` is
+  `update/4`, total with a default (`maps:update_with/4`), and the crash-on-missing form is one of
+  ticket [96](issues/96-standard-environment-breadth.md) Q3's pairs; and a sought value whose type
+  cannot overlap the collection's element or key type is refused, naming both.** Raised and
+  resolved 2026-10-21 by David in one round of five questions, the second answered as *"work out
+  how B# can do Elixir's flatten"*, which this file does. Collection-first argument order was
+  confirmed the same day (*"should definitely be pipe friendly order"*). Building — F75
+  ([ENG-454](https://linear.app/davewil/issue/ENG-454)).
+```
