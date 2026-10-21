@@ -80,10 +80,10 @@ list_delete_removes_the_first_occurrence_test() ->
                  value(run("public list<int> Go(int n)\n"
                            "Go(n) -> List.Delete([1, n, 1], 1)\n", "Go 5"))).
 
-%% Deleting a value of another type is a no-op, so it does not widen the result.
+%% Deleting a value the list may hold does not widen the result.
 list_delete_keeps_the_list_element_type_test() ->
-    ok_rc(compile("public list<int> Go(list<int> xs)\n"
-                  "Go(xs) -> List.Delete(xs, :x)\n")).
+    ok_rc(compile("public list<int> Go(list<int> xs, int n)\n"
+                  "Go(xs, n) -> List.Delete(xs, n)\n")).
 
 list_duplicate_repeats_a_value_test() ->
     ?assertEqual("[4, 4, 4]",
@@ -212,18 +212,21 @@ every_row_is_a_call_into_otp_test() ->
         "private int Size(map<int, int> m)\n"
         "Size(m) -> Map.Size(Map.Merge(Map.Remove(m, 1), Map.Take(Map.Drop(m, [2]), [1])))\n"
         "         + List.Length(Map.Keys(m)) + List.Length(Map.Values(m))\n"
-        "         + List.Length(Map.ToList(m))\n\n"
+        "         + List.Length(Map.ToList(m))\n"
+        "         + List.Length(List.Flatten([[1], [[2]]])) + List.Length(List.Insert([1], -1, 2))\n"
+        "         + Map.Size(Map.Update(m, 1, 0, v => v + 1))\n\n"
         "public bool Has(int n)\n"
         "Has(n) -> List.Contains([n], n) and Map.Has(Map.FromList([(n, n)]), n)\n")]),
     ok_rc(Out),
     Is = imports(Root, "P"),
     ?assertEqual([], [M || {M, _, _} <- Is, M =:= 'List' orelse M =:= 'Map']),
-    ?assertEqual([], [MFA || MFA <- [{lists, seq, 2}, {erlang, '++', 2}, {lists, zip, 2},
+    ?assertEqual([], [MFA || MFA <- [{lists, seq, 2}, {erlang, '++', 2}, {lists, zip, 3},
                 {lists, member, 2}, {lists, delete, 2}, {lists, duplicate, 2},
                 {maps, from_list, 1}, {maps, to_list, 1},
                 {maps, remove, 2}, {maps, keys, 1},
                 {maps, values, 1}, {erlang, map_size, 1}, {maps, merge, 2},
-                {maps, with, 2}, {maps, without, 2}],
+                {maps, with, 2}, {maps, without, 2},
+                {lists, flatten, 1}, {maps, update_with, 4}],
                              not lists:member(MFA, Is)]).
 
 %%% A user's polymorphic signature over `map<K, V>` (F45's erasure narrowed)
@@ -235,3 +238,98 @@ a_variable_under_a_domain_map_is_solved_test() ->
                   "Go(m) -> Same(m)\n\n"
                   "private map<K, V> Same<K, V>(map<K, V> m)\n"
                   "Same(m) -> m\n")).
+
+%%% Ticket 118's answers: Elixir's behaviour, each time
+
+%% F75.8 — `List.Zip` stops at the shorter list, as `Enum.zip/2` does.
+list_zip_stops_at_the_shorter_list_test() ->
+    ?assertEqual("[(5, :a)]",
+                 value(run("public list<(int, atom)> Go(int n)\n"
+                           "Go(n) -> List.Zip([n, 2], [:a])\n", "Go 5"))),
+    {Root, Out} = compile_set_([caller("public list<(int, atom)> Go(int n)\n"
+                                       "Go(n) -> List.Zip([n], [:a])\n")]),
+    ok_rc(Out),
+    ?assert(lists:member({lists, zip, 3}, imports(Root, "P"))).
+
+%% F75.9 — `List.Flatten` flattens at every depth, and its result is the
+%% element with every list member opened.
+list_flatten_opens_every_depth_test() ->
+    ?assertEqual("[5, 2, 3]",
+                 value(run("public list<int> Go(int n)\n"
+                           "Go(n) -> List.Flatten([[n, [2]], [3]])\n", "Go 5"))),
+    ?assertEqual("[5]",
+                 value(run("public list<int> Go(int n)\n"
+                           "Go(n) -> List.Flatten([[], [n]])\n", "Go 5"))).
+
+list_flatten_types_its_result_by_opening_every_list_test() ->
+    ok_rc(compile("public list<int> Go(list<int | list<int | list<int>>> xs)\n"
+                  "Go(xs) -> List.Flatten(xs)\n")),
+    ok_rc(compile("type Tree = int | list<Tree>\n\n"
+                  "public list<int> Go(list<Tree> ts)\n"
+                  "Go(ts) -> List.Flatten(ts)\n")),
+    Out = compile("public list<int> Go(list<list<string>> xs)\n"
+                  "Go(xs) -> List.Flatten(xs)\n"),
+    bad_rc(Out),
+    has(Out, "string").
+
+%% F75.10 — `List.Insert` takes `insert_at`'s index rules.
+list_insert_takes_elixirs_index_rules_test() ->
+    Body = "public list<int> Go(int i)\n"
+           "Go(i) -> List.Insert([1, 2, 3], i, 9)\n",
+    ?assertEqual("[1, 9, 2, 3]", value(run(Body, "Go 1"))),
+    ?assertEqual("[1, 2, 3, 9]", value(run(Body, "Go 10"))),
+    ?assertEqual("[1, 2, 3, 9]", value(run(Body, "Go -1"))),
+    ?assertEqual("[1, 2, 9, 3]", value(run(Body, "Go -2"))),
+    ?assertEqual("[9, 1, 2, 3]", value(run(Body, "Go -10"))).
+
+list_insert_keeps_the_element_type_test() ->
+    ok_rc(compile("public list<int> Go(list<int> xs, int n)\n"
+                  "Go(xs, n) -> List.Insert(xs, 0, n)\n")),
+    bad_rc(compile("public list<int> Go(list<int> xs)\n"
+                   "Go(xs) -> List.Insert(xs, 0, :x)\n")).
+
+%% F75.11 — `Map.Update` is `update/4`: the function on a present key, the
+%% default on a missing one.
+map_update_applies_or_inserts_the_default_test() ->
+    Body = "public map<string, int> Go(string k)\n"
+           "Go(k) -> Map.Update(Map.FromList([(\"a\", 1)]), k, 0, n => n + 1)\n",
+    ?assertEqual("{\"a\" = 2}", value(run(Body, "Go '\"a\"'"))),
+    ?assertEqual("{\"a\" = 1, \"b\" = 0}", value(run(Body, "Go '\"b\"'"))).
+
+map_update_keeps_the_map_type_test() ->
+    ok_rc(compile("public map<string, int> Go(map<string, int> m, string w)\n"
+                  "Go(m, w) -> Map.Update(m, w, 1, n => n + 1)\n")).
+
+%% The crash-on-missing form is one of 96 Q3's pairs and waits on ENG-324.
+map_update_without_a_default_is_not_a_row_test() ->
+    Out = compile("public map<string, int> Go(map<string, int> m, string w)\n"
+                  "Go(m, w) -> Map.Update(m, w, n => n + 1)\n"),
+    bad_rc(Out),
+    has(Out, "Update").
+
+%% F75.12 — a sought value no element or key could equal is refused, naming both.
+a_sought_value_the_list_cannot_hold_is_refused_test() ->
+    Out = compile("public bool Go(list<int> xs)\n"
+                  "Go(xs) -> List.Contains(xs, \"x\")\n"),
+    bad_rc(Out),
+    has(Out, "List.Contains"),
+    has(Out, "int"),
+    has(Out, "\"x\"").
+
+a_sought_key_the_map_cannot_hold_is_refused_test() ->
+    [bad_rc(compile(B)) || B <-
+        ["public bool Go(map<string, int> m)\nGo(m) -> Map.Has(m, 1)\n",
+         "public map<string, int> Go(map<string, int> m)\nGo(m) -> Map.Remove(m, :k)\n",
+         "public map<string, int> Go(map<string, int> m)\nGo(m) -> Map.Take(m, [1])\n",
+         "public map<string, int> Go(map<string, int> m)\nGo(m) -> Map.Drop(m, [1])\n",
+         "public list<int> Go(list<int> xs)\nGo(xs) -> List.Delete(xs, :x)\n"]].
+
+%% The control: overlap is enough, and an empty collection says nothing.
+a_sought_value_that_could_be_present_is_accepted_test() ->
+    [ok_rc(compile(B)) || B <-
+        ["public bool Go(list<int> xs, int n)\nGo(xs, n) -> List.Contains(xs, n)\n",
+         "public bool Go(list<int | string> xs)\nGo(xs) -> List.Contains(xs, \"x\")\n",
+         "public bool Go(list<term> xs)\nGo(xs) -> List.Contains(xs, \"x\")\n",
+         "public bool Go(int n)\nGo(n) -> List.Contains([], n)\n",
+         "public bool Go(map<string, int> m, term k)\nGo(m, k) -> Map.Has(m, k)\n",
+         "public map<string, int> Go(map<string, int> m)\nGo(m) -> Map.Take(m, [\"a\"])\n"]].

@@ -1,20 +1,19 @@
 # F75 — `List` and `Map` rows: what is specific to each, over `lists` and `maps`
 
-**Status**      **built 2026-10-21, not closed** — 26 tests in `standard_rows_tests`;
+**Status**      **built 2026-10-21, not closed** — 37 tests in `standard_rows_tests`;
                 `check-reserved-qualifiers.sh` gained P8, seen red on master first,
                 twelve red stubs and one green. Closing is David's call
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1, Q2
-                and Q5, resolved 2026-09-25: the rows that can find nothing are not built
-                here, see *Left*. Decides nothing
-**Closes**      [ENG-454](https://linear.app/davewil/issue/ENG-454) **in part**: its total
-                rows, less three, see *Left*
+                and Q5, resolved 2026-09-25, and [ticket 118](../../wayfinder/issues/118-the-list-and-map-rows-that-need-a-decision.md),
+                which this build raised and David resolved 2026-10-21: the rows that can
+                find nothing are not built here, see *Left*. Decides nothing
+**Closes**      [ENG-454](https://linear.app/davewil/issue/ENG-454) **in part**: every
+                total row, not the pairs
 **Depends on**  F62 (the signature table and `otp_args/3`), F45 (the polymorphic
                 signature, which each row's signature now is), F33 (`map<K, V>`)
 **Leaves**      the pairs (`Map.Get`, `Map.Find`, `List.First`, `Last`, `At`), which wait on
-                [ENG-324](https://linear.app/davewil/issue/ENG-324) building ticket 108's `?`;
-                `List.Flatten`, `List.Insert` and `Map.Update`, each of which needs a
-                decision this file does not take, raised as [ticket 118](../../wayfinder/issues/118-the-list-and-map-rows-that-need-a-decision.md)
-                ([ENG-878](https://linear.app/davewil/issue/ENG-878)); ticket 94's `TryMap`
+                [ENG-324](https://linear.app/davewil/issue/ENG-324) building ticket 108's `?`,
+                `Map.Update/3` among them; ticket 94's `TryMap`
                 ([ENG-435](https://linear.app/davewil/issue/ENG-435))
 
 ## Why this one now
@@ -60,20 +59,37 @@ validated twice.
   clauses for `Map`, `Filter` and `Fold` stay.
 - **Names and argument order are Elixir's** (ticket 96 Q2): the collection first, so a pipe
   feeds it (David, 2026-10-21: *"should definitely be pipe friendly order"*). **Behaviour is
-  the OTP function's** (Q1): `List.Zip` of unequal lengths fails as `lists:zip/2` does, and
-  `List.Seq(5, 1)` fails as `lists:seq/2` does. Elixir's zip stops at the shorter list instead;
-  which `List.Zip` does is ticket 118 Q1.
-- **A value that can only be looked for is `term`.** `List.Contains`, `List.Delete`,
-  `Map.Remove`, `Map.Has`, `Map.Take` and `Map.Drop` take the sought value or keys as `term`:
-  a value of another type is never found, so it neither fails nor widens the result. Whether
-  such a value should instead be refused is ticket 118 Q5; until it is answered, this is the
-  reading that refuses nothing Elixir accepts.
+  the OTP function's** (Q1), **chosen to be Elixir's where the two differ** (ticket 118):
+  `List.Zip` stops at the shorter list, as `lists:zip/3` does with `trim` (Q1). Where neither
+  ticket reaches, OTP's stands: `List.Seq(5, 1)` fails as `lists:seq/2` does.
+- **An order entry can be a constant.** `{atom, trim}` in `Zip`'s order is an argument the
+  row supplies, not one the author writes.
+- **A sought value the collection cannot hold is refused** (ticket 118 Q5). `List.Contains`,
+  `List.Delete`, `Map.Remove`, `Map.Has`, `Map.Take` and `Map.Drop` type the value or keys
+  looked for as `term`, so the signature accepts anything and widens nothing, and
+  `bs_check:sought_row/1` says which argument is searched for which: when its type has no
+  overlap with the element or key type, the call is refused as `sought_never_found`, naming
+  both. An empty collection, or an argument already refused, refuses nothing.
+- **`List.Flatten` is Elixir's, at every depth** (ticket 118 Q2), over `lists:flatten/1`. Its
+  return is computed, because no signature text says *"the innermost element"*: a
+  `reserved_sig/4` clause returns `list<flat(element)>`, where `bs_types:flat_elem/1` opens
+  every list member at every depth and a type met a second time adds nothing, so
+  `type Tree = int | list<Tree>` opens to `int`.
+- **`List.Insert` is Elixir's `insert_at`** (ticket 118 Q3): no OTP function inserts at an
+  index, so it is the second `generated` row after `Term.Compare`, a local function over
+  `lists:split/2` written into the module that calls it. An index past the end appends; a
+  negative one counts from the end, `-1` appending; one before the start prepends.
+- **`Map.Update` is Elixir's `update/4`** (ticket 118 Q4), over `maps:update_with/4`: the
+  function on a present key, the default on a missing one. `Map.Update/3`, which fails on a
+  missing key, is one of 96 Q3's pairs and is not a row.
 
 | Row | Target | Signature |
 |---|---|---|
 | `List.Seq/2` | `lists:seq/2` | `list<int> Seq(int first, int last)` |
 | `List.Concat/2` | `erlang:'++'/2` | `list<T> Concat<T>(list<T> xs, list<T> ys)` |
-| `List.Zip/2` | `lists:zip/2` | `list<(A, B)> Zip<A, B>(list<A> xs, list<B> ys)` |
+| `List.Zip/2` | `lists:zip/3`, with `trim` | `list<(A, B)> Zip<A, B>(list<A> xs, list<B> ys)` |
+| `List.Flatten/1` | `lists:flatten/1` | computed: `list<flat(element)>` |
+| `List.Insert/3` | generated | `list<T> Insert<T>(list<T> xs, int i, T x)` |
 | `List.Contains/2` | `lists:member/2`, swapped | `bool Contains(list<term> xs, term x)` |
 | `List.Delete/2` | `lists:delete/2`, swapped | `list<T> Delete<T>(list<T> xs, term x)` |
 | `List.Duplicate/2` | `lists:duplicate/2`, swapped | `list<T> Duplicate<T>(T x, int n)` |
@@ -81,6 +97,7 @@ validated twice.
 | `Map.ToList/1` | `maps:to_list/1` | `list<(K, V)> ToList<K, V>(map<K, V> m)` |
 | `Map.Put/3` | `maps:put/3`, the map last | `map<K, V> Put<K, V>(map<K, V> m, K k, V v)` |
 | `Map.Remove/2` | `maps:remove/2`, swapped | `map<K, V> Remove<K, V>(map<K, V> m, term k)` |
+| `Map.Update/4` | `maps:update_with/4`, reordered | `map<K, V> Update<K, V>(map<K, V> m, K k, V init, fn(V) -> V f)` |
 | `Map.Has/2` | `maps:is_key/2`, swapped | `bool Has(map<term, term> m, term k)` |
 | `Map.Keys/1` | `maps:keys/1` | `list<K> Keys<K, V>(map<K, V> m)` |
 | `Map.Values/1` | `maps:values/1` | `list<V> Values<K, V>(map<K, V> m)` |
@@ -143,22 +160,13 @@ after: both compile, and both replays return what they returned.
 
 ## Left
 
-Ticket 118 ([ENG-878](https://linear.app/davewil/issue/ENG-878)) holds the four questions
-below that are not pairs, and a fifth, Q5, on the `term` reading of a sought value.
-
-- **The pairs.** `Map.Get`/`Map.?Get`, `Map.Find`, `List.First`, `Last` and `At` are ticket 96
-  Q3's pairs, spelled by ticket 108 and built by ENG-324. Each is a declared row once the `?`
-  parses.
-- **`List.Flatten`.** `lists:flatten/1` flattens at every depth. No signature says that: typed
-  `list<T> Flatten<T>(list<list<T>>)`, a `list<list<list<int>>>` would be promised
-  `list<list<int>>` and handed `list<int>`. One level is `lists:append/1`, which Elixir calls
-  `Enum.concat/1`. Which one `List.Flatten` is needs a decision.
-- **`List.Insert`.** No OTP function inserts at an index, so it would be the second
-  `generated` row after `Term.Compare`, and Elixir's `List.insert_at/3` clamps an index past
-  the end and counts a negative one from it. Whether B# does the same needs a decision.
-- **`Map.Update`.** Elixir has `Map.update/4`, with a default, and `Map.update!/3`, which
-  fails on a missing key: the second is one of Q3's pairs in all but name. Which of the two
-  `Map.Update` is, and whether the other is its `?` form, needs a decision.
+- **The pairs.** `Map.Get`/`Map.?Get`, `Map.Find`, `Map.Update/3`, `List.First`, `Last` and
+  `At` are ticket 96 Q3's pairs, spelled by ticket 108 and built by ENG-324. Each is a declared
+  row once the `?` parses.
+- **Ticket 118's history.** The first build of this file left `Flatten`, `Insert` and `Update`
+  unbuilt and `Zip` and the sought value on OTP's reading, and raised the five as ticket 118
+  ([ENG-878](https://linear.app/davewil/issue/ENG-878)). David answered all five the same day;
+  the rules above are the answers.
 
 ## Scenarios
 
@@ -171,3 +179,8 @@ below that are not pairs, and a fifth, Q5, on the `term` reading of a sought val
 | F75.5 | `Map.Size` of a record | refused as an argument the row does not accept |
 | F75.6 | one program calling every row | the import chunk holds each row's OTP function, `maps:put` and `maps:is_key` excepted, and no `List` or `Map` |
 | F75.7 | a user's `map<K, V> Same<K, V>(map<K, V> m)` returned as `map<string, int>` | compiles |
+| F75.8 | `List.Zip([5, 2], [:a])`; its import chunk | `[(5, :a)]`; `{lists, zip, 3}` |
+| F75.9 | `List.Flatten([[5, [2]], [3]])`; `List.Flatten([[], [5]])`; a `list<int \| list<int \| list<int>>>` and a `list<Tree>` returned as `list<int>`; a `list<list<string>>` returned as `list<int>` | `[5, 2, 3]`; `[5]`; compile; refused, naming `string` |
+| F75.10 | `List.Insert([1, 2, 3], i, 9)` at `i` = 1, 10, -1, -2, -10; `:x` into a `list<int>` returned as `list<int>` | `[1, 9, 2, 3]`, `[1, 2, 3, 9]`, `[1, 2, 3, 9]`, `[1, 2, 9, 3]`, `[9, 1, 2, 3]`; refused |
+| F75.11 | `Map.Update(m, k, 0, n => n + 1)` over `{"a" = 1}` at `"a"` and `"b"`; as `map<string, int>`; `Map.Update/3` | `{"a" = 2}`, `{"a" = 1, "b" = 0}`; compiles; refused |
+| F75.12 | `List.Contains(list<int>, "x")`; `Map.Has`, `Remove`, `Take`, `Drop` and `List.Delete` with a value no key or element could equal; the same over `list<int \| string>`, `list<term>`, `[]` and a `term` key | refused as `sought_never_found`, naming both; refused; compile |

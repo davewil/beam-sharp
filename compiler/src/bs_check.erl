@@ -1711,13 +1711,15 @@ standard_table() ->
      {{'List', 'Filter', 2},   {lists, filter}},
      {{'List', 'Fold', 3},     {lists, foldl}},
      {{'List', 'FoldRight', 3}, {lists, foldr}},
+     {{'List', 'Flatten', 1},  {lists, flatten}},
      {{'Term', 'Compare', 2},  generated}]
     ++ [{Key, Target} || {Key, Target, _Order, _Sig} <- declared_rows()].
 
 %% Rows whose signature is B# source, typed as a call to a user's polymorphic
 %% function is typed (F45), with no clause of its own in `reserved_sig/4`. The order
-%% lists which B# argument OTP takes in each position. Names and argument order
-%% are Elixir's (ticket 96 Q2); behaviour is the OTP function's (Q1).
+%% lists which B# argument OTP takes in each position, or a constant the row
+%% fixes. Names and argument order are Elixir's (ticket 96 Q2); behaviour is the
+%% OTP function's (Q1), and Elixir's where ticket 118 chose it.
 %% Rationale: compiler/features/F75-list-and-map-rows.md.
 declared_rows() ->
     [{{'List', 'Sum', 1},       {lists, sum},       [1],    "int Sum(list<int> xs)"},
@@ -1727,15 +1729,23 @@ declared_rows() ->
      {{'Float', 'FromInt', 1},  {erlang, float},    [1],    "float FromInt(int n)"},
      {{'List', 'Seq', 2},       {lists, seq},       [1, 2], "list<int> Seq(int first, int last)"},
      {{'List', 'Concat', 2},    {erlang, '++'},     [1, 2], "list<T> Concat<T>(list<T> xs, list<T> ys)"},
-     {{'List', 'Zip', 2},       {lists, zip},       [1, 2], "list<(A, B)> Zip<A, B>(list<A> xs, list<B> ys)"},
+     %% Stops at the shorter list, as Elixir's does (ticket 118 Q1).
+     {{'List', 'Zip', 2},       {lists, zip},       [1, 2, {atom, trim}],
+      "list<(A, B)> Zip<A, B>(list<A> xs, list<B> ys)"},
      %% A value of another type is never found, so it neither fails nor widens.
      {{'List', 'Contains', 2},  {lists, member},    [2, 1], "bool Contains(list<term> xs, term x)"},
      {{'List', 'Delete', 2},    {lists, delete},    [2, 1], "list<T> Delete<T>(list<T> xs, term x)"},
      {{'List', 'Duplicate', 2}, {lists, duplicate}, [2, 1], "list<T> Duplicate<T>(T x, int n)"},
+     %% No OTP function inserts at an index; Elixir's `insert_at` rules (ticket 118 Q3).
+     {{'List', 'Insert', 3},    generated,          [1, 2, 3],
+      "list<T> Insert<T>(list<T> xs, int i, T x)"},
      {{'Map', 'FromList', 1},   {maps, from_list},  [1],    "map<K, V> FromList<K, V>(list<(K, V)> pairs)"},
      {{'Map', 'ToList', 1},     {maps, to_list},    [1],    "list<(K, V)> ToList<K, V>(map<K, V> m)"},
      {{'Map', 'Put', 3},        {maps, put},        [2, 3, 1], "map<K, V> Put<K, V>(map<K, V> m, K k, V v)"},
      {{'Map', 'Remove', 2},     {maps, remove},     [2, 1], "map<K, V> Remove<K, V>(map<K, V> m, term k)"},
+     %% Elixir's `update/4`; `update!/3` is one of 96 Q3's pairs (ticket 118 Q4).
+     {{'Map', 'Update', 4},     {maps, update_with}, [2, 4, 3, 1],
+      "map<K, V> Update<K, V>(map<K, V> m, K k, V init, fn(V) -> V f)"},
      {{'Map', 'Has', 2},        {maps, is_key},     [2, 1], "bool Has(map<term, term> m, term k)"},
      {{'Map', 'Keys', 1},       {maps, keys},       [1],    "list<K> Keys<K, V>(map<K, V> m)"},
      {{'Map', 'Values', 1},     {maps, values},     [1],    "list<V> Values<K, V>(map<K, V> m)"},
@@ -1745,6 +1755,16 @@ declared_rows() ->
      {{'Map', 'Drop', 2},       {maps, without},    [2, 1], "map<K, V> Drop<K, V>(map<K, V> m, list<term> keys)"}].
 
 reserved_table() -> [K || {K, _} <- standard_table()].
+
+%% Ticket 118 Q5: the rows that look for a value, as `{Collection, Part,
+%% Sought, Shape}`: which argument is searched, whether its elements or its
+%% keys, which argument is looked for, and whether that is one value or a list
+%% of them. The signature types the sought value `term`; this says it must be
+%% able to equal something the collection holds.
+sought_row({'List', Op, 2}) when Op =:= 'Contains'; Op =:= 'Delete' -> {1, elem, 2, one};
+sought_row({'Map', Op, 2}) when Op =:= 'Remove'; Op =:= 'Has'       -> {1, key, 2, one};
+sought_row({'Map', Op, 2}) when Op =:= 'Take'; Op =:= 'Drop'        -> {1, key, 2, each};
+sought_row(_)                                                       -> none.
 
 %% The emitter's argument order for a declared row, or `none` for the rows
 %% `bs_emit:otp_args/3` orders by hand.
@@ -1788,6 +1808,12 @@ reserved_sig('List', Op, 3, [ATy, SeedTy, FTy]) when Op =:= 'Fold'; Op =:= 'Fold
     Acc = bs_types:union(SeedTy, codomain(FTy, 2)),
     {ok, {[bs_types:list(bs_types:term()), Acc, bs_types:fun_ty([Acc, Elem], Acc)],
           Acc}};
+%% Elixir's every-depth flatten: the element with every list member opened.
+%% No signature text says "the innermost element", so the return is computed.
+%% Rationale: wayfinder/issues/118-the-list-and-map-rows-that-need-a-decision.md Q2.
+reserved_sig('List', 'Flatten', 1, [ATy]) ->
+    {ok, {[bs_types:list(bs_types:term())],
+          bs_types:list(bs_types:flat_elem(bs_types:list_elem(bs_types:unfold(ATy))))}};
 reserved_sig('Term', 'Compare', 2, _ATys) ->
     %% Three singleton atoms enable exhaustive switches and named residuals.
     {ok, {[bs_types:term(), bs_types:term()], order_type()}};
@@ -3270,8 +3296,34 @@ reserved_call(L, Q, Fun, Args, S, C) ->
 
 reserved_op(L, Q, Fun, Args, S, C) ->
     case declared_sig({Q, Fun, length(Args)}) of
-        {ok, Sig} -> declared_op(L, qualified_name(Q, Fun), Sig, Args, S, C);
-        none      -> written_op(L, Q, Fun, Args, S, C)
+        {ok, Sig} ->
+            {Ret, D} = declared_op(L, qualified_name(Q, Fun), Sig, Args, S, C),
+            {Ret, D ++ sought_diags(L, Q, Fun, Args, S, C)};
+        none -> written_op(L, Q, Fun, Args, S, C)
+    end.
+
+%% An empty collection or an argument already refused says nothing, so only
+%% two inhabited types with no overlap are refused.
+sought_diags(L, Q, Fun, Args, S, C) ->
+    case sought_row({Q, Fun, length(Args)}) of
+        none -> [];
+        {CI, Part, SI, Shape} ->
+            {ATys, _} = type_of_all(Args, S, C),
+            Coll = bs_types:unfold(lists:nth(CI, ATys)),
+            Held = case Part of
+                       elem -> bs_types:list_elem(Coll);
+                       key  -> element(1, bs_types:map_kv(Coll))
+                   end,
+            Sought = case Shape of
+                         one  -> lists:nth(SI, ATys);
+                         each -> bs_types:list_elem(bs_types:unfold(lists:nth(SI, ATys)))
+                     end,
+            case bs_types:is_none(Held) orelse bs_types:is_none(Sought)
+                 orelse not bs_types:is_none(bs_types:intersect(Held, Sought)) of
+                true  -> [];
+                false -> [{error, L, C#ctx.fname,
+                           {sought_never_found, qualified_name(Q, Fun), SI, Sought, Part, Held}}]
+            end
     end.
 
 %% A row's text names builtins and its own variables only, so it resolves in

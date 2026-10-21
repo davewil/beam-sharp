@@ -15,7 +15,7 @@
 -export([key_str/1]).
 -export([nil/0, cons/1, list/1]).
 %% Callers query list properties through this API, not the spine shape.
--export([list_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
+-export([list_elem/1, flat_elem/1, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 %% Signature inference uses the union of types at a tuple position.
 -export([tuple_comp/3]).
 -export([binary_top/0, string/0, str_lit/1, only_str_lits/1, widen_strs/1]).
@@ -342,6 +342,21 @@ cons(T) ->
 list(T) -> union(nil(), cons(T)).
 
 list_elem(#{lists := Ss}) -> l_elem(Ss).
+
+%% What `lists:flatten/1` leaves of an element type: the part that is not a
+%% list, joined with the same of the element of the part that is, at every
+%% depth. A type met a second time adds nothing, so a recursive union stops.
+%% Rationale: wayfinder/issues/118-the-list-and-map-rows-that-need-a-decision.md Q2.
+flat_elem(T) -> flat_elem(T, []).
+
+flat_elem(T, Seen) ->
+    case lists:member(T, Seen) of
+        true  -> none();
+        false ->
+            U = unfold(T),
+            Lists = intersect(U, list(term())),
+            union(subtract(U, list(term())), flat_elem(list_elem(Lists), [T | Seen]))
+    end.
 
 %% A pattern's written prefix bounds unfolding. A rest marker leaves the tail
 %% unconstrained; it cannot inspect unwritten positions.

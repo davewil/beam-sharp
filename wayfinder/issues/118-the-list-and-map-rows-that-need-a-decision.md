@@ -155,6 +155,6 @@ emitter change.
   cannot overlap the collection's element or key type is refused, naming both.** Raised and
   resolved 2026-10-21 by David in one round of five questions, the second answered as *"work out
   how B# can do Elixir's flatten"*, which this file does. Collection-first argument order was
-  confirmed the same day (*"should definitely be pipe friendly order"*). Building — F75
+  confirmed the same day (*"should definitely be pipe friendly order"*). Built — F75
   ([ENG-454](https://linear.app/davewil/issue/ENG-454)).
 ```

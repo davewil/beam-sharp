@@ -2137,11 +2137,25 @@ into the module that uses it. `List.Map`, `List.Filter` and `List.Fold` take a f
 (§9), and `List.Fold`'s callback takes the accumulator first, `(acc, x)`, though `lists:foldl`
 calls its fun the other way round. Standard-library breadth is in scope, one row per
 operation; the rows built today are `Sum`, `Length`, `Reverse`, `Sort`, `Map`, `Filter`, `Fold`,
-`FoldRight`, `Seq`, `Concat`, `Zip`, `Contains`, `Delete` and `Duplicate` under `List`; `FromList`,
-`ToList`, `Put`, `Remove`, `Has`, `Keys`, `Values`, `Size`, `Merge`, `Take` and `Drop` under `Map`;
-`Term.Compare` and `Float.FromInt`. Names and argument order are Elixir's, the collection first,
-so a pipe feeds it. A row keeps its argument's types: `Map.Put` over a `map<string, int>` is a
-`map<string, int>`, and `Map.ToList` of one is a `list<(string, int)>`.
+`FoldRight`, `Seq`, `Concat`, `Zip`, `Flatten`, `Insert`, `Contains`, `Delete` and `Duplicate` under
+`List`; `FromList`, `ToList`, `Put`, `Remove`, `Update`, `Has`, `Keys`, `Values`, `Size`, `Merge`,
+`Take` and `Drop` under `Map`; `Term.Compare` and `Float.FromInt`. Names, argument order and
+behaviour are Elixir's, the collection first so a pipe feeds it: `List.Zip` stops at the shorter
+list, `List.Flatten` flattens at every depth, `List.Insert` counts a negative index from the end,
+and `Map.Update` takes a default for a missing key. A row keeps its argument's types: `Map.Put`
+over a `map<string, int>` is a `map<string, int>`, `Map.ToList` of one is a `list<(string, int)>`,
+and `List.Flatten` of a `list<int | list<int>>` is a `list<int>`.
+
+Looking for a value the collection cannot hold is refused, because the answer is known before the
+program runs:
+
+<!-- diagnoses: sought_never_found -->
+```csharp
+module Tags
+
+public bool Tagged(list<atom> tags)
+Tagged(tags) -> List.Contains(tags, "urgent")
+```
 
 **Three names are reserved: `List`, `Map` and `Term`.** `Map` was reserved before it had an
 operation — reserving it later would have meant taking it away from a program that had already
@@ -3785,7 +3799,7 @@ the parser accepts back exactly what the printer emits. **shipped**
 | the diagnostic on the wire (`--diagnostics json`) | **shipped** — F47 |
 | the query mode (`--api`) | **shipped** — F17 |
 | reserved qualifiers — `List.Sum` / `Length` / `Reverse` / `Sort` / `Map` / `Filter` / `Fold` / `FoldRight` lowered to OTP's own function, and `Term.Compare` | **shipped** — F32, F62 |
-| `List.Seq` / `Concat` / `Zip` / `Contains` / `Delete` / `Duplicate`; `Map.FromList` / `ToList` / `Put` / `Remove` / `Has` / `Keys` / `Values` / `Size` / `Merge` / `Take` / `Drop` | **built** — F75, not closed |
+| `List.Seq` / `Concat` / `Zip` / `Flatten` / `Insert` / `Contains` / `Delete` / `Duplicate`; `Map.FromList` / `ToList` / `Put` / `Remove` / `Update` / `Has` / `Keys` / `Values` / `Size` / `Merge` / `Take` / `Drop` | **built** — F75, not closed |
 | `Map.Get` and the other operations that can find nothing (`Map.Find`, `List.First` / `Last` / `At`) | not started — the crash-free half is spelled with a `?` after the qualifier's dot, `Map.?Get`, and the `?` is not built. The `map<K, V>` type itself is **shipped** — F33 — and `ValidateAs` walks one — F43 |
 | `behaviour GenServer` — the attribute, callback names, and mandatory-callback presence | **shipped** — F10 |
 | behaviour contract checked as a **type** | not started — Dialyzer does it at the boundary today |

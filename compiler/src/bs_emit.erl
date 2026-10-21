@@ -2113,10 +2113,13 @@ otp_args({'List', Op, 2}, [Xs, F], _L) when Op =:= 'Map'; Op =:= 'Filter' ->
     [F, Xs];
 otp_args({'List', Op, 3}, [Xs, Seed, F], L) when Op =:= 'Fold'; Op =:= 'FoldRight' ->
     [{call, L, {atom, L, fold_flip_name()}, [F]}, Seed, Xs];
-otp_args(Key, Es, _L) ->
+otp_args(Key, Es, L) ->
     case bs_check:standard_order(Key) of
         none  -> Es;
-        Order -> [lists:nth(I, Es) || I <- Order]
+        Order -> [case I of
+                      {atom, A} -> {atom, L, A};
+                      _         -> lists:nth(I, Es)
+                  end || I <- Order]
     end.
 
 %% One helper serves both folds.
@@ -2145,6 +2148,20 @@ reserved_name(Q, Fn, Arity) ->
     list_to_atom("bs@" ++ atom_to_list(Q) ++ "@" ++ atom_to_list(Fn)
                  ++ "@" ++ integer_to_list(Arity)).
 
+%% Elixir's `List.insert_at/3` (ticket 118 Q3): an index past the end appends,
+%% a negative one counts from the end, and one before the start prepends.
+reserved_form({'List', 'Insert', 3}) ->
+    Text = "insert(Xs, I, X) ->\n"
+           "    N = case I < 0 of\n"
+           "            true  -> max(length(Xs) + I + 1, 0);\n"
+           "            false -> min(I, length(Xs))\n"
+           "        end,\n"
+           "    {Before, After} = lists:split(N, Xs),\n"
+           "    Before ++ [X | After].\n",
+    {ok, Toks, _} = erl_scan:string(Text),
+    {ok, {function, _, _, 3, Clauses}} = erl_parse:parse_form(Toks),
+    [erl_parse:map_anno(fun(_) -> ?A end,
+                        {function, ?A, reserved_name('List', 'Insert', 3), 3, Clauses})];
 reserved_form({'Term', 'Compare', 2}) ->
     A = {var, ?A, 'Bs@a'},
     B = {var, ?A, 'Bs@b'},
