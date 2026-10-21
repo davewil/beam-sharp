@@ -1,6 +1,6 @@
 # F75 — `List` and `Map` rows: what is specific to each, over `lists` and `maps`
 
-**Status**      **built 2026-10-21, not closed** — 41 tests in `standard_rows_tests`;
+**Status**      **built 2026-10-21, not closed** — 43 tests in `standard_rows_tests`;
                 `check-reserved-qualifiers.sh` gained P8, seen red on master first,
                 twelve red stubs and one green. Closing is David's call
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1, Q2
@@ -77,8 +77,15 @@ validated twice.
   every list member at every depth and a type met a second time adds nothing, so
   `type Tree = int | list<Tree>` opens to `int`. Inside a polymorphic function a `list<T>` is
   read as `list<term>`: `T` has no shape until a caller picks one (F45), and a caller may pick
-  a list, so `List.Flatten` over it cannot promise `list<T>` back. The cold review found this
-  promise being made and kept by the checker while the value broke it.
+  a list, so `List.Flatten` over it cannot promise `list<T>` back, and the same holds for a `T`
+  at any depth (`list<list<T>>`). The cold review found this promise being made and kept by
+  the checker while the value broke it.
+- **How a variable is recognised.** While a polymorphic body is checked, `T` is the singleton
+  atom `'T'` (F45). `bs_types:names_atom/2` looks for it as a named member of a finite atom set,
+  at any depth, so a plain `atom`, which admits `'T'` without naming it, is not a variable. A
+  `:T` literal written inside a generic over `T` is the same atom and reads as the variable:
+  that is F45's representation, not this feature's, and it only makes these two rules more
+  permissive there.
 - **`List.Insert` is Elixir's `insert_at`** (ticket 118 Q3): no OTP function inserts at an
   index, so it is the second `generated` row after `Term.Compare`, a local function over
   `lists:split/2` written into the module that calls it. An index past the end appends; a

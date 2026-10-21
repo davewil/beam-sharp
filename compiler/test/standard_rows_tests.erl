@@ -369,3 +369,24 @@ a_sought_key_list_is_named_by_its_elements_test() ->
     has(compile("public map<string, int> Go(map<string, int> m)\n"
                 "Go(m) -> Map.Take(m, [1])\n"),
         "an element of argument 2 can never equal").
+
+%% A variable is found at any depth: `list<list<T>>` flattens a `T` too.
+list_flatten_of_a_nested_variable_does_not_promise_it_back_test() ->
+    Out = compile("public list<list<int>> H(int n)\n"
+                  "H(n) -> G([[[n]]])\n\n"
+                  "private list<T> G<T>(list<list<T>> xs)\n"
+                  "G(xs) -> List.Flatten(xs)\n"),
+    bad_rc(Out),
+    has(Out, "G returns a value its signature does not declare").
+
+%% A plain `atom` is not a variable, though a variable is checked as one.
+an_atom_element_is_not_read_as_a_variable_test() ->
+    ok_rc(compile("public list<atom> H(list<atom> xs)\n"
+                  "H(xs) -> G(xs, 1)\n\n"
+                  "private list<atom> G<T>(list<atom> xs, T y)\n"
+                  "G(xs, y) -> List.Flatten(xs)\n")),
+    has(compile("public bool H(list<atom> xs)\n"
+                "H(xs) -> G(xs, 1)\n\n"
+                "private bool G<T>(list<atom> xs, T y)\n"
+                "G(xs, y) -> List.Contains(xs, \"x\")\n"),
+        "never equal").

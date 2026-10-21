@@ -3329,12 +3329,11 @@ sought_diags(L, Q, Fun, ATys, D, C) ->
         _ -> []
     end.
 
-%% A declaration's type variables are opaque atoms while its body is checked
-%% (F45); a type touching one could be anything a caller chooses.
+%% A declaration's type variables are singleton atoms while its body is checked
+%% (F45), so a type holding one, at any depth, could be anything a caller
+%% chooses there. A plain `atom` admits those atoms without naming them.
 holds_variable(_Ty, #ctx{tvars = []}) -> false;
-holds_variable(Ty, #ctx{tvars = Vars}) ->
-    not bs_types:is_none(
-          bs_types:intersect(Ty, bs_types:union([bs_types:atom_lit(V) || V <- Vars]))).
+holds_variable(Ty, #ctx{tvars = Vars}) -> bs_types:names_atom(Vars, Ty).
 
 %% A row's text names builtins and its own variables only, so it resolves in
 %% an empty environment, where no author's alias can capture a name it uses.
