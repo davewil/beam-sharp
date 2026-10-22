@@ -1,0 +1,20 @@
+gleam 1.5.0
+--- 1. in-package: shoplib (incl. shoplib/pricing, a sibling subtree) imports shoplib/internal/recompute
+  Resolving versions
+  Compiling shoplib
+   Compiled in 0.41s
+exit=0
+--- 2. app imports shoplib (public API)
+  Resolving versions
+  Compiling shoplib
+  Compiling app
+   Compiled in 0.81s
+exit=0
+--- 3. app imports shoplib/internal/recompute  (other package, internal module)
+  Compiling app
+   Compiled in 0.33s
+exit=0
+--- 4. app calls an @internal function of a non-internal module
+  Compiling app
+   Compiled in 0.30s
+exit=0

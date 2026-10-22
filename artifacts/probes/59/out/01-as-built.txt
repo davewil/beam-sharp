@@ -1,0 +1,53 @@
+=== emitted Erlang (OTP-25-built bsc, repo emitter unmodified) ===
+'Outer'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    'Inner'(O).
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    map_get('Total', O).
+'OuterL'([]) ->
+    0;
+'OuterL'([O | T]) ->
+    'Inner'(O) + 'OuterL'(T).
+'SumO'([]) ->
+    0;
+'SumO'([X | T]) ->
+    'Bump'(X) + 'SumO'(T).
+'Bump'(N) ->
+    N + 1.
+'InnerAsValue'() ->
+    fun 'Inner'/1.
+'BumpAsValue'() ->
+    fun 'Bump'/1.
+'OuterI'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    'Bump'(N).
+'Nested'(W) when map_get('Kind', W) =:= 'T.Wrapper' ->
+    'Score'(map_get('Cust', W)).
+'Score'(C) when map_get('Kind', C) =:= 'T.Cust' ->
+    map_get('Score', C).
+exports: [{'Outer',1},
+          {'OuterL',1},
+          {'SumO',1},
+          {'InnerAsValue',0},
+          {'BumpAsValue',0},
+          {'OuterI',1},
+          {'Nested',1},
+          {bs@type_atoms,0}]
+
+=== forged values at each door ===
+Outer(Invoice)                 exported, direct                => {raised,error,function_clause}
+OuterL([Order, Invoice])       exported, via list              => {raised,error,function_clause}
+OuterL([Order, Order])         control (valid)                 => {returned,20}
+SumO([1, 1.5])                 exported, via list              => {returned,4.5}
+SumO([300])                    exported, via list              => {returned,301}
+SumO([1, 2])                   control (valid)                 => {returned,5}
+(InnerAsValue())(Invoice)      private escaped as fun          => {raised,error,function_clause}
+(BumpAsValue())(1.5)           private escaped as fun          => {returned,2.5}
+(BumpAsValue())(300)           private escaped as fun          => {returned,301}
+Nested(Wrapper{Cust=Order})    exported, nested record         => {raised,error,function_clause}
+Nested(Wrapper{Cust=Cust})     control (valid)                 => {returned,5}
+OuterI(1.5)                    exported, direct                => {raised,error,function_clause}

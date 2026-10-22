@@ -1,0 +1,54 @@
+--- emitted (pre-erlc abstract code) ---
+'Outer'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    'Inner'(O).
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    map_get('Total', O).
+'OuterI'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    'Bump'(N).
+'Bump'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    N + 1.
+--- after erlc (disassembly of Inner and Bump) ---
+Inner:
+[{line,2},
+ {label,5},
+ {func_info,{atom,'T'},{atom,'Inner'},1},
+ {label,6},
+ {bif,map_get,
+      {f,5},
+      [{atom,'Kind'},{tr,{x,0},{{t_map,any,any},0,18446744073709551615}}],
+      {x,1}},
+ {test,is_eq_exact,{f,5},[{x,1},{atom,'T.Order'}]},
+ {bif,map_get,
+      {f,0},
+      [{atom,'Total'},{tr,{x,0},{{t_map,any,any},0,18446744073709551615}}],
+      {x,0}},
+ return]
+Bump:
+[{line,4},
+ {label,9},
+ {func_info,{atom,'T'},{atom,'Bump'},1},
+ {label,10},
+ {test,is_ge,
+       {f,9},
+       [{tr,{x,0},{{t_integer,any},0,18446744073709551615}},{integer,0}]},
+ {test,is_ge,
+       {f,9},
+       [{integer,255},{tr,{x,0},{{t_integer,any},0,18446744073709551615}}]},
+ {gc_bif,'+',
+         {f,0},
+         1,
+         [{tr,{x,0},{{t_integer,any},0,18446744073709551615}},{integer,1}],
+         {x,0}},
+ return]

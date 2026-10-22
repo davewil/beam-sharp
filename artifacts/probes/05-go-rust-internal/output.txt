@@ -1,0 +1,24 @@
+go version go1.24.7 linux/amd64
+rustc 1.97.0 (2d8144b78 2026-07-07)
+############ Go: internal/ (rule: importer must be inside the tree rooted at internal's PARENT)
+--- go build ./orders
+exit=0
+--- go build ./orders/pricing
+exit=0
+--- go build ./billing
+package example.com/shop/billing
+	billing/b.go:2:8: use of internal package example.com/shop/orders/internal/recompute not allowed
+exit=1
+--- go build ./ordersextra
+package example.com/shop/ordersextra
+	ordersextra/e.go:2:8: use of internal package example.com/shop/orders/internal/recompute not allowed
+exit=1
+--- go test: a _test.go beside the internal package (tests in the subtree)
+ok  	example.com/shop/orders/internal/recompute	0.005s
+exit=0
+############ Rust: pub(in path) / pub(crate) / pub(super)
+error[E0603]: function `recompute` is private
+ --> r.rs:6:69
+  |                                                                     ^^^^^^^^^ private function
+ --> r.rs:2:24
+error: aborting due to 1 previous error

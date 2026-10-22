@@ -1,0 +1,45 @@
+module T
+
+record Order   { Id: int, Total: int }
+record Invoice { Id: int, Total: int }
+record Cust    { Id: int, Score: int }
+record Wrapper { Cust: Cust }
+type Octet = int where value >= 0 and value <= 255
+
+// (1) direct: the exported function guards the very value it hands to the private one
+public int Outer(Order o)
+Outer(o) -> Inner(o)
+
+private int Inner(Order o)
+Inner(o) -> o.Total
+
+// (2) through a container: the exported function's own head does not examine the elements
+public int OuterL(list<Order> os)
+OuterL([])       -> 0
+OuterL([o, ..t]) -> Inner(o) + OuterL(t)
+
+// (3) the same shape for a refined int
+public int SumO(list<Octet> xs)
+SumO([])       -> 0
+SumO([x, ..t]) -> Bump(x) + SumO(t)
+
+private int Bump(Octet n)
+Bump(n) -> n + 1
+
+// (4) a private function leaves the module as a value
+public fn(Order) -> int InnerAsValue()
+InnerAsValue() -> Inner
+
+public fn(Octet) -> int BumpAsValue()
+BumpAsValue() -> Bump
+
+// (5) the exported int function, for comparison: guarded
+public int OuterI(Octet n)
+OuterI(n) -> Bump(n)
+
+// (6) a record nested in a record: the exported head tests Wrapper's tag, not the field's
+public int Nested(Wrapper w)
+Nested(w) -> Score(w.Cust)
+
+private int Score(Cust c)
+Score(c) -> c.Score

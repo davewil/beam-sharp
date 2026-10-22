@@ -1,0 +1,5 @@
+module Shop.Orders.Pricing
+using Shop.Orders.Internal
+
+public int Priced(int n)
+Priced(n) -> Shop.Orders.Internal.Recompute(n) + 100

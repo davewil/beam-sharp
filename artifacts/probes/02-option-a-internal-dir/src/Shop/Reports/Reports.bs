@@ -1,0 +1,6 @@
+module Shop.Reports
+using Shop.Orders
+
+// the public API of Shop.Orders stays nameable by everyone
+public int Report(int n)
+Report(n) -> Shop.Orders.Total(n)

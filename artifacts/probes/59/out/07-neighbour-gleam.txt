@@ -1,0 +1,32 @@
+gleam 1.5.0
+--- emitted Erlang ---
+-module(n).
+-compile([no_auto_import, nowarn_unused_vars, nowarn_unused_function, nowarn_nomatch]).
+
+-export([outer/1, bump_pub/1]).
+-export_type([order/0]).
+
+-type order() :: {order, integer(), integer()}.
+
+-file("/tmp/tmp.zA50wA8kpn/src/n.gleam", 5).
+-spec inner(order()) -> integer().
+inner(O) ->
+    erlang:element(3, O).
+
+-file("/tmp/tmp.zA50wA8kpn/src/n.gleam", 3).
+-spec outer(order()) -> integer().
+outer(O) ->
+    inner(O).
+
+-file("/tmp/tmp.zA50wA8kpn/src/n.gleam", 9).
+-spec bump(integer()) -> integer().
+bump(N) ->
+    N + 1.
+
+-file("/tmp/tmp.zA50wA8kpn/src/n.gleam", 7).
+-spec bump_pub(integer()) -> integer().
+bump_pub(N) ->
+    bump(N).
+--- forged values (no Gleam type can express these) ---
+n:outer({invoice,2,999})  => 999   (private inner/1 read element 3 of a wrong tuple)
+n:bump_pub(1.5)           => 2.5

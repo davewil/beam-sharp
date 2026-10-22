@@ -1,0 +1,83 @@
+gleam 1.5.0
+=== V1: user type named Result shadows the prelude's Result
+    | pub type Result(a, e) { Good(a) Bad(e) }
+    | pub fn main() -> Result(Int, String) { Good(1) }
+    >   Compiling p
+    >    Compiled in 0.33s
+    exit=0
+=== V2: user CONSTRUCTOR named Ok (prelude constructor), then use it
+    | pub type T { Ok(Int) }
+    | pub fn main() { Ok(1) }
+    >   Compiling p
+    >    Compiled in 0.31s
+    exit=0
+=== V3: user type named List
+    | pub type List { Cons(Int, List) Empty }
+    | pub fn main() -> List { Cons(1, Empty) }
+    >   Compiling p
+    >    Compiled in 0.37s
+    exit=0
+=== V4: user type named Bool with constructors True/False redefined
+    | pub type Bool { True False Maybe }
+    | pub fn main() -> Bool { Maybe }
+    >   Compiling p
+    > /tmp/tmp.gR058ajK02/v4/build/dev/erlang/p/_gleam_artefacts/p.erl:7:2: type bool() is a builtin type; it cannot be redefined
+    > %    7| -type bool() :: true | false | 'maybe'.
+    > %     |  ^
+    > 
+    > /tmp/tmp.gR058ajK02/v4/src/p.gleam:3:17: Warning: type bool() is now called boolean(); please use the new name instead
+    > error: Shell command failure
+    > 
+    > There was a problem when running the shell command `escript`.
+    > 
+    exit=1
+=== V5: a module file named gleam.gleam (the prelude's own module name)
+    | src/gleam.gleam: pub fn f() { 1 }
+    >   Compiling p
+    > error: Reserved module name
+    > 
+    > The module name `gleam` is reserved.
+    > Try a different name for this module.
+    > 
+    exit=1
+=== V6: a local module named list (what a stdlib user would import as gleam/list's last segment)
+    | src/list.gleam defines sum; src/p.gleam does 'import list'
+    >   Compiling p
+    >    Compiled in 0.38s
+    exit=0
+=== V7: a module at src/gleam/list.gleam (the stdlib's path, with the stdlib NOT present)
+    >   Compiling p
+    >    Compiled in 0.38s
+    exit=0
+=== V8: the compiler binary's own reserved-name messages (no source tree installed; this is the binary's strings)
+    has the reserved prefix `gleam_`
+    is a reserved module name in Gleam.
+    is a reserved word in Erlang.
+    is a reserved word in Gleam.
+    is a standard library module in Erlang.
+=== V9: a module named like an Erlang stdlib module (lists), to see which of the two reservations fires
+    > error: Erlang module name collision
+    > 
+    > The module `/tmp/tmp.gR058ajK02/v9/src/lists.gleam` compiles to an Erlang
+    > module named `lists`.
+    > 
+    > By default Erlang includes a module with the same name so if we were to
+    > compile and load your module it would overwrite the Erlang one, potentially
+    > causing confusing errors and crashes.
+    > 
+    > Hint: Rename this module and try again.
+    > 
+    exit=1
+=== V10: a module named string (also an Erlang stdlib module)
+    > error: Erlang module name collision
+    > 
+    > The module `/tmp/tmp.gR058ajK02/v10/src/string.gleam` compiles to an Erlang
+    > module named `string`.
+    > 
+    > By default Erlang includes a module with the same name so if we were to
+    > compile and load your module it would overwrite the Erlang one, potentially
+    > causing confusing errors and crashes.
+    > 
+    > Hint: Rename this module and try again.
+    > 
+    exit=1

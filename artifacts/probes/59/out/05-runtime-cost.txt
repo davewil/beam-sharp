@@ -1,0 +1,14 @@
+== pass 1 ==
+/tmp/claude-0/ws59-run/o-base            Inner(tag):  min 32.70  median 34.14  max 47.99  ns/call
+                                         Bump(int):   min 15.36  median 19.61  max 29.11  ns/call
+/tmp/claude-0/ws59-run/o-narrow          Inner(tag):  min 24.61  median 26.24  max 45.05  ns/call
+                                         Bump(int):   min 16.13  median 17.11  max 18.29  ns/call
+/tmp/claude-0/ws59-run/o-wide            Inner(tag):  min 34.61  median 35.23  max 37.39  ns/call
+                                         Bump(int):   min 17.17  median 17.79  max 21.26  ns/call
+== pass 2 ==
+/tmp/claude-0/ws59-run/o-base            Inner(tag):  min 33.70  median 38.60  max 48.25  ns/call
+                                         Bump(int):   min 15.02  median 17.21  max 34.47  ns/call
+/tmp/claude-0/ws59-run/o-narrow          Inner(tag):  min 26.59  median 29.13  max 35.21  ns/call
+                                         Bump(int):   min 16.26  median 17.35  max 27.36  ns/call
+/tmp/claude-0/ws59-run/o-wide            Inner(tag):  min 33.49  median 37.59  max 59.41  ns/call
+                                         Bump(int):   min 17.11  median 17.94  max 21.92  ns/call

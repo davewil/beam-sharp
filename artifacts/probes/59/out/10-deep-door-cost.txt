@@ -1,0 +1,3 @@
+n=100    shallow        3.5 us   door-check-per-entry (recursion re-enters)         60.5 us   check-once        3.1 us
+n=1000   shallow       21.7 us   door-check-per-entry (recursion re-enters)       5925.9 us   check-once       32.5 us
+n=4000   shallow      293.7 us   door-check-per-entry (recursion re-enters)      98253.3 us   check-once      137.1 us

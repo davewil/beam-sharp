@@ -1,0 +1,5 @@
+OTP 25 erts 13.2.2.5
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+gleam 1.5.0
+0.19.3
+rebar 3.19.0 on Erlang/OTP 25 Erts 13.2.2.5

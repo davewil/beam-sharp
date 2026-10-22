@@ -1,0 +1,46 @@
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+=== A. script mode (elixir shadow.exs), stderr merged
+elixir 1.14.0 otp 25
+warning: redefining module Map (current version loaded from /usr/lib/elixir/bin/../lib/elixir/ebin/Elixir.Map.beam)
+  shadow.exs:6
+
+Map.get(%{a: 1}, :a)           => :mine_not_stdlibs
+function_exported?(Map, put, 3) => false
+function_exported?(Map, update!, 3) => false
+function_exported?(Map, new, 0) => false
+function_exported?(Map, keys, 1) => false
+function_exported?(Map, fetch, 2) => false
+function_exported?(Map, merge, 2) => false
+Enum.into([a: 1], %{})                   ok %{a: 1}
+Map.new([a: 1])                          RAISED UndefinedFunctionError: function Map.new/1 is undefined or private
+struct(URI, host: "x")                   ok %URI{scheme: :mine_not_stdlibs, authority: :mine_not_stdlibs, userinfo: :mine_not_stdlibs, host: :mine_not_stdlibs, port: :mine_not_stdlibs, path: :mine_not_stdlibs, query: :mine_not_stdlibs, fragment: :mine_not_stdlibs}
+Keyword.get([a: 1], :a)                  ok 1
+URI.parse("http://x/y")                  ok %URI{scheme: :mine_not_stdlibs, authority: :mine_not_stdlibs, userinfo: :mine_not_stdlibs, host: :mine_not_stdlibs, port: :mine_not_stdlibs, path: :mine_not_stdlibs, query: :mine_not_stdlibs, fragment: :mine_not_stdlibs}
+Registry via Map.put (Mix-free)          ok %{a: 1}
+inspect(%{a: 1})                         ok "%{a: 1}"
+Access.get(%{a: 1}, :a)                  ok 1
+Kernel.update_in(%{a: 1}, [:a], & &1)    RAISED UndefinedFunctionError: function Map.get_and_update/3 is undefined or private
+Enum.group_by([1,2], & &1)               ok %{1 => [1], 2 => [2]}
+** (EXIT from #PID<0.96.0>) an exception was raised:
+    ** (UndefinedFunctionError) function Map.new/1 is undefined or private
+        (elixir 1.14.0) Map.new([])
+        (elixir 1.14.0) lib/module/parallel_checker.ex:373: Module.ParallelChecker.cache_from_module_map/2
+        (elixir 1.14.0) lib/module/parallel_checker.ex:68: anonymous fn/5 in Module.ParallelChecker.spawn/3
+
+exit=1
+
+=== B. compiled mode: elixirc a module Map, then call stdlib Map from a second file
+warning: redefining module Map (current version loaded from /usr/lib/elixir/bin/../lib/elixir/ebin/Elixir.Map.beam)
+  map.ex:1
+
+** (EXIT from #PID<0.96.0>) an exception was raised:
+    ** (UndefinedFunctionError) function Map.new/1 is undefined or private
+        (elixir 1.14.0) Map.new([])
+        (elixir 1.14.0) lib/module/parallel_checker.ex:373: Module.ParallelChecker.cache_from_module_map/2
+        (elixir 1.14.0) lib/module/parallel_checker.ex:68: anonymous fn/5 in Module.ParallelChecker.spawn/3
+
+Logger - error: {removed_failing_handler,'Elixir.Logger'}
+elixirc exit=1
+Map.get: 1
+Map.put: %{a: 1}
+use exit=0

@@ -1,0 +1,5 @@
+module Callers.PublicCall
+using Shop.Orders
+
+public int Go(int n)
+Go(n) -> Shop.Orders.Total(n)

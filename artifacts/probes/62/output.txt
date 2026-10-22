@@ -1,0 +1,264 @@
+##### 00-toolchain
+OTP 25 (erts 13.2.2.5)
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+gleam 1.5.0
+0.19.3
+bsc built: /tmp/claude-0/ws62-run/plain/_build/default/bin/bsc
+/tmp/claude-0/ws62-run/shop-ebin/Shop.Collections.Ints.beam
+/tmp/claude-0/ws62-run/shop-ebin/Shop.Reports.beam
+/tmp/claude-0/ws62-run/shop-ebin/Shop.beam
+exports: [{bs@type_atoms,0},
+          {'Which',1},
+          {'Amount',1},
+          {'New',1},
+          {'Pay',1},
+          {'Band',1},
+          {'Total',1},
+          {'Squared',1},
+          {'Bump',1},
+          {module_info,0},
+          {module_info,1}]
+##### 01-elixir-call-syntax
+Elixir 1.14.0 / OTP 25
+:Shop.New(1)                         -> SYNTAX_ERROR: "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:"BSharp.Shop".New(1)                -> SYNTAX_ERROR: "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:"Shop.Reports".Totals(1)            -> SYNTAX_ERROR: "unexpected ( after alias Totals. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:"Elixir.Shop".New(1)                -> SYNTAX_ERROR: "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+:"BSharp.Shop".new(1)                -> parses
+apply(:Shop, :New, [1])              -> parses
+:Shop."New"(1)                       -> parses
+:"Shop.Reports"."Totals"(1)          -> parses
+&:Shop."New"/1                       -> parses
+1 |> then(&:Shop."New"/1)            -> parses
+m = :Shop; m."New"(1)                -> parses
+Shop.New(1)                          -> SYNTAX_ERROR: "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ""("
+Shop."New"(1)                        -> parses
+--- run
+apply(:Shop, :New, [1])              => %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:Shop."New"(1)                       => %{Id: 1, Kind: :"Shop.Order", Total: 0}
+(&:Shop."New"/1).(2)                 => %{Id: 2, Kind: :"Shop.Order", Total: 0}
+Enum.map([1,2], &:Shop."New"/1)      => [%{Id: 1, Kind: :"Shop.Order", Total: 0}, %{Id: 2, Kind: :"Shop.Order", Total: 0}]
+1 |> then(&:Shop."New"/1)            => %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:Shop."Amount"(:Shop."New"(5))       => 0
+[1,2] |> Enum.map(&:Shop."New"(&1)) |> length() => 2
+file eval: SyntaxError /tmp/p62_cap.exs:1:11: unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore.
+--- formatter
+:Shop."New"(1)         formats to :Shop."New"(1)
+:Shop."new"(1)         formats to :Shop.new(1)
+:Shop.new(1)           formats to :Shop.new(1)
+--- warnings when compiling a module that uses the quoted form
+P62Caller.go(3): %{Id: 3, Kind: :"Shop.Order", Total: 0}
+##### 02-record-kind-erlang
+== Erlang caller (ordinary quoted-atom syntax)
+'Shop':'New'(1) -> #{'Id' => 1,'Kind' => 'Shop.Order','Total' => 0}
+'Shop':'Which'(#{'Kind'=>'Shop.Order','Id'=>1,'Total'=>2}) -> order
+== Elixir caller (via the quoted-name form; see probe 01)
+value                                       %{Id: 7, Kind: :"Shop.Order", Total: 0}
+is_struct                                   false
+has __struct__                              false
+map pattern %{Kind: :"Shop.Order", Id: id}  {:matched, 7}
+Which right tag                             :order
+Which wrong tag MyApp.Order                 RAISED FunctionClauseError
+Which Elixir struct, same fields            RAISED FunctionClauseError
+Which no Kind at all                        RAISED FunctionClauseError
+##### 03-gleam
+=== A. Gleam CALLING a B# module (@external with the PascalCase names); compile AND run
+  Compiling a
+   Compiled in 0.30s
+9:    'Shop':'Which'('Shop':'New'(1)).
+a:main() -> order
+
+=== B. Can a Gleam author even WRITE a PascalCase function (the thing B# does)?
+  Resolving versions
+error: Syntax error
+  ┌─ /tmp/claude-0/ws62-run/gleam03/b/src/b.gleam:1:8
+  │
+1 │ pub fn DoThing() { 1 }
+  │        ^^^^^^^ I'm expecting a lowercase name here
+
+Hint: Variable and module names start with a lowercase letter, and can
+contain a-z, 0-9, or _.
+  Resolving versions
+  Compiling b2
+error: Invalid function name
+  ┌─ /tmp/claude-0/ws62-run/gleam03/b2/src/b2.gleam:1:8
+  │
+1 │ pub fn do__thing_X() { 1 }
+  │        ^^^^^^^^^^^ This is not a valid function name
+
+
+=== C. What Gleam DOES convert PascalCase->snake_case: constructor names (atoms)
+   Compiled in 0.33s
+7:-type t() :: ab_test |
+8-    xml_http_request |
+9-    foo2_bar |
+10-    get2_d |
+11-    html_element |
+12-    a |
+13-    ab |
+14-    a_bc |
+15-    io_error |
+16-    v8_engine |
+17-    my_order_line.
+18-
+19--file("/tmp/claude-0/ws62-run/gleam03/cc/src/cc.gleam", 2).
+4:-export([all/0, do_thing_now/0]).
+5:-export_type([t/0]).
+
+=== D. Does that derivation rule collide? (ABC vs Abc)
+   Compiled in 0.31s
+7:-type t() :: abc | abc.
+x() ->
+    {abc, abc}.
+  Resolving versions
+  Compiling d2
+error: Invalid type variant name
+  ┌─ /tmp/claude-0/ws62-run/gleam03/d2/src/d2.gleam:1:14
+  │
+1 │ pub type T { Foo_Bar }
+
+=== E. module path encoding
+   Compiled in 0.32s
+cc.app
+cc.beam
+cc@@main.beam
+deep@nested.beam
+##### 04-name-rule-corpus
+(did not compile under the OTP25 scratch bsc: Signalbox)
+modules=22 exported author functions=78
+names where S1 and S2 differ: 0
+corpus names already containing '_': [('Counter', 'handle_call'), ('Counter', 'handle_cast')]
+  GetHTTPServer  S1=get_h_t_t_p_server   S2=get_http_server
+  ParseURL       S1=parse_u_r_l          S2=parse_url
+  ParseUrl       S1=parse_url            S2=parse_url
+  ABC            S1=a_b_c                S2=abc
+  Abc            S1=abc                  S2=abc
+  Get2D          S1=get2_d               S2=get2_d
+  Get_Value      S1=get__value           S2=get_value
+  GetValue       S1=get_value            S2=get_value
+  Get_value      S1=get_value            S2=get_value
+  F1             S1=f1                   S2=f1
+  F_1            S1=f_1                  S2=f_1
+  Init           S1=init                 S2=init
+  HandleCall     S1=handle_call          S2=handle_call
+  HTTP           S1=h_t_t_p              S2=http
+  Http           S1=http                 S2=http
+S1 synthetic collisions: {}
+S2 synthetic collisions: {'abc': ['ABC', 'Abc'], 'get_value': ['Get_Value', 'GetValue'], 'parse_url': ['ParseURL', 'ParseUrl']}
+Elixir 1.14.0 Macro.underscore/1 (Elixir's own PascalCase->snake_case):
+  GetHTTPServer get_http_server
+  ParseURL      parse_url
+  ParseUrl      parse_url
+  ABC           abc
+  Abc           abc
+  Get2D         get2_d
+  Get_Value     get__value
+  GetValue      get_value
+  Get_value     get_value
+  F1            f1
+  F_1           f_1
+  HTTP          http
+  Http          http
+  ModuleInfo    module_info
+  ABc           a_bc
+  ABTest        ab_test
+  XMLHttpRequestxml_http_request
+  IOError       io_error
+  V8Engine      v8_engine
+  HTMLElement   html_element
+Macro.underscore collisions: [{"abc", ["ABC", "Abc"]}, {"parse_url", ["ParseURL", "ParseUrl"]}]
+##### 05-alias-cost
+scratch diff applied for the alias build (bs_emit.erl only):
+  lines added: 32
+
+== per-module .beam bytes and export count (plain vs alias)
+modules=22
+beam bytes   plain=49140 alias=53224 (+8.3%)
+exports      plain=144 alias=219
+functions    plain=145 alias=220
+
+== flat_size of the exports list as term (what module_info(exports) hands a caller), Shop
+plain Shop exports: 11 entries, flat_size 55 words
+alias Shop exports: 19 entries, flat_size 95 words
+
+== compile time of the whole example corpus (wall clock, 3 runs each)
+plain run1: 10277 ms
+plain run2: 9894 ms
+plain run3: 9962 ms
+alias run1: 10590 ms
+alias run2: 10171 ms
+alias run3: 10425 ms
+
+== Elixir against the ALIAS build of Shop
+-- patched Shop exports:
+[
+  Amount: 1,
+  Band: 1,
+  Bump: 1,
+  New: 1,
+  Pay: 1,
+  Squared: 1,
+  Total: 1,
+  Which: 1,
+  amount: 1,
+  band: 1,
+  bump: 1,
+  new: 1,
+  pay: 1,
+  squared: 1,
+  total: 1,
+  which: 1
+]
+-- the thing the ticket wants:
+:Shop.new(1): %{Id: 1, Kind: :"Shop.Order", Total: 0}
+:Shop.which(:Shop.new(1)): :order
+alias == original: true
+-- stack depth: alias is a tail call, so a crash through the alias shows:
+** (FunctionClauseError) no function clause matching in :Shop."Which"/1
+    /tmp/claude-0/ws62-run/examples/Shop/shop.bs:18: :Shop."Which"(%{})
+    /home/user/beam-sharp/artifacts/probes/62/05-alias-cost/probe.exs:9: (file)
+    (elixir 1.14.0) src/elixir_compiler.erl:65: :elixir_compiler.dispatch/4
+
+== behaviour module Counter (GenServer; callbacks already lowercase via the bs_otp table): exports plain vs alias
+plain: [{handle_call,3},{handle_cast,2},{init,1}]
+alias: [{handle_call,3},{handle_cast,2},{init,1}]
+##### 06-alias-collisions
+=== module Clash under the plain compiler
+exit=0
+exports: [{bs@type_atoms,0},
+          {'ParseURL',1},
+          {'ParseUrl',1},
+          {module_info,0},
+          {module_info,1}]
+=== module Clash under the alias compiler
+compile: /tmp/claude-0/ws62-run/src06/Clash/clash.bs:0: function parse_url/1 already defined
+/tmp/claude-0/ws62-run/o-Clash-alias/Clash.abstr:0: Warning: function parse_url/1 already exported
+
+exit=1
+=== module Info under the plain compiler
+exit=0
+exports: [{bs@type_atoms,0},{'ModuleInfo',1},{module_info,0},{module_info,1}]
+=== module Info under the alias compiler
+compile: /tmp/claude-0/ws62-run/src06/Info/info.bs:0: function module_info/1 already defined
+/tmp/claude-0/ws62-run/o-Info-alias/Info.abstr:0: Warning: function module_info/1 already exported
+
+exit=1
+=== module Ok under the plain compiler
+exit=0
+exports: [{bs@type_atoms,0},
+          {'ModuleInfo',0},
+          {'Get_Value',1},
+          {'GetValue',1},
+          {module_info,0},
+          {module_info,1}]
+=== module Ok under the alias compiler
+compile: /tmp/claude-0/ws62-run/src06/Ok/ok.bs:0: function get_value/1 already defined
+/tmp/claude-0/ws62-run/src06/Ok/ok.bs:0: function module_info/0 already defined
+/tmp/claude-0/ws62-run/o-Ok-alias/Ok.abstr:0: Warning: function get_value/1 already exported
+/tmp/claude-0/ws62-run/o-Ok-alias/Ok.abstr:0: Warning: function module_info/0 already exported
+
+exit=1
+##### 07-elixir-tokenizer-lines
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+elixir_tokenizer.erl:911  clause of handle_dot/6 for `. "quoted"` calls; it warns "found quoted call ... quotes are not required" for plain names
+elixir_tokenizer.erl:1370  clause of handle_terminator/6 containing the "unexpected ( after alias" error (what `:Shop.New(1)` hits)

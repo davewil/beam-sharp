@@ -1,0 +1,16 @@
+module T
+
+record R2  { A: int, B: int }
+record R10 { A: int, B: int, C: int, D: int, E: int, F: int, G: int, H: int, I: int, J: int }
+
+public int Use2(R2 r)
+Use2(r) -> P2(r)
+
+private int P2(R2 r)
+P2(r) -> r.A
+
+public int Use10(R10 r)
+Use10(r) -> P10(r)
+
+private int P10(R10 r)
+P10(r) -> r.A

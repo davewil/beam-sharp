@@ -1,0 +1,4 @@
+module Shop.Orders.Internal
+
+public int Recompute(int n)
+Recompute(n) -> n * 3

@@ -1,0 +1,24 @@
+=== Callers/PublicCall  (bsc --src-root src src/Callers/PublicCall Go 5)
+11
+exit=0
+=== Callers/PrivateCall  (bsc --src-root src src/Callers/PrivateCall Go 5)
+src/Callers/PrivateCall/PrivateCall.bs:5:1: error: Go calls Shop.Orders.RecomputeTotal/1, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+exit=1
+=== Callers/InternalCall  (bsc --src-root src src/Callers/InternalCall Go 5)
+15
+exit=0
+=== Callers/NoUsing  (bsc --src-root src src/Callers/NoUsing Go 5)
+src/Callers/NoUsing/NoUsing.bs:4:1: error: Shop.Orders is called but never imported
+  add `using Shop.Orders` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+=== --api of Shop.Orders (does it list the private helper?)
+module Shop.Orders
+int Total(int)
+exit=0
+=== --api of Shop.Orders.Internal
+module Shop.Orders.Internal
+int Recompute(int)
+exit=0

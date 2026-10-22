@@ -1,0 +1,69 @@
+HEAD c3d50b9
+
+=== M1. every site in compiler/src that READS the reserved set (the cost of changing the policy)
+compiler/src/bs_check.erl:244:reserved_module_name(Module, Sources) ->
+compiler/src/bs_check.erl:247:    case lists:member(Module, reserved_qualifiers() ++ maps:keys(protocol_table())) of
+compiler/src/bs_check.erl:256:            erlang:error({reserved_module_name, Module, Line})
+compiler/src/bs_check.erl:319:    compiler_known_redeclared(Decls),
+compiler/src/bs_check.erl:320:    compiler_known_function(Decls),
+compiler/src/bs_check.erl:342:    reserved_module_name(Self, Sources),
+compiler/src/bs_check.erl:1134:    {TVars, _} = maps:get(P, protocol_table()),
+compiler/src/bs_check.erl:1428:protocol_table() ->
+compiler/src/bs_check.erl:1437:is_protocol(Name) -> maps:is_key(Name, protocol_table()).
+compiler/src/bs_check.erl:1461:    case maps:find(P, protocol_table()) of
+compiler/src/bs_check.erl:1480:    case maps:find(P, protocol_table()) of
+compiler/src/bs_check.erl:1482:            erlang:error({unknown_protocol, P, lists:sort(maps:keys(protocol_table())), L});
+compiler/src/bs_check.erl:1518:    {TVars, Ops} = maps:get(P, protocol_table()),
+compiler/src/bs_check.erl:1560:                       maps:is_key(P, protocol_table())]).
+compiler/src/bs_check.erl:1578:    {_TVars, Ops} = maps:get(P, protocol_table()),
+compiler/src/bs_check.erl:1686:    {TVars, Ops} = maps:get(P, protocol_table()),
+compiler/src/bs_check.erl:1701:reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
+compiler/src/bs_check.erl:1832:compiler_known_redeclared(Decls) ->
+compiler/src/bs_check.erl:3243:    case {maps:is_key(Mod0, protocol_table()),
+compiler/src/bs_check.erl:3244:          lists:member(Mod0, reserved_qualifiers())} of
+compiler/src/bs_check.erl:3486:compiler_known_function(Decls) ->
+compiler/src/bs_diag.erl:675:built(Path, {reserved_module_name, Module, Line}) ->
+compiler/src/bs_diag.erl:676:    #{tag => reserved_module_name, severity => error, file => Path, line => Line,
+compiler/src/bs_diag.erl:1385:message(#{tag := reserved_module_name, file := P, line := L, column := C, module := Mod}) ->
+compiler/src/bs_emit.erl:1050:    case lists:member(Mod, bs_check:reserved_qualifiers()) of
+compiler/src/bs_emit.erl:2102:                           lists:member(M, bs_check:reserved_qualifiers())]),
+--- count of reserved_qualifiers() call sites outside its definition:
+compiler/src/bs_check.erl:3 compiler/src/bs_emit.erl:2 compiler/src/bs_diag.erl:0 
+
+=== M2. how many .bs files in the tree, and how many modules declare a whole-name (single segment) module
+163
+distinct module names: 115
+single-segment (whole-name) modules: 106
+--- any module whose WHOLE name or LAST SEGMENT is a roster word (ticket 96 + 14 + 88):
+(none)
+
+=== M3. records/types declared with a roster word as their name (the unqualified PascalCase namespace)
+./compiler/examples/Signalbox/signalbox.bs:15:record Task       { Id: int }
+
+=== M4. qualified-call sites of the ALREADY-reserved qualifiers: the rewrite bill if they moved to another spelling (option 'a namespace users cannot reach')
+List   .bs:12   compiler/test:116  LANGUAGE.md+TOUR.md+STANDARD-ENVIRONMENT.md+compiler/features:83
+Map    .bs:14   compiler/test:56   LANGUAGE.md+TOUR.md+STANDARD-ENVIRONMENT.md+compiler/features:12
+Term   .bs:0    compiler/test:6    LANGUAGE.md+TOUR.md+STANDARD-ENVIRONMENT.md+compiler/features:2
+Float  .bs:3    compiler/test:8    LANGUAGE.md+TOUR.md+STANDARD-ENVIRONMENT.md+compiler/features:14
+--- distinct {Qualifier, Operation, Arity} keys written anywhere in bs_check.erl (upper bound on table rows):
+30
+
+=== M5. which of ticket 96's roster qualifiers are unreserved TODAY (each would burn a name on arrival)
+reserved_qualifiers() today: ['List', 'Map', 'Term', 'Float']
+Enum        free today
+String      free today
+Int         free today
+Binary      free today
+Process     free today
+GenServer   free today
+Supervisor  free today
+Logger      free today
+System      free today
+Task        free today
+Agent       free today
+--- compiler-known types built today (a user cannot declare these; Timeout is not a type, ticket 88):
+'Down' 'Exit' 'ValidationError' 
+
+=== M6. grammar words that already burned a lowercase identifier (each added with a feature, none under a reservation policy)
+module type when using behaviour behavior implements for in public private record with switch var raise fn and or where 
+count: 20

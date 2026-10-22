@@ -1,0 +1,13 @@
+module Ok
+
+public int ModuleInfo()
+
+ModuleInfo() -> 1
+
+public int Get_Value(int n)
+
+Get_Value(n) -> n
+
+public int GetValue(int n)
+
+GetValue(n) -> n

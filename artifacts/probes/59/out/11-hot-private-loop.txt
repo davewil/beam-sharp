@@ -1,0 +1,50 @@
+--- base: emitted Loop/Step heads ---
+'Loop'(0, Acc) ->
+    Acc;
+'Loop'(N, Acc) when N > 0 ->
+    'Loop'(N - 1, Acc + N);
+'Loop'(_N, Acc) ->
+    Acc.
+'SumMod'(Xs) ->
+    'Walk'(Xs, 0).
+'Walk'([], Acc) ->
+    Acc;
+'Walk'([X | T], Acc) ->
+    'Walk'(T, Acc + 'Step'(X)).
+'Step'(K) ->
+    K + 1.
+exports: [{'SumTo',1},{'SumMod',1},{bs@type_atoms,0}]
+  Loop: 2 test/guard instrs
+  Walk: 2 test/guard instrs
+  Step: 0 test/guard instrs
+--- wide: emitted Loop/Step heads ---
+'Loop'(0, Acc) when is_integer(Acc) ->
+    Acc;
+'Loop'(N, Acc)
+    when
+        is_integer(N)
+        andalso
+        is_integer(Acc)
+--
+'Loop'(N, Acc)
+    when
+        is_integer(N)
+        andalso
+        is_integer(Acc) ->
+--
+'Walk'([], Acc) when is_integer(Acc) ->
+    Acc;
+'Walk'([X | T], Acc) when is_integer(Acc) ->
+    'Walk'(T, Acc + 'Step'(X)).
+'Step'(K)
+    when
+        is_integer(K)
+        andalso
+        K >= 0
+  Loop: 2 test/guard instrs
+  Walk: 2 test/guard instrs
+  Step: 3 test/guard instrs
+/tmp/claude-0/ws59-run/o4-base     SumTo(1e6) us min/med/max {2575,3115,4621}   SumMod(1000 x 1000 elems) {4870,5018,12110}
+/tmp/claude-0/ws59-run/o4-wide     SumTo(1e6) us min/med/max {2541,2708,7764}   SumMod(1000 x 1000 elems) {6278,6424,8993}
+/tmp/claude-0/ws59-run/o4-base     SumTo(1e6) us min/med/max {2801,3674,4160}   SumMod(1000 x 1000 elems) {5318,6731,7798}
+/tmp/claude-0/ws59-run/o4-wide     SumTo(1e6) us min/med/max {2813,3148,3767}   SumMod(1000 x 1000 elems) {6373,6875,11526}

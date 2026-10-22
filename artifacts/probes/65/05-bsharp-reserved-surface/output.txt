@@ -1,0 +1,182 @@
+repo HEAD c3d50b9; erl OTP 25; rebar3 rebar 3.19.0 on Erlang/OTP 25 Erts 13.2.2.5
+scratch bsc: /tmp/tmp.4m1qO10Mac/compiler/_build/default/bin/bsc
+
+################ A. TODAY: which names are taken, and in which namespace
+[A1] a whole-name module named like a reserved qualifier
+--- module Map
+    > /tmp/tmp.4m1qO10Mac/p/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+    >   `Map.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.Map` is still legal, and
+    >   so is any other path with `Map` as a segment.
+    exit=1
+--- module List
+    > /tmp/tmp.4m1qO10Mac/p/src/List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+    >   `List.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.List` is still legal, and
+    >   so is any other path with `List` as a segment.
+    exit=1
+--- module Term
+    > /tmp/tmp.4m1qO10Mac/p/src/Term/Term.bs:1:1: error: `Term` is a reserved qualifier, so no module may be called it
+    >   `Term.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.Term` is still legal, and
+    >   so is any other path with `Term` as a segment.
+    exit=1
+--- module Float
+    > /tmp/tmp.4m1qO10Mac/p/src/Float/Float.bs:1:1: error: `Float` is a reserved qualifier, so no module may be called it
+    >   `Float.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.Float` is still legal, and
+    >   so is any other path with `Float` as a segment.
+    exit=1
+[A2] the same word as a path segment
+--- module Shop.List
+    > 1
+    exit=0
+[A3] a protocol name (F64) as a module
+--- module Enumerable
+    > /tmp/tmp.4m1qO10Mac/p/src/Enumerable/Enumerable.bs:1:1: error: `Enumerable` is a protocol, so no module may be called it
+    >   `Enumerable.` names the protocol's operations, and each call goes to the
+    >   module of the record it is given, so a module of this name would
+    >   never be reached. The name is taken only as a WHOLE module name \x{2014}
+    >   `Shop.Enumerable` is still legal, and so is any other path with `Enumerable`
+    >   as a segment.
+    exit=1
+[A4] ticket 96's roster words, free today
+--- module Logger
+    > 2
+    exit=0
+--- module String
+    > 2
+    exit=0
+--- module Process
+    > 2
+    exit=0
+--- module Task
+    > 2
+    exit=0
+--- module Supervisor
+    > 2
+    exit=0
+[A5] unqualified PascalCase TYPES: the compiler-known ones are refused; Timeout is NOT a type (ticket 88 amended 14 s6: it is the atom :timeout)
+--- record ValidationError
+    > /tmp/tmp.4m1qO10Mac/p/src/RValidationError/RValidationError.bs:3:1: error: ValidationError is a compiler-known type and cannot be redeclared
+    >   the standard environment has two kinds of entry: declared entries,
+    >   ordinary aliases you could have written, and compiler-known entries,
+    >   names the compiler owns because it is the only thing that builds a
+    >   value of them. ValidationError is compiler-known. Pick another name.
+    exit=1
+--- record Down
+    > /tmp/tmp.4m1qO10Mac/p/src/RDown/RDown.bs:3:1: error: Down is a compiler-known type and cannot be redeclared
+    >   the standard environment has two kinds of entry: declared entries,
+    >   ordinary aliases you could have written, and compiler-known entries,
+    >   names the compiler owns because it is the only thing that builds a
+    >   value of them. Down is compiler-known. Pick another name.
+    exit=1
+--- record Exit
+    > /tmp/tmp.4m1qO10Mac/p/src/RExit/RExit.bs:3:1: error: Exit is a compiler-known type and cannot be redeclared
+    >   the standard environment has two kinds of entry: declared entries,
+    >   ordinary aliases you could have written, and compiler-known entries,
+    >   names the compiler owns because it is the only thing that builds a
+    >   value of them. Exit is compiler-known. Pick another name.
+    exit=1
+--- record Timeout
+    > 1
+    exit=0
+[A6] a record named like a reserved qualifier; a function named like one or like an obligation
+--- record Map/List/Task + fn ValidateAs + fn Map
+    > 101
+    exit=0
+--- fn ToExistingAtom (called bare, so it is refused)
+    > /tmp/tmp.4m1qO10Mac/p/src/Atoe/Atoe.bs:3:1: error: ToExistingAtom is a compiler-known function and cannot be declared
+    >   a call to ToExistingAtom is read by the compiler before any function of this
+    >   module is looked up \x{2014} it is a codegen obligation, written bare \x{2014} so
+    >   a function declared under that name could never be called.
+    >   Pick another name.
+    exit=1
+[A7] the lowercase namespace: can user syntax even spell a prelude type name?
+--- record result
+    > /tmp/tmp.4m1qO10Mac/p/src/Low/Low.bs:3:1: error: syntax error before: result
+    exit=1
+
+################ A+. the OTHER namespaces ticket 65 is cited by: identifiers (63), emitted names (87)
+[A8] keywords already burned identifiers: a parameter named like each lexer keyword
+    raise   /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: raise
+    fn      /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: fn
+    and     /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: 'and'
+    or      /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: 'or'
+    where   /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: where
+    with    /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: with
+    switch  /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: switch
+    var     /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: var
+    record  /tmp/tmp.4m1qO10Mac/p/src/Kw/Kw.bs:3:1: error: syntax error before: record
+[A9] ticket 63: 'not' is deliberately NOT a keyword (the one-line route to a sharp message was declined pending ticket 65)
+--- parameter named not
+    > 2
+    exit=0
+[A10] ticket 87: can user syntax spell an emitted bs@ name?
+--- function named bs@x
+    > escript: exception error: no function clause matching 
+    >                  bs_diag:message(#{detail => "illegal characters \"@\"",
+    >                                    file =>
+    >                                        "/tmp/tmp.4m1qO10Mac/p/src/Bs/Bs.bs",
+    >                                    line => 3,severity => error,
+    >                                    tag => lex_error}) (/tmp/tmp.4m1qO10Mac/compiler/src/bs_diag.erl, line 932)
+    exit=127
+
+################ B. GROWTH, option 'reserve': BS_PROBE_EXTRA=Logger puts Logger in the set
+[B0] before the release that adds Logger
+--- Caller -> user's Logger.Info
+    > 2
+    exit=0
+[B1] after it
+--- Caller (unchanged source)
+    > /tmp/tmp.4m1qO10Mac/p/src/Logger/Logger.bs:1:1: error: `Logger` is a reserved qualifier, so no module may be called it
+    >   `Logger.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.Logger` is still legal, and
+    >   so is any other path with `Logger` as a segment.
+    exit=1
+--- Logger itself (unchanged source)
+    > /tmp/tmp.4m1qO10Mac/p/src/Logger/Logger.bs:1:1: error: `Logger` is a reserved qualifier, so no module may be called it
+    >   `Logger.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.Logger` is still legal, and
+    >   so is any other path with `Logger` as a segment.
+    exit=1
+
+################ C. option 'user names win' (approximation, see header)
+[C0] without the switch: the declaration is refused
+--- module Map
+    > /tmp/tmp.4m1qO10Mac/p/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+    >   `Map.` names operations the compiler knows and inlines at the site;
+    >   no beam ships for it and no `using` is ever written. The name is
+    >   taken only as a WHOLE module name \x{2014} `Shop.Map` is still legal, and
+    >   so is any other path with `Map` as a segment.
+    exit=1
+[C1] with BS_PROBE_USER_WINS=1
+--- module Map is accepted
+    > 2000
+    exit=0
+--- UsesMap: Map.Get means the user's
+    > 2000
+    exit=0
+--- Std: no import of a user List, List.Sum is still the standard's
+    > 4
+    exit=0
+--- UsesList: user List has no Sum; the standard Sum is now unreachable
+    > /tmp/tmp.4m1qO10Mac/p/src/UsesList/UsesList.bs:6:1: error: Go calls List.Sum/1, which nothing declares
+    >   every function has a signature. Write one, or fix the name.
+    exit=1
+
+################ D. does a PascalCase B# module collide with OTP's lowercase modules at the BEAM?
+    out: Logger.abstr
+    out: Logger.beam
+    loaded logger and 'Logger' together; their file names differ only by case: logger.beam vs Logger.beam
+    OTP logger:info/1 exported? true; user Logger:Info/1 exported? true
+
+################ E. CONTROL: the repo's own gate for exactly this surface, run against the scratch build with both switches off
+  ok         List/Term/Map/Float are reserved qualifiers, lowered to OTP at the site and refused when shadowed; Map's rows lower to maps
+gate exit=0

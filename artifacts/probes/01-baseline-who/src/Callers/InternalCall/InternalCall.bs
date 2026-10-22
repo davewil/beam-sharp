@@ -1,0 +1,5 @@
+module Callers.InternalCall
+using Shop.Orders.Internal
+
+public int Go(int n)
+Go(n) -> Shop.Orders.Internal.Recompute(n)

@@ -1,0 +1,9 @@
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+a) Billing.bill(2) via a @moduledoc-false module = 6  (compiled and ran; nothing refused)
+b) compiling Orders.Pricing (inside Orders) and Billing (outside):
+   TRACER REFUSES Billing -> Orders.Internal.recompute/1 (line 2), friends=[Orders]
+   (a tracer only REPORTS; both modules still compiled and loaded: Billing.bill(2)=6)
+c) Erlang: no caller-scoped export; the *after-the-fact* tool is xref (caller-graph query over .beam files):
+   xref {use,{callee,helper,1}} (functions that use it) = [{friend,go,1},
+                                                           {stranger,go,1}]
+   (it answers WHO calls, after compilation; it does not stop anyone)

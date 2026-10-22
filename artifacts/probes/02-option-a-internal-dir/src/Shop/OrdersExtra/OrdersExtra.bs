@@ -1,0 +1,5 @@
+module Shop.OrdersExtra
+using Shop.Orders.Internal
+
+public int Extra(int n)
+Extra(n) -> Shop.Orders.Internal.Recompute(n)

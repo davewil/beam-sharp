@@ -1,0 +1,5 @@
+module Info
+
+public int ModuleInfo(int n)
+
+ModuleInfo(n) -> n

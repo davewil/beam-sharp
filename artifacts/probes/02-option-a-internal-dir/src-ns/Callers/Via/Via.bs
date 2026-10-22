@@ -1,0 +1,6 @@
+module Callers.Via
+using Shop
+
+// reaches Shop.Orders.Internal through the NAMESPACE tier (`using Shop`), never naming it in a `using`
+public int Go(int n)
+Go(n) -> Orders.Internal.Recompute(n)

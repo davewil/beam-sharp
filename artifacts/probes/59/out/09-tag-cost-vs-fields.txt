@@ -1,0 +1,8 @@
+--- base : compile wall ms: 611
+Code chunk bytes (whole module): 179  file bytes: 1568
+  P2 instrs=8
+  P10 instrs=8
+--- narrow : compile wall ms: 724
+Code chunk bytes (whole module): 155  file bytes: 1520
+  P2 instrs=6
+  P10 instrs=6

@@ -1,0 +1,5 @@
+module Shop.Orders.Tests
+using Shop.Orders.Internal
+
+public int Check(int n)
+Check(n) -> Shop.Orders.Internal.Recompute(n)

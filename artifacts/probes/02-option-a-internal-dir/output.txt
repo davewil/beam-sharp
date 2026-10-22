@@ -1,0 +1,39 @@
+################ BASE (unmodified)
+--- bsc --src-root src src/Shop/Orders
+exit=0
+--- bsc --src-root src src/Shop/Orders/Pricing
+exit=0
+--- bsc --src-root src src/Shop/Orders/Tests
+exit=0
+--- bsc --src-root src src/Shop/Billing
+exit=0
+--- bsc --src-root src src/Shop/OrdersExtra
+exit=0
+--- bsc --src-root src src/Shop/Reports
+exit=0
+################ PROTOTYPE A
+--- bsc --src-root src src/Shop/Orders
+exit=0
+--- bsc --src-root src src/Shop/Orders/Pricing
+exit=0
+--- bsc --src-root src src/Shop/Orders/Tests
+exit=0
+--- bsc --src-root src src/Shop/Billing
+src/Shop/Billing/Billing.bs:2:1: error: Shop.Orders.Internal cannot be named from here
+  a module under an `Internal` directory is nameable only from Shop.Orders and below.
+exit=1
+--- bsc --src-root src src/Shop/OrdersExtra
+src/Shop/OrdersExtra/OrdersExtra.bs:2:1: error: Shop.Orders.Internal cannot be named from here
+  a module under an `Internal` directory is nameable only from Shop.Orders and below.
+exit=1
+--- bsc --src-root src src/Shop/Reports
+exit=0
+################ namespace-tier import (src-ns): Callers.Via does using-Shop then Orders.Internal.Recompute(5)
+--- BASE (unmodified)
+15
+exit=0
+--- PROTOTYPE A
+src-ns/Callers/Via/Via.bs:6:1: error: Orders.Internal is called but never imported
+  add `using Orders.Internal` \x{2014} a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1

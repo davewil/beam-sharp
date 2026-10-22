@@ -1,0 +1,16 @@
+module T
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+public int Outer(Order o)
+Outer(o) -> Inner(o)
+
+private int Inner(Order o)
+Inner(o) -> o.Total
+
+public int OuterI(Octet n)
+OuterI(n) -> Bump(n)
+
+private int Bump(Octet n)
+Bump(n) -> n + 1

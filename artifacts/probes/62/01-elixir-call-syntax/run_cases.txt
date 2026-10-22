@@ -1,0 +1,7 @@
+apply(:Shop, :New, [1])
+:Shop."New"(1)
+(&:Shop."New"/1).(2)
+Enum.map([1,2], &:Shop."New"/1)
+1 |> then(&:Shop."New"/1)
+:Shop."Amount"(:Shop."New"(5))
+[1,2] |> Enum.map(&:Shop."New"(&1)) |> length()

@@ -1,0 +1,4 @@
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+outer(1.5)   def, @spec 0..255: 2.5
+outer(300)   def, @spec 0..255: 301
+outer_l([1.5,300]) -> defp bump: 303.5

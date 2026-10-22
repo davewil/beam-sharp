@@ -1,0 +1,21 @@
+--- base ---
+beam file bytes: 2496   Code chunk bytes: 418
+Outer      instrs=7  guard/type ops: [test]
+Inner      instrs=8  guard/type ops: [test]
+Bump       instrs=6  guard/type ops: []
+OuterI     instrs=8  guard/type ops: [test,test,test]
+Score      instrs=8  guard/type ops: [test]
+--- narrow ---
+beam file bytes: 2440   Code chunk bytes: 391
+Outer      instrs=7  guard/type ops: [test]
+Inner      instrs=6  guard/type ops: []
+Bump       instrs=6  guard/type ops: []
+OuterI     instrs=8  guard/type ops: [test,test,test]
+Score      instrs=6  guard/type ops: []
+--- wide ---
+beam file bytes: 2552   Code chunk bytes: 436
+Outer      instrs=7  guard/type ops: [test]
+Inner      instrs=8  guard/type ops: [test]
+Bump       instrs=9  guard/type ops: [test,test,test]
+OuterI     instrs=8  guard/type ops: [test,test,test]
+Score      instrs=8  guard/type ops: [test]

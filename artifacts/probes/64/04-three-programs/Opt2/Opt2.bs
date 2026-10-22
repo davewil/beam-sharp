@@ -1,0 +1,26 @@
+module Opt2
+
+using :maps {
+    term get(term key, map<term, term> m)
+}
+
+// Option 2: option<T> stays bare; at term the author asks Has first, then reads.
+private string Show(term v)
+Show(:nothing) -> "present, the value is :nothing"
+Show(v)        -> "present"
+
+public string Describe(map<string, term> m, string k)
+Describe(m, k) -> Map.Has(m, k) switch {
+    :false => "absent",
+    :true  => Show(:maps.get(k, m))
+}
+
+public string Present()
+Present() -> Describe(Map.FromList([("k", 7)]), "k")
+
+public string PresentNothing()
+PresentNothing() -> Describe(Map.FromList([("k", :nothing)]), "k")
+
+public string Absent()
+Absent() -> Describe(Map.FromList([("other", 7)]), "k")
+

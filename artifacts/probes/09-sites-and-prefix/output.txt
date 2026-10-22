@@ -1,0 +1,27 @@
+--- 1a. readers of the visibility field (a {public,Scope} encoding must be taught to ALL of these):
+/home/user/beam-sharp/compiler/src/bs_api.erl:149:          %% `=:= public`, not `=/= private`: an unmarked signature carries
+/home/user/beam-sharp/compiler/src/bs_api.erl:152:          {signature, _, _, _, _, public, _} = Sig <- Decls]).
+/home/user/beam-sharp/compiler/src/bs_api.erl:158:operation(File, {signature, {Line, Column}, Name, Ret, Params, public, TVars},
+/home/user/beam-sharp/compiler/src/bs_check.erl:365:                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
+/home/user/beam-sharp/compiler/src/bs_check.erl:376:                       V =:= public, TV =/= []]).
+/home/user/beam-sharp/compiler/src/bs_check.erl:1524:      [{param, subst(T, Sub), N} || {param, T, N} <- Ps], public, OpTVars}
+/home/user/beam-sharp/compiler/src/bs_emit.erl:139:%% Private is the default, so the test is `=:= public` and not `=/= private`;
+/home/user/beam-sharp/compiler/src/bs_emit.erl:141:is_public(F) -> element(7, F) =:= public.       % #fn.vis
+--- 1b. the single import choke point, and the 'qualified calls need using' rule:
+498:add_import(L, M, Self, World, Known, Mode, Acc) ->
+512:add_module_import(M, World, Acc) ->
+4567:%% Qualified calls still require a `using` entry: those entries declare the
+4569:qualified_module(Mod, L, C) ->
+4577:require_imported(Mod, L, C) ->
+--- 1c. existing segment-aware prefix helper (note the appended "."):
+children(Prefix, Known) ->
+    P = atom_to_list(Prefix) ++ ".",
+    [M || M <- Known, lists:prefix(P, atom_to_list(M))].
+
+--- 1d. diagnostics: bs_diag has no catch-all message/1 clause (a new error tag without a clause crashes):
+(no output above = no catch-all)
+--- 1e. 'to' as a keyword would steal an identifier already used in the exemplar corpus:
+/home/user/beam-sharp/artifacts/probes/09-sites-and-prefix/../../../compiler/examples/exemplars/25g-jev-server/jev_index.bs:19:    term send(pid to, term msg)
+--- 2. text prefix vs segment prefix
+text prefix   lists:prefix("Shop.Orders","Shop.OrdersExtra") = true   (WRONG: admits Shop.OrdersExtra)
+segment prefix lists:prefix(["Shop","Orders"],["Shop","OrdersExtra"]) = false

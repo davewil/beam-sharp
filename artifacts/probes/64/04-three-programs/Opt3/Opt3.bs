@@ -1,0 +1,29 @@
+module Opt3
+
+using :maps {
+    (:ok, term) | :error find(term key, map<term, term> m)
+}
+
+// Option 3: option<T> stays bare; the lookup family returns an always-tagged type.
+// Spelled here as a user alias (compiles today); Option 3 means the prelude ships it.
+type Found<T> = (:some, T) | :nothing
+
+public Found<term> Get(map<string, term> m, string k)
+Get(m, k) -> :maps.find(k, m) switch { (:ok, v) => (:some, v), :error => :nothing }
+
+public string Describe(map<string, term> m, string k)
+Describe(m, k) -> Get(m, k) switch {
+    :nothing          => "absent",
+    (:some, :nothing) => "present, the value is :nothing",
+    (:some, v)        => "present"
+}
+
+public string Present()
+Present() -> Describe(Map.FromList([("k", 7)]), "k")
+
+public string PresentNothing()
+PresentNothing() -> Describe(Map.FromList([("k", :nothing)]), "k")
+
+public string Absent()
+Absent() -> Describe(Map.FromList([("other", 7)]), "k")
+

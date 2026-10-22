@@ -1,0 +1,5 @@
+module Shop.Billing
+using Shop.Orders.Internal
+
+public int Bill(int n)
+Bill(n) -> Shop.Orders.Internal.Recompute(n)

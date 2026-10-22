@@ -1,0 +1,21 @@
+module Cost
+
+using :maps {
+    (:ok, int) | :error find(string key, map<string, int> m)
+}
+
+type Found<T> = (:some, T) | :nothing
+
+public option<int> GetBare(map<string, int> m, string k)
+GetBare(m, k) -> :maps.find(k, m) switch { (:ok, v) => v, :error => :nothing }
+
+public Found<int> GetTagged(map<string, int> m, string k)
+GetTagged(m, k) -> :maps.find(k, m) switch { (:ok, v) => (:some, v), :error => :nothing }
+
+public int LoopBare(map<string, int> m, int n, int acc)
+LoopBare(m, 0, acc) -> acc
+LoopBare(m, n, acc) -> LoopBare(m, n - 1, acc + (GetBare(m, "k") switch { :nothing => 0, v => v }))
+
+public int LoopTagged(map<string, int> m, int n, int acc)
+LoopTagged(m, 0, acc) -> acc
+LoopTagged(m, n, acc) -> LoopTagged(m, n - 1, acc + (GetTagged(m, "k") switch { :nothing => 0, (:some, v) => v }))

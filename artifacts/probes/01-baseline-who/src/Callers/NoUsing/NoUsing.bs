@@ -1,0 +1,4 @@
+module Callers.NoUsing
+
+public int Go(int n)
+Go(n) -> Shop.Orders.Total(n)

@@ -1,0 +1,9 @@
+module Clash
+
+public int ParseURL(int n)
+
+ParseURL(n) -> n
+
+public int ParseUrl(int n)
+
+ParseUrl(n) -> n + 1

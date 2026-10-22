@@ -1,0 +1,29 @@
+=== baseline
+/tmp/tmp.t47CvznFNN/baseline.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+result: {ok,"/tmp/tmp.t47CvznFNN/baseline.erl"}
+=== parens
+/tmp/tmp.t47CvznFNN/parens.yrl: Warning: conflicts: 7 shift/reduce, 0 reduce/reduce
+result: {ok,"/tmp/tmp.t47CvznFNN/parens.erl"}
+=== brackets
+/tmp/tmp.t47CvznFNN/brackets.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+result: {ok,"/tmp/tmp.t47CvznFNN/brackets.erl"}
+=== to_kw
+/tmp/tmp.t47CvznFNN/to_kw.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+result: {ok,"/tmp/tmp.t47CvznFNN/to_kw.erl"}
+=== parse with baseline parser; source line 2 is a tuple-returning signature, line 4 is 'public(Shop.Orders) int Helper':
+{error,{{4,1},baseline,["syntax error before: ",["int"]]}}
+=== parse with parens parser; source line 2 is a tuple-returning signature, line 4 is 'public(Shop.Orders) int Helper':
+{error,{{2,1},parens,["syntax error before: ",["int"]]}}
+=== parse with brackets parser; source line 2 is a tuple-returning signature, line 4 is 'public[Shop.Orders] int Helper':
+{ok,[{module,{1,1},'M'},
+     {signature,{2,1},
+                'Pair',
+                {t_tuple,[{t_builtin,int},{t_builtin,int}]},
+                [{param,{t_builtin,int},n}],
+                public,[]},
+     {clause,{3,1},
+             'Pair',
+             [{p_var,{3,1},n}],
+             none,
+             {e_tuple,{3,1},[{e_var,{3,1},n},{e_var,{3,1},n}]}},
+     {signature,{4,1},

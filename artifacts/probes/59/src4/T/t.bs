@@ -1,0 +1,23 @@
+module T
+
+type Octet = int where value >= 0 and value <= 255
+
+// hot private accumulator loop over plain ints
+public int SumTo(int n)
+SumTo(n) -> Loop(n, 0)
+
+private int Loop(int n, int acc)
+Loop(0, acc) -> acc
+Loop(n, acc) when n > 0 -> Loop(n - 1, acc + n)
+Loop(n, acc) -> acc
+
+// hot private helper with a refined parameter, called per list element
+public int SumMod(list<Octet> xs)
+SumMod(xs) -> Walk(xs, 0)
+
+private int Walk(list<Octet> xs, int acc)
+Walk([], acc)         -> acc
+Walk([x, ..t], acc)   -> Walk(t, acc + Step(x))
+
+private int Step(Octet k)
+Step(k) -> k + 1

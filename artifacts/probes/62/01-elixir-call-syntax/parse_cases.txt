@@ -1,0 +1,13 @@
+:Shop.New(1)
+:"BSharp.Shop".New(1)
+:"Shop.Reports".Totals(1)
+:"Elixir.Shop".New(1)
+:"BSharp.Shop".new(1)
+apply(:Shop, :New, [1])
+:Shop."New"(1)
+:"Shop.Reports"."Totals"(1)
+&:Shop."New"/1
+1 |> then(&:Shop."New"/1)
+m = :Shop; m."New"(1)
+Shop.New(1)
+Shop."New"(1)

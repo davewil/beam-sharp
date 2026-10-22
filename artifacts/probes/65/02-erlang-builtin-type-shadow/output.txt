@@ -1,0 +1,77 @@
+OTP 25, erts 13.2.2.5
+=== shadow_integer.erl
+    | -module(shadow_integer).
+    | -export([f/1]).
+    | -type integer() :: foo | bar.
+    | -spec f(integer()) -> ok.
+    | f(_) -> ok.
+    > shadow_integer.erl:3:2: type integer() is a builtin type; it cannot be redefined
+    > %    3| -type integer() :: foo | bar.
+    > %     |  ^
+    > 
+    erlc exit=1
+=== shadow_map.erl
+    | -module(shadow_map).
+    | -export([f/1]).
+    | -type map() :: {my_map, term()}.
+    | -spec f(map()) -> ok.
+    | f(_) -> ok.
+    > shadow_map.erl:3:2: type map() is a builtin type; it cannot be redefined
+    > %    3| -type map() :: {my_map, term()}.
+    > %     |  ^
+    > 
+    erlc exit=1
+=== shadow_noauto.erl
+    | -module(shadow_noauto).
+    | -compile(no_auto_import_types).
+    | -export([f/1]).
+    | -type integer() :: foo | bar.
+    | -spec f(integer()) -> ok.
+    | f(_) -> ok.
+    > shadow_noauto.erl:4:2: Warning: type integer() is unused
+    > %    4| -type integer() :: foo | bar.
+    > %     |  ^
+    > 
+    erlc exit=0
+=== shadow_noauto_arity.erl
+    | -module(shadow_noauto_arity).
+    | -export([f/1]).
+    | %% a user type that merely shares a NAME with a builtin but not its arity
+    | -type integer(A) :: {int, A}.
+    | -spec f(integer(atom())) -> ok.
+    | f(_) -> ok.
+    erlc exit=0
+=== shadow_bif.erl
+    | -module(shadow_bif).
+    | -export([f/1]).
+    | length(_) -> mine.
+    | f(X) -> length(X).
+    > shadow_bif.erl:4:9: ambiguous call of overridden pre R14 auto-imported BIF length/1
+    >  - use erlang:length/1 or "-compile({no_auto_import,[length/1]})." to resolve name clash
+    > %    4| f(X) -> length(X).
+    > %     |         ^
+    > 
+    erlc exit=1
+=== shadow_bif_optout.erl
+    | -module(shadow_bif_optout).
+    | -export([f/1]).
+    | -compile({no_auto_import, [length/1]}).
+    | length(_) -> mine.
+    | f(X) -> length(X).
+    erlc exit=0
+=== run the opt-out one: whose length/1 does f/1 reach?
+shadow_bif_optout:f([a,b]) = mine
+
+=== where OTP's linter decides (installed source)
+2986:        not member(no_auto_import_types, St0#lint.compile) of
+2991:                     case is_newly_introduced_builtin_type(TypePair) of
+2994:                             Warn = {new_builtin_type, TypePair},
+2998:                             add_error(Anno, {builtin_type, TypePair}, St0)
+3187:is_newly_introduced_builtin_type({Name, _}) when is_atom(Name) -> false.
+=== the type list a user cannot redefine includes (erl_internal:is_type/2), e.g.:
+integer/0 true
+map/0 true
+dynamic/0 false
+nonempty_binary/0 true
+integer/1 false
+option/1 false

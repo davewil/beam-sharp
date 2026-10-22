@@ -1,0 +1,5 @@
+module Callers.PrivateCall
+using Shop.Orders
+
+public int Go(int n)
+Go(n) -> Shop.Orders.RecomputeTotal(n)

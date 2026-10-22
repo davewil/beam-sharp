@@ -1,0 +1,8 @@
+module Shop.Orders
+
+public int Total(int n)
+Total(n) -> RecomputeTotal(n) + 1
+
+// unmarked => private by default (F12 amendment)
+int RecomputeTotal(int n)
+RecomputeTotal(n) -> n * 2

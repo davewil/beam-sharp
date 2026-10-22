@@ -1,0 +1,89 @@
+
+################ variant A (base) ################
+--- emitted heads of the private functions ---
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    map_get('Total', O).
+'OuterL'([]) ->
+    0;
+--
+'Bump'(N) ->
+    N + 1.
+'InnerAsValue'() ->
+    fun 'Inner'/1.
+--- forged values ---
+Outer(Invoice)                 exported, direct                => {raised,error,function_clause}
+OuterL([Order, Invoice])       exported, via list              => {raised,error,function_clause}
+OuterL([Order, Order])         control (valid)                 => {returned,20}
+SumO([1, 1.5])                 exported, via list              => {returned,4.5}
+SumO([300])                    exported, via list              => {returned,301}
+SumO([1, 2])                   control (valid)                 => {returned,5}
+(InnerAsValue())(Invoice)      private escaped as fun          => {raised,error,function_clause}
+(BumpAsValue())(1.5)           private escaped as fun          => {returned,2.5}
+(BumpAsValue())(300)           private escaped as fun          => {returned,301}
+Nested(Wrapper{Cust=Order})    exported, nested record         => {raised,error,function_clause}
+Nested(Wrapper{Cust=Cust})     control (valid)                 => {returned,5}
+OuterI(1.5)                    exported, direct                => {raised,error,function_clause}
+
+################ variant B (narrow) ################
+--- diff of scratch bs_emit.erl vs repo ---
+276a277
+>         {ok, _} when not Public -> {Pat, []};
+--- emitted heads of the private functions ---
+'Inner'(O) ->
+    map_get('Total', O).
+'OuterL'([]) ->
+    0;
+--
+'Bump'(N) ->
+    N + 1.
+'InnerAsValue'() ->
+    fun 'Inner'/1.
+--- forged values ---
+Outer(Invoice)                 exported, direct                => {raised,error,function_clause}
+OuterL([Order, Invoice])       exported, via list              => {returned,1009}
+OuterL([Order, Order])         control (valid)                 => {returned,20}
+SumO([1, 1.5])                 exported, via list              => {returned,4.5}
+SumO([300])                    exported, via list              => {returned,301}
+SumO([1, 2])                   control (valid)                 => {returned,5}
+(InnerAsValue())(Invoice)      private escaped as fun          => {returned,999}
+(BumpAsValue())(1.5)           private escaped as fun          => {returned,2.5}
+(BumpAsValue())(300)           private escaped as fun          => {returned,301}
+Nested(Wrapper{Cust=Order})    exported, nested record         => {returned,5}
+Nested(Wrapper{Cust=Cust})     control (valid)                 => {returned,5}
+OuterI(1.5)                    exported, direct                => {raised,error,function_clause}
+
+################ variant C (wide) ################
+--- diff of scratch bs_emit.erl vs repo ---
+284c284
+<         none when Public ->
+---
+>         none ->
+288,290c288
+<             end;
+<         none ->
+<             {Pat, []}
+---
+>             end
+--- emitted heads of the private functions ---
+'Inner'(O) when map_get('Kind', O) =:= 'T.Order' ->
+    map_get('Total', O).
+'OuterL'([]) ->
+    0;
+--
+'Bump'(N)
+    when
+        is_integer(N)
+        andalso
+--- forged values ---
+Outer(Invoice)                 exported, direct                => {raised,error,function_clause}
+OuterL([Order, Invoice])       exported, via list              => {raised,error,function_clause}
+OuterL([Order, Order])         control (valid)                 => {returned,20}
+SumO([1, 1.5])                 exported, via list              => {raised,error,function_clause}
+SumO([300])                    exported, via list              => {raised,error,function_clause}
+SumO([1, 2])                   control (valid)                 => {returned,5}
+(InnerAsValue())(Invoice)      private escaped as fun          => {raised,error,function_clause}
+(BumpAsValue())(1.5)           private escaped as fun          => {raised,error,function_clause}
+(BumpAsValue())(300)           private escaped as fun          => {raised,error,function_clause}
+Nested(Wrapper{Cust=Order})    exported, nested record         => {raised,error,function_clause}
+Nested(Wrapper{Cust=Cust})     control (valid)                 => {returned,5}
+OuterI(1.5)                    exported, direct                => {raised,error,function_clause}

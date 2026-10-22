@@ -1,0 +1,55 @@
+OTP 25, erts 13.2.2.5
+--- 1a. the loaded module has one export table; any module can call an exported helper
+friend:go(2)=6 stranger:go(2)=6 stranger:dyn(2)=6
+--- 1b. erlc -S: in-module call to the exported helper/1 is a LOCAL call (call), not call_ext
+13:    {func_info,{atom,callee},{atom,pub},1}.
+16:    {call,1,{f,4}}. % helper/1
+26:    {func_info,{atom,callee},{atom,helper},1}.
+--- 1c. remote call site in the caller is call_ext_only/call_ext:
+15:    {call_ext_only,1,{extfunc,callee,helper,1}}.
+23:    {call_ext_only,1,{extfunc,callee,helper,1}}.
+   2a. 1e6 remote calls: plain=11618 us, with stacktrace caller guard=424459 us (ratio 36.5)
+   2b. friend in BODY position : 7
+   2c. friend in TAIL position : {rejected,{not_visible,erl_eval}}   <- tail call erases the friend frame
+   2d. stranger (shell)        : {rejected,{not_visible,erl_eval}}
+   3. 5e6 helper calls: same-module (local)=57445 us, other-module (remote)=60551 us, 0.62 ns extra/call
+--- 3b. bytes: helper in the same .beam vs in its own .beam (strip debug_info for a fair size)
+744 one.beam
+708 two_a.beam
+636 two_b.beam
+chunk sizes one: [{"AtU8",55},
+                  {"Code",131},
+                  {"StrT",0},
+                  {"ImpT",64},
+                  {"ExpT",40},
+                  {"Meta",29},
+                  {"LocT",16},
+                  {"Attr",40},
+                  {"CInf",96},
+                  {"Dbgi",92},
+                  {"Line",22},
+                  {"Type",44}]
+ two_a: [{"AtU8",61},
+         {"Code",109},
+         {"StrT",0},
+         {"ImpT",64},
+         {"ExpT",40},
+         {"Meta",29},
+         {"LocT",4},
+         {"Attr",40},
+         {"CInf",98},
+         {"Dbgi",92},
+         {"Line",21},
+         {"Type",26}]
+ two_b: [{"AtU8",49},
+         {"Code",74},
+         {"StrT",0},
+         {"ImpT",40},
+         {"ExpT",40},
+         {"Meta",29},
+         {"LocT",4},
+         {"Attr",40},
+         {"CInf",98},
+         {"Dbgi",92},
+         {"Line",21},
+         {"Type",26}]
