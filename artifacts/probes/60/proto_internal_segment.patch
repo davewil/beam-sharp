@@ -1,31 +1,48 @@
 --- a/compiler/src/bs_check.erl
 +++ b/compiler/src/bs_check.erl
-@@ -497,7 +497,7 @@
+@@ -497,17 +497,44 @@
  
  add_import(L, M, Self, World, Known, Mode, Acc) ->
      case maps:is_key(M, World) of
 -        true  -> add_module_import(M, World, Acc);
-+        true  -> module_visible(Self, M, L), add_module_import(M, World, Acc);
++        true  -> require_visible(Self, M, L, Mode), add_module_import(M, World, Acc);
          false ->
              %% Namespaces emit nothing. Exclude `Self`: importing its namespace
              %% must not make a module its own dependency.
-@@ -508,6 +508,20 @@
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    add_namespace_import(M, visible_children(Children, Self, M, L, Mode), Acc)
              end
      end.
  
 +%% PROTOTYPE (ticket 60): a module with an `Internal` path segment may be named
-+%% only from modules under the path before that segment.
-+module_visible(undefined, _M, _L) -> ok;
-+module_visible(Self, M, L) ->
++%% only from modules under the path before that segment. Applied to a `using` of
++%% the module and to the children a namespace `using` would bring in; `--api`
++%% (lenient) does not check.
++visible(undefined, _M) -> true;
++visible(Self, M) ->
 +    case lists:splitwith(fun(S) -> S =/= "Internal" end,
 +                         string:split(atom_to_list(M), ".", all)) of
-+        {_, []}     -> ok;
-+        {Prefix, _} ->
-+            case lists:prefix(Prefix, string:split(atom_to_list(Self), ".", all)) of
-+                true  -> ok;
-+                false -> erlang:error({module_not_visible, M, Self, L})
-+            end
++        {_, []}     -> true;
++        {Prefix, _} -> lists:prefix(Prefix, string:split(atom_to_list(Self), ".", all))
 +    end.
++
++require_visible(Self, M, L, strict) ->
++    case visible(Self, M) of
++        true  -> ok;
++        false -> erlang:error({module_not_visible, M, Self, L})
++    end;
++require_visible(_, _, _, _) -> ok.
++
++visible_children(Children, Self, M, L, strict) ->
++    case [C || C <- Children, visible(Self, C)] of
++        []      -> erlang:error({module_not_visible, M, Self, L});
++        Visible -> Visible
++    end;
++visible_children(Children, _, _, _, _) -> Children.
 +
  %% Local names take precedence over imports at `unqualified_key/4`.
  add_module_import(M, World, Acc) ->

@@ -93,7 +93,7 @@ New(id) -> { Id: id, Total: 0 }
   - Over 22 compiling example modules: beams 54,232 → 58,716 bytes (+8.3%); `Code` chunk 10,099 → 11,469 (+13.6%); `ExpT` 1,916 → 2,876 (+50%); exports 152 → 232 (80 aliases). That is **about 56 bytes per delegating alias**. With a `-spec` copy: ~64 bytes (62d).
   - Call cost: median remote call 10.79 ns real vs 11.24 ns through the alias; paired delta **+0.19 ns**, against a same-function control delta of **−0.01 ns** and a min–max spread of about 3 ns. Not distinguishable from noise at this resolution (62e). The alias is a tail call to a local function.
   - The delegating form carries **one** copy of the boundary guard: a forged record sent through the alias fails inside `'Squared'`, same as the real export. A full-duplicate alias carries two copies and fails inside `squared` (62f).
-  - Compile time: {{62m}}
+  - Compile time: whole examples tree, 15 interleaved rounds per mode: medians off 11,090 ms, deleg 11,195 ms, dup 10,941 ms. The control (the same real compiler timed twice) differs by 219 ms between its two halves, so the alias modes sit **inside the noise floor** (62m). Each number is dominated by VM start-up for ~23 `bsc` invocations; the alias pass is not separable from it.
 - **Strongest counterargument.** It needs a **new piece of declaration syntax** (the repo has no annotation form: `LANGUAGE.md` mentions `[DoesNotReturn]` only as C#'s). More important, **an export is an ABI**: once `new` is published, retracting it breaks callers, so each alias is a permanent second public name, and nothing keeps `"new"` and `New` apart when the function is later renamed. The author does extra work on every function that wants Elixir ergonomics, and the work is exactly the kind an agent author forgets.
 
 ### Option C — The compiler derives a snake_case alias for every public function
@@ -167,7 +167,7 @@ These are outside this ticket's decision and are listed because they are checkab
 | `62j_import_from_elixir.sh` | Aliases add `import` | real compiler | `import :Shop, only: [new: 1]` works only with aliases | — |
 | `62k_gleam_calls_bsharp.sh` | A Gleam `@external` call to a PascalCase B# export runs | absent name → `undef` | Runs and returns the record | Gleam on the Elixir target |
 | `62l_otp_uppercase_exports.escript` | Capitalised exports are rare in OTP | classifier controls | 14 of 21,600, all `diameter_types` | Hex packages |
-| `62m_compile_time.sh` | Compile-time cost | `off` measured twice | {{62m-short}} | Larger programs |
+| `62m_compile_time.sh` | Compile-time cost | `off` measured twice | medians 11.09 / 10.87 s (off, off ×2 control), 11.20 s (deleg), 10.94 s (dup): inside noise | Larger programs |
 
 ## Not measured, and caveats
 

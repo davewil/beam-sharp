@@ -1,0 +1,4 @@
+off    median 11090 ms  min 9888  max 12656  (n=15)
+off2   median 10871 ms  min 10036  max 13870  (n=15)
+deleg  median 11195 ms  min 9728  max 11838  (n=15)
+dup    median 10941 ms  min 9858  max 12468  (n=15)

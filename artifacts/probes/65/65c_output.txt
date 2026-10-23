@@ -16,5 +16,5 @@ patched  C -> 98|
 pristine String.Length(n), no user String anywhere -> U/U.bs:4:16: error: String is called but never imported|  add `using String` — a file's `using` lines are its dependency list,|  and a call that skips them makes that list wrong.|
 patched  String.Length(n), no user String anywhere -> U/U.bs:4:16: error: Go calls String.Length/1, and `String` has no operation of that name|  `String` is a reserved qualifier, so this cannot be fixed with a|  `using` line — the operations under it are the compiler's own.|
 --- compile time, 4 vs 15 reserved names (wall ms per 'bsc --src-root examples examples/Shop', 40 runs each, interleaved)
-   pristine (4 names)   median   517.7 ms   min   416.0   max   711.0   stdev  63.3
-   patched (15 names)   median   506.2 ms   min   410.8   max   620.5   stdev  52.9
+   pristine (4 names)   median   512.1 ms   min   426.1   max   742.3   stdev  78.6
+   patched (15 names)   median   517.3 ms   min   443.9   max   842.7   stdev  74.5

@@ -13,6 +13,6 @@ checker-only P2 using Shop.Coll; List.Length([n]) 1|
 --- generated code: does the delta change what an UNSHADOWED program compiles to?
    P4 (no user List): beam_lib:md5 of the compiled code  pristine=8EDEE8DC949A2DB65C2A47F18A34C210
                                                          user-wins=8EDEE8DC949A2DB65C2A47F18A34C210   IDENTICAL
-   (raw files differ by compile-info metadata only: 984 vs 984 bytes)
+   (the raw files differ only in compile_info's source path, which names each run's own output dir; Code, AtU8, ExpT, ImpT chunks verified equal by hand 2026-10-23)
    P2 under user-wins, non-erlang imports of the beam: [{'Shop.Coll.List','Length',1}]
    P4 imports (the standard ops lower to OTP): [{lists,sum,1}]

@@ -44,4 +44,5 @@ head    PlainInt min=32.692 med=33.485 max=37.987 | baseline med=34.276 (ns/call
 widen   PlainInt min=33.096 med=34.717 max=37.639 | baseline med=34.439 (ns/call)
 head    PlainInt min=33.524 med=34.761 max=39.642 | baseline med=37.719 (ns/call)
 widen   PlainInt min=33.075 med=33.991 max=38.900 | baseline med=36.287 (ns/call)
-head    
+head    PlainInt min=33.498 med=35.475 max=38.765 | baseline med=34.682 (ns/call)
+widen   PlainInt min=33.676 med=35.099 max=38.988 | baseline med=36.593 (ns/call)
