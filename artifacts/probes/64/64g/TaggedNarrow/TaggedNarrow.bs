@@ -1,0 +1,14 @@
+module TaggedNarrow
+
+// Control for B: the stage written the way the valve's documentation writes it (over int).
+type Opt = (:some, int) | :nothing
+
+private Opt Fetch(int id)
+Fetch(0) -> :nothing
+Fetch(n) -> (:some, n)
+
+private Opt Double(int v)
+Double(v) -> (:some, v * 2)
+
+public Opt Load(int id)
+Load(id) -> Fetch(id) |?> Double()

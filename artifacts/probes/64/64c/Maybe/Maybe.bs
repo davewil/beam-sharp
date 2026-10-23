@@ -1,0 +1,30 @@
+module Maybe
+
+// Probe 64c — can an author declare an always-tagged generic sibling today?
+// If so, option 'b' (a prelude `Maybe<T>`) is a library addition, not a type-system change.
+
+type Maybe<T> = (:some, T) | :nothing
+
+private Maybe<term> OfTerm(int n)
+OfTerm(0) -> (:some, :nothing)
+OfTerm(1) -> (:some, :error)
+OfTerm(n) -> :nothing
+
+private Maybe<Maybe<int>> Nested(int n)
+Nested(0) -> (:some, (:some, 7))
+Nested(1) -> (:some, :nothing)
+Nested(n) -> :nothing
+
+public atom Which(int n)
+Which(n) -> OfTerm(n) switch {
+    (:some, :nothing) => :stored_nothing,
+    (:some, _)        => :stored_other,
+    :nothing          => :absent
+}
+
+public atom Deep(int n)
+Deep(n) -> Nested(n) switch {
+    (:some, (:some, _)) => :inner_present,
+    (:some, :nothing)   => :inner_absent,
+    :nothing            => :outer_absent
+}

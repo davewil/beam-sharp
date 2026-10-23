@@ -1,0 +1,12 @@
+  plain                        off    compiles
+  plain                        deleg  compiles
+  bif_name_Length              off    compiles
+  bif_name_Length              deleg  compiles
+  acronym_pair                 off    compiles
+  acronym_pair                 deleg  REFUSED: compile: /tmp/tmp.LTRgUiTV0c/acronym_pair/Edge/edge.bs:0: function get_id/1 already defined
+  module_info                  off    compiles
+  module_info                  deleg  REFUSED: compile: /tmp/tmp.LTRgUiTV0c/module_info/Edge/edge.bs:0: function module_info/1 already defined
+  private_twin                 off    compiles
+  private_twin                 deleg  compiles
+  arity_overload               off    compiles
+  arity_overload               deleg  compiles

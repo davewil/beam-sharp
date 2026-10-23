@@ -1,0 +1,17 @@
+delta: 21 lines added, 1 removed (comments and blank lines included)
+== exit codes (0 = compiled)
+  Shop.Orders      (under Shop)      pristine: 0    prototype: 0
+  Shop.Internal.Deep.Leaf (sibling)  pristine: 0    prototype: 0
+  Billing.Invoice  (outsider)        pristine: 0    prototype: 1
+== the outsider's diagnostic from the prototype:
+    /tmp/tmp.VbZ0yf89n7/tree/Billing/Invoice/Invoice.bs:2:1: error: Shop.Internal.Calc may not be named from Billing.Invoice
+      an `Internal` path segment limits a module to the subtree above it.
+== claim (1): a QUALIFIED call that skips `using` is refused by the PRISTINE compiler too (exit 1):
+    /tmp/tmp.VbZ0yf89n7/tree/Billing/Direct/Direct.bs:3:31: error: Shop.Internal.Calc is called but never imported
+      add `using Shop.Internal.Calc` — a file's `using` lines are its dependency list,
+== the same file under the pristine compiler: (exit 0 = accepted, no diagnostic)
+== compile wall time, Shop/Reports + corpus modules, 15 interleaved rounds (ms; median [min..max])
+  Shop/Reports   pristine 465 [407..548]   prototype 444 [403..604]
+  Shop           pristine 519 [439..665]   prototype 493 [439..576]
+== the rule's own cost, isolated (1e6 calls of module_visible/3, compiled loop)
+  805.2 ns per check (allowed caller)

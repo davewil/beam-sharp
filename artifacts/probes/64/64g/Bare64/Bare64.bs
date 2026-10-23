@@ -1,0 +1,12 @@
+module Bare64
+
+// Probe 64g, treatment A: the valve over today's bare option<int>.
+private option<int> Fetch(int id)
+Fetch(0) -> :nothing
+Fetch(n) -> n
+
+private option<int> Double(int v)
+Double(v) -> v * 2
+
+public option<int> Load(int id)
+Load(id) -> Fetch(id) |?> Double()

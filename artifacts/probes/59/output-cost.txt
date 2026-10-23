@@ -1,0 +1,39 @@
+=== A. bytes: Code chunk / whole .beam / stripped .beam (bsc output, OTP 28) ===
+module     build    code file stripped
+Rec1       head     125 1180 370
+Rec1       narrow   113 1148 362
+Rec1       widen    125 1180 370
+Rec4       head     125 1228 380
+Rec4       narrow   113 1196 369
+Rec4       widen    125 1228 380
+Rec16      head     125 1384 404
+Rec16      narrow   113 1352 395
+Rec16      widen    125 1384 404
+Rec32      head     125 1584 448
+Rec32      narrow   113 1552 438
+Rec32      widen    125 1584 448
+PlainInt   head     106 1004 320
+PlainInt   narrow   106 1004 320
+PlainInt   widen    106 1020 320
+RangeInt   head     119 1096 338
+RangeInt   narrow   119 1096 338
+RangeInt   widen    119 1132 338
+
+=== B. compile time, in-process bsc:file/2, 40 compiles each (ms): min / median / max ===
+head    Rec32: 5.92 / 6.40 / 17.11
+narrow  Rec32: 5.54 / 6.81 / 14.51
+widen   Rec32: 5.52 / 6.10 / 12.12
+
+=== C. call time, ns/call (21 trials x 20M calls, 5 interleaved VM pairs; median of trial-medians shown per VM) ===
+head    Rec1 min=35.729 med=37.542 max=40.680 | baseline med=34.065 (ns/call)
+narrow  Rec1 min=34.475 med=35.733 max=40.179 | baseline med=35.462 (ns/call)
+head    Rec1 min=35.409 med=37.203 max=41.315 | baseline med=33.694 (ns/call)
+narrow  Rec1 min=34.472 med=36.143 max=37.972 | baseline med=33.859 (ns/call)
+head    Rec1 min=35.427 med=37.163 max=45.105 | baseline med=35.247 (ns/call)
+narrow  Rec1 min=34.161 med=36.271 max=42.801 | baseline med=33.820 (ns/call)
+head    Rec1 min=35.849 med=37.312 max=38.294 | baseline med=34.115 (ns/call)
+narrow  Rec1 min=34.341 med=35.293 max=38.597 | baseline med=33.500 (ns/call)
+head    Rec1 min=36.003 med=37.961 max=44.198 | baseline med=33.856 (ns/call)
+narrow  Rec1 min=34.280 med=35.204 max=38.106 | baseline med=36.046 (ns/call)
+-- int kind test (PlainInt, head vs widen) --
+head    

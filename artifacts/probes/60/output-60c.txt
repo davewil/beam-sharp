@@ -1,0 +1,22 @@
+== 1. @moduledoc false: outsider compiles and runs
+      Billing.Outsider.go() = 42
+      moduledoc metadata: :hidden  (hidden = documentation tools skip it)
+      recompute doc entry: [:none]
+== 2. CONTROL: a defp call from outside (Elixir: warning at compile time, UndefinedFunctionError at run time)
+          warning: Shop.Internal.Totals.truly_private/1 is undefined or private
+      runtime: UndefinedFunctionError
+== 3. tracer: outsider refused, friend accepted (same callee, same rule)
+   -- compiling outsider.ex
+         TRACER REFUSES Billing.Outsider -> Shop.Internal.Totals.recompute/1 (line 2)
+   
+   == Compilation error in file outsider.ex ==
+   ** (CompileError) outsider.ex:2: Shop.Internal.Totals may only be named from [Shop]
+       tracer.exs:11: VisTracer.trace/2
+       (elixir 1.19.5) src/elixir_env.erl:34: :elixir_env."-trace/2-lc$^0/1-0-"/3
+       (elixir 1.19.5) src/elixir_env.erl:34: :elixir_env.trace/2
+       outsider.ex:2: (module)
+         RESULT: refused (1 error)
+   -- compiling friend.ex
+         RESULT: compiled
+== 4. size of the rule (lines of Elixir in the tracer body)
+      13 lines between the remote_function clause and the catch-all

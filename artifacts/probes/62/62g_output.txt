@@ -1,0 +1,17 @@
+files parsed: 159 (4 unparsable by the current grammar: ["compiler/examples/exemplars/25b-websocket-handler/handle_info.bs",
+                                                         "compiler/examples/exemplars/25c-event-queue-consumer/encode.bs",
+                                                         "compiler/examples/exemplars/25c-event-queue-consumer/handle_info.bs",
+                                                         "wayfinder/prototypes/63d_erlc_leak_sweep/B01ArmBind/b01armbind.bs"])
+function declarations: 356  public: 259  private: 97
+public names with an uppercase first letter: 259 of 259
+declarations by top-level dir: [{"aoc",22},
+                                {"compiler",212},
+                                {"handoff",29},
+                                {"wayfinder",93}]
+
+REAL-CORPUS collisions (same module dir, same arity, same snake_case): 0
+CONTROL (synthetic GetId/GetID/Get_Id/1, GetId/2): [{"synthetic",
+                                                     {get_id,1,
+                                                      ['GetID','GetId',
+                                                       'Get_Id']}}]
+public names with an acronym run, digit or underscore (spelling-sensitive): []

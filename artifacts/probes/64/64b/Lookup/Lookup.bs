@@ -1,0 +1,28 @@
+module Lookup
+
+// Probe 64b — a lookup over map<string, term> that can say "absent" in a type
+// the checker can see, written TODAY with the tagged-success shape the
+// compiler's own hint proposes. The stored values are the two sentinels a bare
+// option<term> / result<term,_> would confuse with failure: :nothing and :error.
+
+using :maps {
+    (:ok, term) | :error find(string key, map<string, term> m)
+}
+
+private map<string, term> Store()
+
+Store() -> Map.FromList([("a", :nothing), ("b", :error), ("c", 5)])
+
+public (:ok, term) | :error Look(string key)
+
+Look(key) -> :maps.find(key, Store())
+
+// What the caller can say. Three outcomes, every one a clause the checker sees.
+public atom Describe(string key)
+
+Describe(key) -> Look(key) switch {
+    (:ok, :nothing) => :present_nothing,
+    (:ok, :error)   => :present_error,
+    (:ok, _)        => :present,
+    :error          => :absent
+}

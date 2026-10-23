@@ -1,0 +1,18 @@
+beam: Shop.Collections.Ints.abstr
+beam: Shop.Collections.Ints.beam
+beam: Shop.Reports.abstr
+beam: Shop.Reports.beam
+beam: Shop.abstr
+beam: Shop.beam
+--- must FAIL (controls)
+:Shop.New(1)  unquoted               {:raised, SyntaxError}
+Shop."New"(1)  alias=Elixir.Shop     {:raised, UndefinedFunctionError}
+:Shop."Nope"(1)  absent name         {:raised, UndefinedFunctionError}
+import :Shop; "New"(1)               {:raised, SyntaxError}
+--- must SUCCEED if the premise 'apply/3 only' is false
+:Shop."New"(1)                       {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+:"Shop.Reports"."Restate"(1)  nested {:ok, 3}
+1 |> :Shop."New"()  pipeline         {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+Enum.map([1,2], &:Shop."New"/1)  capture {:ok, [%{Kind: :"Shop.Order", Total: 0, Id: 1}, %{Kind: :"Shop.Order", Total: 0, Id: 2}]}
+apply(:Shop, :New, [1])  (baseline)  {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
+with alias: alias :Shop, as: S       {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}

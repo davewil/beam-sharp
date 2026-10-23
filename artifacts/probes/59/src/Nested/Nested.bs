@@ -1,0 +1,18 @@
+module Nested
+
+record Line  { Qty: int, Price: int }
+record Order { Id: int, Lines: list<Line> }
+
+// Exported: the tag guard on `o` is SHALLOW -- it reads o.Kind only.
+public int Total(Order o)
+Total(o) -> SumLines(o.Lines)
+
+// Private: every call site is a checked B# call site, but the element
+// arrives out of a list the exported guard never walked.
+private int SumLines(list<Line> ls)
+SumLines([])       -> 0
+SumLines([l, ..t]) -> LineTotal(l) + SumLines(t)
+
+// A body that only projects fields: it cannot object to a wrong tag.
+private int LineTotal(Line l)
+LineTotal(l) -> l.Qty * l.Price

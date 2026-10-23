@@ -1,0 +1,291 @@
+
+################ 64a_refusal_matrix.sh ################
+== controls (must compile) ==
+C1   option<int>                              => module C1 :nothing | int Go(int) 
+C2   option<binary>                           => module C2 :nothing | binary Go(int) 
+C3   result<int, binary>                      => module C3 int | (:error, binary) Go(int) 
+C4   result<int, atom>                        => module C4 int | (:error, atom) Go(int) 
+C5   F                                        => module C5 :absent | (:ok, term) Go(int) 
+C6   P                                        => module C6 :nothing | (:some, term) Go(int) 
+== option side ==
+O1   option<atom>                             => /tmp/tmp.Q8QOBSqD6k/O1/O1.bs:3:21: error: `:nothing` is absorbed by `atom` in Go the failure channel does not survive normalisation, so the type declared here IS `atom`. No caller can write the failure clause, because no failure member is left to match. hint: 
+O2   option<term>                             => /tmp/tmp.Q8QOBSqD6k/O2/O2.bs:3:21: error: `:nothing` is absorbed by `term` in Go the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failure clause, because no failure member is left to match. hint: 
+O3   option<option<int>>                      => /tmp/tmp.Q8QOBSqD6k/O3/O3.bs:3:28: error: `:nothing` is absorbed by `:nothing | int` in Go the failure channel does not survive normalisation, so the type declared here IS `:nothing | int`. No caller can write the failure clause, because no failure member is l
+O4   option<(:ok, int)>                       => module O4 :nothing | (:ok, int) Go(int) 
+== result side (open Q3) ==
+R1   result<term, binary>                     => /tmp/tmp.Q8QOBSqD6k/R1/R1.bs:3:29: error: `(:error, binary)` is absorbed by `term` in Go the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failure clause, because no failure member is left to match
+R2   result<term, atom>                       => /tmp/tmp.Q8QOBSqD6k/R2/R2.bs:3:27: error: `(:error, atom)` is absorbed by `term` in Go the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failure clause, because no failure member is left to match. 
+R3   result<int, term>                        => module R3 int | (:error, term) Go(int) 
+R4   result<atom, binary>                     => module R4 atom | (:error, binary) Go(int) 
+R5   result<int, (:error, term)>              => module R5 int | (:error, (:error, term)) Go(int) 
+== a user union spelled by hand ==
+U1   R                                        => module U1 int | (:error, term) Go(int) 
+U2   R                                        => /tmp/tmp.Q8QOBSqD6k/U2/U2.bs:3:1: error: `(:error, atom)` is absorbed by `term` in R the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failure clause, because no failure member is left to match. Th
+== the ticket-48 shape: a lookup over map<string, term> ==
+M1   option<term>                             => /tmp/tmp.Q8QOBSqD6k/M1/M1.bs:3:21: error: `:nothing` is absorbed by `term` in Go the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failure clause, because no failure member is left to match. hint: 
+M2   F                                        => module M2 :absent | (:ok, term) Go(int) 
+== other declaration positions (where the refusal reaches) ==
+P1   param option<term>                       => /tmp/tmp.Q8QOBSqD6k/P1/P1.bs:3:12: error: `:nothing` is absorbed by `term` in Go.x the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the fail
+F1   record field Note: option<term>          => /tmp/tmp.Q8QOBSqD6k/F1/F1.bs:3:1: error: `:nothing` is absorbed by `term` in Row.Note the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the f
+F2   record field Note: option<int> (control) => module F2 int Go(int) 
+L1   list<option<term>>                       => /tmp/tmp.Q8QOBSqD6k/L1/L1.bs:3:27: error: `:nothing` is absorbed by `term` in Go the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failur
+K1   map<string, option<term>>                => /tmp/tmp.Q8QOBSqD6k/K1/K1.bs:3:34: error: `:nothing` is absorbed by `term` in Go the failure channel does not survive normalisation, so the type declared here IS `term`. No caller can write the failur
+K2   map<string, term>  (control: the map itself) => module K2 map<string, term> Go(int) 
+== the repair the diagnostic itself suggests for result: narrow the success type ==
+N1   result<int | binary, atom>               => module N1 int | (:error, atom) | binary Go(int) 
+N2   result<atom | int, binary>               => module N2 atom | int | (:error, binary) Go(int) 
+N3   result<list<term>, binary>               => module N3 (:error, binary) | list<term> Go(int) 
+N4   result<map<string, term>, binary>        => module N4 (:error, binary) | map<string, term> Go(int) 
+N5   option<list<term>>                       => module N5 :nothing | list<term> Go(int) 
+N6   option<map<string, term>>                => module N6 :nothing | map<string, term> Go(int) 
+N7   option<(int, term)>                      => module N7 :nothing | (int, term) Go(int) 
+N8   option<(:ok, term)>                      => module N8 :nothing | (:ok, term) Go(int) 
+== open Q3, completed: result<T,E> is refused when T CONTAINS (:error, E), not when E is term ==
+Q1   result<(atom, term), atom>               => /tmp/tmp.Q8QOBSqD6k/Q1/Q1.bs:3:35: error: `(:error, atom)` is absorbed by `(atom, term)` in Go the failure channel does not survive normalisation, so the type declared here IS `(atom, term)`. No caller can write the failure clause, because no failure member is
+Q2   result<(int, term), atom>                => module Q2 (int, term) | (:error, atom) Go(int) 
+Q3   result<(atom, binary), binary>           => /tmp/tmp.Q8QOBSqD6k/Q3/Q3.bs:3:39: error: `(:error, binary)` is absorbed by `(atom, binary)` in Go the failure channel does not survive normalisation, so the type declared here IS `(atom, binary)`. No caller can write the failure clause, because no failure mem
+Q4   result<(atom, binary), atom>             => module Q4 (atom, binary) | (:error, atom) Go(int) 
+
+################ 64b_tagged_lookup.sh ################
+== Lookup (tagged): bsc --api ==
+module Lookup
+atom Describe(string)
+:error | (:ok, term) Look(string)
+Lookup.Describe(a  ) = :present_nothing
+Lookup.Describe(b  ) = :present_error
+Lookup.Describe(c  ) = :present
+Lookup.Describe(zzz) = :absent
+== Bare (control, compiles with no diagnostic) ==
+Bare.Describe(a  )   = :absent
+Bare.Describe(b  )   = :present
+Bare.Describe(c  )   = :present
+Bare.Describe(zzz)   = :absent
+(stored: a=:nothing  b=:error  c=5  zzz=missing)
+
+################ 64c_tagged_sibling.sh ################
+== bsc --api ==
+module Maybe
+atom Deep(int)
+atom Which(int)
+Which(0) = :stored_nothing
+Deep(0)  = :inner_present
+Which(1) = :stored_other
+Deep(1)  = :inner_absent
+Which(2) = :absent
+Deep(2)  = :outer_absent
+== control: the :nothing arm removed (must be refused as non-exhaustive) ==
+/home/user/beam-sharp/artifacts/probes/64/64c/Missing/Missing.bs:19:23: error: this switch in Which is not exhaustive
+  no arm matches:
+    :nothing => ...
+== and the lowercase spelling is not writable by a user ==
+/tmp/tmp.gKdqz6JjUe/L/L.bs:3:6: error: syntax error before: 'maybe'
+
+################ 64d_representation_cost.sh ################
+OTP 28, erts 16.4, arch x86_64-pc-linux-gnu
+
+== one value ==
+  bare 5                       flat_size=0 words  term_to_binary=3 bytes
+  tagged {some,5}              flat_size=3 words  term_to_binary=11 bytes
+  absent (both): nothing       flat_size=0 words  term_to_binary=10 bytes
+  bare big-ish 2^70            flat_size=3 words  term_to_binary=13 bytes
+  tagged {some,2^70}           flat_size=6 words  term_to_binary=21 bytes
+  bare binary <<"hello">>      flat_size=3 words  term_to_binary=11 bytes
+  tagged {some,<<hello>>}      flat_size=6 words  term_to_binary=19 bytes
+
+== list of 1000000 options, 3/4 present ==
+  bare   flat_size=2000000 words  term_to_binary=5999431 bytes
+  tagged flat_size=4250000 words  term_to_binary=11999431 bytes
+  delta  2250000 words (112.5%)  6000000 bytes (100.0%)
+  sum agrees: 375000000000 375000000000
+
+== consume (pattern-match every element), 25 reps, usec per 1e6 elements ==
+  bare    min=3320 med=4591 max=7028
+  tagged  min=9058 med=10509 max=14428
+
+== produce 1000000 options, 25 reps, usec ==
+  bare    min=11074 med=36821 max=80959
+  tagged  min=24969 med=29642 max=261232
+
+Resolution note: timings on a shared cloud VM; read spread (min..max) before median.
+
+== BEAM asm for the two consumers (erlc -S): the first clause body that matches an element ==
+{function, bare_sum, 2, 4}.
+  {label,3}.
+    {line,[{location,"repr.erl",10}]}.
+    {func_info,{atom,repr},{atom,bare_sum},2}.
+  {label,4}.
+    {'%',{var_info,{x,1},[{type,{t_number,any}}]}}.
+    {test,is_nonempty_list,{f,6},[{x,0}]}.
+    {get_list,{x,0},{x,2},{x,0}}.
+    {test,is_eq_exact,{f,5},[{x,2},{atom,nothing}]}.
+    {call_only,2,{f,4}}. % bare_sum/2
+  {label,5}.
+    {line,[{location,"repr.erl",12}]}.
+    {gc_bif,'+',{f,0},3,[{tr,{x,1},{t_number,any}},{x,2}],{x,1}}.
+    {call_only,2,{f,4}}. % bare_sum/2
+  {label,6}.
+    {test,is_nil,{f,3},[{x,0}]}.
+    {move,{x,1},{x,0}}.
+    return.
+
+
+{function, tagged_sum, 1, 8}.
+-- tagged --
+{function, tagged_sum, 2, 10}.
+  {label,9}.
+    {line,[{location,"repr.erl",15}]}.
+    {func_info,{atom,repr},{atom,tagged_sum},2}.
+  {label,10}.
+    {'%',{var_info,{x,1},[{type,{t_number,any}}]}}.
+    {test,is_nonempty_list,{f,12},[{x,0}]}.
+    {get_list,{x,0},{x,2},{x,3}}.
+    {test,is_tuple,{f,11},[{x,2}]}.
+    {test,is_tagged_tuple,
+          {f,9},
+          [{tr,{x,2},{t_tuple,0,false,#{}}},2,{atom,some}]}.
+    {get_tuple_element,{x,2},1,{x,0}}.
+    {line,[{location,"repr.erl",17}]}.
+    {gc_bif,'+',{f,0},4,[{tr,{x,1},{t_number,any}},{x,0}],{x,1}}.
+    {move,{x,3},{x,0}}.
+    {call_only,2,{f,10}}. % tagged_sum/2
+  {label,11}.
+    {test,is_eq_exact,{f,9},[{x,2},{atom,nothing}]}.
+    {move,{x,3},{x,0}}.
+    {call_only,2,{f,10}}. % tagged_sum/2
+  {label,12}.
+    {test,is_nil,{f,9},[{x,0}]}.
+    {move,{x,1},{x,0}}.
+    return.
+
+
+{function, bare_mk, 1, 14}.
+
+################ 64e_gleam_absent_vs_sentinel.sh ################
+gleam_stdlib at 13359e5; gleam 1.18.1
+warning: Unreachable pattern
+   ┌─ /tmp/tmp.vqbSJAYVGM/proj/src/probe64.gleam:49:5
+   │
+49 │     None -> io.println("  None        -> outer absent")
+   │     ^^^^
+
+This pattern cannot be reached as it matches on a variant of a type which
+is never present.
+
+Hint: It can be safely removed.
+
+dict.get over Dict(String, Dynamic):
+  a -> present
+  b -> present
+  c -> present
+  d -> present
+  zzz -> absent
+Option(Dynamic) holding a stored sentinel vs None:
+  Some(atom nothing) -> present
+  Some(atom none)    -> present
+  None               -> absent
+Option(Option(Int)) keeps both layers apart:
+  Some(None)  -> outer present, inner absent
+decode.optional_field over a Dynamic map (stdlib's own absent-vs-present at the top type):
+  key stored as atom nothing -> present
+  key missing                -> DEFAULT
+
+################ 64f_erlang_elixir_absent.sh ################
+Elixir 1.19.5 / OTP 28
+-- Map.get/2 (bare: absence is nil) --
+  Map.get(m, :a) = nil   (stored nil vs absent: present)
+  Map.get(m, :zzz) = nil   (stored nil vs absent: absent)
+-- Map.get/3 default :error --
+  Map.get(m, :b, :error) = :error
+  Map.get(m, :zzz, :error) = :error
+-- Map.fetch/2 (tagged) --
+  Map.fetch(m, :a) = {:ok, nil}
+  Map.fetch(m, :b) = {:ok, :error}
+  Map.fetch(m, :c) = {:ok, false}
+  Map.fetch(m, :zzz) = :error
+-- Keyword.get / Keyword.fetch --
+  Keyword.get(kw, :a) = nil; Keyword.get(kw, :zzz) = nil; Keyword.fetch(kw, :a) = {:ok, nil}; Keyword.fetch(kw, :zzz) = :error
+
+Erlang/OTP 28
+-- maps:get/3 with default `nothing` (bare) --
+  maps:get(a, M, nothing) = nothing
+  maps:get(d, M, nothing) = 5
+  maps:get(zzz, M, nothing) = nothing
+-- maps:find/2 (tagged: {ok, V} | error) --
+  maps:find(a, M) = {ok,nothing}
+  maps:find(b, M) = {ok,error}
+  maps:find(c, M) = {ok,undefined}
+  maps:find(zzz, M) = error
+-- the idiom when you MUST use a default: a fresh reference as the sentinel --
+  a -> present
+  b -> present
+  zzz -> absent
+  but its type is still term(): true
+
+################ 64g_valve_over_tagged.sh ################
+== Bare64
+  Load(4) = 8 
+  Load(0) = :nothing 
+== Tagged64
+  Load(4) = (:some, 8) 
+  Load(0) = :nothing 
+== TaggedNarrow
+  Load(4) = /home/user/beam-sharp/artifacts/probes/64/64g/TaggedNarrow/TaggedNarrow.bs:14:23: error: Load hands Double an argument it does not accept   argument 1 is not covered by Double's declared type:     (:some, int) 
+  Load(0) = /home/user/beam-sharp/artifacts/probes/64/64g/TaggedNarrow/TaggedNarrow.bs:14:23: error: Load hands Double an argument it does not accept   argument 1 is not covered by Double's declared type:     (:some, int) 
+
+################ 64h_sentinel_outside_term.sh ################
+== Part 1: unions of term with an opaque kind or a fresh atom (all should be absorbed) ==
+A1  type X = term | reference          => /tmp/tmp.pHQP4P4L3g/A1/A1.bs:3:1: error: `reference` is absorbed by `term` in X every value of `reference` is already a `term`, so the type declared h
+A2  type X = term | pid                => /tmp/tmp.pHQP4P4L3g/A2/A2.bs:3:1: error: `pid` is absorbed by `term` in X every value of `pid` is already a `term`, so the type declared here IS `term
+A3  type X = term | port               => /tmp/tmp.pHQP4P4L3g/A3/A3.bs:3:1: error: `port` is absorbed by `term` in X every value of `port` is already a `term`, so the type declared here IS `te
+A4  type X = term | :absent_marker     => /tmp/tmp.pHQP4P4L3g/A4/A4.bs:3:1: error: `:absent_marker` is absorbed by `term` in X every value of `:absent_marker` is already a `term`, so the type 
+== control: the same members without term are fine ==
+B1  type X = int | reference           => module B1 int | reference Go(int) 
+B2  type X = binary | :absent_marker   => module B2 :absent_marker | binary Go(int) 
+
+== Part 2: a unique-reference sentinel, in Erlang ==
+control (sentinel never stored): zzz -> absent, a -> present
+treatment (sentinel stored in M2 under `copy`): copy -> absent  [stored a value; reads back as absent]
+round trip through term_to_binary still equals the sentinel: true
+
+################ 64i_instantiation_is_silent.sh ################
+== bsc --api (any refusal would be printed here) ==
+module Poly
+atom Empty(list<term>)
+atom EmptyInts(list<int>)
+atom Outcome(list<term>)
+atom OutcomeInts(list<int>)
+== option side: Empty(list<term>) must say :nonempty for a one-element list ==
+  Empty        [:nothing]             => :empty
+  Empty        []                     => :empty
+  Empty        [5]                    => :nonempty
+  EmptyInts    [3]                    => :nonempty
+  EmptyInts    []                     => :empty
+== result side: Outcome(list<term>) must say :ok for a one-element list ==
+  Outcome      [(:error, :boom)]      => :failed
+  Outcome      []                     => :failed
+  Outcome      [5]                    => :ok
+  OutcomeInts  [3]                    => :ok
+  OutcomeInts  []                     => :failed
+
+################ 64j_compile_time.sh ################
+A (option<int>) compiles:
+module A
+:nothing | int F1(int)
+B (Maybe<int>)  compiles:
+module B
+:nothing | (:some, int) F1(int)
+A option<int>:  min=416 median=497 max=787 ms (n=30)
+B Maybe<int>:   min=424 median=481 max=608 ms (n=30)
+
+################ 64k_elm_attempt.sh ################
+0.19.3
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+RESULT: not compiled — Elm statements in the brief are SOURCE-READ ONLY

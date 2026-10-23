@@ -1,0 +1,16 @@
+module Tagged64
+
+// Probe 64g, treatment B: the same chain if option<int> were always tagged.
+// Written with an explicit tagged union, which is what option (c) would be.
+type Opt = (:some, int) | :nothing
+
+private Opt Fetch(int id)
+Fetch(0) -> :nothing
+Fetch(n) -> (:some, n)
+
+// The valve subtracts :nothing and hands the stage the REST: (:some, int), not int.
+private Opt Double((:some, int) v)
+Double((:some, v)) -> (:some, v * 2)
+
+public Opt Load(int id)
+Load(id) -> Fetch(id) |?> Double()

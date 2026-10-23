@@ -1,0 +1,33 @@
+=== (A,B,D,E) build a legal program
+  Resolving versions
+  Compiling proj
+   Compiled in 0.40s
+--- beam files:
+deep@nested_mod.beam
+proj.beam
+proj@@main.beam
+--- exports of proj:
+[{make_circle,1},
+ {unit,0},
+ {get_id,1},
+ {external_new,1},
+ {module_info,0},
+ {module_info,1}]
+--- values (constructors become snake_case atoms/tuples):
+{circle,3} unit_square
+--- generated .erl for the external:
+3:-export([make_circle/1, unit/0, get_id/1, external_new/1]).
+24:-spec external_new(integer()) -> integer().
+25:external_new(A) ->
+26:    'Shop':'New'(A).
+
+=== (C) CONTROL: a PascalCase FUNCTION name in Gleam source
+error: Syntax error
+  ┌─ /tmp/tmp.pvdATDiFUE/proj/src/proj.gleam:1:8
+  │
+1 │ pub fn GetId(x: Int) -> Int { x }
+  │        ^^^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+

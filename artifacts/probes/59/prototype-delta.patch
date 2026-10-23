@@ -1,0 +1,11 @@
+--- ../compiler-copy/src/bs_emit.erl	2026-10-23 23:10:31.520310221 +0000
++++ src/bs_emit.erl	2026-10-23 23:12:38.493695766 +0000
+@@ -274,6 +274,8 @@
+ %% candidate for both.
+ guard_one(Pat, {param, TypeExpr, _}, Accept, I, Line, Ctx, Public) ->
+     case record_tag(TypeExpr, Ctx) of
++        %% PROTOTYPE DELTA (ticket 59 probe): tag test exported-only.
++        {ok, _Tag} when not Public -> {Pat, []};
+         {ok, Tag} ->
+             case constrains_kind(Pat) of
+                 true  -> {Pat, []};

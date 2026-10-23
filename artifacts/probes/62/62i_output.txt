@@ -1,0 +1,14 @@
+== (1) formatter
+x = :Shop."New"(1) |> then(&:Shop."Which"/1)
+idempotent: true
+== (3) compiled Elixir, xref-style checks (Elixir 1.19.5 against the real bsc beam)
+  ok             <no warning>
+  bad_arity          warning: :Shop."New"/2 is undefined or private. Did you mean:  
+  bad_name           warning: :Shop."Nope"/1 is undefined or private     │ 
+  quoted_lower       warning: found quoted call "new" but the quotes are not required. Calls made exclusively of Unicode letters, numbers, and underscores and not beginning with a number do not require quotes     │ -- 
+== (2) Elixir 1.14.0 / OTP 25 (distro)
+
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+{:new, 1}
+[new: 1, new: 2]
+{:new, 1}

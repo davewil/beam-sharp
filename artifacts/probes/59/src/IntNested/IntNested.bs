@@ -1,0 +1,18 @@
+module IntNested
+
+type Octet = int where value >= 0 and value <= 255
+
+// Exported, scalar: F24 emits is_integer/1 here.
+public atom Band(Octet n)
+Band(>= 128) -> :high
+Band(<= 127) -> :low
+
+// Exported over a list: the exported guard cannot walk the list.
+public list<atom> Bands(list<Octet> xs)
+Bands([])       -> []
+Bands([x, ..t]) -> [Inner(x), ..Bands(t)]
+
+// Private, same body as Band: F24 deliberately emits nothing here.
+private atom Inner(Octet n)
+Inner(>= 128) -> :high
+Inner(<= 127) -> :low

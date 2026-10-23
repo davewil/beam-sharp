@@ -1,0 +1,55 @@
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -497,7 +497,7 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> module_visible(Self, M, L), add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+@@ -508,6 +508,20 @@
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60): a module with an `Internal` path segment may be named
++%% only from modules under the path before that segment.
++module_visible(undefined, _M, _L) -> ok;
++module_visible(Self, M, L) ->
++    case lists:splitwith(fun(S) -> S =/= "Internal" end,
++                         string:split(atom_to_list(M), ".", all)) of
++        {_, []}     -> ok;
++        {Prefix, _} ->
++            case lists:prefix(Prefix, string:split(atom_to_list(Self), ".", all)) of
++                true  -> ok;
++                false -> erlang:error({module_not_visible, M, Self, L})
++            end
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- a/compiler/src/bs_diag.erl
++++ b/compiler/src/bs_diag.erl
+@@ -665,6 +665,9 @@
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
++built(Path, {module_not_visible, Mod, Self, Line}) ->
++    #{tag => module_not_visible, severity => error, file => Path, line => Line,
++      module => Mod, from => Self};
+ %% A file's `using` declarations define its dependencies.
+ built(Path, {module_not_imported, Mod, Line}) ->
+     #{tag => module_not_imported, severity => error, file => Path, line => Line,
+@@ -2092,6 +2095,10 @@
+      "  a module is a source file this invocation can reach; a namespace~n"
+      "  is a path that other modules sit under. Neither matched.~n",
+      [P, L, C, Mod]};
++message(#{tag := module_not_visible, file := P, line := L, column := C, module := Mod, from := From}) ->
++    {"~s:~p:~p: error: ~s may not be named from ~s~n"
++     "  an `Internal` path segment limits a module to the subtree above it.~n",
++     [P, L, C, Mod, From]};
+ message(#{tag := module_not_imported, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: ~s is called but never imported~n"
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"

@@ -1,0 +1,4 @@
+Squared (real)                     median 10.79  min 10.63  max 13.44 ns/call
+squared (delegating alias)         median 11.24  min 10.75  max 14.56 ns/call
+Squared again (control, same fn)   median 10.94  min 10.62  max 11.71 ns/call
+alias - real (median of paired deltas): 0.19 ns; control - real: -0.01 ns

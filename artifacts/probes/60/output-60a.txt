@@ -1,0 +1,53 @@
+== A. dependent PACKAGE imports lib/internal/secret (module under default internal glob lib/internal/*) ==
+            Added lib v1.0.0
+      warning: Unused private function
+        ┌─ /tmp/tmp.h8WQ3TU2qL/lib/src/lib.gleam:8:1
+        │
+      8 │ fn really_private() -> Int { 9 }
+        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^ This private function is never used
+      
+      Hint: You can safely remove it.
+      
+      exit=0 (gleam build)
+== B. dependent package calls an @internal pub fn ==
+      warning: Unused private function
+        ┌─ /tmp/tmp.h8WQ3TU2qL/lib/src/lib.gleam:8:1
+        │
+      8 │ fn really_private() -> Int { 9 }
+        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^ This private function is never used
+      
+      Hint: You can safely remove it.
+      
+      exit=0 (gleam build)
+== C. CONTROL: dependent package calls a non-pub function (must be refused) ==
+      warning: Unused private function
+        ┌─ /tmp/tmp.h8WQ3TU2qL/lib/src/lib.gleam:8:1
+        │
+      8 │ fn really_private() -> Int { 9 }
+        │ ^^^^^^^^^^^^^^^^^^^^^^^^^^ This private function is never used
+      
+      Hint: You can safely remove it.
+      
+      warning: Unused imported module
+        ┌─ /tmp/tmp.h8WQ3TU2qL/app/src/app.gleam:1:1
+        │
+      1 │ import lib
+        │ ^^^^^^^^^^ This imported module is never used
+      
+      Hint: You can safely remove it.
+      
+      error: Unknown module value
+        ┌─ /tmp/tmp.h8WQ3TU2qL/app/src/app.gleam:2:21
+        │
+      2 │ pub fn main() { lib.really_private() }
+        │                     ^^^^^^^^^^^^^^
+      
+      The module `lib` does not have a `really_private` value.
+      
+      exit=1 (gleam build)
+== D. runtime: Erlang calls the @internal fn and the internal-module fn on the built beams ==
+      lib:attr_internal() = 7
+      lib@internal@secret:helper() = 41
+== E. advertised surface: does the package-interface list the internal module? ==
+      modules in package-interface: ['lib']
+      lib.functions: ['api']

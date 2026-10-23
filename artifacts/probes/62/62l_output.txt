@@ -1,0 +1,22 @@
+beams: 996  exports: 21600
+exports not writable unquoted in Elixir: 1479
+  of which start with an uppercase letter (the B# case): 14
+  first 12 uppercase-initial: [{diameter_types,'Address',3},
+                               {diameter_types,'DiameterIdentity',3},
+                               {diameter_types,'DiameterURI',3},
+                               {diameter_types,'Float32',3},
+                               {diameter_types,'Float64',3},
+                               {diameter_types,'IPFilterRule',3},
+                               {diameter_types,'Integer32',3},
+                               {diameter_types,'Integer64',3},
+                               {diameter_types,'OctetString',3},
+                               {diameter_types,'QoSFilterRule',3},
+                               {diameter_types,'Time',3},
+                               {diameter_types,'UTF8String',3}]
+  modules containing them: [diameter_types]
+  control New        -> false
+  control get_id     -> true
+  control valid?     -> true
+  control fetch!     -> true
+  control GetId      -> false
+  control PKCS-1     -> false

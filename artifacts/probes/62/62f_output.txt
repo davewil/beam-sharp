@@ -1,0 +1,8 @@
+== mode=deleg
+  real  Squared(forged)        {error,function_clause,'Squared'}
+  alias squared(forged)        {error,function_clause,'Squared'}
+  alias squared(valid)         {ok,0}
+== mode=dup
+  real  Squared(forged)        {error,function_clause,'Squared'}
+  alias squared(forged)        {error,function_clause,squared}
+  alias squared(valid)         {ok,0}

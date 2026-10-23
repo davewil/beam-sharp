@@ -1,0 +1,23 @@
+elixir: Elixir 1.19.5 (compiled with Erlang/OTP 28)
+== a. defmodule Map; call the user's Map.hi (exit 1)
+       warning: redefining module Map 
+   :user_map
+       ** (UndefinedFunctionError) function Map.update!/3 is undefined or private
+           (elixir 1.19.5) lib/module/types.ex:291: Module.Types.local_handler/5
+           (elixir 1.19.5) lib/module/types.ex:235: anonymous fn/4 in Module.Types.warnings/6
+== b. defmodule Map; call the STANDARD Map.new (clobbered?) (exit 1)
+       warning: redefining module Map 
+   ** (UndefinedFunctionError) function Map.new/0 is undefined or private
+== c. defmodule Map; then define an unrelated module (exit 1)
+       warning: redefining module Map 
+   ** (UndefinedFunctionError) function Map.get/2 is undefined or private
+       (elixir 1.19.5) lib/kernel/lexical_tracker.ex:159: Kernel.LexicalTracker.handle_call/3
+       ** (UndefinedFunctionError) function Map.get/2 is undefined or private
+           (elixir 1.19.5) lib/kernel/lexical_tracker.ex:159: Kernel.LexicalTracker.handle_call/3
+== d. CONTROL: Shop.Map (dotted), stdlib Map.update! still works (exit 0)
+   :user_map
+   %{a: 2}
+source of the type-checker call site:
+   (put_in/2 on a struct-less path expands to Map.update!/3, which is the frame above)
+   lib/elixir/lib/module/types.ex:291:            context = put_in(context.local_sigs, Map.put(local_sigs, fun_arity, kind))
+   lib/elixir/lib/kernel/lexical_tracker.ex:159:    {:reply, Map.get(cache, key), state}

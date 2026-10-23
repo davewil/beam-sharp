@@ -1,0 +1,30 @@
+gleam: gleam 1.18.1   stdlib clone: 13359e5   compiler clone: 0d9fa18
+== 1. user types named Result and List (both prelude types) (exit 0)
+     Compiling probe
+== 1b. with a user Result in scope, does the prelude constructor Ok still resolve? (exit 0)
+     Compiling probe
+== 1-control. fresh type name Outcome (exit 0)
+     Compiling probe
+== 2. a user module named gleam (the prelude's module name) (exit 1)
+     Compiling probe
+   error: Reserved module name
+   The module name `gleam` is reserved.
+   Try a different name for this module.
+== 3. a user module named list (the stdlib's is gleam/list) (exit 0)
+     Compiling probe
+== 4. a user module named gleam/list (the stdlib's full path) (exit 1)
+   error: Duplicate module
+   The module `gleam/list` is defined multiple times.
+   It is first defined by the package gleam_stdlib
+   It is defined a second time by the package probe
+== 4-control. a user module named shop/list (exit 0)
+     Compiling probe
+== compiler source behind 2 and 1
+   compiler-core/src/analyse.rs:1769:fn validate_module_name(name: &EcoString) -> Result<(), Error> {
+   compiler-core/src/analyse.rs:1770-    if is_prelude_module(name) {
+   compiler-core/src/analyse.rs:1771-        return Err(Error::ReservedModuleName { name: name.clone() });
+   compiler-core/src/analyse.rs:1772-    }
+   compiler-core/src/type_/prelude.rs:31:pub fn is_prelude_module(module: &str) -> bool {
+   compiler-core/src/type_/prelude.rs:32-    module == PRELUDE_MODULE_NAME
+   compiler-core/src/type_/prelude.rs:33-}
+   compiler-core/src/type_/prelude.rs:34-

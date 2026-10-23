@@ -1,0 +1,4 @@
+   Compiled in 0.47s
+Gleam -> B#  proj:make(5)      = #{'Kind' => 'Shop.Order','Total' => 0,
+                                   'Id' => 5}
+CONTROL absent name make_bad   = {error,undef}

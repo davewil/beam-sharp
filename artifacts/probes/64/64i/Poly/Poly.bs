@@ -1,0 +1,36 @@
+module Poly
+
+// Probe 64i — the refusal is at the DECLARATION. A polymorphic function declares
+// option<T> with T a variable (nothing collapses), and a caller instantiates T = term.
+private option<T> Head<T>(list<T> xs)
+Head([])        -> :nothing
+Head([x, ..t])  -> x
+
+public atom Empty(list<term> ts)
+Empty(ts) -> Head(ts) switch {
+    :nothing => :empty,
+    _        => :nonempty
+}
+
+public atom EmptyInts(list<int> ts)
+EmptyInts(ts) -> Head(ts) switch {
+    :nothing => :empty,
+    _        => :nonempty
+}
+
+// The result<T, E> twin (ticket 64 open Q3): T inferred as term swallows (:error, E).
+private result<T, atom> First<T>(list<T> xs)
+First([])        -> (:error, :empty)
+First([x, ..t])  -> x
+
+public atom Outcome(list<term> ts)
+Outcome(ts) -> First(ts) switch {
+    (:error, _) => :failed,
+    _           => :ok
+}
+
+public atom OutcomeInts(list<int> ts)
+OutcomeInts(ts) -> First(ts) switch {
+    (:error, _) => :failed,
+    _           => :ok
+}

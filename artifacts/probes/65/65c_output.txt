@@ -1,0 +1,14 @@
+prototype delta: 1 line changed in bs_check.erl (scratch copy only)
+modules compiled: 29   agree: 29   differ: 0   (pristine exit 0: 22 — the rest fail under BOTH, so they carry no signal)
+--- control: the patched compiler still refuses what it refused, and now refuses a roster name
+pristine  module List    -> List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+patched   module List    -> List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+pristine  module String  -> 1
+patched   module String  -> String/String.bs:1:1: error: `String` is a reserved qualifier, so no module may be called it
+--- what an author's existing program does the day 'String' lands (pristine = today, patched = after) ---
+pristine A -> 98|
+patched  A -> A/A.bs:6:16: error: Go calls String.Length, and `String` means two things here|  `String` is a reserved qualifier — the compiler's own operations —|  and a `using` line also short-qualifies these to it:|    Shop.Text.String.Length
+pristine B -> 98|
+patched  B -> 98|
+pristine C -> 98|
+patched  C -> 98|

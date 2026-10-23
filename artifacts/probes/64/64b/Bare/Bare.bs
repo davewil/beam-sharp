@@ -1,0 +1,24 @@
+module Bare
+
+// Probe 64b CONTROL — the bare shape option<term> would have if it were
+// allowed: absence is the atom :nothing, success is the value itself, and the
+// declared type is `term`. This is what the refusal protects the author from.
+
+using :maps {
+    term get(string key, map<string, term> m, term default)
+}
+
+private map<string, term> Store()
+
+Store() -> Map.FromList([("a", :nothing), ("b", :error), ("c", 5)])
+
+public term Look(string key)
+
+Look(key) -> :maps.get(key, Store(), :nothing)
+
+public atom Describe(string key)
+
+Describe(key) -> Look(key) switch {
+    :nothing => :absent,
+    _        => :present
+}

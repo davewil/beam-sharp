@@ -1,0 +1,12 @@
+prototype delta: 10 changed lines in bs_check.erl + 3 in bs_emit.erl (scratch copy)
+pristine   P1 module List (declaration)       List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it|  `List.` names operations the compiler knows and inlines at the site;|  no beam ships for it and no `using` is ever writte
+user-wins  P1 module List (declaration)       1|
+pristine   P2 using Shop.Coll; List.Length([n]) P2/P2.bs:6:14: error: Go calls List.Length, and `List` means two things here|  `List` is a reserved qualifier — the compiler's own operations —|  and a `using` line also short-qualifies these to it:|
+user-wins  P2 using Shop.Coll; List.Length([n]) 99|
+pristine   P3 using Shop.Coll; List.Sum([n,n])  <- cost P3/P3.bs:6:14: error: Go calls List.Sum, and `List` means two things here|  `List` is a reserved qualifier — the compiler's own operations —|  and a `using` line also short-qualifies these to it:|
+user-wins  P3 using Shop.Coll; List.Sum([n,n])  <- cost P3/P3.bs:6:14: error: Go calls Shop.Coll.List.Sum/1, which nothing declares|  every function has a signature. Write one, or fix the name.|
+pristine   P4 no user List anywhere (control) 3|
+user-wins  P4 no user List anywhere (control) 3|
+--- the half-built delta (checker only, emitter untouched): the same P2
+checker-only P2 using Shop.Coll; List.Length([n]) 1|
+   (99 is the user's Length; 1 is lists-length of [1]. It type-checked against the user's signature and ran the standard op.)
