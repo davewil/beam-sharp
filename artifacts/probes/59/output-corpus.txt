@@ -1,2 +1,4 @@
   (skipped, did not compile under all three: exemplars)
 example module dirs: 23; compiled under all three builds: 22
+  narrow: 0 beam(s) with different emitted code, 23 identical; summed Code-chunk delta vs head = 0 bytes
+  widen: 5 beam(s) with different emitted code, 18 identical; summed Code-chunk delta vs head = 0 bytes
