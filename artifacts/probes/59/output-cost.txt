@@ -51,4 +51,15 @@ widen   PlainInt min=33.067 med=34.233 max=35.517 | baseline med=33.528 (ns/call
 head    PlainInt min=33.365 med=33.998 max=35.492 | baseline med=33.732 (ns/call)
 widen   PlainInt min=32.872 med=33.261 max=36.892 | baseline med=34.069 (ns/call)
 head    PlainInt min=32.951 med=33.960 max=35.719 | baseline med=33.475 (ns/call)
-widen   
+widen   PlainInt min=33.284 med=33.627 max=39.146 | baseline med=33.279 (ns/call)
+-- int kind test where it cannot: private Inner fed from a list (ListInt [7], head vs widen) --
+head    ListInt min=34.952 med=35.891 max=37.878 | baseline med=35.967 (ns/call)
+widen   ListInt min=37.179 med=39.087 max=45.743 | baseline med=38.339 (ns/call)
+head    ListInt min=36.207 med=38.717 max=46.907 | baseline med=35.521 (ns/call)
+widen   ListInt min=36.400 med=38.696 max=40.779 | baseline med=34.683 (ns/call)
+head    ListInt min=35.838 med=37.852 max=44.787 | baseline med=35.412 (ns/call)
+widen   ListInt min=35.840 med=37.908 max=39.006 | baseline med=35.278 (ns/call)
+head    ListInt min=35.715 med=37.447 max=65.891 | baseline med=34.144 (ns/call)
+widen   ListInt min=35.436 med=36.378 max=38.163 | baseline med=37.570 (ns/call)
+head    ListInt min=35.150 med=35.934 max=40.279 | baseline med=33.691 (ns/call)
+widen   ListInt min=35.267 med=37.405 max=40.539 | baseline med=33.321 (ns/call)

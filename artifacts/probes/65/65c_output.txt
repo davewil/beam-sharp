@@ -1,5 +1,12 @@
 prototype delta: 1 line changed in bs_check.erl (scratch copy only)
-modules compiled: 29   agree: 29   differ: 0   (pristine exit 0: 22 — the rest fail under BOTH, so they carry no signal)
+modules: 29   exit status agrees: 29   differs: 0
+  compile under pristine: 22   of which generated code (beam_lib:md5, every beam) identical under patched: 22
+  do NOT compile under pristine, so they carry no signal: 7 = 5 harness errors ('--src-root' equals the module dir; compiler/bin/check-exemplar-frontier.sh records the same wall) + 2 syntax errors (exemplars 'do not parse today') + 0 other
+--- why '0 differ' is close to a tautology, and what it does rest on: the collision surface is a whole MODULE NAME or a 'using' namespace's short name
+  .bs files in git: 173
+  files declaring a roster word as a WHOLE module name:  0
+  files declaring a module whose LAST segment is a roster word (legal; the 'using' short-name collision needs it): 0
+  calls of the form Roster.Op( anywhere in .bs files:       2 Binary.Append(   (all in non-compiling exemplars)
 --- control: the patched compiler still refuses what it refused, and now refuses a roster name
 pristine  module List    -> List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
 patched   module List    -> List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
@@ -15,6 +22,8 @@ patched  C -> 98|
 --- a call through a qualifier that is not built yet: what each compiler says (P7's 'advice that can never work')
 pristine String.Length(n), no user String anywhere -> U/U.bs:4:16: error: String is called but never imported|  add `using String` — a file's `using` lines are its dependency list,|  and a call that skips them makes that list wrong.|
 patched  String.Length(n), no user String anywhere -> U/U.bs:4:16: error: Go calls String.Length/1, and `String` has no operation of that name|  `String` is a reserved qualifier, so this cannot be fixed with a|  `using` line — the operations under it are the compiler's own.|
---- compile time, 4 vs 15 reserved names (wall ms per 'bsc --src-root examples examples/Shop', 40 runs each, interleaved)
-   pristine (4 names)   median   512.1 ms   min   426.1   max   742.3   stdev  78.6
-   patched (15 names)   median   517.3 ms   min   443.9   max   842.7   stdev  74.5
+--- compile time, 4 vs 15 reserved names: 'bsc --src-root examples examples/Shop', 40 pairs, order alternated each pair to cancel drift
+   pristine (4 reserved names)        median  470.6 ms  IQR  455.6- 495.4  min  395.4  max  797.7  stdev  63.2
+   patched (15 reserved names)        median  479.8 ms  IQR  462.3- 531.7  min  418.2  max  629.3  stdev  49.2
+   baseline: bare erl VM start+halt   median  216.4 ms  IQR  204.5- 256.2  min  178.8  max  558.4  stdev  62.6
+   median difference patched-pristine: +9.2 ms  (the spread above is larger; this mostly measures VM startup)

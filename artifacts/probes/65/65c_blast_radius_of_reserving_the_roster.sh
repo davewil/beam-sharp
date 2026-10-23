@@ -21,11 +21,23 @@ sed -i "s|reserved_qualifiers() -> \['List', 'Map', 'Term', 'Float'\].|reserved_
 echo "prototype delta: $(diff <(cd "$REPO/compiler/src" && cat bs_check.erl) "$P/src/bs_check.erl" | grep -c '^>') line changed in bs_check.erl (scratch copy only)"
 (cd "$P" && rebar3 escriptize >/dev/null 2>&1) || { echo "patched build failed"; exit 2; }
 PATCHED="$P/_build/default/bin/bsc"
-tot=0; same=0; broke=0; ok0=0
+# --- the corpus, compared by exit status AND by generated code (beam_lib:md5 of every beam) ---
+md5s() { # dir -> "Module md5" lines
+  erl -noshell -eval '[begin {ok,{M,H}}=beam_lib:md5(F), io:format("~s ~s~n",[M,binary:encode_hex(H)]) end || F <- filelib:wildcard(hd(init:get_plain_arguments())++"/*.beam")], halt().' -extra "$1" | sort
+}
+tot=0; same=0; broke=0; ok0=0; harness=0; syntax=0; other=0; codesame=0
+OUTROOT="$(mktemp -d)"
 run() { # root dir
-  local root="$1" dir="$2" a b
-  a="$("$BSC" --src-root "$root" "$dir" 2>&1 >/dev/null; echo "rc=$?")" ; b="$("$PATCHED" --src-root "$root" "$dir" 2>&1 >/dev/null; echo "rc=$?")"
-  tot=$((tot+1)); [ "${a##*rc=}" = 0 ] && ok0=$((ok0+1))
+  local root="$1" dir="$2" a b oa ob
+  oa="$OUTROOT/a$tot"; ob="$OUTROOT/b$tot"; mkdir -p "$oa" "$ob"
+  a="$("$BSC" --src-root "$root" -o "$oa" "$dir" 2>&1 >/dev/null; echo "rc=$?")" ; b="$("$PATCHED" --src-root "$root" -o "$ob" "$dir" 2>&1 >/dev/null; echo "rc=$?")"
+  tot=$((tot+1))
+  if [ "${a##*rc=}" = 0 ]; then
+    ok0=$((ok0+1))
+    [ "$(md5s "$oa")" = "$(md5s "$ob")" ] && codesame=$((codesame+1)) || echo "CODE DIFFERS: ${dir#$REPO/}"
+  else
+    case "$a" in *"module directory itself"*) harness=$((harness+1));; *"syntax error"*) syntax=$((syntax+1));; *) other=$((other+1));; esac
+  fi
   if [ "${a##*rc=}" = "${b##*rc=}" ]; then same=$((same+1)); else
     broke=$((broke+1)); echo "DIFFERS: ${dir#$REPO/}"; echo "   pristine: ${a##*rc=}   patched: ${b##*rc=}"; printf '%s\n' "$b" | head -3 | sed "s#$REPO/##" | sed 's/^/   /'
   fi
@@ -36,9 +48,17 @@ for d in "$REPO"/compiler/examples/*/; do
   run "$REPO/compiler/examples" "$d"
 done
 for d in "$REPO"/compiler/examples/exemplars/*/; do d="${d%/}"; run "$d" "$d"; done
-echo "modules compiled: $tot   agree: $same   differ: $broke   (pristine exit 0: $ok0 — the rest fail under BOTH, so they carry no signal)"
+echo "modules: $tot   exit status agrees: $same   differs: $broke"
+echo "  compile under pristine: $ok0   of which generated code (beam_lib:md5, every beam) identical under patched: $codesame"
+echo "  do NOT compile under pristine, so they carry no signal: $((tot-ok0)) = $harness harness errors ('--src-root' equals the module dir; compiler/bin/check-exemplar-frontier.sh records the same wall) + $syntax syntax errors (exemplars 'do not parse today') + $other other"
+echo "--- why '0 differ' is close to a tautology, and what it does rest on: the collision surface is a whole MODULE NAME or a 'using' namespace's short name"
+ROSTERRE="String|Enum|Int|Binary|Process|GenServer|Supervisor|Logger|System|Task|Agent"
+echo "  .bs files in git: $(git -C "$REPO" ls-files '*.bs' | wc -l)"
+echo "  files declaring a roster word as a WHOLE module name:  $(git -C "$REPO" ls-files '*.bs' | while read -r f; do grep -E "^module ($ROSTERRE)\$" "$REPO/$f"; done | wc -l)"
+echo "  files declaring a module whose LAST segment is a roster word (legal; the 'using' short-name collision needs it): $(git -C "$REPO" ls-files '*.bs' | while read -r f; do grep -E "^module [A-Za-z0-9_.]+\.($ROSTERRE)\$" "$REPO/$f"; done | wc -l)"
+echo "  calls of the form Roster.Op( anywhere in .bs files: $(git -C "$REPO" ls-files '*.bs' | while read -r f; do grep -Eo "\b($ROSTERRE)\.[A-Z][A-Za-z]*\(" "$REPO/$f"; done | sort | uniq -c | tr '\n' ' ')  (all in non-compiling exemplars)"
+W="$(mktemp -d)"; trap 'rm -rf "$W" "$OUTROOT"' EXIT
 echo "--- control: the patched compiler still refuses what it refused, and now refuses a roster name"
-W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 for m in List String; do mkdir -p "$W/$m"; printf 'module %s\n\npublic int Go(int n)\nGo(n) -> n\n' "$m" > "$W/$m/$m.bs"
   for c in "$BSC" "$PATCHED"; do printf '%-9s module %-7s -> %s\n' "$([ "$c" = "$BSC" ] && echo pristine || echo patched)" "$m" "$("$c" --src-root "$W" "$W/$m" Go 1 2>&1 | head -1 | sed "s#$W/##")"; done
 done
@@ -61,14 +81,21 @@ for c in "$BSC" "$PATCHED"; do
   out="$("$c" --src-root "$W" "$W/U" Go 1 2>&1 | head -4 | tr '\n' '|' | sed "s#$W/##g")"
   printf '%-8s String.Length(n), no user String anywhere -> %s\n' "$([ "$c" = "$BSC" ] && echo pristine || echo patched)" "${out:0:260}"
 done
-echo "--- compile time, 4 vs 15 reserved names (wall ms per 'bsc --src-root examples examples/Shop', 40 runs each, interleaved)"
+echo "--- compile time, 4 vs 15 reserved names: 'bsc --src-root examples examples/Shop', 40 pairs, order alternated each pair to cancel drift"
 python3 -I - "$BSC" "$PATCHED" "$REPO/compiler/examples" <<'PY'
 import subprocess,sys,time,statistics
 a,b,root=sys.argv[1:4]
-def run(c):
-    t=time.perf_counter(); subprocess.run([c,"--src-root",root,root+"/Shop"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); return (time.perf_counter()-t)*1000
-A=[];B=[]
-for _ in range(40): A.append(run(a)); B.append(run(b))
-for n,x in (("pristine (4 names)",A),("patched (15 names)",B)):
-    print(f"   {n:20s} median {statistics.median(x):7.1f} ms   min {min(x):7.1f}   max {max(x):7.1f}   stdev {statistics.stdev(x):5.1f}")
+def run(cmd):
+    t=time.perf_counter(); subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); return (time.perf_counter()-t)*1000
+def comp(c): return [c,"--src-root",root,root+"/Shop"]
+A=[];B=[];V=[]
+for i in range(40):
+    if i%2: B.append(run(comp(b))); A.append(run(comp(a)))
+    else:   A.append(run(comp(a))); B.append(run(comp(b)))
+    V.append(run(["erl","-noshell","-eval","halt()."]))
+def row(n,x):
+    q=statistics.quantiles(x,n=4)
+    print(f"   {n:34s} median {statistics.median(x):6.1f} ms  IQR {q[0]:6.1f}-{q[2]:6.1f}  min {min(x):6.1f}  max {max(x):6.1f}  stdev {statistics.stdev(x):5.1f}")
+row("pristine (4 reserved names)",A); row("patched (15 reserved names)",B); row("baseline: bare erl VM start+halt",V)
+print(f"   median difference patched-pristine: {statistics.median(B)-statistics.median(A):+.1f} ms  (the spread above is larger; this mostly measures VM startup)")
 PY
