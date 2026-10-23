@@ -1,4 +1,9 @@
   (skipped, did not compile under all three: exemplars)
 example module dirs: 23; compiled under all three builds: 22
   narrow: 0 beam(s) with different emitted code, 23 identical; summed Code-chunk delta vs head = 0 bytes
+    widen differs: Fib.beam (Code 205 -> 205)
+    widen differs: Foreign.beam (Code 432 -> 432)
+    widen differs: Frame.beam (Code 628 -> 628)
+    widen differs: Pipeline.beam (Code 361 -> 361)
+    widen differs: Shop.Collections.Ints.beam (Code 174 -> 174)
   widen: 5 beam(s) with different emitted code, 18 identical; summed Code-chunk delta vs head = 0 bytes

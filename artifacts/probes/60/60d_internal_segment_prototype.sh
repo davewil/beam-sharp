@@ -14,7 +14,9 @@ cp -r "$REPO/compiler" "$W/proto"; rm -rf "$W/proto/_build" "$W/proto/src/bs_par
 ( cd "$W/proto" && patch -p2 -s < "$HERE/proto_internal_segment.patch" && rebar3 escriptize >/dev/null 2>&1 ) || { echo "BUILD FAILED"; exit 1; }
 PROTO="$W/proto/_build/default/bin/bsc"
 PRISTINE="$REPO/compiler/_build/default/bin/bsc"; [ -x "$PRISTINE" ] || PRISTINE="${BSC:?set BSC or build compiler/}"
-echo "delta (unified diff): $(grep -c '^+[^+]' "$HERE/proto_internal_segment.patch") lines added, $(grep -c '^-[^-]' "$HERE/proto_internal_segment.patch") removed (a changed line is one of each; comments and blanks included)"
+stat() { # unified-diff stat of a patch file: insertions (non-blank), deletions, files
+  local f=$1; echo "$(grep -c '^+[^+]' "$f") non-blank + $(grep -c '^+$' "$f") blank insertions, $(grep -c '^-[^-]' "$f") deletions, $(grep -c '^--- ' "$f") files"; }
+echo "delta (unified diff of the patch): $(stat "$HERE/proto_internal_segment.patch")"
 
 T="$W/tree"
 # mod DIR MODULE "using lines" "call expression"
@@ -28,6 +30,12 @@ mod Shop/Internal/Deep/Leaf     Shop.Internal.Deep.Leaf "using Shop.Internal.Cal
 mod Shop/Orders/Ns3             Shop.Orders.Ns3        "using Shop.Internal"               "Calc.Double(n)"
 mod Shop/Orders/Ns4             Shop.Orders.Ns4        "using Shop"                        "Internal.Calc.Double(n)"
 mod Acme/Orders/Fulfil          Acme.Orders.Fulfil     "using Acme.Orders.Internal.Totals" "Double(n)"
+# last-segment semantics and the root-level case
+leaf Acme/Internal/Foo/Internal/Bar     Acme.Internal.Foo.Internal.Bar
+leaf Internal/Root                      Internal.Root
+mod Acme/Internal/Foo/User  Acme.Internal.Foo.User "using Acme.Internal.Foo.Internal.Bar" "Double(n)"
+mod Acme/Other2             Acme.Other2            "using Acme.Internal.Foo.Internal.Bar" "Double(n)"
+mod Outside/RootUser        Outside.RootUser       "using Internal.Root"                  "Double(n)"
 # --- should be REFUSED (Billing.Direct: the pristine compiler refuses it too, by design)
 mod Billing/Invoice             Billing.Invoice        "using Shop.Internal.Calc"          "Double(n)"
 mod Billing/Ns                  Billing.Ns             "using Shop.Internal"               "Calc.Double(n)"
@@ -58,10 +66,13 @@ check Shop/Internal/Deep/Leaf admit  "Shop.Internal.Deep.Leaf (sibling)"
 check Shop/Orders/Ns3         admit  "Shop.Orders.Ns3 (using Shop.Internal)"
 check Shop/Orders/Ns4         admit  "Shop.Orders.Ns4 (using Shop)"
 check Acme/Orders/Fulfil      admit  "Acme.Orders.Fulfil (nested Internal)"
+check Acme/Internal/Foo/User  admit  "Acme.Internal.Foo.User (last Internal's parent)"
+check Outside/RootUser        admit  "Outside.RootUser (root-level Internal: unrestricted)"
 check Billing/Invoice         refuse "Billing.Invoice (module using)"
 check Billing/Ns              refuse "Billing.Ns (using Shop.Internal)"
 check Billing/Ns2             refuse "Billing.Ns2 (using Shop)"
 check Billing/Direct          refuse "Billing.Direct (no using at all)" 1
+check Acme/Other2             refuse "Acme.Other2 (under Acme, not under Acme.Internal.Foo)"
 check Acme/Billing            refuse "Acme.Billing (nested Internal)"
 check Acme/BillingNs          refuse "Acme.BillingNs (using Acme.Orders.Internal)"
 # --- a KNOWN GAP, asserted so it stays visible: a visible module's signature can carry a record type minted
@@ -76,6 +87,19 @@ l=$(status "$PROTO" Out/Leak); v="COMPILES: the rule does not stop type leakage"
 printf '  Out.Leak  (var r = Make(n); r.Id)         prototype=%s  %s\n' "$l" "$v"
 echo "  what an outsider's type error says about the hidden type (Out.Bad):"
 say "$PROTO" Out/Bad | head -4 | sed "s|$T/||; s/^/    /"
+# --- the LIBRARY path (bsc:file_to_dir/2, used by compile_string and the REPL :reload) skips the directory/name
+# check, so Self is whatever the file DECLARES. An outsider that declares itself inside the subtree is admitted.
+mkdir -p "$T/EvilDir"
+printf 'module Shop.Evil\nusing Shop.Internal.Calc\npublic int Total(int n)\nTotal(n) -> Double(n)\n' > "$T/EvilDir/evil.bs"
+lib() { ( cd "$T" && erl -noshell -pa "$1" -eval 'case catch bsc:file_to_dir("'"${2:-EvilDir/evil.bs}"'", "'"$W"'/olib") of {ok,_} -> halt(0); _ -> halt(1) end.' >/dev/null 2>&1; echo $? ); }
+PEB="$REPO/compiler/_build/default/lib/bsc/ebin"; [ -d "$PEB" ] || PEB="$(dirname "$(dirname "$(dirname "$PRISTINE")")")/lib/bsc/ebin"
+echo "== known gap (asserted): self-declared module name. EvilDir/evil.bs declares \`module Shop.Evil\`, uses Shop.Internal.Calc"
+cl=$(status "$PROTO" EvilDir); ll=$(lib "$W/proto/_build/default/lib/bsc/ebin"); lp=$(lib "$PEB")
+v="library path ADMITS the outsider (pristine too): enforcement is only as good as the module-name check"; { [ "$cl" = 1 ] && [ "$ll" = 0 ] && [ "$lp" = 0 ]; } || { v=UNEXPECTED; bad=1; }
+mkdir -p "$T/HonestDir"; printf 'module Billing.Honest\nusing Shop.Internal.Calc\npublic int Total(int n)\nTotal(n) -> Double(n)\n' > "$T/HonestDir/honest.bs"
+hl=$(lib "$W/proto/_build/default/lib/bsc/ebin" HonestDir/honest.bs); [ "$hl" = 1 ] || { echo "  CONTROL FAILED: an honestly named outsider must be refused on the library path too (got $hl)"; bad=1; }
+echo "  control: honestly named outsider (module Billing.Honest) on the library path, prototype exit=$hl (refused)"
+printf '  CLI prototype=%s (refused: name does not match directory)   library prototype=%s   library pristine=%s   %s\n' "$cl" "$ll" "$lp" "$v"
 echo "== diagnostics from the prototype"
 for c in Billing/Invoice Billing/Ns Billing/Ns2 Acme/Billing Acme/BillingNs; do say "$PROTO" $c | head -2 | sed "s|$T/||; s/^/    /"; done
 echo "== (Billing.Direct is refused by the PRISTINE compiler too; that is why one site suffices:)"

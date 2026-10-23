@@ -8,7 +8,13 @@
    Triage -> Jev
    Triage -> Support.Triage
    distinct edges: 8   over 75 .bs files
-== (2) paths named like Internal anywhere in the repo (case-insensitive, excluding .git, _build and this probe directory)
+   control: one added 'using' line -> 9 edges (+1)  PASS
+== (2) paths named like Internal anywhere in the repo (case-insensitive; excluding .git, _build, artifacts/)
    none
-== (2b) the word as an identifier or segment inside .bs source (whole word, any case)
+   control: a temp tree with A/Internal -> found 1  PASS
+== (2b) the word inside .bs source (whole word, any case)
    count: 0
+== (3) lexer keyword rules (lines 'word : {token, {'word', ...' in bs_lexer.xrl)
+   20 rules: module type when using behaviour implements for in public private record with switch var raise fn and or where _
+   of which `_` is the wildcard, not a word: 19 keywords; plus alias `behavior` -> behaviour
+   control: one added rule -> 21 rules  PASS

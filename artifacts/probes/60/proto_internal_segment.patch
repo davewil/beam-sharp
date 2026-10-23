@@ -1,6 +1,6 @@
 --- a/compiler/src/bs_check.erl
 +++ b/compiler/src/bs_check.erl
-@@ -497,17 +497,44 @@
+@@ -497,17 +497,46 @@
  
  add_import(L, M, Self, World, Known, Mode, Acc) ->
      case maps:is_key(M, World) of
@@ -19,15 +19,17 @@
      end.
  
 +%% PROTOTYPE (ticket 60): a module with an `Internal` path segment may be named
-+%% only from modules under the path before that segment. Applied to a `using` of
-+%% the module and to the children a namespace `using` would bring in; `--api`
-+%% (lenient) does not check.
++%% only from modules under the path before the LAST such segment.
++%% A root-level `Internal` has the empty prefix, so everything is under it.
++%% Applied to a `using` of the module and to the children a namespace `using`
++%% would bring in; `--api` (lenient) does not check.
 +visible(undefined, _M) -> true;
 +visible(Self, M) ->
 +    case lists:splitwith(fun(S) -> S =/= "Internal" end,
-+                         string:split(atom_to_list(M), ".", all)) of
-+        {_, []}     -> true;
-+        {Prefix, _} -> lists:prefix(Prefix, string:split(atom_to_list(Self), ".", all))
++                         lists:reverse(string:split(atom_to_list(M), ".", all))) of
++        {_, []}              -> true;
++        {_, [_ | RevPrefix]} ->
++            lists:prefix(lists:reverse(RevPrefix), string:split(atom_to_list(Self), ".", all))
 +    end.
 +
 +require_visible(Self, M, L, strict) ->

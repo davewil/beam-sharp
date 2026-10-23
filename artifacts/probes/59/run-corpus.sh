@@ -28,7 +28,7 @@ for v in narrow widen; do
   for f in "$W/o/head"/*.beam; do
     b=$(basename "$f"); [ -f "$W/o/$v/$b" ] || continue
     h=$(escript "$W/code.escript" "$f"); x=$(escript "$W/code.escript" "$W/o/$v/$b")
-    if ! cmp -s <(escript "$HERE/dump.escript" "$f" 2>/dev/null) <(escript "$HERE/dump.escript" "$W/o/$v/$b" 2>/dev/null); then n=$((n+1)); delta=$((delta + x - h)); else same=$((same+1)); fi
+    if ! cmp -s <(escript "$HERE/dump.escript" "$f" 2>/dev/null) <(escript "$HERE/dump.escript" "$W/o/$v/$b" 2>/dev/null); then n=$((n+1)); echo "    $v differs: $b (Code $h -> $x)"; delta=$((delta + x - h)); else same=$((same+1)); fi
   done
   echo "  $v: $n beam(s) with different emitted code, $same identical; summed Code-chunk delta vs head = $delta bytes"
 done

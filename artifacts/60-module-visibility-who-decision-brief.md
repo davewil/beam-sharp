@@ -2,9 +2,10 @@
 
 **Ticket** [60](../wayfinder/issues/60-which-modules-may-name-this-one.md) · **Linear** [ENG-242](https://linear.app/davewil/issue/ENG-242) · **Date** 2026-10-23
 **Status: DECISION OPEN — for David's review; nothing resolved.** No ticket, feature, glossary or compiler file was edited.
+**Revision 3** — corrected after a second verifier re-ran everything: adds the library-path bypass, the nested/root-level `Internal` semantics, honest line counts, the commit and keyword-count statements, and a control for 60g. Revision-2 text below is edited in place.
 **Revision 2** — corrected after an independent verifier re-ran every probe. The probes reproduced; the verifier found that the first Option A prototype could be bypassed through a namespace `using`. That is fixed and now a probe case (60d). Corrections are listed at the end.
 
-Measured on: OTP 28.5 (erts 16.4, built from source), Elixir 1.19.5, Gleam 1.18.1, Elm 0.19.3, `bsc` built from HEAD `c3d50b9c`, x86_64 Linux.
+Measured on: OTP 28.5 (erts 16.4, built from source), Elixir 1.19.5, Gleam 1.18.1, Elm 0.19.3, `bsc` built from the `compiler/` sources of `c3d50b9c` (checked out when the session began; HEAD is now `6459752c`, and `git diff --stat c3d50b9c HEAD -- compiler/src` is empty, so the compiler source is the same), x86_64 Linux.
 Sources cited: Gleam compiler `0d9fa18`, Gleam stdlib `13359e5`, elm/core `65cea00` (git clones, depth 1), OTP 28.5 source, Elixir 1.19.5 install.
 
 The ticket says *"not owed a decision soon"*. One of the three options is "do not build it yet", and it is the recommendation.
@@ -58,6 +59,7 @@ What was actually run (60d, 60f): A and B built as compiler prototypes and exerc
 - **60b (2)(3)** — a callee that enforces at run time has to read its own stacktrace. It answers correctly for a genuine non-tail call (`allowed`) and for a foreign caller (`{denied,vis_foreign}`), and **wrongly denies the friend when the friend calls in tail position, or writes `R = f(), R`** (`{denied,vis_driver}`: `erlc` compiles that bind-and-return into a tail call, so the frame is gone). Cost: **8.7 ns/call plain vs 419.5 ns/call guarded** (median of 7 runs of 1e6; guarded spread 388–427), about 48×.
 - This agrees with ticket 18 §1 (*"a BEAM function has one entry label shared by both call kinds"*) and with the ticket's own *"a compile-time check on the caller, or it is nothing"*.
 - **Every dependency edge enters through `add_import/7`** (`compiler/src/bs_check.erl:498`). That function has two arms: a module `using` (the `true ->` arm, line 500) and a namespace `using` (the `{Children, _}` arm, ~line 507, via `add_namespace_import`). A qualified call must have a `using` entry first (`qualified_module/3`, `:4569`; comment at `:4567`: *"those entries declare the file's dependencies"*), and types follow the same path (`type_module_not_imported`, `:447`). The first version of this brief said "one site suffices" and the prototype guarded only the first arm; the verifier compiled an outsider through the second and it passed. Both arms are now guarded and both bypasses are probe cases (`Billing.Ns`: `using Shop.Internal` then `Calc.Double(n)`; `Billing.Ns2`: `using Shop` then `Internal.Calc.Double(n)`). The ticket's cited `add_module_import/5` at lines 407–425 has since moved; it is `add_module_import/3` at `:512`.
+- **The rule is only as strong as the module name the file declares, and one entry path does not check that name.** The CLI refuses a file whose `module` line does not match its directory (`EvilDir/evil.bs:1:1: error: `module Shop.Evil` does not match its directory`). The library path — `bsc:file/2`, `file_to_dir/2`, `compile_string`, and therefore the REPL's `:reload` (`bsc.erl:714-738`, `check_path = false`) — takes `Self` from whatever the file declares. Measured (60d, asserted): an outsider in `EvilDir` that declares `module Shop.Evil` and uses `Shop.Internal.Calc` is **admitted on the library path by the pristine compiler and by the prototype** (exit 0), and refused on the CLI; an honestly named outsider on the library path is refused (control, exit 1). Every existing B# check keyed on the module name shares this, so it is not new to A, but it is real: a "who may name" rule holds on the `bsc` command line and **not in `ibs`**.
 - **The promise can only be "among B# code".** Gleam's internal modules are still callable from Erlang (60a D: `lib:attr_internal() = 7`, `lib@internal@secret:helper() = 41`). Any B# rule inherits that, the same boundary as ticket 18's *"your types are checked among beam-sharp code"*. Ticket 62 is where foreign callers are handled.
 - **The rule does not stop a hidden type leaking through a visible signature** (60d, "known gap", asserted): with `Lib.Api` (visible) returning a record minted in `Lib.Internal.Types`, an outsider compiles `var r = Make(n); r.Id` without ever naming that module (exit 0), and its type error prints the hidden tag: `not covered by the declared return type: { Kind: :'Lib.Internal.Types.Row' }`. Whether that is acceptable is a fourth sub-decision this ticket does not list.
 
@@ -80,16 +82,19 @@ Reading: Gleam, the closest precedent for *spelling*, chose not to enforce namin
 
 ### A. The path says so: an `Internal` segment (callee side; unit = the subtree above it; no marker, no syntax)
 
-A module whose dotted path contains a segment `Internal` may be named only from modules under the path before that segment.
+A module whose dotted path contains a segment `Internal` may be named only from modules under the path before the **last** such segment. Plainly:
+- `Shop.Internal.Calc` → nameable from `Shop.**`.
+- `Acme.Internal.Foo.Internal.Bar` → nameable only from `Acme.Internal.Foo.**`. The first prototype used the *first* `Internal`, which admitted `Acme.Other2`; the verifier found it, and it is now a refused case. "Last" is my choice (the more restrictive), not a measured precedent.
+- A **root-level** `Internal` (module `Internal.Root`) has the empty path before it, and every module is under the empty path, so it is **unrestricted** (`Outside.RootUser` is admitted). A therefore reserves no root-level name in any enforced sense.
 
-**Compiler delta (prototype, built and run — 60d):** `visible/2`, `require_visible/4` and `visible_children/5` in `bs_check.erl`, called from both arms of `add_import`; one new error `module_not_visible` with a `built/2` and a `message/1` clause in `bs_diag.erl`. **33 lines added, 2 removed in the unified diff (a changed line counts once in each), 2 files**, comments and blanks included (`proto_internal_segment.patch`). No lexer, parser, grammar or world-entry change. `--api` (lenient mode) is not checked.
+**Compiler delta (prototype, built and run — 60d):** `visible/2`, `require_visible/4` and `visible_children/5` in `bs_check.erl`, called from both arms of `add_import`; one new error `module_not_visible` with a `built/2` and a `message/1` clause in `bs_diag.erl`. **35 non-blank + 3 blank insertions and 2 deletions in the patch's unified diff, 2 files** (`proto_internal_segment.patch`; a changed line is one deletion and one insertion; the earlier "33 / 2, blanks included" was wrong on both counts). No lexer, parser, grammar or world-entry change. `--api` (lenient mode) is not checked.
 
 **Measured (60d, every row has an expected result and the script exits non-zero if any differs; the refusing rows also check the error names the case's own file):**
 
 | case | pristine | prototype |
 |---|---|---|
-| `Shop.Orders` (`using Shop.Internal.Calc`) · `Shop.Internal.Deep.Leaf` · `Shop.Orders.Ns3` (`using Shop.Internal`) · `Shop.Orders.Ns4` (`using Shop`) · `Acme.Orders.Fulfil` (nested `Internal`) | 0 | 0 — admitted |
-| `Billing.Invoice` (module `using`) · `Billing.Ns` (`using Shop.Internal`) · `Billing.Ns2` (`using Shop`) · `Acme.Billing` · `Acme.BillingNs` (`using Acme.Orders.Internal`) | 0 | 1 — refused |
+| `Shop.Orders` (`using Shop.Internal.Calc`) · `Shop.Internal.Deep.Leaf` · `Shop.Orders.Ns3` (`using Shop.Internal`) · `Shop.Orders.Ns4` (`using Shop`) · `Acme.Orders.Fulfil` (nested `Internal`) · `Acme.Internal.Foo.User` (under the last `Internal`'s parent) · `Outside.RootUser` (root-level `Internal`) | 0 | 0 — admitted |
+| `Billing.Invoice` (module `using`) · `Billing.Ns` (`using Shop.Internal`) · `Billing.Ns2` (`using Shop`) · `Acme.Billing` · `Acme.BillingNs` (`using Acme.Orders.Internal`) · `Acme.Other2` (under `Acme`, not under `Acme.Internal.Foo`) | 0 | 1 — refused |
 | `Billing.Direct` (qualified call, no `using`) | 1 | 1 |
 
 Message quality: the module-`using` and `using Shop.Internal` refusals say `may not be named from …`. **`Billing.Ns2` (`using Shop`) is refused with a worse message**, `Internal.Calc is called but never imported`, because the namespace import silently drops the hidden children rather than naming them. A diagnostic fix is not prototyped.
@@ -108,11 +113,11 @@ visible Acme.Audit
 
 Spelled as its own line, **not** inside the `module` line: `{module, L, Name}` is matched in many places (`module_name/1`, `bs_check.erl:269-273`), a new declaration is not.
 
-**Compiler delta (prototype, built and run — 60f):** lexer keyword `visible` (1 line), parser terminal + `visible_decl` + `decl` arm (4 lines), `visible => [...]` in the world entry in `bsc.erl:227-`, the same check reading the entry in `add_import` (both arms), and the same `module_not_visible` error. **38 lines added, 4 removed, 5 files** (`proto_visible_line.patch`). yecc conflicts: 6 shift/reduce before, **6 after** (no new ones).
+**Compiler delta (prototype, built and run — 60f):** lexer keyword `visible` (1 line), parser terminal + `visible_decl` + `decl` arm (4 lines), `visible => [...]` in the world entry in `bsc.erl:227-`, the same check reading the entry in `add_import` (both arms), and the same `module_not_visible` error. **38 non-blank + 3 blank insertions and 4 deletions, 5 files** (`proto_visible_line.patch`). yecc conflicts: 6 shift/reduce before, **6 after** (no new ones).
 
 **Measured (60f, same expectation-and-exit-code discipline):** `Acme.Orders.Fulfil` (under the first path) admitted; `Acme.Audit` (second path, outside `Acme.Orders`) admitted; `Acme.Billing` refused; `Acme.BillingNs` (`using Acme.Orders`, then `Totals.Double`) refused; `Acme.BillingOpen` (callee with no `visible` line) admitted. **What the keyword takes away:** whole-word `visible` in the repo's `.bs` files: 0 occurrences outside comment-only lines (a regex filter, not hand-read). The pristine compiler on the callee itself: `syntax error before: '.'`.
 
-**Strongest counterargument:** two sources of truth. F15 makes the directory the module, so moving a directory renames the module and silently invalidates a hand-written `visible` path; A cannot go stale because the path *is* the rule. It also spends a keyword (the seventeenth, if 22's count of sixteen stands) and a grammar arm for a feature whose demand is unmeasured, the grounds on which ticket 22 refused `incomplete`. Its one advantage over A is the multi-path list (`Acme.Audit`), which A cannot express at all.
+**Strongest counterargument:** two sources of truth. F15 makes the directory the module, so moving a directory renames the module and silently invalidates a hand-written `visible` path; A cannot go stale because the path *is* the rule. It also spends a keyword: ticket 22 counted sixteen on 2026-08-23; the lexer today has **19** (60g (3): `module type when using behaviour implements for in public private record with switch var raise fn and or where`, plus the alias `behavior`), so `visible` would be the 20th and a grammar arm for a feature whose demand is unmeasured, the grounds on which ticket 22 refused `incomplete`. Its one advantage over A is the multi-path list (`Acme.Audit`), which A cannot express at all.
 
 ### C. Build nothing yet; record the trigger
 
@@ -140,13 +145,13 @@ The pristine columns of 60d are exactly this: the outsider compiles under the un
 
 **This evidence cannot reject the hypothesis that the who-half is needed**, and I do not claim it does. The compiled corpus has one behaviour module whose publics are all callbacks, so a zero there is guaranteed by the corpus; the exemplars were written before any visibility feature existed; and no program written by an agent under a visibility rule exists to count. What it does show is that nothing in the repo *requires* the feature today.
 
-**Strongest counterargument:** the reservation window. If a word is ever reserved (A), it costs least while no program uses it, and A is 33 lines, so deferring saves almost nothing on the compiler and spends something that cannot be recovered: a user's directory named `Internal`. The agent-drift argument in the ticket is also untested here: nobody has measured how often an agent writing tests picks a public helper.
+**Strongest counterargument:** the reservation window. If a word is ever reserved (A), it costs least while no program uses it, and A is about 38 lines, so deferring saves almost nothing on the compiler and spends something that cannot be recovered: a user's directory named `Internal`. The agent-drift argument in the ticket is also untested here: nobody has measured how often an agent writing tests picks a public helper.
 
 ---
 
 ## Recommendation
 
-**C now, with A as the pre-costed fallback, plus one cheap hedge.** Reasons: the ticket says no decision is owed soon; the consumer (the boundary manifest) is unbuilt; F12 took most of the problem; nothing in the repo requires the feature (with the limits stated above); and A is fully measured at 33 lines in two files. The hedge answers C's counterargument: **decide ticket 65 (reserved names) first or together, and say there whether `Internal` is on the list.** That closes the window without building anything. If David prefers to decide the feature now, **A** over B, because it has no grammar change, no list to go stale and the smaller diff — and A's namespace arm, its worse `using Shop` diagnostic, and the type-leak gap are the three things to review before building it.
+**C now, with A as the pre-costed fallback, plus one cheap hedge.** Reasons: the ticket says no decision is owed soon; the consumer (the boundary manifest) is unbuilt; F12 took most of the problem; nothing in the repo requires the feature (with the limits stated above); and A is fully measured at about 38 lines in two files. The hedge answers C's counterargument: **decide ticket 65 (reserved names) first or together, and say there whether `Internal` is on the list.** That closes the window without building anything. If David prefers to decide the feature now, **A** over B, because it has no grammar change, no list to go stale and the smaller diff — and A's namespace arm, its worse `using Shop` diagnostic, and the type-leak gap are the three things to review before building it.
 
 **What would change this:** the boundary manifest gets built and must tell client API from shared helper (then A or B); a real program needs a helper shared across sibling modules; an agent-written test suite is measured targeting public helpers (then straight to A); a package/assembly notion enters the glossary (reopens the unit, B's explicit list gains).
 
@@ -159,10 +164,10 @@ The pristine columns of 60d are exactly this: the outsider compiles under the un
 | 60a | Gleam does not enforce `internal` across packages | non-`pub` call refused | A and B exit 0; control exit 1; Erlang calls both; interface lists only `lib`/`api` | Elm; Gleam JS target; any other form of internal marking |
 | 60b | BEAM cannot restrict callers; a run-time check is costly and tail-call-wrong | unexported → `undef`; non-tail friend allowed, foreign denied | exported fn callable from anywhere; 8.7 → 419.5 ns/call; tail-call friend denied | JIT-level mitigation; non-stacktrace caller identity (a token argument) |
 | 60c | Elixir `@moduledoc false` prevents nothing; a caller-side check is buildable | `defp` outside: compile **warning** + run-time `UndefinedFunctionError` | outsider compiled and ran (42); docs `:hidden`; tracer refuses outsider and admits friend; 13-line tracer | the `boundary` library; Mix builds |
-| 60d | Option A: both `using` arms guarded; cost; known gap | pristine accepts all but `Billing.Direct`; expectations asserted, exit non-zero on any difference, refusal must name its own file | 11 cases as expected plus the asserted leak; 33+/2−; wall time within spread; ~700–800 ns/check; type leakage compiles | refusal-path cost in the real corpus; `--api`/ibs/test suite; diagnostics for the `using Shop` case |
+| 60d | Option A: both `using` arms guarded; last-`Internal` and root-level semantics; cost; known gaps | pristine accepts all but `Billing.Direct`; expectations asserted, exit non-zero on any difference, refusal must name its own file; honest outsider on the library path refused | 14 cases as expected; 35+3 blank/2−, 2 files; wall time within spread; ~700–800 ns/check; type leakage compiles; **library path admits a self-declared insider** | refusal-path cost in the real corpus; `--api`; the test suite; **`ibs` (REPL `:reload` goes through the library path, so the rule does not hold there)**; diagnostics for the `using Shop` case |
 | 60e | size of the `unclassified` remainder | regex vs independent `grep -c`, exits non-zero on disagreement (passes) | table above | demand in agent-written code; whether the 8 non-callbacks are helpers |
-| 60f | Option B: cost and cases | same discipline as 60d | 38+/4−, 5 files; 6→6 conflicts; 5 cases as expected; 0 `visible` identifiers | a second `visible` spelling (e.g. on the `module` line); diagnostics quality |
-| 60g | the 8 cross-module edges; no `Internal` path in the repo | — | 8 edges / 75 files; none | exemplar semantics (text only) |
+| 60f | Option B: cost and cases | same discipline as 60d | 38+3 blank/4−, 5 files; 6→6 conflicts; 5 cases as expected; 0 `visible` identifiers | a second `visible` spelling (e.g. on the `module` line); diagnostics quality |
+| 60g | the 8 cross-module edges; no `Internal` path; lexer keyword count | each count re-run on a temp copy with one thing added and must change by exactly that (all pass) | 8 edges / 75 files; none; 19 keywords | exemplar semantics (text only) |
 
 Each probe is a script in `artifacts/probes/60/` with its captured run in `output-60?.txt`. Source `env.sh` from the session scratchpad first (`/tmp/claude-0/-home-user-beam-sharp/9903cb2c-0a5d-5378-89d7-c06a67894f0b/scratchpad/env.sh`). 60d and 60f copy `compiler/` to a temp directory, delete its generated `bs_parser.erl`/`bs_lexer.erl` (gitignored; stale copies hid the patched grammar the first time), apply the patch and build there; the repo is not touched.
 
@@ -174,6 +179,12 @@ Each probe is a script in `artifacts/probes/60/` with its captured run in `outpu
 - Wall-time measures are whole-process (`bsc` start-up dominates, ~450–500 ms); the per-check figure is the in-VM one and drifts run to run (698–805 ns).
 - The prototypes are for sizing only; nothing was added to `compiler/`.
 - Toolchain: OTP 28.5 is the repo pin; Elixir is 1.19.5, a version the earlier 62a prototype did not record.
+
+## Corrections in revision 3
+1. Library-path bypass added as a 60d case and stated above and in the ledger's "does NOT show" (it means `ibs` is outside the rule).
+2. Last-`Internal` semantics implemented and stated; first-`Internal` bypass and root-level `Internal` (unrestricted) are 60d cases.
+3. Line counts restated as insertions (non-blank + blank) and deletions; the scripts print them the same way. A: 35 + 3 blank / 2 / 2 files. B: 38 + 3 blank / 4 / 5 files.
+4. Commit statement corrected; keyword count measured (19, not "sixteen"); 60g now has controls.
 
 ## Corrections since revision 1
 

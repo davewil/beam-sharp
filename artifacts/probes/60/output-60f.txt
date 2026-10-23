@@ -1,4 +1,4 @@
-delta (unified diff): 38 lines added, 4 removed, in 5 files (lexer, parser, check, diag, bsc)
+delta (unified diff of the patch): 38 non-blank + 3 blank insertions, 4 deletions, 5 files
 == (3) yecc conflicts, pristine grammar vs prototype grammar
    pristine: p.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
    proto: p.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce

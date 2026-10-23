@@ -14,7 +14,9 @@ cp -r "$REPO/compiler" "$W/proto"; rm -rf "$W/proto/_build" "$W/proto/src/bs_par
 ( cd "$W/proto" && patch -p2 -s < "$HERE/proto_visible_line.patch" && rebar3 escriptize >/dev/null 2>&1 ) || { echo "BUILD FAILED"; exit 1; }
 PROTO="$W/proto/_build/default/bin/bsc"
 PRISTINE="$REPO/compiler/_build/default/bin/bsc"; [ -x "$PRISTINE" ] || PRISTINE="${BSC:?set BSC or build compiler/}"
-echo "delta (unified diff): $(grep -c '^+[^+]' "$HERE/proto_visible_line.patch") lines added, $(grep -c '^-[^-]' "$HERE/proto_visible_line.patch") removed, in $(grep -c '^--- ' "$HERE/proto_visible_line.patch") files (lexer, parser, check, diag, bsc)"
+stat() { # unified-diff stat of a patch file: insertions (non-blank), deletions, files
+  local f=$1; echo "$(grep -c '^+[^+]' "$f") non-blank + $(grep -c '^+$' "$f") blank insertions, $(grep -c '^-[^-]' "$f") deletions, $(grep -c '^--- ' "$f") files"; }
+echo "delta (unified diff of the patch): $(stat "$HERE/proto_visible_line.patch")"
 
 echo "== (3) yecc conflicts, pristine grammar vs prototype grammar"
 for tag in pristine proto; do
