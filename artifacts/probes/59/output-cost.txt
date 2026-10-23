@@ -32,4 +32,14 @@ widen   Rec32: 6.66 / 7.95 / 15.63
 
 === C. call time, ns/call (15 trials x 10M calls, 5 interleaved VM pairs; median of trial-medians shown per VM) ===
 head    Rec1 min=36.558 med=39.150 max=47.375 | baseline med=35.925 (ns/call)
-narrow  
+narrow  Rec1 min=34.561 med=36.407 max=40.427 | baseline med=34.432 (ns/call)
+head    Rec1 min=35.780 med=36.493 max=39.211 | baseline med=33.558 (ns/call)
+narrow  Rec1 min=34.248 med=35.285 max=37.315 | baseline med=33.301 (ns/call)
+head    Rec1 min=35.397 med=36.506 max=38.709 | baseline med=33.503 (ns/call)
+narrow  Rec1 min=34.098 med=34.985 max=36.687 | baseline med=33.931 (ns/call)
+head    Rec1 min=35.884 med=36.942 max=39.552 | baseline med=33.365 (ns/call)
+narrow  Rec1 min=34.225 med=35.077 max=37.238 | baseline med=33.402 (ns/call)
+head    Rec1 min=35.836 med=36.418 max=39.787 | baseline med=33.635 (ns/call)
+narrow  Rec1 min=34.526 med=35.711 max=38.290 | baseline med=33.679 (ns/call)
+-- int kind test where BEAM type pass can see the arg (PlainInt, head vs widen) --
+head    

@@ -69,7 +69,7 @@ check Acme/BillingNs          refuse "Acme.BillingNs (using Acme.Orders.Internal
 mkdir -p "$T/Lib/Internal/Types" "$T/Lib/Api" "$T/Out/Leak" "$T/Out/Bad"
 printf 'module Lib.Internal.Types\nrecord Row { Id: int }\npublic Row Mk(int id)\nMk(id) -> Row{ Id = id }\n' > "$T/Lib/Internal/Types/Types.bs"
 printf 'module Lib.Api\nusing Lib.Internal.Types\npublic Row Make(int id)\nMake(id) -> Mk(id)\n' > "$T/Lib/Api/Api.bs"
-printf 'module Out.Leak\nusing Lib.Api\npublic int Id(int n)\nId(n) -> Make(n).Id\n' > "$T/Out/Leak/Leak.bs"
+printf 'module Out.Leak\nusing Lib.Api\npublic int Id(int n)\nId(n) ->\n    var r = Make(n)\n    r.Id\n' > "$T/Out/Leak/Leak.bs"
 printf 'module Out.Bad\nusing Lib.Api\npublic int Id(int n)\nId(n) -> Make(n)\n' > "$T/Out/Bad/Bad.bs"
 echo "== known gap (asserted): an outsider never names Lib.Internal.Types, yet receives and projects its record"
 l=$(status "$PROTO" Out/Leak); v="COMPILES: the rule does not stop type leakage"; [ "$l" = 0 ] || { v=UNEXPECTED; bad=1; }
