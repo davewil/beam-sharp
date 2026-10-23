@@ -11,4 +11,3 @@ patched  A -> A/A.bs:6:16: error: Go calls String.Length, and `String` means two
 pristine B -> 98|
 patched  B -> 98|
 pristine C -> 98|
-patched  C -> 98|

@@ -54,3 +54,21 @@ for p in A B C; do
     printf '%-8s %s -> %s\n' "$([ "$c" = "$BSC" ] && echo pristine || echo patched)" "$p" "${out:0:230}"
   done
 done
+echo "--- a call through a qualifier that is not built yet: what each compiler says (P7's 'advice that can never work')"
+mkdir -p "$W/U"
+printf 'module U\n\npublic int Go(int n)\nGo(n) -> String.Length(n)\n' > "$W/U/U.bs"
+for c in "$BSC" "$PATCHED"; do
+  out="$("$c" --src-root "$W" "$W/U" Go 1 2>&1 | head -4 | tr '\n' '|' | sed "s#$W/##g")"
+  printf '%-8s String.Length(n), no user String anywhere -> %s\n' "$([ "$c" = "$BSC" ] && echo pristine || echo patched)" "${out:0:260}"
+done
+echo "--- compile time, 4 vs 15 reserved names (wall ms per 'bsc --src-root examples examples/Shop', 40 runs each, interleaved)"
+python3 -I - "$BSC" "$PATCHED" "$REPO/compiler/examples" <<'PY'
+import subprocess,sys,time,statistics
+a,b,root=sys.argv[1:4]
+def run(c):
+    t=time.perf_counter(); subprocess.run([c,"--src-root",root,root+"/Shop"],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); return (time.perf_counter()-t)*1000
+A=[];B=[]
+for _ in range(40): A.append(run(a)); B.append(run(b))
+for n,x in (("pristine (4 names)",A),("patched (15 names)",B)):
+    print(f"   {n:20s} median {statistics.median(x):7.1f} ms   min {min(x):7.1f}   max {max(x):7.1f}   stdev {statistics.stdev(x):5.1f}")
+PY

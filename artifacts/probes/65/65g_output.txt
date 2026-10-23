@@ -10,3 +10,7 @@ user-wins  P4 no user List anywhere (control) 3|
 --- the half-built delta (checker only, emitter untouched): the same P2
 checker-only P2 using Shop.Coll; List.Length([n]) 1|
    (99 is the user's Length; 1 is lists-length of [1]. It type-checked against the user's signature and ran the standard op.)
+--- generated code: does the delta change what an UNSHADOWED program compiles to?
+   P4 DIFFERS: 988 vs 988 bytes
+   P2 under user-wins, non-erlang imports of the beam: [{'Shop.Coll.List','Length',1}]
+   P4 imports (the standard ops lower to OTP): [{lists,sum,1}]

@@ -1,0 +1,72 @@
+--- compiler/src/bs_emit.erl	2026-10-23 23:06:09.672223017 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/9903cb2c-0a5d-5378-89d7-c06a67894f0b/scratchpad/p62-compiler/src/bs_emit.erl	2026-10-23 23:13:45.135701083 +0000
+@@ -74,6 +74,7 @@
+      %% The author's exports, and then the compiler's one: `'bs@type_atoms'/0`
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
++                             ++ alias_exports(Exports, Behaviours)
+                              ++ [{type_atoms_name(), 0}]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+@@ -97,13 +98,59 @@
+ %% one file, so every note the checker left is keyed by its file as well.
+ file_group(undefined, Fns, Env, Behaviours, Ctx0) ->
+     Ctx = Ctx0#{file => undefined},
+-    lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] || F <- Fns]);
++    lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] ++ alias_forms(F, Env, Behaviours, Ctx) || F <- Fns]);
+ file_group(Path, Fns, Env, Behaviours, Ctx0) ->
+     Ctx = Ctx0#{file => Path},
+     [{attribute, ?A, file, {Path, 1}}
+-     | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)]
++     | lists:append([[spec_attr(F, Env, Behaviours), function(F, Ctx)] ++ alias_forms(F, Env, Behaviours, Ctx)
+                      || F <- Fns])].
+ 
++%%% PROTOTYPE 62c (scratch copy only; NOT in the repo): snake_case aliases.
++alias_mode() -> case os:getenv("BS_ALIAS") of false -> off; M -> list_to_atom(M) end.
++
++snake(Atom) ->
++    L = atom_to_list(Atom),
++    list_to_atom(string:lowercase(snake1(L, none))).
++snake1([], _) -> [];
++snake1([C | T], Prev) ->
++    Up = C >= $A andalso C =< $Z,
++    NextLow = case T of [N | _] -> N >= $a andalso N =< $z; [] -> false end,
++    PrevLow = Prev =/= none andalso ((Prev >= $a andalso Prev =< $z) orelse (Prev >= $0 andalso Prev =< $9)),
++    PrevUp = Prev =/= none andalso (Prev >= $A andalso Prev =< $Z),
++    Sep = Up andalso (PrevLow orelse (PrevUp andalso NextLow)),
++    (case Sep of true -> [$_]; false -> [] end) ++ [C] ++ snake1(T, C).
++
++alias_for(F, Behaviours) ->
++    N = element(2, F),
++    case emitted_name(N, arity(F), Behaviours) of
++        N -> A = snake(N), case A =:= N of true -> none; false -> {ok, A} end;
++        _ -> none
++    end.
++
++alias_exports(Exports, Behaviours) ->
++    case alias_mode() of
++        off -> [];
++        _ -> lists:usort([{A, Ar} || {F, Ar} <- Exports, {ok, A} <- [alias_for(F, Behaviours)]])
++    end.
++
++alias_forms(F, Env, Behaviours, Ctx) ->
++    case {alias_mode(), is_public(F), alias_for(F, Behaviours)} of
++        {off, _, _} -> [];
++        {_, false, _} -> [];
++        {_, _, none} -> [];
++        {Mode, true, {ok, A}} ->
++            Ar = arity(F),
++            Vars = [{var, ?A, list_to_atom("A" ++ integer_to_list(I))} || I <- lists:seq(1, Ar)],
++            case Mode of
++                dup -> F2 = setelement(2, F, A), [spec_attr(F2, Env, Behaviours), function(F2, Ctx)];
++                deleg -> [delegate(A, element(2, F), Vars)];
++                delegspec -> F2 = setelement(2, F, A), [spec_attr(F2, Env, Behaviours), delegate(A, element(2, F), Vars)]
++            end
++    end.
++
++delegate(A, N, Vars) ->
++    {function, ?A, A, length(Vars), [{clause, ?A, Vars, [], [{call, ?A, {atom, ?A, N}, Vars}]}]}.
++
+ %% The checker's note for the node at `L` in the file being emitted, where the
+ %% checker leaves one only for some nodes of that form.
+ find_note(Kind, L, C) -> maps:find({maps:get(file, C), L}, maps:get(Kind, C)).

@@ -3,7 +3,7 @@
 **Ticket:** [62](../wayfinder/issues/62-the-outbound-abi.md) · **Linear:** [ENG-252](https://linear.app/davewil/issue/ENG-252)
 **Brief written:** 2026-10-23 · **Status: DECISION OPEN — for David's review; nothing resolved.**
 **Toolchain:** OTP 28.5 (built from source, the repo's pin), Elixir 1.19.5, Gleam 1.18.1, Elm 0.19.3, rebar3 3.27.0, `bsc` built from `master` at the working tree. Linux x86_64.
-**Probes:** `artifacts/probes/62/` (each has a captured `*_output.txt`). **Prototype delta:** one scratch copy of the compiler, +55 lines in `bs_emit.erl`, never in the repo (see 62d).
+**Probes:** `artifacts/probes/62/` (each has a captured `*_output.txt`). **Prototype delta:** `artifacts/probes/62/p62-alias-prototype.patch` (+55 lines to `compiler/src/bs_emit.erl`; it applies cleanly to the working tree). To rebuild: copy `compiler/` to a scratch dir, `patch src/bs_emit.erl < p62-alias-prototype.patch`, `rebar3 escriptize`, then `export ALIASBSC=<scratch>/_build/default/bin/bsc`. The patch reads `BS_ALIAS=off|deleg|delegspec|dup` from the environment. It is not applied to the repo.
 
 ## What this brief changes about the ticket
 
@@ -63,7 +63,7 @@ The ticket's third candidate (change B#'s own function casing to snake_case) is 
 
 No compiler change. `LANGUAGE.md` §12 shows the quoted call beside `apply/3` and states plainly that `import` is unavailable.
 
-- **Compiler delta:** none. Spec delta only: §12 lines 3315–3335 and the comment at 3335 (`ticket 62 holds the open decision on the casing`).
+- **Compiler delta:** none. Spec delta only: §12 lines 3315–3335 and the comment at 3337 (`ticket 62 holds the open decision on the casing`).
 - **Evidence.**
   - Works against real bsc beams: direct call, nested module (`:"Shop.Reports"."Restate"(1)` → `3`), pipeline, capture, `alias ... as:` (62b).
   - Controls in 62b all fail as they should: unquoted `:Shop.New(1)`, `Shop."New"(1)` (resolves to `Elixir.Shop`, a different module), a name that does not exist, and `import`.
@@ -76,7 +76,7 @@ No compiler change. `LANGUAGE.md` §12 shows the quoted call beside `apply/3` an
 
 ### Option B — The author writes the alias
 
-An opt-in, per-function second name, written beside the signature. This follows ticket 32 §3's principle that *"both spellings are written"* (`wayfinder/issues/32-ffi-surface.md:200–205`): a written name has no failure case, which is exactly what a derived one cannot promise.
+An opt-in, per-function second name, written beside the signature. This follows ticket 32 §3's principle that *"both spellings are written"* (`wayfinder/issues/32-ffi-surface.md:201–205`): a written name has no failure case, which is exactly what a derived one cannot promise.
 
 ```csharp
 // illustrative spelling only; the delta is the same under any spelling
@@ -112,7 +112,7 @@ Zero author effort: `New`→`new`, `GetId`→`get_id`, `HTTPServer`→`http_serv
   | `GetId` public + `GetID` private | compiles | compiles (privates are not aliased) |
   | same name, two arities | compiles | compiles |
 
-  So the rule needs exactly two refusals. The first fails on programs that are legal today, so adopting C makes some existing programs invalid; this is the hazard CLAUDE.md records for 25c ("a capability that closes a residual without supplying a way to name the cases makes previously-valid programs invalid").
+  So the rule needs exactly two refusals. The first fails on programs that are legal today, so adopting C makes some existing programs invalid; this is the hazard `compiler/features/README.md:27` records for 25c ("a capability that closes a residual without supplying a way to name the cases makes previously-valid programs invalid").
 - **Strongest counterargument.** It contradicts the letter of ticket 32 §3 and LANGUAGE.md §11 (line 3122): *"the language needs no snake_case ⇄ PascalCase mapping anywhere."* That statement was about the *inbound* direction, where a mapping cannot spell `'PKCS-1'` or a quarter of Elixir's names, and the outbound direction is total on B# identifiers, so the objection does not transfer one-for-one. But it does introduce the language's first derived naming rule, and it is not injective, which is what forces the collision refusal. It also **doubles the public export surface permanently** (80 aliases onto 152 exports in the examples), visible to every Erlang tool that lists exports.
 
 ### Why option 3 (snake_case function names in B#) is not on the menu
@@ -176,4 +176,4 @@ These are outside this ticket's decision and are listed because they are checkab
 - 62d's byte counts include debug info (`Dbgi` chunk); the `Code` and `ExpT` columns isolate the executable part.
 - One example module (of 23) is refused by the compiler in every mode including the control, so the totals cover 22 modules.
 - Tooling beyond the Elixir compiler and formatter was not tested.
-- The `bs_emit.erl` prototype is in the session scratchpad (`p62-compiler/`), not in the repo, by design.
+- The `bs_emit.erl` prototype exists only as the patch file; the compiler source in the repo is unchanged.

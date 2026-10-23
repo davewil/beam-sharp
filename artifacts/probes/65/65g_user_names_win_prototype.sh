@@ -72,3 +72,11 @@ echo "--- the half-built delta (checker only, emitter untouched): the same P2"
 out="$("$HALF" --src-root "$W" "$W/P2" Go 1 2>&1 | head -2 | tr '\n' '|')"
 printf '%-10s %-34s %s\n' checker-only "P2 using Shop.Coll; List.Length([n])" "$out"
 echo "   (99 is the user's Length; 1 is lists-length of [1]. It type-checked against the user's signature and ran the standard op.)"
+echo "--- generated code: does the delta change what an UNSHADOWED program compiles to?"
+mkdir -p "$W/o1" "$W/o2" "$W/o3"
+"$BSC" --src-root "$W" -o "$W/o1" "$W/P4" >/dev/null 2>&1; "$UW" --src-root "$W" -o "$W/o2" "$W/P4" >/dev/null 2>&1
+if cmp -s "$W/o1/P4.beam" "$W/o2/P4.beam"; then echo "   P4 (no user List): pristine and user-wins .beam files are byte-identical ($(wc -c < "$W/o1/P4.beam") bytes)"; else echo "   P4 DIFFERS: $(wc -c < "$W/o1/P4.beam") vs $(wc -c < "$W/o2/P4.beam") bytes"; fi
+"$UW" --src-root "$W" -o "$W/o3" "$W/P2" >/dev/null 2>&1
+imp() { erl -noshell -eval 'case beam_lib:chunks(hd(init:get_plain_arguments()), [imports]) of {ok,{_,[{imports,I}]}} -> io:format("~p~n",[lists:usort([{M,F,A}||{M,F,A}<-I, M=/=erlang])]); E -> io:format("~p~n",[E]) end, halt().' -extra "$1"; }
+echo "   P2 under user-wins, non-erlang imports of the beam: $(imp "$W/o3/P2.beam")"
+echo "   P4 imports (the standard ops lower to OTP): $(imp "$W/o1/P4.beam")"

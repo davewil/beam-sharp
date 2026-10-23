@@ -36,4 +36,10 @@ narrow  Rec1 min=34.341 med=35.293 max=38.597 | baseline med=33.500 (ns/call)
 head    Rec1 min=36.003 med=37.961 max=44.198 | baseline med=33.856 (ns/call)
 narrow  Rec1 min=34.280 med=35.204 max=38.106 | baseline med=36.046 (ns/call)
 -- int kind test (PlainInt, head vs widen) --
+head    PlainInt min=33.072 med=34.280 max=39.531 | baseline med=34.192 (ns/call)
+widen   PlainInt min=33.044 med=33.939 max=36.394 | baseline med=33.402 (ns/call)
+head    PlainInt min=32.958 med=34.397 max=38.933 | baseline med=35.394 (ns/call)
+widen   PlainInt min=33.288 med=35.175 max=38.840 | baseline med=33.369 (ns/call)
+head    PlainInt min=32.692 med=33.485 max=37.987 | baseline med=34.276 (ns/call)
+widen   PlainInt min=33.096 med=34.717 max=37.639 | baseline med=34.439 (ns/call)
 head    
