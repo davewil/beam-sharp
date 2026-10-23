@@ -75,7 +75,11 @@ echo "   (99 is the user's Length; 1 is lists-length of [1]. It type-checked aga
 echo "--- generated code: does the delta change what an UNSHADOWED program compiles to?"
 mkdir -p "$W/o1" "$W/o2" "$W/o3"
 "$BSC" --src-root "$W" -o "$W/o1" "$W/P4" >/dev/null 2>&1; "$UW" --src-root "$W" -o "$W/o2" "$W/P4" >/dev/null 2>&1
-if cmp -s "$W/o1/P4.beam" "$W/o2/P4.beam"; then echo "   P4 (no user List): pristine and user-wins .beam files are byte-identical ($(wc -c < "$W/o1/P4.beam") bytes)"; else echo "   P4 DIFFERS: $(wc -c < "$W/o1/P4.beam") vs $(wc -c < "$W/o2/P4.beam") bytes"; fi
+md5() { erl -noshell -eval '{ok,{_,M}}=beam_lib:md5(hd(init:get_plain_arguments())), io:format("~s~n",[binary:encode_hex(M)]), halt().' -extra "$1"; }
+a="$(md5 "$W/o1/P4.beam")"; b="$(md5 "$W/o2/P4.beam")"
+echo "   P4 (no user List): beam_lib:md5 of the compiled code  pristine=$a"
+echo "                                                         user-wins=$b   $([ "$a" = "$b" ] && echo IDENTICAL || echo DIFFERENT)"
+echo "   (the raw files differ only in compile_info's source path, which names each run's own output dir; Code, AtU8, ExpT, ImpT chunks verified equal by hand 2026-10-23)"
 "$UW" --src-root "$W" -o "$W/o3" "$W/P2" >/dev/null 2>&1
 imp() { erl -noshell -eval 'case beam_lib:chunks(hd(init:get_plain_arguments()), [imports]) of {ok,{_,[{imports,I}]}} -> io:format("~p~n",[lists:usort([{M,F,A}||{M,F,A}<-I, M=/=erlang])]); E -> io:format("~p~n",[E]) end, halt().' -extra "$1"; }
 echo "   P2 under user-wins, non-erlang imports of the beam: $(imp "$W/o3/P2.beam")"

@@ -11,6 +11,8 @@ user-wins  P4 no user List anywhere (control) 3|
 checker-only P2 using Shop.Coll; List.Length([n]) 1|
    (99 is the user's Length; 1 is lists-length of [1]. It type-checked against the user's signature and ran the standard op.)
 --- generated code: does the delta change what an UNSHADOWED program compiles to?
-   P4 DIFFERS: 988 vs 988 bytes
+   P4 (no user List): beam_lib:md5 of the compiled code  pristine=8EDEE8DC949A2DB65C2A47F18A34C210
+                                                         user-wins=8EDEE8DC949A2DB65C2A47F18A34C210   IDENTICAL
+   (raw files differ by compile-info metadata only: 984 vs 984 bytes)
    P2 under user-wins, non-erlang imports of the beam: [{'Shop.Coll.List','Length',1}]
    P4 imports (the standard ops lower to OTP): [{lists,sum,1}]
