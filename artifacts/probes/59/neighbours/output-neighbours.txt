@@ -1,0 +1,28 @@
+=== GLEAM gleam 1.18.1: records are tagged tuples; no guard on any function head ===
+  control: well-formed order                           -> {ok,6}
+  forged ELEMENT {evil,2,3} -> private line_total      -> {ok,6}
+  wrong-record element {order,9,9} where line due      -> {ok,81}
+  forged OUTER {evil,1,[..]} -> exported total         -> {ok,6}
+  -- emitted functions (erl_pp of the shipped beam's abstract code):
+     line_total(L) ->
+         element(2, L) * element(3, L).
+     
+     sum_lines(Ls) ->
+         case Ls of
+             [] ->
+                 0;
+             [L | T] ->
+                 line_total(L) + sum_lines(T)
+         end.
+     
+     total(O) ->
+         sum_lines(element(3, O)).
+     
+
+=== ELIXIR Elixir 1.19.5 (compiled with Erlang/OTP 28): the author writes the struct pattern or gets no check ===
+  control: well-formed order                               -> {:ok, 6}
+  forged element __struct__: Evil, struct-pattern priv     -> {:raised, FunctionClauseError}
+  forged element, private reads fields only                -> {:ok, 6}
+  plain map element, private reads fields only             -> {:ok, 6}
+  forged OUTER (exported struct pattern)                   -> {:raised, FunctionClauseError}
+  (Elixir 1.19's own set-theoretic checker also printed a compile-time warning on the forged OUTER call; elided here, see the run)

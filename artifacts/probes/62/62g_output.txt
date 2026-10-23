@@ -8,6 +8,14 @@ declarations by top-level dir: [{"aoc",22},
                                 {"compiler",212},
                                 {"handoff",29},
                                 {"wayfinder",93}]
+{public, all} declarations by finer group: [{"aoc",{7,22}},
+                                            {"compiler (other)",{18,19}},
+                                            {"compiler/examples (excl. exemplars)",
+                                             {100,116}},
+                                            {"compiler/examples/exemplars",
+                                             {27,77}},
+                                            {"handoff",{29,29}},
+                                            {"wayfinder",{78,93}}]
 
 REAL-CORPUS collisions (same module dir, same arity, same snake_case): 0
 CONTROL (synthetic GetId/GetID/Get_Id/1, GetId/2): [{"synthetic",

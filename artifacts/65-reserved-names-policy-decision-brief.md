@@ -1,42 +1,43 @@
 # Decision brief — ticket 65: reserved names, the policy
 
-**Ticket** [65](../wayfinder/issues/65-reserved-names-policy.md) · **Linear** [ENG-255](https://linear.app/davewil/issue/ENG-255) · **Brief date** 2026-10-23
+**Ticket** [65](../wayfinder/issues/65-reserved-names-policy.md) · **Linear** [ENG-255](https://linear.app/davewil/issue/ENG-255) · **Brief date** 2026-10-23 · **Revised** the same day after an independent re-run
 **Status: DECISION OPEN — for David's review; nothing resolved.** No ticket, feature, glossary or Linear state was changed.
 
-Toolchain for every number below: Erlang/OTP 28.5 (erts 16.4, built from `otp_src_28.5`), Elixir 1.19.5, Gleam 1.18.1,
-Elm 0.19.3 (installed, but see "Not run"), `bsc` built from this repo's `compiler/` at the branch head. Probes are in
-[`probes/65/`](probes/65/); every one prints its own evidence and has a captured `65x_output.txt` beside it.
+Toolchain: Erlang/OTP 28.5 (erts 16.4, built from `otp_src_28.5`), Elixir 1.19.5, Gleam 1.18.1, `bsc` built from this repo's
+`compiler/` at `c01d51f7`. Elm 0.19.3 is installed but could not compile anything (see the last section). Probes are in
+[`probes/65/`](probes/65/); each prints its evidence, **asserts its expectation and exits non-zero on a mismatch** (65a, 65d, 65e,
+65f; 65b, 65c, 65g and 65h report figures), and has a captured `65x_output.txt` beside it. Every figure below is from those files.
 
 ## The answer first
 
-**Ticket 65 describes a repo that no longer exists, and most of what it asks has been answered.**
+**Ticket 65 has been half-answered, and the other half has no other owner. Do not close it as answered.**
 
-- It says *"B# reserves no name today."* The compiler reserves **`List`, `Map`, `Term`, `Float`** as whole module
-  names, plus the protocol **`Enumerable`**, and carries **30 operation rows** under them
-  (`bs_check.erl:1701`, probe **65a**, **65b**).
-- It asks whether the standard environment is *closed by intent*. [Ticket 67](../wayfinder/issues/67-stdlib-shape-as-a-principle.md)
-  answered that on 2026-09-03 (*"closed by construction — which answers 65's first question"*), and
-  [ticket 96](../wayfinder/issues/96-standard-environment-breadth.md) Q6 answered the policy on 2026-09-25:
-  *"what the standard environment qualifies is reserved, and nothing else"*, on 67 Q6's terms (whole name only;
-  `Shop.List` stays legal). [F32](../compiler/features/F32-reserved-qualifiers.md) built it.
-- Ticket 65's three options map onto what is built: **option 1 (reserve per module) is the shipped rule; option 3 (user names
-  win) was weighed and refused at 67 Q6; option 2 (an unreachable namespace) is measured below and costs the most.**
+*Answered.* The ticket's two questions about the qualifier names: [ticket 67](../wayfinder/issues/67-stdlib-shape-as-a-principle.md) Q1
+answers *closedness* (*"closed by construction"*), and [ticket 96](../wayfinder/issues/96-standard-environment-breadth.md) Q6 (lines
+206-209, 253) answers *the reservation rule* — *"what the standard environment qualifies is reserved, and nothing else"*, on 67 Q6's
+terms (whole name only). **It takes both: 67 says three times that the policy stays 65's own (67:229, 388, 465); only 96 Q6 closes
+it.** [F32](../compiler/features/F32-reserved-qualifiers.md) built it. Reserved today: **`List Map Term Float`** as whole module
+names, the protocol **`Enumerable`**, and **30 operation rows** (65a, 65h).
 
-**What the ticket's framing hides is one real, still-open question: *when* a name becomes reserved.** 96 plans eleven more
-qualifiers (`Enum String Int Binary Process GenServer Supervisor Logger System Task Agent`). None is reserved today, so a
-program that is valid today stops compiling on the day each one lands. 67 Q6 accepted exactly that cost for `List`. The
-question is whether David still accepts it for eleven names, now that a clean-room fleet will be writing against the compiler.
+*Not answered, and other documents point at 65 for it:*
 
-**Recommendation: Option A — keep 96 Q6 as written (reserve on landing), and close 65 as answered by 67 Q1/Q6 and 96 Q6.**
-Pre-reserving buys a stable list at the price of burning names for designs that are not built, one of which (`Binary`,
-[ticket 93](../wayfinder/issues/93-binary-operations-under-a-reserved-qualifier.md)) is not even decided.
+| Still 65's | Who handed it over | What the probes show |
+|---|---|---|
+| **`not` as an identifier** | F27:40-46, LANGUAGE.md:334, ticket 63:406 — *"`not` stays an identifier until 65 says otherwise"* | `Go(int not) when not > 100` compiles and runs (65a §G) |
+| **the `bs@` export prefix** | ticket 87:166-170, F55:172-174 | `public int bs@x(int n)` is already refused, as `illegal characters "@"` (65a §H); nothing to build, something to *record* |
+| **module names that shadow OTP modules** | F54:171, F55:172-174 | `module Lists / Maps / Erlang / Peer / Json` all compile (65a §F). **Two of this repo's own examples are the live instance:** `module Queue` and `module Math` lowercase to OTP's `queue` and `math` (65h) — the ENG-391 `Json.beam`/`peer.beam` hazard on a case-insensitive disk |
+| **when a planned name becomes reserved** | 96 Q6 says *"every qualifier the standard environment adds"* and is silent on timing | the gating question below |
+
+**Closing 65 would strand the first three**, and F27, F54 and F55 would keep saying *"ticket 65, which is open"* with nobody to
+answer them. The recommendation (end of brief) is therefore a *decision to take*, not a closure.
 
 ## The gating question — alone
 
-> **Is the reserved list allowed to grow after the language is handed off?**
+> **Is a qualifier's name reserved when it is *decided*, or only when it is *built*?**
 
-A program an author can write today, and what the compiler does with it on the day `String` lands
-(probe **65c**, scratch compiler with `String` added to `reserved_qualifiers/0`):
+Both readings of 96 Q6 are available, and the repo already did the first once. `LANGUAGE.md:2160-2162`: *"`Map` was reserved before it
+had an operation — reserving it later would have meant taking it away from a program that had already used it."* F32 reserved
+the name `Map` with its operations unbuilt (F32 header, *Leaves*). The other eleven planned names are not reserved:
 
 ```csharp
 module Shop.Text.String                      // legal today: the path is not the reserved word
@@ -45,212 +46,215 @@ public int Length(int s)  ...
 module A
 using Shop.Text
 Go(n) -> String.Length(n)                    // today: calls Shop.Text.String.Length   -> 98
-                                             // the day String lands: refused —
+                                             // after `String` is reserved: refused —
                                              //   "Go calls String.Length, and `String` means two things here …
                                              //    Shop.Text.String.Length"
 ```
 
-Same author, two more spellings that survive the day unchanged (probe 65c, cases B and C): `using Shop.Text.String` then
-`Shop.Text.String.Length(n)`, and the module-tier `using Shop.Text.String` then bare `Length(n)` both print `98` before and after.
-A module *declared* `module String` (whole name) is the one shape with no survivor: refused at the declaration, rename only.
-
-- **Yes, it may grow** → the rule is A. The break is loud, never silent, and the fix is local.
-- **No, the list is frozen at handoff** → the planned names must be reserved before it, which is B.
-
-Everything else in this brief follows from that answer, and the third option (C) is the ticket's own, kept so it is on the page.
+Probe 65c, scratch compiler with the roster added. Two other spellings survive unchanged (`using Shop.Text.String` then
+`Shop.Text.String.Length(n)`, and `using Shop.Text.String` then bare `Length(n)`: `98` before and after). A module *declared*
+`module String` has no survivor: refused at the declaration, rename only.
 
 ## Sub-decisions, in dependency order
 
-| # | Sub-decision | Gates / follows | Status |
+| # | Sub-decision | Position | Status |
 |---|---|---|---|
-| 1 | May the reserved list grow after handoff? | **gating** | open — the question above |
-| 2 | If frozen: which names, and does an undecided design (`Binary`, 93) get one? | follows 1 | only if 1 = no |
-| 3 | Does the reservation reach types / records / functions named like a qualifier? | independent | **measured: not needed** (65a §B) |
-| 4 | Do user names win a collision (ticket option 3)? | independent | **measured: refused at 67 Q6; costs below** |
-| 5 | An unreachable namespace (ticket option 2) | independent | **measured: 246 call sites; not offered** |
-| 6 | The lowercase builtin names are refused as a bare `syntax error` | independent, small | a diagnostic, belongs in a feature (below) |
+| 1 | Reserve when decided, or when built? | **gating** | open |
+| 2 | If when decided: which names — the nine in a *resolved* ticket, or also `Binary` (93, open)? | follows 1 | open |
+| 3 | `not`: stay an identifier (F27's holding position, 63's *"the absence teaches"*) or become reserved | independent | open — 65's |
+| 4 | `bs@`: record that the lexer already makes it unwritable | independent | open — 65's, answerable by a sentence |
+| 5 | Module names that differ from an OTP module only by case: refuse, or leave | independent | open — 65's; the corpus has two |
+| 6 | Does the reservation reach types / records / functions named like a qualifier? | independent | measured: they coexist (65a §B2); see below |
+| 7 | Do user names win a collision (ticket option 3)? | independent | prototyped, three ways (65g) |
+| 8 | An unreachable namespace (ticket option 2) | independent | measured; not offered |
+| 9 | Lowercase builtins refused as a bare `syntax error` | independent, small | a diagnostic, not a decision |
 
-## What is reserved today (probe 65a — real programs through `bsc`)
+## What is reserved today (65a — real programs through `bsc`; 48 expectations, 48 as expected)
 
 ```
 module List / Map / Term / Float   rc=1  "`List` is a reserved qualifier, so no module may be called it"
 module Enumerable                  rc=1  "`Enumerable` is a protocol, so no module may be called it"
-module String Enum Int Process GenServer Supervisor Logger   rc=0   (all free today — controls)
+module String Enum Int Process GenServer Supervisor Logger   rc=0   (free today — controls)
 module Shop.List, module List.Shop rc=0   (67 Q6: only the whole name is burned)
-type List = int / type Map = int / record Map {…} / public int List(int n) / public int Map(int n)   rc=0
 ```
 
-The last line is sub-decision 3. **A type, record or function named `Map` or `List` coexists with the qualifier** and neither
-captures the other: a body holding `Pick(Map m)` and `Map.Size(...)` returns `2`; `List(n) + List.Length([n, n])` returns `103`
-(65a §B2). The qualifier position (`Name.Op(`) is syntactic, so the only collision surface is a **module name** — which is what is
-already refused. Widening the reservation to declarations would burn names to prevent a collision the grammar already rules out.
+**Compiler-known types and functions are refused too, so user-loses already exists outside the qualifier set** (65a §E):
+`type ValidationError = int`, `type Down = int`, `type Exit = int` → *"is a compiler-known type and cannot be redeclared"*
+(`bs_check.erl:1372` `stratum_two`, `:1832`); `public int ToExistingAtom(…)` → *"is a compiler-known function and cannot be declared"*
+(`:3486`). Controls: `type Foo`, and the other obligation names `ValidateAs`, `Raise`, `ToJson`, `FromJson` as user function names
+all compile. So B# already burns names for types and one function; it does not do so uniformly.
 
-**Lowercase builtins are a second reserved class, and it is lexical.** `type option = int`, `record list {…}`,
-`public int map(…)` and `module list` are each refused (65a §D) — with the bare `syntax error before: option`, not a reserved-name
-message (`bs_lexer.xrl:1-9`: *"Builtin type names are lowercase; user types and functions are PascalCase"*). That is the only
-"namespace the user's syntax cannot reach" B# has. The message is the one defect I found there (sub-decision 6).
+**A type, record or function named `Map` or `List` coexists with the qualifier** (65a §B, §B2): `Pick(Map m)` beside
+`Map.Size(...)` returns `2`; `List(n) + List.Length([n, n])` returns `103`. The qualifier position `Name.Op(` is syntactic, so the only
+ambiguity is a module name, which is already refused. That is why sub-decision 6 is "measured: no collision", **not** "not needed":
+`ValidationError` and `Down` are refused for a different reason (they are resolved by name in type position).
 
-## The standard environment is closed to the outside and grows from within (probe 65b)
+**Lowercase builtins are a second reserved class, and it is lexical** (65a §D): `type option = int`, `record list {…}`,
+`public int map(…)`, `module list` are refused — as the bare `syntax error before: option` (`bs_lexer.xrl:1-9`). That is the only
+"namespace the user's syntax cannot reach" B# has, and it is the one ticket 48 Q9 option (d) pointed at (*"lowercase functions for the
+prelude alone, mirroring what the type prelude already does"*, `48:1077`).
 
-Read from the 956-commit history of `bs_check.erl` (the clone had been shallow; `git fetch --unshallow` was needed and the probe
-refuses to run on a shallow clone, because a 50-commit curve would be flat for the wrong reason):
+## The set is closed to outsiders and grows from within (65b)
+
+Read from the 956-commit history of `bs_check.erl` (the clone was shallow; `git fetch --unshallow origin` was run, and the probe
+refuses a shallow clone because a 50-commit curve would be flat for the wrong reason):
 
 ```
 2026-08-13  none                       0 rows
-2026-09-04  List Map Term              4          F32 founds the set
-2026-09-12  List Map Term              7
+2026-09-04  List Map Term              4          F32
 2026-09-16  List Map Term Float        8          the one qualifier added after founding
 2026-09-25  List Map Term Float       10          ticket 96
 2026-10-21  List Map Term Float       30          F75: 20 rows in one day
 ```
 
-Qualifiers: **0 → 3 (2026-09-04) → 4 (09-16), flat for the 37 days since.** Rows: 0 → 30. Plus `Enumerable` (protocol table, 2026-09-28).
-So the set is *closed to outside contribution* (nothing a user ships ever joins it — 67's closedness) but **not frozen**:
-96 queues eleven more on the compiler's own schedule. That is the ticket's own caveat realised — *"nothing new ever arrives to
-collide"* holds for third parties, not for the compiler's roadmap. Hence the gating question.
+Qualifiers 0 → 3 → 4 by 09-16, flat for the 37 days since. Rows 0 → 30. `Enumerable` (protocol table) first appears
+2026-09-28 (65h). Nothing a user ships ever joins the set (67's closedness), but 96 queues more on the compiler's own schedule.
 
-## Options
+## Options (for the gating question and sub-decision 2)
 
-### A — Reserve on landing (the shipped rule, 96 Q6). Close 65 as answered.
+### A — Reserve when built (the literal reading of 96 Q6).
 
-**Code.** The program in the gating question. Valid today; refused on the day, with a diagnostic that prints the full path as
-the fix. Nothing is built now.
+**Code.** The program above: valid today, refused on the day, the full path printed as the fix.
+**Compiler delta.** None today. Each landing adds one atom to `reserved_qualifiers/0` (`bs_check.erl:1701`) and its rows to
+`standard_table/0` (`:1709`) and `declared_rows/0` (`:1724`), and extends P3–P6 of `compiler/bin/check-reserved-qualifiers.sh`.
+**Evidence.** 67 Q6 chose this break for `List` (*"`Totals.bs` and `LANGUAGE.md:139` then go red on the day"*); the break is loud —
+the only program that changes meaning changes into an error (65c). Gleam reserves one module name, `gleam`
+(`compiler-core/src/analyse.rs:1769-1772`, `type_/prelude.rs:31-33`) and refuses a user `gleam/list` as a duplicate (65f case 4).
+**Strongest counterargument.** (1) The repo's own precedent, `LANGUAGE.md:2160-2162`, is the opposite: it reserved `Map` *before* its
+operations, for exactly this reason. (2) Until a name lands the compiler gives the wrong fix — `String.Length(n)` with no user `String`
+prints *"String is called but never imported — add `using String`"*, advice that can never work once `String` is reserved (65c, last
+section). (3) For the clean-room handoff the oracle's reserved list changes under a fleet that was told what was reserved. I have no
+run of a fleet hitting it, so (3) is an argument, not a measurement.
 
-**Compiler delta.** None today. Each qualifier that lands adds one atom to `reserved_qualifiers/0` (`bs_check.erl:1701`) and
-its rows to `standard_table/0`/`declared_rows/0`, and extends P3–P6 of `compiler/bin/check-reserved-qualifiers.sh` (96 Q6).
+### B — Reserve when decided (the `Map` precedent), narrowly.
 
-**Evidence.**
-- Precedent: 67 Q6 chose this break for `List` and named the cost — *"`Totals.bs` and `LANGUAGE.md:139` then go red on the day, and the
-  fix is theirs to make"*. F32 records the corpus module it had to rename.
-- Loud, never silent: 65c cases A/B/C — the only program that changes meaning *changes into an error*.
-- Neighbours do the same: Gleam reserves exactly one module name, `gleam` (`compiler-core/src/analyse.rs:1769-1772`,
-  `type_/prelude.rs:31-33`), and refuses a user `gleam/list` as a duplicate rather than choosing (probe **65f** case 4). Elm
-  refuses the ambiguity at the import (`Reporting/Error/Import.hs:84-98`, *not run*).
-
-**Strongest counterargument.** Until each name lands, the compiler gives a *wrong fix*. Today, `String.Length(n)` with no user
-`String` prints *"String is called but never imported — add `using String`"* (65c, last section) — advice that can never work once
-`String` is reserved. And for the clean-room handoff the oracle's reserved list *changes* underneath a fleet that was told
-what was reserved: it develops blind against a list that is longer next month.
-
-### B — Pre-reserve the planned roster now.
-
-**Code.** The same program; `module Shop.Text.String` itself is fine, `module String` is refused today instead of on the day.
-`String.Length(n)` with no user `String` prints, from the scratch compiler:
+**Code.** The same program; `module String` is refused now instead of on the day. `String.Length(n)` with no user `String` prints,
+from the scratch compiler (65c):
 
 ```
 Go calls String.Length/1, and `String` has no operation of that name
 `String` is a reserved qualifier, so this cannot be fixed with a `using` line — the operations under it are the compiler's own.
 ```
 
-**Compiler delta.** One line: `reserved_qualifiers/0` gains eleven atoms (`bs_check.erl:1701`). The refusal, the "no operation of
-that name" diagnostic (`bs_check.erl:3357-3362`, `unknown_reserved_operation`) and the namespace-collision error already exist and
-fire unchanged. Extend P3–P6 of the gate.
+**Narrow means** the names a *resolved* ticket already commits to: the eight 96 Q6 names (`Enum String Int Process GenServer
+Supervisor Logger System`) plus `Task` (ticket 98:45, *"`Task` is a reserved qualifier (ticket 65)"*). **`Binary` is left out** — ticket
+93 is open and asks that very question. The 65c prototype reserved eleven (the nine plus `Binary` and `Agent`), so it is an upper bound.
+**Compiler delta.** One line in `reserved_qualifiers/0`; the refusal and the "no operation of that name" diagnostic
+(`bs_check.erl:3357-3362`) already exist; extend P3–P6 of the gate.
+**Evidence (65c, scratch copy, 1-line delta).**
+- Exit status unchanged on all 29 example modules; **generated code (`beam_lib:md5` of every beam) identical on the 22 that compile.**
+  **This is close to a tautology and should be read as one:** the other 7 fail under *both* compilers (5 on a harness error — `--src-root`
+  equals the module directory, the same wall `check-exemplar-frontier.sh` records — and 2 on syntax errors), and the 22 that compile
+  never name a roster word as a whole module name (0), as a last segment (0), or as a qualifier (the only use anywhere is
+  `Binary.Append` ×2, in `25b-websocket-handler/encode.bs`, which does not compile). The measurement establishes *absence of collisions
+  in this corpus*, not safety for other authors.
+- 0 of 173 tracked `.bs` files declare a roster word as a whole module name (65h).
+- Compile time, `bsc examples/Shop`, 40 pairs with order alternated: **pristine median 470.6 ms (IQR 455.6–495.4, stdev 63.2),
+  patched 479.8 ms (IQR 462.3–531.7, stdev 49.2), difference +9.2 ms; a bare `erl` start-and-halt is 216.4 ms.** The spread is larger than the
+  difference and most of the time is VM startup. **No cost is resolvable** (the difference is inside the interquartile range); the check is a `lists:member/2` over an atom list per qualified call.
+**Strongest counterargument.** It burns names for operation sets that are not built, and the nouns are ordinary ones: `Task`, `Process`,
+`System`, `Logger` in a language whose own exemplars are an HTTP API, a websocket handler, an event queue, a database client and an
+LLM client. A name reserved for an operation set that never ships is a permanent hole. 96 Q6 already named eight of them and
+David accepted that; `Task` is the one added by a ticket (98) that is resolved but whose qualifier is unbuilt.
 
-**Evidence (probe 65c, scratch copy, 1-line delta).**
-- Breakage in this repo: **0 of 29 example modules** differ (22 compile under both; the other 7 are unbuilt exemplars that fail
-  under both, so they carry no signal). **0 of 169 `.bs` files** declare a roster name as a whole module; the nearest is
-  `compiler/examples/Stream/stream.bs:22 module Stream`, which is not on the roster. Of the roster names, eunit sources declare none; the
-  only reserved-name modules they declare are the already-reserved ones (`api_tests.erl:278`, `float_tests.erl:256`,
-  `implements_tests.erl:330`, `reserved_qualifier_tests.erl:236-250`).
-- Compile time, `bsc examples/Shop`, 40 interleaved runs: **517.7 ms median (stdev 63) with 4 names vs 506.2 ms (stdev 53) with 15.**
-  No difference is resolvable; the check is a `lists:member/2` over an atom list at each qualified call.
-- Does not touch generated code: the emitter's decision is by name only (`bs_emit.erl:1050`), so nothing changes for an unshadowed
-  program.
+### C — User names win (ticket option 3), prototyped three ways.
 
-**Strongest counterargument.** It burns eleven names for operation sets that are **not built**, and some are not decided:
-`Binary` is [ticket 93](../wayfinder/issues/93-binary-operations-under-a-reserved-qualifier.md), still open; `Task`,
-`Agent`, `Process`, `Logger`, `System` are ordinary domain nouns, and the repo's own exemplars (25a–25g) are an HTTP API, a
-websocket handler, an event queue, a database client, a web page, a jev server and an LLM client. A name reserved for an operation set that never ships is a **permanent hole**; and 96 Q6 said *"and
-nothing else"* — B overrides that sentence, and 67 Q6 declined to burn even a path segment because *"nobody has asked for that."*
-*(A narrower B reserves only roster names whose design is closed — 97, 98 and 99 are resolved, 93 is not — and leaves `Binary`
-out. That is the variant to take if B wins.)*
+**Where this option stands.** *No ticket weighed it for qualifiers.* 67 Q6 offered (i) refuse a path segment, (ii) the reserved name
+wins silently, (iii) refuse at the call site (67:315-343) — user-wins is not among them. The nearest refusal is ticket 48 Q9 option (b),
+*"unqualified, user wins … exactly the kind of silent subtlety the standing constraint forbids"* (48:1073-1075), which is about
+unqualified *function* names (`Get`), not about a module the author imported. So C is open, and its closest analogue was refused.
 
-### C — User names win (ticket option 3), built.
-
-**Code.** A user module named `List` is allowed, and where a `using` short-qualifies it the user's module wins instead of the
-refusal. Probe **65g**, scratch copy:
+**Code (65g; the three prototypes are deltas on scratch copies, and the findings belong to them, not to the option in the abstract).**
 
 ```
-P1  module List                                  pristine: refused      user-wins: compiles
-P2  using Shop.Coll; List.Length([n])            pristine: "means two things"   user-wins: 99   (the user's Length)
-P3  using Shop.Coll; List.Sum([n, n])            pristine: "means two things"   user-wins: "Shop.Coll.List.Sum/1, which nothing declares"
-P4  no user List anywhere (control)              3 under both; beam_lib:md5 of the compiled code IDENTICAL
+                                   pristine        half          shadow         fall (per-site)
+P1 module List declared            refused         compiles      compiles       compiles
+P2 using Shop.Coll; List.Length    "two things"    1  <- WRONG   99             99
+P3 using Shop.Coll; List.Sum       "two things"    error         error          2  (falls to the standard op)
+P4 no user List (control)          3               3             3              3   (code md5 identical on all four)
+P5 using Shop.Coll; Term.Compare   "two things"    :lt <- WRONG  :user + warning :user + warning
+P6b using List; Twice(n)+List.Sum  refused         3             3              3
+P6/P7  List.Twice after `using List`, or Map.Twice from inside module Map: "no operation of that name" in every prototype
 ```
 
-**Compiler delta.** Not the ten lines it looks like. **Ten lines in `bs_check.erl` plus three in `bs_emit.erl`**, and the second
-half is the part that matters: the emitter decides "reserved" from the module name alone (`bs_emit.erl:1049-1050`), independently
-of the checker. **A checker-only user-wins type-checked `List.Length([n])` against the user's signature and then lowered it to
-`lists:length` — it printed `1` where the user's function returns `99` (65g, last section).** The correct delta passes the
-checker's per-module table (`qmods`, `bs_emit.erl:47`, `:127`) to the emitter's reserved test. I did not patch the second
-reserved test at `bs_emit.erl:2102` (`reserved_forms/1`, which generates the local helper for `generated` rows); a complete
-delta must, or a shadowing module that also uses `Term.Compare` or `List.Insert` carries a stray helper.
+- **half** (checker only): type-checks against the user's signature and runs the standard operation — `1` where the user's function
+  returns `99`, `:lt` where it returns `:user`. The emitter decides "reserved" from the module name alone (`bs_emit.erl:1049-1050`).
+  This is a property of a *partial* delta, and shows why the delta has two halves; it is not a property of the option.
+- **shadow**: the emitter also consults the `qmods` table (`bs_emit.erl:47,127`). Correct on P2, but the standard `List.Sum` becomes
+  unreachable in any scope that names the word (P3) — a property of **this** prototype's "the user's module replaces the word".
+- **fall**: the checker uses the claimant's function when it *declares* that name/arity and otherwise falls through to the standard
+  operation, telling the emitter per site with a new `ruser` note (the F64 `pcall` mechanism). **P3 then returns the standard `2`.** It
+  is 18 changed lines in `bs_check.erl` and 4 in `bs_emit.erl`. **No warning is emitted** — that needs a `bs_diag` clause and is *not
+  built*, so "shadowing does not warn" holds for these prototypes only.
+- **None** of the three patches `reserved_forms/1` (`bs_emit.erl:2102`): P5 under `shadow` and `fall` compiles with `Warning: function
+  bs@Term@Compare@2/2 is unused` — a stray helper for a row the user's module took over. None resolves a top-level user module through
+  a module-tier `using` or from inside itself (P6, P7): the table the delta consults holds namespace-tier claimants only. A complete
+  delta must do both.
 
-**Evidence.**
-- Unshadowed programs are unchanged (P4, equal md5 of the code chunk).
-- The cost is P3: **in any scope that shadows `List`, the standard `List.Sum` is unreachable** — the author must write whatever
-  they shadowed. Shadowing does not warn.
-- Prior art says user-wins is safe for **types** and unsafe for **modules**, which is the distinction ticket 65's table blurs:
-  - *Types:* Erlang permits `-type map() :: …` since OTP 26 — as a **warning on by default** with an opt-out
-    (`erl_lint.erl:3345-3347`, `:547`, `:844`; probe **65e** case 1, 1b). Gleam lets a user type be called `Result` or `List` with no
-    diagnostic and `Ok(1)` still resolves (probe **65f** cases 1, 1b).
-  - *Modules:* a user `lists` ahead of stdlib on the path **kills the VM at boot** (65e case 2: `Kernel pid terminated (logger)`, crash
-    dump written); Elixir 1.19.5 `defmodule Map` warns, clobbers `Map.new/0`, and crashes **its own type checker** at
-    `lib/module/types.ex:291` (a `put_in`, which `Kernel` expands to `Map.update!/3`, `kernel.ex:3372`) and its lexical tracker at
-    `lib/kernel/lexical_tracker.ex:159` (probe **65d**; the control `Shop.Map` runs clean). This reproduces ticket 48 Q9's measurement on
-    the same Elixir version.
+**Prior art (65d, 65e, 65f).**
+- *Types:* Erlang permits `-type map() :: …` since OTP 26, as a **warning on by default** with an opt-out (`erl_lint.erl:3345-3347`
+  comment, `:547` text, `:844` the default-on switch; 65e). Gleam lets a user type be called `Result` or `List`, silently, and `Ok(1)`
+  still resolves (65f). **B# itself does not do this** for `ValidationError`, `Down`, `Exit` (65a §E).
+- *Modules:* a user `lists` ahead of stdlib on the path **kills the VM at boot** (65e: `Kernel pid terminated (logger)`); Elixir
+  1.19.5 `defmodule Map` warns, clobbers `Map.new/0`, and crashes **its own type checker** at `lib/module/types.ex:291` and lexical
+  tracker at `lib/kernel/lexical_tracker.ex:159` (65d; the dotted control `Shop.Map` runs clean). Reproduces ticket 48 Q9's measurement
+  on the same Elixir version.
 
-**Strongest counterargument.** It is the one option that can produce a *silently wrong answer* when built halfway (above), and
-fully built it still gives the word `List.` two meanings in the same language, which is exactly the property 67 bought by closing
-the qualifier set: a reader seeing `List.Sum(x)` no longer knows whose it is without reading the `using` lines. Four of ticket 65's
-five "prior art" languages did land on user-wins, but for **types, operators and traits**, not for module qualifiers.
+**Strongest counterargument.** Even built correctly (`fall`), `List.Sum(x)` stops telling a reader whose `List` it is without reading
+the `using` lines — the property 67 bought by closing the qualifier set. And the half-built delta shows the failure is a silent wrong
+answer, so every future qualifier path must be added to the emitter's side channel as well.
 
 ### Considered, measured, not offered — an unreachable namespace (ticket option 2)
 
-B# has no free sigil: `bs_lexer.xrl` has no `@`, `#`-prefix or `~` token to borrow. Minimal spelling costs one lexer rule, one
-production beside `bs_parser.yrl:646-649` and a flag on `e_qcall`. The cost is the call sites: **31** qualified calls in 12 `.bs`
-files, **186** in 9 eunit files, **29** in `LANGUAGE.md`/`TOUR.md`/`STANDARD-ENVIRONMENT.md`, 73 in feature files, 154 in tickets
-(grep `\b(List|Map|Term|Float)\.[A-Z]\w*\(`). It would also reverse the spelling 96 Q2 chose (*"Names are Elixir's,
-PascalCased"*). Not a candidate unless the closed-set assumption fails.
+The lexer has no rule mentioning `@`, `~` or `#` (65h), so a sigil costs one lexer rule, one production beside
+`bs_parser.yrl:646-649` and a flag on `e_qcall`. The cost is the call sites, by `\b(List|Map|Term|Float)\.[A-Z][A-Za-z]*\(` (65h):
+**31** calls in 12 `.bs` files, **186** in 9 eunit files, **38** in `LANGUAGE.md` (29) / `TOUR.md` (8) / `STANDARD-ENVIRONMENT.md` (1), 73 in
+features, 154 in tickets. It would also reverse the spelling 96 Q2 chose. The cheaper form of the same idea — lowercase names for the
+prelude alone — is ticket 48 Q9 (d), and is what the *type* prelude already does.
 
 ## Recommendation
 
-**A.** It is what David decided at 96 Q6 and 67 Q6, it is the shipped behaviour, it fails loudly with the fix printed, and the
-probes find no breakage to pay for. Close 65 as answered, with a `## Decisions entry` that points at 67 Q1, 67 Q6 and 96 Q6.
-A small cost to carry knowingly: until each name lands, calling it gets the wrong fix ("add `using String`").
+For the gating question: **B, narrow** — reserve now the nine names a resolved ticket commits to, leave `Binary` until 93 closes.
+This **changes my first draft, which recommended A**, for one reason I had left out: the repo's own rule of thumb at
+`LANGUAGE.md:2160-2162` is that reserving late takes a name away from a program that already used it, and F32 followed it with `Map`.
+B costs one line, burns nothing David has not already named, passes the 22 compilable examples with identical code, and replaces
+advice that can never work (*"add `using String`"*) with an honest diagnostic. **A is defensible** — it is what 96 Q6's word "adds" can
+mean and it breaks loudly — and what swings it back is (a) a worry about `Task`/`Process`/`System` as author nouns, or (b) 93 resolving
+differently so that a pre-reserved name is wrong.
 
-**What would change it:** (1) a handoff run in which a fleet-written program hits the day-of break — then B; (2) 93 resolved and a
-second rename like F32's in the corpus; (3) any evidence of a program that did not break when it should have (a user-wins path
-reaching the emitter).
+For the rest of 65's scope, each is small and none is answered elsewhere: **keep `not` an identifier** (63's *absence teaches*; revisit
+only if a program shows the confusion), **record that `bs@` is lexically unwritable** (65a §H), and **decide module names that differ
+from an OTP module only by case** — `Queue` and `Math` are in this repo today, so either refuse the pattern (delta: a clause in
+`reserved_module_name/2` over the OTP module list; 1,020 modules in this OTP install) or write down that B# targets case-sensitive
+disks. I have no recommendation between those two; the failure cannot be reproduced on this Linux filesystem (cited, not run).
 
-**If David wants the list frozen (gating answer "no"), take B narrowed** to the roster names whose design is resolved, in one commit,
-and state the list in the spec as *reserved* rather than *planned*.
-
-## Sub-decision 6, for completeness (not a ticket)
-
-`type option = int` and `module list` are refused as `syntax error before: option`. That is a diagnostic gap in a feature, not a
-decision: 65a §D has the five cases. CLAUDE.md asks for a ticket only when a feature needs a *decision*; this one does not.
+**Not C, as built:** it would need the emitter's side channel, the stray-helper path, and the module-tier/self cases before it is
+correct, to buy a freedom no program in the repo uses.
 
 ## Evidence ledger
 
 | Probe | Claim tested | Control | Result | Does **not** show |
 |---|---|---|---|---|
-| [65a](probes/65/65a_what_is_reserved_today.sh) | What `bsc` reserves today; whether non-module declarations collide | `module String Enum Int …`, `Shop.List`, `record Widget`, `type Option` (all accepted) | 5 module names refused, 5 declaration kinds coexist, lowercase builtins refused as syntax errors | Behaviour of later-added qualifiers; protocol names beyond `Enumerable` |
-| [65b](probes/65/65b_growth_of_the_standard_environment.sh) | Set is flat after founding | refuses to run on a shallow clone | 0→4 qualifiers by 2026-09-16, flat since; 30 rows | Future growth; the regex counts `{{'Q','Op',N}` keys only |
-| [65c](probes/65/65c_blast_radius_of_reserving_the_roster.sh) | Cost of reserving the roster now | patched vs pristine on 29 modules; `module List/String` before/after | 0 differ; 22 compile; 0 collisions in 169 files; 517.7 vs 506.2 ms; wrong-fix diagnostic | External programs; the 7 non-compiling exemplars; a realistic author corpus |
-| [65d](probes/65/65d_elixir_defmodule_map.sh) | Elixir `defmodule Map` still clobbers and crashes (1.19.5) | `Shop.Map` runs clean | reproduced, crash sites cited | Elixir ≥ 1.20 |
-| [65e](probes/65/65e_erlang_shadowing.sh) | OTP 28 user type/module shadowing | fresh type name; `shop_lists` module | type: warning + opt-out; module `lists`: VM boot crash, `sticky_directory` on reload | Behaviour in releases (`rebar3`/`mix release` embed stdlib) |
-| [65f](probes/65/65f_gleam_shadowing.sh) | Gleam 1.18.1 type/module shadowing | `Outcome`, `list`, `shop/list` | user types shadow prelude; only `gleam` reserved; `gleam/list` duplicate | Gleam's own stdlib sources beyond the path dep |
-| [65g](probes/65/65g_user_names_win_prototype.sh) | User-wins cost; checker-only delta is wrong | P4 no-user-List; md5 of code | P1–P4 as shown; half-built prints 1 vs 99 | Delta complete at `bs_emit.erl:2102`; error-message quality; docs/gates updates |
+| [65a](probes/65/65a_what_is_reserved_today.sh) | What `bsc` reserves; compiler-known types/functions; `not`; `bs@`; OTP-shaped module names | 48 asserted cases incl. fresh names, `Shop.List`, `Foo`, `ValidateAs`, `Bs` | 48/48 as expected | The case-insensitive-disk failure; later qualifiers |
+| [65b](probes/65/65b_growth_of_the_standard_environment.sh) | Set grows from within | refuses a shallow clone | 0→4 qualifiers, 30 rows | Future growth; counts `{{'Q','Op',N}` keys only |
+| [65c](probes/65/65c_blast_radius_of_reserving_the_roster.sh) | Cost of reserving the roster now | `module List/String` before/after; author migration cases | 29/29 same status, 22/22 same code, **a near-tautology (above)**; wrong-fix diagnostic; timing within noise | Other authors' programs; the 7 non-compiling exemplars |
+| [65d](probes/65/65d_elixir_defmodule_map.sh) | Elixir `defmodule Map` (1.19.5) | `Shop.Map` runs clean | 4/4 as expected | Elixir ≥ 1.20 |
+| [65e](probes/65/65e_erlang_shadowing.sh) | OTP 28 type and module shadowing | fresh type; `shop_lists` | 9/9 as expected (exit codes now `erlc`'s own) | Releases that embed stdlib |
+| [65f](probes/65/65f_gleam_shadowing.sh) | Gleam 1.18.1 | `Outcome`, `list`, `shop/list` | 7/7 as expected | Gleam's other reserved words |
+| [65g](probes/65/65g_user_names_win_prototype.sh) | User-wins, three prototype deltas | P4 no-user-List; code md5 | table above | Warnings; `reserved_forms`; module-tier/self-qualified; a complete delta |
+| [65h](probes/65/65h_counts_and_citations.sh) | Every count, date, line number and status the brief quotes | `shallow` refusal | commands in the file | Nothing about behaviour; it runs no compiler |
 
 ## Not run, not measured, caveats
 
-- **Elm: not run.** `elm make` needs `package.elm-lang.org`'s registry (403 here). I seeded `elm/core` and `elm/json` into a private
-  `ELM_HOME` and the compiler got as far as asking for the registry. Elm claims rest on reading the compiler clone
-  (`Elm/Compiler/Imports.hs:19-32`, `Parse/Module.hs:82`, `Reporting/Error/Import.hs:84,98`, commit `1c278bf`), not on a run.
-- **Haskell, Rust, Scala rows of the ticket's table: not re-verified** (no local source). Two rows I did check: *Erlang* holds, with a
-  nuance the table omits (default-on warning, and only for types); *Elixir* holds as a counter-example on 1.19.5 with the crash
-  sites in 65d. *Elm* ("keeps default imports small") holds as to size — 11 entries in `Imports.defaults`.
-- **C# not surveyed** (no local source).
-- OTP 28.5 on x86_64 Linux only. The compiler under test is the repo's at the branch head; the scratch deltas never touched `compiler/`.
-- 65c's "15 names" delta is a placeholder for the roster; it has no rows, so it measures the refusal and not any operation.
+- **Elm: not run.** `elm make` needs the package registry (403). I seeded `elm/core` and `elm/json` into a private `ELM_HOME` and the
+  compiler reached the registry fetch. Elm statements rest on reading the compiler clone at `1c278bf`: 11 implicit imports
+  (`Elm/Compiler/Imports.hs:19-32`, used at `Parse/Module.hs:82`) and an *AMBIGUOUS IMPORT* error when a local module and a package module
+  share a name (`Reporting/Error/Import.hs:84,98`).
+- **Haskell, Rust, Scala rows of the ticket's table: not re-verified.** C# not surveyed. Of the rows I checked: Erlang holds with a
+  nuance the table omits (types only; a default-on warning), Elixir holds as a counter-example.
+- **"A fleet would hit the day-of break": not probed**, an argument only. **Whether anyone outside this repo has a module called `String`:
+  unknown.**
+- 65c's roster delta is a placeholder for the real change: it reserves names with no rows, so it measures the refusal and the diagnostic,
+  not any operation.
+- OTP 28.5 on x86_64 Linux. The compiler under test is the repo's at `c01d51f7`; scratch deltas never touched `compiler/`.
 - `git fetch --unshallow origin` was run in the shared checkout to read history; it changes `.git` only.

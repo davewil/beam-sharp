@@ -23,7 +23,7 @@ case_() {
   local out rc
   out="$("$BSC" --src-root "$root" "$root/$path" Go 1 2>&1)"; rc=$?
   local want=0
-  case "$label" in *"(reserved?)"*|"type ValidationError"*|"type Down"*|"type Exit"*|"public int ToExistingAtom"*|"type option"*|"record list"*|"public int map"*|"module list"*) want=1;; esac
+  case "$label" in *"(reserved?)"*|"type ValidationError"*|"type Down"*|"type Exit"*|"public int ToExistingAtom"*|"type option"*|"record list"*|"public int map"*|"module list"*|"public int bs@"*) want=1;; esac
   check "$want" "$rc"
   printf '%-46s rc=%s %s %s\n' "$label" "$rc" "$MARK" "$(printf '%s' "$out" | head -1 | sed "s#$root/##")"
 }
@@ -164,6 +164,19 @@ case_ "F(not) when not > 100 -> :big" T T <<<"module T
 public atom Go(int not)
 Go(not) when not > 100 -> :big
 Go(not) -> :small"
+echo "--- H. the 'bs@' export prefix (ticket 87:166-170, F55:172-174 hand it to 65; 87 says the PascalCase rule already guarantees it) ---"
+case_ "public int bs@x(int n)"  T T <<<"module T
+
+public int bs@x(int n)
+bs@x(n) -> n
+public int Go(int n)
+Go(n) -> n"
+case_ "public int Bs(int n) (control)"  T T <<<"module T
+
+public int Bs(int n)
+Bs(n) -> n
+public int Go(int n)
+Go(n) -> n"
 echo "--- C. a call through the qualifier when a user module also claims it (F32 clause 3) ---"
 n=$((n+1)); root="$W/c$n"; mkdir -p "$root/Shop/Text/String" "$root/Shop/Coll/List" "$root/R" "$root/S"
 printf 'module Shop.Coll.List\n\npublic int Length(list<int> xs)\nLength(xs) -> 99\n' > "$root/Shop/Coll/List/List.bs"

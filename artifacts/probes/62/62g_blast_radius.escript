@@ -26,6 +26,16 @@ main(_) ->
                 Top = case string:tokens(D, "/") of [T | _] -> T; [] -> "." end,
                 maps:update_with(Top, fun(X) -> X + length(Fs) end, length(Fs), M) end, #{}, maps:to_list(Groups)),
     io:format("declarations by top-level dir: ~p~n", [lists:sort(maps:to_list(ByTop))]),
+    Fine = lists:foldl(fun({D, Fs}, M) ->
+                Key = case string:tokens(D, "/") of
+                          ["compiler", "examples", "exemplars" | _] -> "compiler/examples/exemplars";
+                          ["compiler", "examples" | _] -> "compiler/examples (excl. exemplars)";
+                          ["compiler" | _] -> "compiler (other)";
+                          ["wayfinder" | _] -> "wayfinder";
+                          [T | _] -> T; [] -> "." end,
+                {P, A} = maps:get(Key, M, {0, 0}),
+                M#{Key => {P + length([x || {_, _, public} <- Fs]), A + length(Fs)}} end, #{}, maps:to_list(Groups)),
+    io:format("{public, all} declarations by finer group: ~p~n", [lists:sort(maps:to_list(Fine))]),
     Coll = lists:append([collisions(D, Fs) || {D, Fs} <- maps:to_list(Groups)]),
     io:format("~nREAL-CORPUS collisions (same module dir, same arity, same snake_case): ~w~n", [length(Coll)]),
     [io:format("  ~s ~p~n", [D, C]) || {D, C} <- Coll],

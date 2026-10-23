@@ -3,10 +3,16 @@
   bif_name_Length              off    compiles
   bif_name_Length              deleg  compiles
   acronym_pair                 off    compiles
-  acronym_pair                 deleg  REFUSED: compile: /tmp/tmp.LTRgUiTV0c/acronym_pair/Edge/edge.bs:0: function get_id/1 already defined
+  acronym_pair                 deleg  REFUSED: compile: /tmp/tmp.d2piFtgtjC/acronym_pair/Edge/edge.bs:0: function get_id/1 already defined
   module_info                  off    compiles
-  module_info                  deleg  REFUSED: compile: /tmp/tmp.LTRgUiTV0c/module_info/Edge/edge.bs:0: function module_info/1 already defined
+  module_info                  deleg  REFUSED: compile: /tmp/tmp.d2piFtgtjC/module_info/Edge/edge.bs:0: function module_info/1 already defined
   private_twin                 off    compiles
   private_twin                 deleg  compiles
   arity_overload               off    compiles
   arity_overload               deleg  compiles
+  module_info_0                off    compiles
+  module_info_0                deleg  REFUSED: compile: /tmp/tmp.d2piFtgtjC/module_info_0/Edge/edge.bs:0: function module_info/0 already defined
+  behaviour_info               off    compiles
+  behaviour_info               deleg  compiles
+  bs_type_atoms                off    compiles
+  bs_type_atoms                deleg  compiles

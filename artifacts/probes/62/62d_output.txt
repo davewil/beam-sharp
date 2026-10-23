@@ -3,8 +3,8 @@ mode=deleg modules_ok=22 modules_failed=1
 mode=delegspec modules_ok=22 modules_failed=1
 mode=dup modules_ok=22 modules_failed=1
 
-mode         beams    bytes     Code     ExpT     AtU8 exports
-off             23    54232    10099     1916     4435     152
-deleg           23    58716    11469     2876     4965     232
-delegspec       23    59372    11469     2876     4965     232
-dup             23    61808    14417     2876     4965     232
+mode        beams     bytes  stripped    Code    ExpT  author exports   all exports
+off            23     54232     16220   10099    1916              83           152
+deleg          23     58716     17756   11469    2876             163           232
+delegspec      23     59372     17756   11469    2876             163           232
+dup            23     61808     18667   14417    2876             163           232

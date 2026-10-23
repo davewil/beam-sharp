@@ -40,7 +40,8 @@ for f in ok bad_arity bad_name quoted_lower; do
   out=$(cd "$W" && elixirc -pa "$W/ebin" -o "$W" "$f.ex" 2>&1 | grep -i -A1 'warning\|undefined' | head -3 | tr '\n' ' ')
   printf '  %-14s %s\n' "$f" "${out:-<no warning>}"
 done
-echo "== (2) Elixir 1.14.0 / OTP 25 (distro)"
+echo "== (2) Elixir 1.14.0 (distro build; its --version line says compiled with OTP 24) running on OTP 25 -- TOKENIZER-ONLY evidence, hand-written stand-in module, not bsc output"
+env -i PATH=/usr/bin:/bin /usr/bin/erl -noshell -eval 'io:format("VM OTP release: ~s~n",[erlang:system_info(otp_release)]),halt().'
 cat > "$W/old/Shop.erl" <<'X'
 -module('Shop').
 -export(['New'/1]).

@@ -1,0 +1,59 @@
+HEAD: c01d51f7 2026-10-23
+== files
+.bs files tracked by git:                            173
+== where the reserved set and its rows live (bs_check.erl)
+   bs_check.erl:244:reserved_module_name(Module, Sources) ->
+   bs_check.erl:1372:stratum_two() ->
+   bs_check.erl:1428:protocol_table() ->
+   bs_check.erl:1701:reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
+   bs_check.erl:1709:standard_table() ->
+   bs_check.erl:1724:declared_rows() ->
+   bs_check.erl:1832:compiler_known_redeclared(Decls) ->
+   bs_check.erl:3287:reserved_call(L, Q, Fun, Args, S, C) ->
+   bs_check.erl:3486:compiler_known_function(Decls) ->
+   bs_emit.erl:1050:    case lists:member(Mod, bs_check:reserved_qualifiers()) of
+   standard rows at HEAD (standard_table + declared_rows keys): 30
+== call sites of the reserved qualifiers, regex  \b(List|Map|Term|Float)\.[A-Z][A-Za-z]*\(  (what an 'unreachable namespace' would rewrite)
+   .bs files:      31 calls in 12 files
+   eunit sources:  186 calls in 9 files
+   LANGUAGE.md: 29 calls
+   TOUR.md: 8 calls
+   STANDARD-ENVIRONMENT.md: 1 calls
+   features:       73 calls
+   tickets:        154 mentions
+== planned roster: collisions and uses in tracked .bs files
+   WHOLE module name is a roster word:   0
+   LAST segment is a roster word:        0
+   Roster.Op( calls:                           2 Binary.Append( 
+      in compiler/examples/exemplars/25b-websocket-handler/encode.bs
+   other module names in the tree that look like standard modules:       1 module Queue       1 module Req       1 module Stats       1 module Stream 
+   eunit inline programs declaring a reserved-name module:
+      compiler/test/api_tests.erl:278:                        "module List\n"
+      compiler/test/float_tests.erl:256:    Src = "module Float\n\n"
+      compiler/test/implements_tests.erl:330:                        "module Enumerable\n"
+      compiler/test/reserved_qualifier_tests.erl:236:    Out = compile_set([{"List.bs", "module List\n"
+      compiler/test/reserved_qualifier_tests.erl:243:    Out = compile_set([{"Map.bs", "module Map\n"
+      compiler/test/reserved_qualifier_tests.erl:250:    Out = compile_set([{"Term.bs", "module Term\n"
+== dates
+   protocol_table (Enumerable) first appears: bf77e4bd 2026-09-28
+   Float first reserved:                      6fcaee88 2026-09-16
+== the lexer has no spare sigil to borrow (option 2)
+   lexer rules mentioning @: 0
+   lexer rules mentioning ~: 0
+   lexer rules mentioning `: 2
+   lexer rules mentioning \^: 6
+   lexer rules mentioning #: 0
+== statuses the brief relies on (Status: line of each ticket file)
+   63: Status: **RESOLVED 2026-08-26 — no `not`, no `!`; the absence teaches** —
+   65: Status: open — [ENG-255](https://linear.app/davewil/issue/ENG-255)
+   67: Status: **resolved 2026-09-03** — [ENG-281](https://linear.app/davewil/issue/ENG-281). Claimed the same day 
+   87: Status: resolved 2026-09-21 — [ENG-398](https://linear.app/davewil/issue/ENG-398). Raised 2026-09-21 out of
+   93: Status: open — [ENG-434](https://linear.app/davewil/issue/ENG-434). Raised 2026-09-25 by the exemplar review
+   96: Status: resolved 2026-09-25 — [ENG-448](https://linear.app/davewil/issue/ENG-448). Raised and resolved 2026-
+   97: Status: resolved 2026-09-25 — [ENG-449](https://linear.app/davewil/issue/ENG-449). Raised and resolved 2026-
+   98: Status: resolved 2026-09-25 — [ENG-450](https://linear.app/davewil/issue/ENG-450). Raised and resolved 2026-
+   99: Status: resolved 2026-09-25 — [ENG-451](https://linear.app/davewil/issue/ENG-451). Raised and resolved 2026-
+== module names that differ from an OTP 28 module only by case (the ENG-391 / F54:171 hazard: on a case-insensitive disk 'Queue.beam' IS 'queue.beam')
+   OTP 28 modules available in this install: 1020
+   distinct module names declared in tracked .bs files: 123
+   of those, lowercased equal an OTP module: ["Math","Queue"]

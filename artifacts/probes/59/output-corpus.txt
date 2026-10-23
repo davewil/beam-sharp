@@ -1,0 +1,2 @@
+  (skipped, did not compile under all three: exemplars)
+example module dirs: 23; compiled under all three builds: 22

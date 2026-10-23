@@ -1,0 +1,10 @@
+extracted 4 blocks from the brief
+PASS collision_source             expected compiles  got compiles  
+PASS derived_alias_source         expected compiles  got compiles  
+PASS proposed_export_syntax       expected refused   got refused   /tmp/tmp.0PQhwvWRYv/proposed_export_syntax/Shop/shop.bs:5:33: error: syntax error before: "new"
+PASS shared_source                expected compiles  got compiles  
+PASS ctl_old_record_literal       expected refused   got refused   /tmp/tmp.0PQhwvWRYv/ctl_old_record_literal/Shop/shop.bs:7:16: error: syntax error before: ':'
+PASS ctl_no_record_decl           expected refused   got refused   /tmp/tmp.0PQhwvWRYv/ctl_no_record_decl/Shop/shop.bs:3:14: error: no type named Order
+derived_alias_source under prototype: compiles
+  exports: [{'New',1},{new,1},{'GetId',1},{get_id,1}]
+PASS collision_source under derived rule: expected refused got refused  compile: /tmp/tmp.0PQhwvWRYv/collision_source/Shop/shop.bs:0: function get_id/1 already defined

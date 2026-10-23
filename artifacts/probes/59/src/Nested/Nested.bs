@@ -16,3 +16,12 @@ SumLines([l, ..t]) -> LineTotal(l) + SumLines(t)
 // A body that only projects fields: it cannot object to a wrong tag.
 private int LineTotal(Line l)
 LineTotal(l) -> l.Qty * l.Price
+
+// The SAME computation with LineTotal inlined into the list walk. The element
+// is bound by a list pattern, not by a parameter, so no boundary guard sees it.
+public int TotalInline(Order o)
+TotalInline(o) -> SumInline(o.Lines)
+
+private int SumInline(list<Line> ls)
+SumInline([])       -> 0
+SumInline([l, ..t]) -> l.Qty * l.Price + SumInline(t)

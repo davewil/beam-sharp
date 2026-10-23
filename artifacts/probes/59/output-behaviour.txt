@@ -1,13 +1,14 @@
 === emitted tag tests per build (Nested.beam: 'Kind' guards; IntNested.beam: is_integer tests) ===
-  head    2 tag guard(s) in Nested; 2 is_integer test(s) in IntNested
-  narrow  1 tag guard(s) in Nested; 2 is_integer test(s) in IntNested
-  widen   2 tag guard(s) in Nested; 4 is_integer test(s) in IntNested
+  head    3 tag guard(s) in Nested; 2 is_integer test(s) in IntNested
+  narrow  2 tag guard(s) in Nested; 2 is_integer test(s) in IntNested
+  widen   3 tag guard(s) in Nested; 4 is_integer test(s) in IntNested
 
 === build: head ===
   R1 control: well-formed order                        -> {ok,6}
   R2 control: forged OUTER tag (exported guard)        -> {error,function_clause,{'Nested','Total',[#{'Kind' => 'Evil.Order','Id' => 1,'Lines' => [#{'Kind' => 'Nested.Line','Qty' => 2,'Price' => 3}]}]}}
   R3 forged ELEMENT tag 'Evil.Line' in Lines           -> {error,function_clause,{'Nested','LineTotal',[#{'Kind' => 'Evil.Line','Qty' => 2,'Price' => 3}]}}
   R4 wrong-record element (an Order where Line due)    -> {error,function_clause,{'Nested','LineTotal',[#{'Kind' => 'Nested.Order','Qty' => 2,'Price' => 3,'Id' => 1,'Lines' => []}]}}
+  R5 same as R3, LineTotal inlined into the list walk  -> {ok,12}
   I1 control: Band(200)                                -> {ok,high}
   I2 control: Band(200.5) exported scalar              -> {error,function_clause,{'IntNested','Band',[200.5]}}
   I3 Bands([200.5]) float nested, private Inner        -> {ok,[high]}
@@ -20,6 +21,7 @@
   R2 control: forged OUTER tag (exported guard)        -> {error,function_clause,{'Nested','Total',[#{'Kind' => 'Evil.Order','Id' => 1,'Lines' => [#{'Kind' => 'Nested.Line','Qty' => 2,'Price' => 3}]}]}}
   R3 forged ELEMENT tag 'Evil.Line' in Lines           -> {ok,12}
   R4 wrong-record element (an Order where Line due)    -> {ok,6}
+  R5 same as R3, LineTotal inlined into the list walk  -> {ok,12}
   I1 control: Band(200)                                -> {ok,high}
   I2 control: Band(200.5) exported scalar              -> {error,function_clause,{'IntNested','Band',[200.5]}}
   I3 Bands([200.5]) float nested, private Inner        -> {ok,[high]}
@@ -32,6 +34,7 @@
   R2 control: forged OUTER tag (exported guard)        -> {error,function_clause,{'Nested','Total',[#{'Kind' => 'Evil.Order','Id' => 1,'Lines' => [#{'Kind' => 'Nested.Line','Qty' => 2,'Price' => 3}]}]}}
   R3 forged ELEMENT tag 'Evil.Line' in Lines           -> {error,function_clause,{'Nested','LineTotal',[#{'Kind' => 'Evil.Line','Qty' => 2,'Price' => 3}]}}
   R4 wrong-record element (an Order where Line due)    -> {error,function_clause,{'Nested','LineTotal',[#{'Kind' => 'Nested.Order','Qty' => 2,'Price' => 3,'Id' => 1,'Lines' => []}]}}
+  R5 same as R3, LineTotal inlined into the list walk  -> {ok,12}
   I1 control: Band(200)                                -> {ok,high}
   I2 control: Band(200.5) exported scalar              -> {error,function_clause,{'IntNested','Band',[200.5]}}
   I3 Bands([200.5]) float nested, private Inner        -> {error,function_clause,{'IntNested','Inner',[200.5]}}

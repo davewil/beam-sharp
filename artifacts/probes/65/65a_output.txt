@@ -52,7 +52,10 @@ module Json (accepted = nothing stops it)      rc=0 [ok] 1
    (the emitted beam is named Peer.beam — on a case-INsensitive disk it shadows OTP's peer.beam; that failure (ENG-391 / F54:171) cannot be reproduced on this case-sensitive Linux fs, so it is cited, not run)
 --- G. 'not' is a legal identifier (F27:40-46, LANGUAGE.md:334, ticket 63:406 hand it to 65) ---
 F(not) when not > 100 -> :big                  rc=0 [ok] :small
+--- H. the 'bs@' export prefix (ticket 87:166-170, F55:172-174 hand it to 65; 87 says the PascalCase rule already guarantees it) ---
+public int bs@x(int n)                         rc=1 [ok] T/T.bs:3:14: error: illegal characters "@"
+public int Bs(int n) (control)                 rc=0 [ok] 1
 --- C. a call through the qualifier when a user module also claims it (F32 clause 3) ---
 using ns + List.Length                         rc=1 [ok] R/R.bs:6:14: error: Go calls List.Length, and `List` means two things here|  `List` is a reserved qualifier — the compiler's own operations —|
 using ns + String.Length                       rc=0 [ok] 98
---- tally: 46 as expected, 0 mismatched
+--- tally: 48 as expected, 0 mismatched

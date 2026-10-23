@@ -1,4 +1,6 @@
 == off
+  import :Shop, only: [New: 1]; :imported_ok           {:ok, :imported_ok}
+  import :Shop, only: [New: 1]; New(1)  (alias token)  {:raised, SyntaxError}
 error: undefined function new/1 (there is no such import)
   import :Shop, only: [new: 1]; new(1)                 {:raised, CompileError}
   import :Shop, only: ["New": 1]; New(1)               {:raised, SyntaxError}
@@ -8,6 +10,8 @@ error: undefined function new/1 (there is no such import)
   1 |> :Shop.new()                                     {:raised, UndefinedFunctionError}
   Enum.map([1,2], &:Shop.new/1)                        {:raised, UndefinedFunctionError}
 == deleg
+  import :Shop, only: [New: 1]; :imported_ok           {:ok, :imported_ok}
+  import :Shop, only: [New: 1]; New(1)  (alias token)  {:raised, SyntaxError}
   import :Shop, only: [new: 1]; new(1)                 {:ok, %{Kind: :"Shop.Order", Total: 0, Id: 1}}
   import :Shop, only: ["New": 1]; New(1)               {:raised, SyntaxError}
   import :Shop, only: ["New": 1]; "New"(1)             {:raised, SyntaxError}

@@ -13,6 +13,10 @@ t = fn label, code ->
   r = try do {v, _} = Code.eval_string(code); {:ok, v} rescue e -> {:raised, e.__struct__} end
   IO.puts("  #{String.pad_trailing(label, 52)} #{inspect(r)}")
 end
+# `import` ITSELF is accepted for a capitalised name (it only warns that the import is unused);
+# what fails is any spelling of the CALL. These two lines are the evidence for that wording.
+t.("import :Shop, only: [New: 1]; :imported_ok", "import :Shop, only: [New: 1]; :imported_ok")
+t.("import :Shop, only: [New: 1]; New(1)  (alias token)", "import :Shop, only: [New: 1]; New(1)")
 t.("import :Shop, only: [new: 1]; new(1)", "import :Shop, only: [new: 1]; new(1)")
 t.("import :Shop, only: [\"New\": 1]; New(1)", "import :Shop, only: [\"New\": 1]; New(1)")
 t.("import :Shop, only: [\"New\": 1]; \"New\"(1)", "import :Shop, only: [\"New\": 1]; \"New\"(1)")

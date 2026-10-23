@@ -12,9 +12,11 @@ set -uo pipefail
 : "${S:?source env.sh first}"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; cd "$W"
 echo "elixir: $(elixir --version 2>/dev/null | tail -1)"
-v() { # label file
+PASS=0; FAIL=0
+v() { # label file wanted-exit
   local out; out="$(elixir "$2" 2>&1)"; local rc=$?
-  printf '== %s (exit %s)\n' "$1" "$rc"
+  if [ "$rc" = "$3" ]; then PASS=$((PASS+1)); m="[ok]"; else FAIL=$((FAIL+1)); m="[FAILED: wanted exit $3]"; fi
+  printf '== %s (exit %s) %s\n' "$1" "$rc" "$m"
   printf '%s\n' "$out" | grep -E 'redefining module|UndefinedFunctionError|^:user_map|^%\{|^:ok|lib/(module/types|kernel/lexical_tracker)\.ex:[0-9]+' | sed -E "s#$S/elixir/#<elixir>/#; s/\(current version loaded from.*//" | head -5 | sed 's/^/   /'
 }
 cat > a.exs <<'X'
@@ -48,11 +50,13 @@ defmodule Other do
 end
 IO.inspect(Other.f(%{a: 1}))
 X
-v "a. defmodule Map; call the user's Map.hi"                       a.exs
-v "b. defmodule Map; call the STANDARD Map.new (clobbered?)"       b.exs
-v "c. defmodule Map; then define an unrelated module"              c.exs
-v "d. CONTROL: Shop.Map (dotted), stdlib Map.update! still works"  d.exs
+v "a. defmodule Map; call the user's Map.hi"                       a.exs 1
+v "b. defmodule Map; call the STANDARD Map.new (clobbered?)"       b.exs 1
+v "c. defmodule Map; then define an unrelated module"              c.exs 1
+v "d. CONTROL: Shop.Map (dotted), stdlib Map.update! still works"  d.exs 0
 echo "source of the type-checker call site:"
 echo "   (put_in/2 on a struct-less path expands to Map.update!/3, which is the frame above)"
 sed -n 291p "$S"/elixir/lib/elixir/lib/module/types.ex | sed "s#^#   lib/elixir/lib/module/types.ex:291:#"
 grep -n 'Map.get(cache, key)' "$S"/elixir/lib/elixir/lib/kernel/lexical_tracker.ex | sed "s#^#   lib/elixir/lib/kernel/lexical_tracker.ex:#"
+echo "--- tally: $PASS as expected, $FAIL failed"
+[ "$FAIL" = 0 ]

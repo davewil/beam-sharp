@@ -29,6 +29,7 @@ main([Ebin]) ->
   t("R2 control: forged OUTER tag (exported guard)",     fun() -> 'Nested':'Total'((O([Good]))#{'Kind' := 'Evil.Order'}) end),
   t("R3 forged ELEMENT tag 'Evil.Line' in Lines",        fun() -> 'Nested':'Total'(O([Good, Evil])) end),
   t("R4 wrong-record element (an Order where Line due)", fun() -> 'Nested':'Total'(O([Other])) end),
+  t("R5 same as R3, LineTotal inlined into the list walk", fun() -> 'Nested':'TotalInline'(O([Good, Evil])) end),
   t("I1 control: Band(200)",                             fun() -> 'IntNested':'Band'(200) end),
   t("I2 control: Band(200.5) exported scalar",           fun() -> 'IntNested':'Band'(200.5) end),
   t("I3 Bands([200.5]) float nested, private Inner",     fun() -> 'IntNested':'Bands'([200.5]) end),

@@ -19,3 +19,7 @@ try acronym_pair   $'public int GetId(int x)\nGetId(x) -> x + 3\n\npublic int Ge
 try module_info    $'public int ModuleInfo(int x)\nModuleInfo(x) -> x + 2'
 try private_twin   $'public int GetId(int x)\nGetId(x) -> x + 3\n\nint GetID(int x)\nGetID(x) -> x + 4'
 try arity_overload $'public int Get(int x)\nGet(x) -> x + 1\n\npublic int Get(int x, int y)\nGet(x, y) -> x + y'
+# reserved / generated names beyond module_info/1 (the verifier asked: module_info/0, behaviour_info, the compiler's own export)
+try module_info_0  $'public int ModuleInfo()\nModuleInfo() -> 2'
+try behaviour_info $'public int BehaviourInfo(int x)\nBehaviourInfo(x) -> x'
+try bs_type_atoms  $'public int BsTypeAtoms()\nBsTypeAtoms() -> 1'
