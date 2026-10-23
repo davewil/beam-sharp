@@ -1,37 +1,58 @@
 --- A. module names (declaration site) ---
-module List (reserved?)                        rc=1  List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
-module Map (reserved?)                         rc=1  Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
-module Term (reserved?)                        rc=1  Term/Term.bs:1:1: error: `Term` is a reserved qualifier, so no module may be called it
-module Float (reserved?)                       rc=1  Float/Float.bs:1:1: error: `Float` is a reserved qualifier, so no module may be called it
-module Enumerable (reserved?)                  rc=1  Enumerable/Enumerable.bs:1:1: error: `Enumerable` is a protocol, so no module may be called it
+module List (reserved?)                        rc=1 [ok] List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+module Map (reserved?)                         rc=1 [ok] Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+module Term (reserved?)                        rc=1 [ok] Term/Term.bs:1:1: error: `Term` is a reserved qualifier, so no module may be called it
+module Float (reserved?)                       rc=1 [ok] Float/Float.bs:1:1: error: `Float` is a reserved qualifier, so no module may be called it
+module Enumerable (reserved?)                  rc=1 [ok] Enumerable/Enumerable.bs:1:1: error: `Enumerable` is a protocol, so no module may be called it
 --- A-controls. same shape, not reserved ---
-module String                                  rc=0  1
-module Enum                                    rc=0  1
-module Int                                     rc=0  1
-module Process                                 rc=0  1
-module GenServer                               rc=0  1
-module Supervisor                              rc=0  1
-module Logger                                  rc=0  1
-module Shop                                    rc=0  1
+module String                                  rc=0 [ok] 1
+module Enum                                    rc=0 [ok] 1
+module Int                                     rc=0 [ok] 1
+module Process                                 rc=0 [ok] 1
+module GenServer                               rc=0 [ok] 1
+module Supervisor                              rc=0 [ok] 1
+module Logger                                  rc=0 [ok] 1
+module Shop                                    rc=0 [ok] 1
 --- A-segment. 67 Q6: only the WHOLE name is burned ---
-module Shop.List                               rc=0  1
-module List.Shop                               rc=0  1
+module Shop.List                               rc=0 [ok] 1
+module List.Shop                               rc=0 [ok] 1
 --- B. other declaration kinds named like a qualifier ---
-type List = int                                rc=0  1
-type Map = int                                 rc=0  1
-record Map { X: int }                          rc=0  1
-record Widget { X: int } (control)             rc=0  1
-public int List(int n)                         rc=0  1
-public int Map(int n)                          rc=0  1
+type List = int                                rc=0 [ok] 1
+type Map = int                                 rc=0 [ok] 1
+record Map { X: int }                          rc=0 [ok] 1
+record Widget { X: int } (control)             rc=0 [ok] 1
+public int List(int n)                         rc=0 [ok] 1
+public int Map(int n)                          rc=0 [ok] 1
 --- B2. a declaration named like a qualifier, USED beside the qualifier: which does each spelling reach? ---
-record Map + pattern head Map m + Map.Size     rc=0  2
-fn List(n)=n+100 ; List.Length([n,n]) + List(n) rc=0  103
+record Map + pattern head Map m + Map.Size     rc=0 [ok] 2
+fn List(n)=n+100 ; List.Length([n,n]) + List(n) rc=0 [ok] 103
 --- D. the lexical case class: builtin names are lowercase, user names are PascalCase (bs_lexer.xrl header) ---
-type option = int                              rc=1  T/T.bs:3:6: error: syntax error before: option
-record list { X: int }                         rc=1  T/T.bs:3:8: error: syntax error before: list
-public int map(int n)                          rc=1  T/T.bs:3:12: error: syntax error before: map
-type Option = int (control)                    rc=0  1
-module list                                    rc=1  list/list.bs:1:8: error: syntax error before: list
+type option = int                              rc=1 [ok] T/T.bs:3:6: error: syntax error before: option
+record list { X: int }                         rc=1 [ok] T/T.bs:3:8: error: syntax error before: list
+public int map(int n)                          rc=1 [ok] T/T.bs:3:12: error: syntax error before: map
+type Option = int (control)                    rc=0 [ok] 1
+module list                                    rc=1 [ok] list/list.bs:1:8: error: syntax error before: list
+--- E. compiler-known TYPES and FUNCTIONS: user-loses already exists outside the qualifier set (bs_check.erl:1372 stratum_two, :1832, :3486) ---
+type ValidationError = int                     rc=1 [ok] T/T.bs:3:1: error: ValidationError is a compiler-known type and cannot be redeclared
+type Down = int                                rc=1 [ok] T/T.bs:3:1: error: Down is a compiler-known type and cannot be redeclared
+type Exit = int                                rc=1 [ok] T/T.bs:3:1: error: Exit is a compiler-known type and cannot be redeclared
+type Foo = int (control)                       rc=0 [ok] 1
+public int ToExistingAtom(int n)               rc=1 [ok] T/T.bs:3:12: error: ToExistingAtom is a compiler-known function and cannot be declared
+public int ValidateAs(int n) (other obligation names) rc=0 [ok] 1
+public int Raise(int n) (other obligation names) rc=0 [ok] 1
+public int ToJson(int n) (other obligation names) rc=0 [ok] 1
+public int FromJson(int n) (other obligation names) rc=0 [ok] 1
+public int Frobnicate(int n) (control)         rc=0 [ok] 1
+--- F. module names that shadow OTP / Erlang modules (ticket 87:166-170, F54:171, F55:172-174 hand these to 65) ---
+module Lists (accepted = nothing stops it)     rc=0 [ok] 1
+module Maps (accepted = nothing stops it)      rc=0 [ok] 1
+module Erlang (accepted = nothing stops it)    rc=0 [ok] 1
+module Peer (accepted = nothing stops it)      rc=0 [ok] 1
+module Json (accepted = nothing stops it)      rc=0 [ok] 1
+   (the emitted beam is named Peer.beam — on a case-INsensitive disk it shadows OTP's peer.beam; that failure (ENG-391 / F54:171) cannot be reproduced on this case-sensitive Linux fs, so it is cited, not run)
+--- G. 'not' is a legal identifier (F27:40-46, LANGUAGE.md:334, ticket 63:406 hand it to 65) ---
+F(not) when not > 100 -> :big                  rc=0 [ok] :small
 --- C. a call through the qualifier when a user module also claims it (F32 clause 3) ---
-using ns + List.Length                         rc=1  R/R.bs:6:14: error: Go calls List.Length, and `List` means two things here|  `List` is a reserved qualifier — the compiler's own operations —|
-using ns + String.Length                       rc=0  98
+using ns + List.Length                         rc=1 [ok] R/R.bs:6:14: error: Go calls List.Length, and `List` means two things here|  `List` is a reserved qualifier — the compiler's own operations —|
+using ns + String.Length                       rc=0 [ok] 98
+--- tally: 46 as expected, 0 mismatched

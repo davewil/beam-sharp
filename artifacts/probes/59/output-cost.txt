@@ -42,4 +42,13 @@ narrow  Rec1 min=34.225 med=35.077 max=37.238 | baseline med=33.402 (ns/call)
 head    Rec1 min=35.836 med=36.418 max=39.787 | baseline med=33.635 (ns/call)
 narrow  Rec1 min=34.526 med=35.711 max=38.290 | baseline med=33.679 (ns/call)
 -- int kind test where BEAM type pass can see the arg (PlainInt, head vs widen) --
-head    
+head    PlainInt min=32.867 med=34.006 max=35.579 | baseline med=33.639 (ns/call)
+widen   PlainInt min=33.045 med=33.724 max=35.882 | baseline med=33.471 (ns/call)
+head    PlainInt min=33.017 med=33.906 max=35.906 | baseline med=33.618 (ns/call)
+widen   PlainInt min=32.896 med=33.521 max=34.688 | baseline med=33.253 (ns/call)
+head    PlainInt min=33.004 med=33.830 max=35.772 | baseline med=33.559 (ns/call)
+widen   PlainInt min=33.067 med=34.233 max=35.517 | baseline med=33.528 (ns/call)
+head    PlainInt min=33.365 med=33.998 max=35.492 | baseline med=33.732 (ns/call)
+widen   PlainInt min=32.872 med=33.261 max=36.892 | baseline med=34.069 (ns/call)
+head    PlainInt min=32.951 med=33.960 max=35.719 | baseline med=33.475 (ns/call)
+widen   
