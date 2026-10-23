@@ -10,7 +10,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../../.." && pwd)"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-cp -r "$REPO/compiler" "$W/proto"; rm -rf "$W/proto/_build"
+cp -r "$REPO/compiler" "$W/proto"; rm -rf "$W/proto/_build" "$W/proto/src/bs_parser.erl" "$W/proto/src/bs_lexer.erl"   # generated, gitignored: force regeneration
 ( cd "$W/proto" && patch -p2 -s < "$HERE/proto_internal_segment.patch" && rebar3 escriptize >/dev/null 2>&1 ) || { echo "BUILD FAILED"; exit 1; }
 PROTO="$W/proto/_build/default/bin/bsc"
 PRISTINE="$REPO/compiler/_build/default/bin/bsc"; [ -x "$PRISTINE" ] || PRISTINE="${BSC:?set BSC or build compiler/}"
@@ -52,7 +52,7 @@ check() { # path want(admit|refuse) label [pristine-want, default 0]
   fi
   printf '  %-44s want %-6s pristine=%s prototype=%s  %s\n' "$3" "$2" "$p" "$q" "$verdict"
 }
-echo "== cases (pristine must accept every one; the prototype must match 'want')"
+echo "== cases (pristine accepts all but Billing.Direct, which it refuses by design; the prototype must match "want")"
 check Shop/Orders             admit  "Shop.Orders (module using)"
 check Shop/Internal/Deep/Leaf admit  "Shop.Internal.Deep.Leaf (sibling)"
 check Shop/Orders/Ns3         admit  "Shop.Orders.Ns3 (using Shop.Internal)"
@@ -64,6 +64,18 @@ check Billing/Ns2             refuse "Billing.Ns2 (using Shop)"
 check Billing/Direct          refuse "Billing.Direct (no using at all)" 1
 check Acme/Billing            refuse "Acme.Billing (nested Internal)"
 check Acme/BillingNs          refuse "Acme.BillingNs (using Acme.Orders.Internal)"
+# --- a KNOWN GAP, asserted so it stays visible: a visible module's signature can carry a record type minted
+# in an Internal module, and the outsider never names that module.
+mkdir -p "$T/Lib/Internal/Types" "$T/Lib/Api" "$T/Out/Leak" "$T/Out/Bad"
+printf 'module Lib.Internal.Types\nrecord Row { Id: int }\npublic Row Mk(int id)\nMk(id) -> Row{ Id = id }\n' > "$T/Lib/Internal/Types/Types.bs"
+printf 'module Lib.Api\nusing Lib.Internal.Types\npublic Row Make(int id)\nMake(id) -> Mk(id)\n' > "$T/Lib/Api/Api.bs"
+printf 'module Out.Leak\nusing Lib.Api\npublic int Id(int n)\nId(n) -> Make(n).Id\n' > "$T/Out/Leak/Leak.bs"
+printf 'module Out.Bad\nusing Lib.Api\npublic int Id(int n)\nId(n) -> Make(n)\n' > "$T/Out/Bad/Bad.bs"
+echo "== known gap (asserted): an outsider never names Lib.Internal.Types, yet receives and projects its record"
+l=$(status "$PROTO" Out/Leak); v="COMPILES: the rule does not stop type leakage"; [ "$l" = 0 ] || { v=UNEXPECTED; bad=1; }
+printf '  Out.Leak  (var r = Make(n); r.Id)         prototype=%s  %s\n' "$l" "$v"
+echo "  what an outsider's type error says about the hidden type (Out.Bad):"
+say "$PROTO" Out/Bad | head -4 | sed "s|$T/||; s/^/    /"
 echo "== diagnostics from the prototype"
 for c in Billing/Invoice Billing/Ns Billing/Ns2 Acme/Billing Acme/BillingNs; do say "$PROTO" $c | head -2 | sed "s|$T/||; s/^/    /"; done
 echo "== (Billing.Direct is refused by the PRISTINE compiler too; that is why one site suffices:)"

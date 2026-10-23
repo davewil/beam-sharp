@@ -1,5 +1,5 @@
 delta (unified diff): 33 lines added, 2 removed (a changed line is one of each; comments and blanks included)
-== cases (pristine must accept every one; the prototype must match 'want')
+== cases (pristine accepts all but Billing.Direct, which it refuses by design; the prototype must match want)
   Shop.Orders (module using)                   want admit  pristine=0 prototype=0  OK
   Shop.Internal.Deep.Leaf (sibling)            want admit  pristine=0 prototype=0  OK
   Shop.Orders.Ns3 (using Shop.Internal)        want admit  pristine=0 prototype=0  OK
@@ -11,24 +11,15 @@ delta (unified diff): 33 lines added, 2 removed (a changed line is one of each; 
   Billing.Direct (no using at all)             want refuse pristine=1 prototype=1  OK
   Acme.Billing (nested Internal)               want refuse pristine=0 prototype=1  OK
   Acme.BillingNs (using Acme.Orders.Internal)  want refuse pristine=0 prototype=1  OK
+== known gap (asserted): an outsider never names Lib.Internal.Types, yet receives and projects its record
+  Out.Leak  (var r = Make(n); r.Id)         prototype=1  UNEXPECTED
+  what an outsider's type error says about the hidden type (Out.Bad):
+    Out/Bad/Bad.bs:4:1: error: Id returns a value its signature does not declare
+      not covered by the declared return type:
+        { Kind: :'Lib.Internal.Types.Row' }
+      If `int` is what you meant, fix the clause, not the signature.
 == diagnostics from the prototype
     Billing/Invoice/Invoice.bs:2:1: error: Shop.Internal.Calc may not be named from Billing.Invoice
       an `Internal` path segment limits a module to the subtree above it.
     Billing/Ns/Ns.bs:2:1: error: Shop.Internal may not be named from Billing.Ns
       an `Internal` path segment limits a module to the subtree above it.
-    Billing/Ns2/Ns2.bs:4:26: error: Internal.Calc is called but never imported
-      add `using Internal.Calc` — a file's `using` lines are its dependency list,
-    Acme/Billing/Billing.bs:2:1: error: Acme.Orders.Internal.Totals may not be named from Acme.Billing
-      an `Internal` path segment limits a module to the subtree above it.
-    Acme/BillingNs/BillingNs.bs:2:1: error: Acme.Orders.Internal may not be named from Acme.BillingNs
-      an `Internal` path segment limits a module to the subtree above it.
-== (Billing.Direct is refused by the PRISTINE compiler too; that is why one site suffices:)
-    Billing/Direct/Direct.bs:3:31: error: Shop.Internal.Calc is called but never imported
-      add `using Shop.Internal.Calc` — a file's `using` lines are its dependency list,
-== compile wall time, 15 interleaved rounds (ms; median [min..max]) -- the corpus has no Internal segment,
-   so this shows no regression in the accept path, not the cost of a refusal
-  Shop/Reports   pristine 415 [394..449]   prototype 418 [399..459]   (overlapping ranges: no difference resolved)
-  Shop           pristine 443 [396..507]   prototype 460 [416..514]   (overlapping ranges: no difference resolved)
-== the rule's own cost, isolated (1e6 calls of visible/2, compiled loop)
-  700.1 ns per check (median of 7 x 1e6; min 684.3 max 796.6)
-ALL CASES AS EXPECTED

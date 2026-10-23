@@ -1,0 +1,127 @@
+--- a/compiler/src/bs_lexer.xrl
++++ b/compiler/src/bs_lexer.xrl
+@@ -42,6 +42,7 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++visible                 : {token, {'visible', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.
+--- a/compiler/src/bs_parser.yrl
++++ b/compiler/src/bs_parser.yrl
+@@ -11,7 +11,7 @@
+   program decls decl
+   comp_quals comp_qual
+   module_decl type_decl signature clause foreign_decl foreign_sigs foreign_sig
+-  behaviour_decl record_decl field_decls field_decl open_field_decls
++  behaviour_decl visible_decl record_decl field_decls field_decl open_field_decls
+   type_expr type_union_members type_prim type_list type_params
+   params param_list param
+   patterns pattern_list pattern plist_items pat_fields pat_field
+@@ -25,7 +25,7 @@
+   .
+ 
+ Terminals
+-  'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
++  'module' 'type' 'when' 'using' 'visible' 'behaviour' 'record' 'with' 'switch' 'var'
+   'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+@@ -103,6 +103,7 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> visible_decl : '$1'.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+@@ -183,6 +184,8 @@
+ %% name, like the foreign form above; the two are one construct, told apart
+ %% by the token class of what follows `using` (ticket 41 §1).
+ using_decl -> 'using' modpath : {import, line('$1'), modatom('$2')}.
++%% PROTOTYPE (ticket 60, option B): `visible Shop.Orders` limits who may `using` this module.
++visible_decl -> 'visible' modpath : {visible, line('$1'), modatom('$2')}.
+ 
+ %% --- module -----------------------------------------------------------------
+ %% A module's atom is its full dotted path, because a record tag is minted as
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -497,17 +497,42 @@
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> require_visible(Self, M, L, World, Mode), add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} ->
++                    add_namespace_import(M, visible_children(Children, Self, M, L, World, Mode), Acc)
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60, option B): a module with `visible P1` lines may be
++%% named only from modules under one of those paths; no line, no restriction.
++visible(undefined, _M, _World) -> true;
++visible(Self, M, World) ->
++    case maps:get(visible, maps:get(M, World, #{}), []) of
++        []      -> true;
++        Allowed -> SelfSegs = string:split(atom_to_list(Self), ".", all),
++                   lists:any(fun(A) -> lists:prefix(string:split(atom_to_list(A), ".", all), SelfSegs) end, Allowed)
++    end.
++
++require_visible(Self, M, L, World, strict) ->
++    case visible(Self, M, World) of
++        true  -> ok;
++        false -> erlang:error({module_not_visible, M, Self, L})
++    end;
++require_visible(_, _, _, _, _) -> ok.
++
++visible_children(Children, Self, M, L, World, strict) ->
++    case [C || C <- Children, visible(Self, C, World)] of
++        []      -> erlang:error({module_not_visible, M, Self, L});
++        Visible -> Visible
++    end;
++visible_children(Children, _, _, _, _, _) -> Children.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- a/compiler/src/bs_diag.erl
++++ b/compiler/src/bs_diag.erl
+@@ -665,6 +665,9 @@
+ built(Path, {unknown_module, Mod, Line}) ->
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
++built(Path, {module_not_visible, Mod, Self, Line}) ->
++    #{tag => module_not_visible, severity => error, file => Path, line => Line,
++      module => Mod, from => Self};
+ %% A file's `using` declarations define its dependencies.
+ built(Path, {module_not_imported, Mod, Line}) ->
+     #{tag => module_not_imported, severity => error, file => Path, line => Line,
+@@ -2092,6 +2095,10 @@
+      "  a module is a source file this invocation can reach; a namespace~n"
+      "  is a path that other modules sit under. Neither matched.~n",
+      [P, L, C, Mod]};
++message(#{tag := module_not_visible, file := P, line := L, column := C, module := Mod, from := From}) ->
++    {"~s:~p:~p: error: ~s may not be named from ~s~n"
++     "  the module's `visible` lines do not include it.~n",
++     [P, L, C, Mod, From]};
+ message(#{tag := module_not_imported, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: ~s is called but never imported~n"
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+--- a/compiler/src/bsc.erl
++++ b/compiler/src/bsc.erl
+@@ -238,6 +238,7 @@
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
++                                     visible => [V || {visible, _, V} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+                                      %% name in type position.

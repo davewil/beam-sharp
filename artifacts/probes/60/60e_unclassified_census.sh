@@ -6,15 +6,18 @@
 # declared client API, and how many modules even have the shape? Counts SIGNATURE lines (a line that
 # starts a function declaration), by source text, because the exemplars do not compile yet (so --api
 # cannot be asked). The method is stated, not hidden: a regex over `.bs` text.
-# KNOWN LIMIT (the control at the bottom shows it): the regex misses signatures whose type contains `->`
-# (fn-typed) or that open a `{` body -- 6 of 100 public signatures in the compiled corpus (Pricing, Discounts,
-# Signalbox), none in a behaviour module; Counter's 3 are confirmed by `bsc --api`. The exemplar count agrees.
+# THE CONTROL CAN FAIL: the regex's public and private counts are compared with independent
+# `grep -c '^public '` / `grep -c '^private '` counts, and the script EXITS NON-ZERO on any disagreement.
+# WHAT THIS SCRIPT CANNOT DO: it cannot reject the hypothesis "the who-half has demand". The compiled corpus has ONE
+# behaviour module (Counter) whose public functions are all callbacks, so a zero there is guaranteed by the corpus,
+# not evidence about agent-written code; and the exemplars were written before any visibility feature existed.
 # Run from anywhere. No toolchain needed.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; EX="$HERE/../../../compiler/examples"
 CB='^(Init|HandleCall|HandleCast|HandleInfo|HandleContinue|Terminate|CodeChange)$'
-# a signature: optional visibility, a return-type token(s), Name(  at column 0, no `->` on the line
-sigs() { grep -hE '^(public |private )?[^ /][^=]* [A-Z][A-Za-z0-9]*\(.*\)[[:space:]]*$' "$1" | grep -vE -- '->|^(using|module|record|type|behaviour|implements)' ; }
+# a signature: optional visibility, a return type (tuple, generic, fn(..) -> .. and record names included),
+# then `Name(`...`)`, optionally followed by an opening `{`; it is NOT a clause, which starts with `Name(` at column 0.
+sigs() { grep -hE '^(public |private )?[^ ]+.* [A-Z][A-Za-z0-9]*(<[^(]*>)?\(.*\)[[:space:]]*(\{)?[[:space:]]*$' "$1" | grep -vE '^[A-Z][A-Za-z0-9]*\(|^(using|module|record|type|behaviour|implements) ' ; }
 name() { sed -E 's/.* ([A-Z][A-Za-z0-9]*)\(.*/\1/'; }
 for scope in "compiled corpus (examples/, minus exemplars)" "exemplars (do not compile today)"; do
   if [[ $scope == compiled* ]]; then files=$(find "$EX" -name '*.bs' -not -path '*/exemplars/*' | sort)
@@ -39,10 +42,16 @@ for scope in "compiled corpus (examples/, minus exemplars)" "exemplars (do not c
   echo "   in those: public callbacks: $pubcb   public NON-callback (client API or unclassified): $pubother"
   [ -n "$list" ] && echo "   the non-callback publics:$list"
 done
-echo "== control: the regex's public count must equal an independent count (grep -c of lines starting 'public ')"
+echo "== control: regex counts must equal independent counts (grep -c of lines starting 'public ' / 'private ')"
+rc=0
 for scope in compiled exemplars; do
   if [[ $scope == compiled ]]; then files=$(find "$EX" -name '*.bs' -not -path '*/exemplars/*'); else files=$(find "$EX/exemplars" -name '*.bs'); fi
-  ind=0; for f in $files; do ind=$((ind + $(grep -c '^public ' "$f"))); done
-  mine=0; for f in $files; do mine=$((mine + $(sigs "$f" | grep -c '^public '))); done
-  echo "   $scope: independent=$ind  regex=$mine  $([ "$ind" = "$mine" ] && echo AGREE || echo DISAGREE)"
+  for vis in public private; do
+    ind=0; mine=0
+    for f in $files; do ind=$((ind + $(grep -c "^$vis " "$f"))); mine=$((mine + $(sigs "$f" | grep -c "^$vis "))); done
+    if [ "$ind" = "$mine" ]; then r=AGREE; else r=DISAGREE; rc=1; fi
+    echo "   $scope $vis: independent=$ind  regex=$mine  $r"
+  done
 done
+[ "$rc" = 0 ] || { echo "CONTROL FAILED: the census above is not trustworthy"; exit 1; }
+echo "CONTROL PASSED"

@@ -11,21 +11,24 @@ source-read only.
 ## The short version
 
 1. **The refusal does not leave the author "with nothing". It leaves them with two things that work today, and it
-   hides a third that does not work at all.** A hand-rolled `(:ok, term) | :error` lookup compiles and is correct
-   (64b). A user-declared `Maybe<T> = (:some, T) | :nothing` compiles, works at `term`, nests, and keeps exhaustiveness
-   (64c). What they cannot have is `Map.?Get` over a `map<string, term>`, because that row is unbuilt and its decided
+   hides a third that does not work at all.** A hand-rolled `(:ok, term) | :error` lookup fully compiles, runs and is
+   correct (64b). A user-declared `Maybe<T> = (:some, T) | :nothing` fully compiles and runs, works at `term`, nests,
+   and keeps exhaustiveness (64c). What they cannot have is `Map.?Get` over a `map<string, term>`, because that row is unbuilt and its decided
    return type, `option<V>`, is the refused shape (108; see below).
-2. **Open question 3 is answered, and the answer is not "E = term".** `result<int, term>` compiles (64a R3). The
-   refusal fires when the **success** type contains the failure member: `result<term, E>`, and equally
+2. **Open question 3 is answered, and the answer is not "E = term".** The declaration `result<int, term>` is accepted
+   by `bsc --api` (64a R3) and a correct body fully compiles and runs (64a X1). The refusal fires when the **success** type contains the failure member: `result<term, E>`, and equally
    `result<(atom, term), atom>` (64a Q1). The ticket's mechanism is right and its framing of Q3 was backwards.
-3. **New finding, outside the five options: the refusal is silent when `T` is inferred as `term` at a call.**
-   A polymorphic `option<T> Head<T>(list<T>)` called on `list<term>` compiles, and `Head([:nothing])` answers
-   `:empty` (64i). This is the bug the refusal exists to prevent, one door over. It needs its own ticket whichever
-   option below is chosen, except option C, which dissolves it.
+3. **New finding, outside the options: the refusal is silent whenever the *inferred* `T` contains the failure member.**
+   A polymorphic `option<T> Head<T>(list<T>)` called on a `list<term>` compiles, and `Head([:nothing])` answers
+   `:empty`. Called on the literal `[:nothing, n]` (T = `:nothing | int`, no `term` written anywhere) it also
+   compiles and answers `:empty` (64i `Empty`, `PickLit`); `result<T, atom>` behaves the same with a stored
+   `(:error, _)` (64i `Outcome`). This is the bug the refusal exists to prevent, one door over. It needs its own
+   ticket whichever option below is chosen, except option C, which dissolves it.
 4. **Recommendation:** keep `option<T>` bare (Option A), close the inference hole, and decide `Map.?Get`'s term-valued
    behaviour when ENG-324 builds it. Option B is the follow-up if you judge term-valued maps common. Option C is
-   the only one that removes the whole class, and it costs the valve's ergonomics and a measured 2.3–2.9× on
-   consuming large option lists.
+   the only one that removes the whole class, and it costs the valve's ergonomics and a measured 2.1–3.2× (min/min,
+   8 recorded runs) on consuming a million-element option list. The min-to-max ranges overlap in all 8 of those runs,
+   so read the ratios, not any claim of separation.
 
 ## The gating question, alone
 
@@ -58,7 +61,7 @@ Load(id) -> Fetch(id) |?> Double()              // Load(4) = (:some, 8)
 ```
 
 The valve still stops on `:nothing` in both. What changes is that it hands the stage `(:some, int)` rather than
-`int` (64g), so `LANGUAGE.md:1953`'s "a chain of lookups that may find nothing is the shape the valve was borrowed
+`int` (64g), so `LANGUAGE.md:1953-1954`'s "a chain of lookups that may find nothing is the shape the valve was borrowed
 for" stops reading the way it is written.
 
 ## Sub-decisions, in dependency order
@@ -67,21 +70,21 @@ for" stops reading the way it is written.
 |---|---|---|
 | S1 | Does `option<T>` stay bare for every `T`? | **Gating.** Everything below follows |
 | S2 | If bare stays: what does a term-element lookup return (`Map.?Get` over `map<string, term>`, `List.?First` over `list<term>`)? | Follows S1; options A and B |
-| S3 | The inferred-instantiation hole (64i): refuse it at the call? | **Independent defect**, not a design choice. Needs a ticket. Moot under C |
+| S3 | The inferred-instantiation hole (64i): refuse a call whose inferred `T` makes the declared union absorb a member? (The literal `[:nothing, n]` shows it is not only `T = term`.) | **Independent defect**, not a design choice. Needs a ticket. Moot under C |
 | S4 | `result<T, E>` at `E = term` (ticket Q3) | **Answered by probe**: not reached; the reach is `T` containing `(:error, E)` (64a) |
 | S5 | `ToExistingAtom` (PRELUDE's "owed") | Already closed by ticket 67 / F54 (`result<atom, string>`); nothing left here |
 
 ## What is measured about the refusal today (64a, 64i)
 
-| Declaration | Result | Probe |
+| Declaration | `bsc --api` verdict (declaration only; bodies are placeholders) | Probe |
 |---|---|---|
-| `option<int>`, `option<binary>`, `result<int, binary>`, `result<int, atom>` | compile (controls) | C1–C4 |
+| `option<int>`, `option<binary>`, `result<int, binary>`, `result<int, atom>` | declaration accepted (controls) | C1–C4 |
 | `option<term>`, `option<atom>`, `option<option<int>>` | refused: "`:nothing` is absorbed by …" | O1–O3 |
 | `result<term, binary>`, `result<term, atom>` | refused: "`(:error, …)` is absorbed by `term`" | R1, R2 |
-| **`result<int, term>`** | **compiles**, `int \| (:error, term)` | R3 |
+| **`result<int, term>`** | **declaration accepted**, `int \| (:error, term)`; a correct body also fully compiles and runs | R3, X1 |
 | `result<(atom, term), atom>`, `result<(atom, binary), binary>` | refused (tuple contains the failure member) | Q1, Q3 |
-| `result<(int, term), atom>`, `result<(atom, binary), atom>` | compile | Q2, Q4 |
-| `option<list<term>>`, `option<map<string, term>>`, `option<(:ok, term)>` | compile | N5, N6, N8 |
+| `result<(int, term), atom>`, `result<(atom, binary), atom>` | declaration accepted | Q2, Q4 (Q2 body runs: X5) |
+| `option<list<term>>`, `option<map<string, term>>`, `option<(:ok, term)>` | declaration accepted | N5, N6, N8 (N6 body runs: X3) |
 | `option<term>` as parameter, record field, list element, map value | all refused, path named (`Go.x`, `Row.Note`) | P1, F1, L1, K1 |
 | `type X = term \| reference` / `pid` / `port` / `:marker` | refused ("already a `term`") | 64h A1–A4 |
 
@@ -123,10 +126,13 @@ Current(ss, t) -> :maps.find(t, ss) switch {
 program. Concrete work:
 
 - `bs_check.erl` `checked_call_typed/7` (the clause at `:4427` taking a `{poly, …}` template). After `solution/2`,
-  run the F36 predicate over the declared return's *surface* members with `Sub` applied, and raise the existing
-  `absorbed_member` diagnostic at the call line. Today `subst_tpl({t_union, Ms}, S)` (`bs_check.erl:1015`) calls
+  run the F36 predicate over the declared return's *surface* members with `Sub` applied (every variable's inferred
+  type, not only `term`: 64i's `PickLit` infers `T = :nothing | int` from a literal and is just as silent), and raise
+  the existing `absorbed_member` diagnostic at the call line. A consequence to weigh: the author of
+  `Head([:nothing, n])` now gets a refusal at a call whose arguments are all well typed, because the *return* type
+  is what absorbs; that is the point, but it is a new kind of call-site error. Today `subst_tpl({t_union, Ms}, S)` (`bs_check.erl:1015`) calls
   `bs_types:union/1`, which erases the member boundary before anything can ask. The pieces already exist:
-  `each_member/5` (`:1211`) and `absorbed/2` (`:3424`). That function is where ticket 68 found that a
+  `each_member/5` (`:1211`) and `absorbed/2` (`:3424`). This is the same seam where ticket 68 found that a
   parametric *alias* is already checked at instantiation (68, "Blast radius": `scan_ty/4`'s `t_generic` clause);
   a polymorphic *function* is the case it did not look at.
 - When ENG-324 builds `Map.?Get` and the `List.?…` rows, they inherit that check. A term-valued call is refused
@@ -159,7 +165,7 @@ Current(ss, t) -> Map.?Get(ss, t) switch {          // ss : map<string, term>
 A user can already write the type: `type Maybe<T> = (:some, T) | :nothing` compiles, works at `term`, nests
 (`Maybe<Maybe<int>>` keeps both layers, 64c `Deep`), and removing a switch arm is refused as non-exhaustive
 (64c `Missing`). A lowercase `maybe<T>` is not writable by users: `type maybe<T>` is a syntax error (64c), because
-prelude entries are lowercase and `type` takes PascalCase (`LANGUAGE.md:1618`).
+prelude entries are lowercase and `type` takes PascalCase (`LANGUAGE.md:1617-1618`).
 
 **Compiler delta.**
 
@@ -180,12 +186,33 @@ success is what all three BEAM neighbours use for lookup (survey below).
 **Strongest counterargument.** It splits absence into two spellings in one standard environment: `option<T>` for
 declarations and `Process.?Whereis`, `maybe<T>` for collection lookups. And it breaks the exact example 108 wrote
 for `Map.?Get`: `Map.?Get(ss, t) |?> F()` hands `F` a `(:some, v)` (64g), so `F` is declared over the tuple, not the
-value. The valve is borrowed from C#'s `?.` (`LANGUAGE.md:1953`); a lookup chain is its stated use case, and under B
+value. The valve is borrowed from C#'s `?.` (`LANGUAGE.md:1953-1954`); a lookup chain is its stated use case, and under B
 the lookup is the one place it stops reading like `?.`.
 
 ### C — Tag `option<T>` itself (Gleam's shape). `option<T> = (:some, T) | :nothing` for every `T`.
 
-**Compiler delta.** This is the large one; the measured surface:
+```csharp
+// Under C, option<term> is writable and means (:some, term) | :nothing, so the three motivating
+// lookups read naturally. Verified today with the tagged union spelled out (64b, 64c).
+Current(ss, t) -> Map.?Get(ss, t) switch {        // ss : map<string, term>
+    (:some, s) => s,
+    :nothing   => (:error, :no_session)
+}
+
+// The price is every existing option<int> use. This chain compiles TODAY (64g Bare64) ...
+private option<int> Double(int v)
+Double(v) -> v * 2
+public option<int> Load(int id)
+Load(id) -> Fetch(id) |?> Double()                // Load(4) = 8
+
+// ... and under C the stage must take, and rebuild, the tag (64g Tagged64; the old stage
+// shape is refused: "Load hands Double an argument it does not accept"):
+private option<int> Double((:some, int) v)
+Double((:some, v)) -> (:some, v * 2)              // Load(4) = (:some, 8)
+```
+
+**Compiler delta.** This is the large one; the measured surface (all counts are lines that match a `grep`, **not**
+edit sites; I did not prototype C, so the real number of edits is unknown):
 
 | Where | Size | Why it moves |
 |---|---|---|
@@ -194,10 +221,10 @@ the lookup is the one place it stops reading like `?.`.
 | `ValidateAs` absent-key fill: `bs_emit.erl:2349-2366`, `:2431` (F61) | `optional/1` and the `Defaults` map | a present JSON value at an option field must now be **wrapped** on validate and **unwrapped** by `ToJson`; today validate passes present values through unchanged |
 | `ParseAtom<T>`: `bs_check.erl:3137`, `:3455`; `bs_emit.erl:996` (F39) | `T \| :nothing` result | result becomes `(:some, atom) \| :nothing` |
 | `failure_channel/1`, `bs_check.erl:1221` | the `nothing` hint | the tagged shape cannot be absorbed; this hint dies with the check |
-| Examples | **11 `.bs` files** use `option<` or `:nothing` (18 + 19 lines) | each pattern and construction changes |
-| Tests | **21 test files** (52 `option<` lines, 76 `:nothing` lines) | counted by `grep` across `compiler/test` |
+| Examples | **10 `.bs` files** have code lines matching `option<` or `:nothing` (22 code lines: 11 + 11; an 11th file, `Names/names.bs`, matches only in comments) | each pattern and construction there would change |
+| Tests | **21 test files** (52 `option<` lines, 76 `:nothing` lines) | matching lines in Erlang test source, many inside embedded B# strings; edit sites not counted |
 | Docs | `LANGUAGE.md` 26 + 31 lines, `STANDARD-ENVIRONMENT.md` 6 + 4, `TOUR.md` 8 + 9, `compiler/features/*.md` 105 + 114 | prose and gated code blocks (`check-language.sh`, `check-tour.sh`) |
-| Decided but unbuilt: every `?` row (108) | 14 rows | all would be built tagged |
+| Decided but unbuilt: every `?` row (108) | 14 rows (listed by ticket 108's decision entry; not re-derived by a probe) | all would be built tagged |
 
 **Measured runtime cost (64d, OTP 28.5, x86_64, a shared cloud VM).**
 
@@ -208,8 +235,10 @@ the lookup is the one place it stops reading like `?.`.
 | absent | 0 words | 0 words | the atom `nothing` in both |
 | list of 10⁶ options, 3⁄4 present | 2,000,000 words | 4,250,000 words (+112.5%) | |
 | same list, `term_to_binary` | 5,999,431 B | 11,999,431 B (+100%) | |
-| consume 10⁶ (25 runs) | min 3,320 / med 4,591 / max 7,028 µs | min 9,058 / med 10,509 / max 14,428 µs | **spreads do not overlap**; 2.3–2.9× across my two runs |
-| produce 10⁶ (25 runs) | min 11,074 / med 36,821 / max 80,959 µs | min 24,969 / med 29,642 / max 261,232 µs | **spreads overlap heavily (GC noise); no difference resolved** |
+| consume 10⁶ (25 reps), first single run | min 3,104 / med 3,647 / max 8,439 µs | min 7,689 / med 8,767 / max 11,420 µs | min x2.48, median x2.40; **ranges overlap** (tagged min 7,689 < bare max 8,439) |
+| consume 10⁶, 7 further fresh-VM runs (`output.txt`, "timing repeated") | min 2.5–3.1 ms | min 6.0–8.6 ms | **min/min x2.14–3.15; median/median x2.21–2.94; ranges overlap in 7 of 7** |
+| produce 10⁶, first single run | min 15,883 / med 58,830 / max 113,181 µs | min 21,213 / med 29,529 / max 91,672 µs | tagged min x1.34, tagged median x0.50 |
+| produce 10⁶, 7 further runs | min 12.1–13.9 ms | min 20.4–23.4 ms | **tagged min is 1.48–1.93× bare min in 7 of 7 runs, but tagged *median* is 0.54–0.68× bare median in 7 of 7**: the bare median is inflated by GC, so min and median disagree on direction; ranges overlap in every run. Both are real; I cannot say which a program would feel |
 
 The asm confirms the shape (64d, `erlc -S`): the bare consumer is one `is_eq_exact` against `nothing`; the tagged
 one adds `is_tuple`, `is_tagged_tuple` and a `get_tuple_element`. I measured a million-element list because that is
@@ -219,7 +248,9 @@ has a measurable per-value cost and A and B have none for code that does not use
 **Evidence for.** It is the only option under which the collapse class cannot exist: no declaration, written or
 inferred, can absorb a tagged member. S3 disappears; so do F31, F36's option half, and the hint. It matches Gleam
 (`option.gleam:19-21`), Elm (`Maybe.elm:39-41`) and Elixir's own `fetch` (`map.ex:303-304`). Gleam's
-`decode.optional_field` tells absent from "present holding an atom named `nothing`" at `Dynamic` (64e).
+`decode.optional_field` tells absent from "present holding an atom named `nothing`" at `Dynamic` (64e,
+stdlib call over a real stored sentinel; the `Option(...)` constructor blocks in that probe are true by construction
+and are not evidence).
 
 **Strongest counterargument.** It pays everywhere to fix one corner, and the corner has two working repairs today
 (A). It reverses ticket 15's decision that `option<T>` is "an ordinary parametric alias" holding the bare
@@ -230,7 +261,8 @@ selling point for the thing that is most of its use.
 
 64h asks the current lattice for a member outside `term` and gets "already a `term`" for every opaque kind and a
 fresh atom (A1–A4). The unique-reference idiom Erlang programmers use is safe only while the sentinel is never
-stored; once stored it reads back as absent (64h, treatment). Making it sound needs a new lattice bucket that
+stored (a point I make by reasoning; the Erlang demonstration in 64h is true by construction and is not evidence).
+Making it sound needs a new lattice bucket that
 `term()` (`bs_types.erl:216`) excludes: roughly 40 sites mention `opaques` (27 in `bs_types`, 6 in `bs_check`,
 7 in `bs_emit`), and runtime membership cannot be tested, since every BEAM value is a term. That is Option C's
 tagging, enforced statically instead of dynamically, at a larger price.
@@ -239,13 +271,13 @@ tagging, enforced statically instead of dynamically, at a larger price.
 
 | Language | The lookup | Absent vs stored sentinel at its top type | Source |
 |---|---|---|---|
-| Gleam | `dict.get -> Result(v, Nil)` | **distinguishes** at `Dynamic`; `Option(a) = Some(a) \| None`; erlang repr `{some, X}`, `{ok, …}` | `stdlib/src/gleam/dict.gleam:165`, `option.gleam:19-21`, `gleam_stdlib.erl:42-46`, `decode.gleam:452-454, 581-597` |
+| Gleam | `dict.get -> Result(v, Nil)`; `Option(a) = Some(a) \| None` | **distinguishes** at `Dynamic` (64e dict.get and `optional_field` blocks) | `stdlib/src/gleam/dict.gleam:165` (signature), `gleam_stdlib.erl:42-46` (`map_get`: `maps:find` error → `{error, nil}`), `option.gleam:19-21`, `gleam_stdlib.erl:467-468` (`{ok, {some, X}}`, the tagged representation), `decode.gleam:452-454` (signature only: `Result(Option(Dynamic), String)`), `:581-597` (`optional_field`, the behaviour) |
 | Elixir | `Map.get/3` returns the default; `Map.fetch/2` returns `{:ok, v} \| :error` | `get` **cannot** (`Map.get(%{a: nil}, :a)` = `Map.get(%{}, :a)` = `nil`); `fetch` can | `map.ex:531-532` (get), `:303-304` (fetch); 64f |
 | Erlang | `maps:get/3` with default; `maps:find/2` → `{ok, V} \| error` | same split | `maps.erl:686`, `:138`; 64f |
 | Elm | `Dict.get : comparable -> Dict comparable v -> Maybe v`; `Maybe a = Just a \| Nothing` | **source-read only**: Elm has no top type, so the question cannot arise; `Maybe (Maybe a)` keeps both layers by construction | `core/src/Maybe.elm:39-41`, `Dict.elm:94` (elm/core `65cea00`) |
 
-Gleam's `Dynamic` is the closest analogue to B#'s `term`, and the evidence is that a tagged `Option` makes the
-question vanish there (64e). Elixir is the counter-example for the *bare* form: its documented default-argument
+Gleam's `Dynamic` is the closest analogue to B#'s `term`, and the measured evidence (64e, `dict.get` and
+`optional_field` over stored sentinels) is that its tagged results tell absent from present there. Elixir is the counter-example for the *bare* form: its documented default-argument
 `Map.get` is the collapse, and its own docs steer to `fetch` for the ambiguous case. The three BEAM languages agree
 on a tagged **lookup**. Only Gleam also tags the general optional. A bare general optional is B#'s own choice
 (ticket 15), and it is what the valve keys on.
@@ -258,36 +290,52 @@ on a tagged **lookup**. Only Gleam also tags the general optional. A bare genera
 | 64b | bare lookup silently conflates; tagged does not | `Bare` vs `Lookup`, same data | `"a"` stored `:nothing` → `:absent` in `Bare` only | anything about `Map.?Get`, unbuilt |
 | 64c | user `Maybe<T>` works at `term`, nests, is exhaustiveness-checked | `Missing` (arm removed) refused; lowercase `maybe` refused | all as stated | that a *prelude* `maybe` has no new corner (valve, `ValidateAs`, `--api`) |
 | 64d | words / bytes / time / asm, bare vs tagged | both compute the same sum | table above | JIT code size; `option<T>` for non-int `T` at scale; cold call sites |
-| 64e | Gleam distinguishes at `Dynamic` | stored `nothing`/`none`/`Nil` vs `None` | all four stored sentinels read "present" | Gleam's JS target |
+| 64e | Gleam's `dict.get` and `decode.optional_field` distinguish at `Dynamic` | stored `nothing`/`none`/`Nil` vs a missing key | the four stored values read "present", the missing key "absent" (the `Option(...)` blocks are by construction, not evidence) | Gleam's JS target |
 | 64f | Erlang/Elixir bare default collapses; `find`/`fetch` do not | tagged form beside the bare form | as stated | anything beyond maps and keyword lists |
-| 64g | valve over bare vs tagged | `TaggedNarrow` (documented stage shape) refused | stage receives `(:some, int)` | a valve that unwraps (not built; that would be new work) |
-| 64h | no sentinel outside `term` in the current lattice; stored ref sentinel reads absent | `int \| reference`, `binary \| :marker` compile | A1–A4 refused; treatment reads back as absent | the design cost of a new lattice bucket, estimated from `grep` only |
-| **64i** | **inferred `T = term` is not refused** | `list<int>` calls; written `option<term>` refused (64a) | `Empty([:nothing])` = `:empty`; `Outcome([(:error, :boom)])` = `:failed` | that this is unintended: no ticket text says whether "instantiation" includes inference |
-| 64j | compile time, `option<int>` vs `Maybe<int>` | same six functions | min/med/max 402/438/502 ms vs 415/460/627 ms (n=30) | **no difference resolved**: spreads overlap, and the medians flipped between my two runs; escript start-up dominates |
+| 64g | valve over bare vs tagged (no timing in this probe; only 64d and 64j time anything) | `TaggedNarrow` (documented stage shape) refused | stage receives `(:some, int)` | a valve that unwraps (not built; that would be new work) |
+| 64h | no sentinel outside `term` in the current lattice (Part 1 only) | `int \| reference`, `binary \| :marker` accepted | A1–A4 refused. Part 2 (Erlang) is illustration, true by construction, not evidence | the design cost of a new lattice bucket, estimated from `grep` only |
+| **64i** | **an inferred `T` that contains the failure member is not refused** | `list<int>` calls and `[n, n]`; written `option<term>` refused (64a) | `Empty([:nothing])` = `:empty`; `PickLit(5)` (`Head([:nothing, n])`) = `:empty`; `Outcome([(:error, :boom)])` = `:failed` | that this is unintended: no ticket text says whether "instantiation" includes inference |
+| 64j | compile time, `option<int>` vs `Maybe<int>` | same six functions; gate asserts both fully compile in the main shell before sampling | min/med/max 395/448/576 ms vs 402/453/600 ms (n=30, `output.txt`) | **no difference resolved**: ranges overlap; escript start-up dominates; one recorded run only |
 | 64k | Elm | n/a | **blocked**: `package.elm-lang.org` is 403 through the proxy | everything Elm runs; Elm claims are source-read only |
 
 ## Not measured, and caveats
 
 - **Elm was not executed.** Its rows are source-read.
-- Timings are on a shared VM; the produce-side comparison is unresolved, and I report the consume side only because
-  its ranges do not overlap. Absolute numbers will differ on other hosts.
+- Timings are on a shared VM. Consume: tagged is slower on min and median in all 8 recorded runs, but the ranges
+  overlap in 8 of 8. Produce: min and median disagree on direction (above). Absolute numbers will differ on other
+  hosts.
 - The repo pins OTP 28.5 (`.tool-versions`). I built that from source, so versions match. The Elixir version
   (1.19.5) is mine; the repo does not pin one.
 - I did not count real-world term-valued maps (no B# programs of that kind exist). Option A's counterargument rests
   on ticket 48's own three cases, not on a measured frequency.
 - Option C's blast radius is counted by `grep` across `compiler/examples`, `compiler/test`, the docs and the feature
-  files. I did not prototype C, so the "what each program must change" column is an estimate from the matches.
+  files, as matching lines. I did not prototype C, so there is no count of edit sites.
 - 64i is a finding, not a ruling: whether "an instantiation is rejected at the declaration" (`CONTEXT.md`) covers
   inference at a call is a question for you or for a ticket. CLAUDE.md's rule applies: I grepped `wayfinder/issues`
   and `compiler/features` for `instantiat` and `polymorphic` (ticket 68 and F31 only cover written parametric
   aliases) before calling it unaddressed.
+
+## Claims I did not probe
+
+These are read from documents or reasoned, not executed:
+
+- That Plug `assigns`, a decoded `jsonb` document and Req's headers "all carry `term`": from ticket 48's text.
+- Option B's "8–9 rows" and Option C's "14 rows": taken from the lists in tickets 96 and 108, not re-derived.
+- That a type-dependent return (`option<V>` unless `V` absorbs) "was considered and rejected": my reasoning (a
+  generic wrapper would change representation with its element type), with no probe behind it.
+- Elm's `Maybe (Maybe a)` keeping both layers, and that Elm has no top type: language knowledge plus source
+  (`Maybe.elm:39-41`), not run.
+- Option C's "what each program must change": matching-line counts only; C was not prototyped.
+- Options A and B's compiler deltas: named from reading `bs_check.erl`, not prototyped.
+- That ticket 67 / F54 closed `ToExistingAtom` (S5): a reading of `STANDARD-ENVIRONMENT.md:116, 427`.
+- Whether the valve could be taught to unwrap `(:some, v)` (mentioned as new work): not built.
 
 ## Recommendation
 
 **Option A, plus the inference fix as its own ticket.**
 
 - The gating answer is "bare stays". The valve is the one place `option<T>` is exercised the way it was designed,
-  and the blast radius of C (11 example files, 21 test files, three shipped features) is large for a defect that
+  and the blast radius of C (10 example files with matching code lines, 21 test files, three shipped features; matching-line counts, not edit sites) is large for a defect that
   affects a single type, `term`.
 - A leaves nothing broken that works today and fixes the one thing that is silently wrong (64i).
 - **What would change this:** if you read the three motivating cases as common, so that `Map.?Get` over

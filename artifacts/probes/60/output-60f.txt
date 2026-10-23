@@ -1,0 +1,20 @@
+delta (unified diff): 38 lines added, 4 removed, in 5 files (lexer, parser, check, diag, bsc)
+== (3) yecc conflicts, pristine grammar vs prototype grammar
+   pristine: p.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+   proto: p.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+== (1) cases (Totals says: visible Acme.Orders, visible Acme.Audit)
+  Acme.Orders.Fulfil (under first path)        want admit  prototype=0  OK
+  Acme.Audit (second path, outside Acme.Orders) want admit  prototype=0  OK
+  Acme.Billing (module using)                  want refuse prototype=1  OK
+  Acme.BillingNs (using Acme.Orders, Totals.Double) want refuse prototype=1  OK
+  Acme.BillingOpen (callee has no visible line) want admit  prototype=0  OK
+== the pristine compiler on the callee itself (it has no such keyword): exit 1
+   Acme/Orders/Totals/Totals.bs:2:13: error: syntax error before: '.'
+== diagnostics from the prototype
+    Acme/Billing/Billing.bs:2:1: error: Acme.Orders.Totals may not be named from Acme.Billing
+      the module's `visible` lines do not include it.
+    Acme/BillingNs/BillingNs.bs:4:19: error: Totals is called but never imported
+      add `using Totals` — a file's `using` lines are its dependency list,
+== (4) what the keyword takes: whole-word 'visible' in the repo's .bs files
+   0 occurrences outside comment-only lines (comment lines excluded by a regex; code uses not hand-read)
+ALL CASES AS EXPECTED

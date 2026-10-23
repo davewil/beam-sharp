@@ -36,12 +36,12 @@ pub fn main() {
   ["a", "b", "c", "d", "zzz"]
   |> list_each(fn(k) { io.println("  " <> k <> " -> " <> describe(dict.get(d, k))) })
 
-  io.println("Option(Dynamic) holding a stored sentinel vs None:")
+  io.println("[illustration only, true by construction] Option(Dynamic) holding a stored sentinel vs None:")
   io.println("  Some(atom nothing) -> " <> describe_opt(Some(atom("nothing"))))
   io.println("  Some(atom none)    -> " <> describe_opt(Some(atom("none"))))
   io.println("  None               -> " <> describe_opt(None))
 
-  io.println("Option(Option(Int)) keeps both layers apart:")
+  io.println("[illustration only, true by construction] Option(Option(Int)) keeps both layers apart:")
   let nested: Option(Option(Int)) = Some(None)
   case nested {
     Some(None) -> io.println("  Some(None)  -> outer present, inner absent")

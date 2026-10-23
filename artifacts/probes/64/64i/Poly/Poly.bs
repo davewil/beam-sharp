@@ -34,3 +34,18 @@ OutcomeInts(ts) -> First(ts) switch {
     (:error, _) => :failed,
     _           => :ok
 }
+
+// Broader than T = term: T inferred from a LITERAL list that merely contains :nothing.
+// Here T = :nothing | int, no `term` anywhere in the source.
+public atom PickLit(int n)
+PickLit(n) -> Head([:nothing, n]) switch {
+    :nothing => :empty,
+    _        => :nonempty
+}
+
+// Control: the same call with a list that cannot contain :nothing.
+public atom PickLitInts(int n)
+PickLitInts(n) -> Head([n, n]) switch {
+    :nothing => :empty,
+    _        => :nonempty
+}

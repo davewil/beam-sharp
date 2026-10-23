@@ -1,12 +1,15 @@
 == compiled corpus (examples/, minus exemplars)
-   signatures: 109   public: 94   private(explicit): 14   unmarked(=private by F12): 1
+   signatures: 116   public: 100   private(explicit): 15   unmarked(=private by F12): 1
    behaviour modules (directories): 1
    in those: public callbacks: 3   public NON-callback (client API or unclassified): 0
 == exemplars (do not compile today)
-   signatures: 81   public: 30   private(explicit): 51   unmarked(=private by F12): 0
+   signatures: 82   public: 30   private(explicit): 51   unmarked(=private by F12): 1
    behaviour modules (directories): 3
    in those: public callbacks: 8   public NON-callback (client API or unclassified): 8
    the non-callback publics: 25c-event-queue-consumer/Consume 25c-event-queue-consumer/Consume 25c-event-queue-consumer/Decide 25c-event-queue-consumer/EncodeAck 25d-database-querying/ByStatus 25d-database-querying/Fetch 25d-database-querying/Summarise 25g-jev-server/Ask
-== control: the regex's public count must equal an independent count (grep -c of lines starting 'public ')
-   compiled: independent=100  regex=94  DISAGREE
-   exemplars: independent=30  regex=30  AGREE
+== control: regex counts must equal independent counts (grep -c of lines starting 'public ' / 'private ')
+   compiled public: independent=100  regex=100  AGREE
+   compiled private: independent=15  regex=15  AGREE
+   exemplars public: independent=30  regex=30  AGREE
+   exemplars private: independent=51  regex=51  AGREE
+CONTROL PASSED

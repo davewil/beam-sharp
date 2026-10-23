@@ -3,6 +3,9 @@
 # Ticket 64 Open Q2/Q3. Each row writes a one-function module and asks `bsc --api`.
 # CONTROLS (must compile): option<int>, result<int,binary>, tagged hand-rolled shapes.
 # TREATMENT (collapse): anything where a member is a subset of the others.
+# SCOPE: every row below asks `bsc --api`, i.e. whether the DECLARATION is accepted. The placeholder body `:nothing` is
+# wrong for most declared types and would fail a full compile, so 'accepted' is not 'a program that runs'. The final section
+# ('full compile') gives correct bodies for the rows the brief relies on and compiles AND runs them.
 # Usage: source env.sh; ./64a_refusal_matrix.sh
 set -uo pipefail
 : "${BSC:?source env.sh first}"
@@ -17,7 +20,7 @@ row() { # id, return-type, extra-decl
   out="$("$BSC" --api "$W/$1/$1.bs" 2>&1 | tr '\n' ' ' | sed 's/  */ /g')"
   printf '%-4s %-40s => %s\n' "$1" "$2" "${out:0:260}"
 }
-echo "== controls (must compile) =="
+echo "== controls (declaration must be ACCEPTED by --api; bodies are placeholders) =="
 row C1 'option<int>'                       ''
 row C2 'option<binary>'                    ''
 row C3 'result<int, binary>'               ''
@@ -68,3 +71,15 @@ row Q1 'result<(atom, term), atom>'        ''
 row Q2 'result<(int, term), atom>'         ''
 row Q3 'result<(atom, binary), binary>'    ''
 row Q4 'result<(atom, binary), atom>'      ''
+echo "== full compile + run, correct bodies (declaration accepted AND program runs) =="
+full() { # id, return-type, body-expr, expected-output
+  mkdir -p "$W/$1"; printf 'module %s\n\npublic %s Go(int id)\nGo(id) -> %s\n' "$1" "$2" "$3" > "$W/$1/$1.bs"
+  out="$("$BSC" "$W/$1/$1.bs" Go 1 2>&1 | tail -1)"
+  [ "$out" = "$4" ] && v=OK || v="MISMATCH (wanted $4)"
+  printf '%-4s %-34s Go(1) = %-22s %s\n' "$1" "$2" "$out" "$v"
+}
+full X1 'result<int, term>'            '(:error, :boom)'           '(:error, :boom)'
+full X2 'result<list<term>, binary>'   '[:nothing, :error]'        '[:nothing, :error]'
+full X3 'option<map<string, term>>'    ':nothing'                  ':nothing'
+full X4 'option<int>'                  '7'                         '7'
+full X5 'result<(int, term), atom>'    '(1, :nothing)'             '(1, :nothing)'

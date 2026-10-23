@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # PROBE 64e — Gleam: does the stdlib's API tell "absent" from "present holding the sentinel" at Dynamic?
+# NOTE: the `Option(Dynamic)` and `Option(Option(Int))` blocks in the Gleam source are TRUE BY CONSTRUCTION (a constructor
+# is not its payload); they are printed for illustration and are NOT cited as evidence. The evidence is the dict.get block
+# and the decode.optional_field block, which call stdlib code over stored sentinels.
 # Builds a throwaway project in a temp dir with gleam_stdlib as a PATH dependency ($REF/stdlib; hex is blocked).
 set -uo pipefail
 : "${REF:?source env.sh first}"

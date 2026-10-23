@@ -1,0 +1,14 @@
+== (1) native 'using' edges, importer -> target (importer = the file's 'module' line, else its directory)
+   (dir:./exemplars/25a-http-api-server) -> Shop.Orders
+   Jev -> Support.Triage
+   Pipeline -> Shop.Collections
+   Shop.Billing -> Shop
+   Shop.Reports -> Shop.Collections
+   Shop.Reports -> Shop.Collections.Ints
+   Triage -> Jev
+   Triage -> Support.Triage
+   distinct edges: 8   over 75 .bs files
+== (2) paths named like Internal anywhere in the repo (case-insensitive, excluding .git, _build and this probe directory)
+   none
+== (2b) the word as an identifier or segment inside .bs source (whole word, any case)
+   count: 0

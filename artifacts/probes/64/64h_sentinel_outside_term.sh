@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # PROBE 64h — option (d): "absence is a value that cannot be a term".
 # Part 1 (bsc): can the CURRENT lattice express a member outside `term`? Try every opaque kind and a fresh atom.
-# Part 2 (erl): even an unforgeable reference sentinel is only safe while nothing stores it; once stored it is
-#               the same bug one layer deeper. Control: a program that never stores the sentinel is correct.
+# Part 2 (erl): ILLUSTRATION ONLY, TRUE BY CONSTRUCTION. It stores the sentinel and reads it back; that it reads as
+#               'absent' follows from `=:=` and proves nothing about B#. Not cited as evidence in the brief. The evidence
+#               for option (d) is Part 1 alone (the lattice has no member outside term).
 set -uo pipefail
 : "${BSC:?source env.sh first}"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
@@ -20,7 +21,7 @@ echo "== control: the same members without term are fine =="
 decl B1 'type X = int | reference'
 decl B2 'type X = binary | :absent_marker'
 echo
-echo "== Part 2: a unique-reference sentinel, in Erlang =="
+echo "== Part 2 [ILLUSTRATION ONLY, true by construction; not evidence]: a unique-reference sentinel, in Erlang =="
 cat > "$W/s.erl" <<'ER'
 -module(s).
 -export([main/0]).

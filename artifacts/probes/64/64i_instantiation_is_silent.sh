@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # PROBE 64i — is the absorption refusal also applied when T is INFERRED as `term` at a call?
+# Broader case (verifier, 2026-10-23): PickLit inferrs T = :nothing | int from a literal; no `term` is written.
 # Treatment: polymorphic Head<T>/First<T> returning option<T>/result<T,atom>, called on list<term>.
 # Controls:  the same functions called on list<int> (nothing absorbed), and the written form `option<term>`
 #            (refused — see 64a O2). A stored sentinel value is the discriminating input.
@@ -21,3 +22,6 @@ run Outcome '[]'
 run Outcome '[5]'
 run OutcomeInts '[3]'      # control
 run OutcomeInts '[]'       # control
+echo "== inferred from a literal list: T = :nothing | int (no term written anywhere); Head([:nothing, n]) is NOT empty =="
+run PickLit 5              # BUG if :empty
+run PickLitInts 5          # control
