@@ -1,4 +1,4 @@
-################ captured run: output-behaviour.txt
+################ run-behaviour.sh
 === emitted tag tests per build (Nested.beam: 'Kind' guards; IntNested.beam: is_integer tests) ===
   head    3 tag guard(s) in Nested; 2 is_integer test(s) in IntNested
   narrow  2 tag guard(s) in Nested; 2 is_integer test(s) in IntNested
@@ -42,22 +42,23 @@
   I4 Bands([foo]) atom nested, private Inner           -> {error,function_clause,{'IntNested','Inner',[foo]}}
   I5 Bands([-3.5]) float nested below range            -> {error,function_clause,{'IntNested','Inner',[-3.5]}}
   I6 Bands([1000]) out-of-range int nested             -> {error,function_clause,{'IntNested','Inner',[1000]}}
-################ captured run: output-union.txt
+################ run-union.sh
   Squared(Order o), exported record param, forged Kind=Evil    -> {error,function_clause}
   Squared(Order o), no Kind key at all                         -> {error,function_clause}
   Amount(Doc d), exported UNION param, forged Kind=Evil        -> {ok,4}
   Amount(Doc d), exported UNION param, no Kind key at all      -> {ok,4}
-################ captured run: output-corpus.txt
+################ run-corpus.sh
   (skipped, did not compile under all three: exemplars)
-example module dirs: 23; compiled under all three builds: 22
+example dirs: 23; compiled under all three builds: 22. Beams below are counted per .beam (one module dir can emit several).
+NOTE: no shipped example has a private function with a record parameter, so the narrow build changing 0 beams is NO evidence about Option B's blast radius.
   narrow: 0 beam(s) with different emitted code, 23 identical; summed Code-chunk delta vs head = 0 bytes
-    widen differs: Fib.beam (Code 205 -> 205)
-    widen differs: Foreign.beam (Code 432 -> 432)
-    widen differs: Frame.beam (Code 628 -> 628)
-    widen differs: Pipeline.beam (Code 361 -> 361)
-    widen differs: Shop.Collections.Ints.beam (Code 174 -> 174)
+    widen differs in abstract code: Fib.beam; Code 205 -> 205 bytes; Code chunk BYTE-IDENTICAL (md5 0CC87B57423322BC09180ADCA25F77C4)
+    widen differs in abstract code: Foreign.beam; Code 432 -> 432 bytes; Code chunk BYTE-IDENTICAL (md5 D95A7C91049F2F4F858ABCE2D6534283)
+    widen differs in abstract code: Frame.beam; Code 628 -> 628 bytes; Code chunk BYTE-IDENTICAL (md5 BE3A15ED65B285D8791060D1E9357791)
+    widen differs in abstract code: Pipeline.beam; Code 361 -> 361 bytes; Code chunk BYTE-IDENTICAL (md5 2A44BC3CD45C5B62EF29F1A56BE42E23)
+    widen differs in abstract code: Shop.Collections.Ints.beam; Code 174 -> 174 bytes; Code chunk BYTE-IDENTICAL (md5 5847F51E133875BF0A46D4671D452245)
   widen: 5 beam(s) with different emitted code, 18 identical; summed Code-chunk delta vs head = 0 bytes
-################ captured run: output-loop.txt
+################ run-loop.sh
 === emitted Loop/2 per build ===
 --- head
     'Loop'(N, 0).
@@ -67,7 +68,7 @@ example module dirs: 23; compiled under all three builds: 22
 'Loop'(N, Acc) ->
     'Loop'(N - 1, Acc + N).
 
-code/file/stripped bytes: 139 1124 339
+code/file/stripped bytes: 139 1124 337
 --- widen
     'Loop'(N, 0).
 
@@ -80,87 +81,97 @@ code/file/stripped bytes: 139 1124 339
         is_integer(Acc) ->
     'Loop'(N - 1, Acc + N).
 
-code/file/stripped bytes: 139 1176 339
+code/file/stripped bytes: 139 1176 337
 
-=== ns per ITERATION: Sum(1000000), 15 trials, 5 interleaved VM pairs ===
-head    HotLoop min=1332883.000 med=1391316.000 max=1512947.000
-widen   HotLoop min=1294418.000 med=1322173.000 max=1407882.000
-head    HotLoop min=1286463.000 med=1318048.000 max=1492624.000
-widen   HotLoop min=1286908.000 med=1314722.000 max=1623049.000
-head    HotLoop min=1290322.000 med=1345059.000 max=2141726.000
-widen   HotLoop min=1283790.000 med=1302162.000 max=1413822.000
-head    HotLoop min=1285320.000 med=1316752.000 max=1447690.000
-widen   HotLoop min=1283996.000 med=1335256.000 max=7277279.000
-head    HotLoop min=1285528.000 med=1304187.000 max=1404811.000
-widen   HotLoop min=1287607.000 med=1315050.000 max=1379969.000
-(bench divides by the 1 outer call, so values are ns per Sum(1000000) call; divide by 1e6 for ns/iteration)
-################ captured run: output-cost.txt
+=== ns per Sum(1000000) CALL (one call = 1,000,000 iterations), 15 trials, 5 VM pairs, order alternated ===
+head    HotLoop min=1296151.000 med=1350221.000 max=1537320.000
+widen   HotLoop min=1291441.000 med=1328750.000 max=1502097.000
+widen   HotLoop min=1325424.000 med=1395705.000 max=1617078.000
+head    HotLoop min=1298661.000 med=1385498.000 max=1870756.000
+head    HotLoop min=1299806.000 med=1363387.000 max=1848660.000
+widen   HotLoop min=1294144.000 med=1359392.000 max=1729893.000
+widen   HotLoop min=1367758.000 med=2231229.000 max=2526408.000
+head    HotLoop min=1297540.000 med=1358224.000 max=1946864.000
+head    HotLoop min=1293550.000 med=1338873.000 max=2287384.000
+widen   HotLoop min=1340214.000 med=1370435.000 max=1825096.000
+(values are ns per Sum(1000000) call; divide by 1e6 for ns/iteration)
+################ run-cost.sh
 === A. bytes: Code chunk / whole .beam / stripped .beam (bsc output, OTP 28) ===
 module     build    code file stripped
 Rec1       head     125 1180 371
-Rec1       narrow   113 1148 363
+Rec1       narrow   113 1148 362
 Rec1       widen    125 1180 371
 Rec4       head     125 1224 380
-Rec4       narrow   113 1192 370
+Rec4       narrow   113 1192 369
 Rec4       widen    125 1224 380
-Rec16      head     125 1384 406
-Rec16      narrow   113 1352 396
-Rec16      widen    125 1384 406
+Rec16      head     125 1384 404
+Rec16      narrow   113 1352 394
+Rec16      widen    125 1384 404
 Rec32      head     125 1584 447
-Rec32      narrow   113 1552 439
+Rec32      narrow   113 1552 436
 Rec32      widen    125 1584 447
-PlainInt   head     106 1004 320
-PlainInt   narrow   106 1004 320
-PlainInt   widen    106 1020 320
-RangeInt   head     119 1096 339
-RangeInt   narrow   119 1096 339
-RangeInt   widen    119 1132 339
-ListInt    head     135 1064 338
-ListInt    narrow   135 1068 338
-ListInt    widen    140 1108 342
+PlainInt   head     106 1000 319
+PlainInt   narrow   106 1000 319
+PlainInt   widen    106 1016 319
+RangeInt   head     119 1092 337
+RangeInt   narrow   119 1092 337
+RangeInt   widen    119 1128 337
+ListInt    head     135 1064 337
+ListInt    narrow   135 1068 337
+ListInt    widen    140 1104 341
 ListRange  head     135 1088 339
 ListRange  narrow   135 1088 339
-ListRange  widen    153 1200 360
+ListRange  widen    153 1200 359
 
 === B. compile time, in-process bsc:file/2, 40 compiles each (ms): min / median / max ===
-head    Rec32: 5.93 / 8.70 / 22.18
-narrow  Rec32: 5.71 / 6.95 / 42.23
-widen   Rec32: 6.66 / 7.95 / 15.63
+head    Rec32: 7.08 / 7.88 / 10.94
+narrow  Rec32: 6.61 / 7.43 / 10.89
+widen   Rec32: 6.88 / 7.84 / 16.57
 
-=== C. call time, ns/call (15 trials x 10M calls, 5 interleaved VM pairs; median of trial-medians shown per VM) ===
-head    Rec1 min=36.558 med=39.150 max=47.375 | baseline med=35.925 (ns/call)
-narrow  Rec1 min=34.561 med=36.407 max=40.427 | baseline med=34.432 (ns/call)
-head    Rec1 min=35.780 med=36.493 max=39.211 | baseline med=33.558 (ns/call)
-narrow  Rec1 min=34.248 med=35.285 max=37.315 | baseline med=33.301 (ns/call)
-head    Rec1 min=35.397 med=36.506 max=38.709 | baseline med=33.503 (ns/call)
-narrow  Rec1 min=34.098 med=34.985 max=36.687 | baseline med=33.931 (ns/call)
-head    Rec1 min=35.884 med=36.942 max=39.552 | baseline med=33.365 (ns/call)
-narrow  Rec1 min=34.225 med=35.077 max=37.238 | baseline med=33.402 (ns/call)
-head    Rec1 min=35.836 med=36.418 max=39.787 | baseline med=33.635 (ns/call)
-narrow  Rec1 min=34.526 med=35.711 max=38.290 | baseline med=33.679 (ns/call)
--- int kind test where BEAM type pass can see the arg (PlainInt, head vs widen) --
-head    PlainInt min=32.867 med=34.006 max=35.579 | baseline med=33.639 (ns/call)
-widen   PlainInt min=33.045 med=33.724 max=35.882 | baseline med=33.471 (ns/call)
-head    PlainInt min=33.017 med=33.906 max=35.906 | baseline med=33.618 (ns/call)
-widen   PlainInt min=32.896 med=33.521 max=34.688 | baseline med=33.253 (ns/call)
-head    PlainInt min=33.004 med=33.830 max=35.772 | baseline med=33.559 (ns/call)
-widen   PlainInt min=33.067 med=34.233 max=35.517 | baseline med=33.528 (ns/call)
-head    PlainInt min=33.365 med=33.998 max=35.492 | baseline med=33.732 (ns/call)
-widen   PlainInt min=32.872 med=33.261 max=36.892 | baseline med=34.069 (ns/call)
-head    PlainInt min=32.951 med=33.960 max=35.719 | baseline med=33.475 (ns/call)
-widen   PlainInt min=33.284 med=33.627 max=39.146 | baseline med=33.279 (ns/call)
--- int kind test where it cannot: private Inner fed from a list (ListInt [7], head vs widen) --
-head    ListInt min=34.952 med=35.891 max=37.878 | baseline med=35.967 (ns/call)
-widen   ListInt min=37.179 med=39.087 max=45.743 | baseline med=38.339 (ns/call)
-head    ListInt min=36.207 med=38.717 max=46.907 | baseline med=35.521 (ns/call)
-widen   ListInt min=36.400 med=38.696 max=40.779 | baseline med=34.683 (ns/call)
-head    ListInt min=35.838 med=37.852 max=44.787 | baseline med=35.412 (ns/call)
-widen   ListInt min=35.840 med=37.908 max=39.006 | baseline med=35.278 (ns/call)
-head    ListInt min=35.715 med=37.447 max=65.891 | baseline med=34.144 (ns/call)
-widen   ListInt min=35.436 med=36.378 max=38.163 | baseline med=37.570 (ns/call)
-head    ListInt min=35.150 med=35.934 max=40.279 | baseline med=33.691 (ns/call)
-widen   ListInt min=35.267 med=37.405 max=40.539 | baseline med=33.321 (ns/call)
-################ captured run: neighbours/output-neighbours.txt
+=== C. call time, ns/call (15 trials x 10M calls per VM; 6 VM pairs per comparison, ORDER ALTERNATED each pair so a warm-machine effect cannot favour one build) ===
+-- record tag test on a private fn (Rec1: head vs narrow) --
+head    Rec1 min=35.504 med=35.972 max=39.998 | baseline med=32.980 (ns/call)
+narrow  Rec1 min=34.212 med=35.472 max=37.704 | baseline med=33.723 (ns/call)
+narrow  Rec1 min=34.207 med=34.813 max=38.868 | baseline med=33.246 (ns/call)
+head    Rec1 min=35.690 med=36.536 max=39.599 | baseline med=32.992 (ns/call)
+head    Rec1 min=35.452 med=36.331 max=38.277 | baseline med=32.760 (ns/call)
+narrow  Rec1 min=34.016 med=34.849 max=36.271 | baseline med=33.269 (ns/call)
+narrow  Rec1 min=33.894 med=34.479 max=35.939 | baseline med=33.107 (ns/call)
+head    Rec1 min=35.731 med=36.577 max=38.842 | baseline med=33.515 (ns/call)
+head    Rec1 min=35.719 med=36.354 max=39.074 | baseline med=33.134 (ns/call)
+narrow  Rec1 min=34.468 med=35.487 max=37.346 | baseline med=33.547 (ns/call)
+narrow  Rec1 min=34.365 med=35.007 max=37.932 | baseline med=33.809 (ns/call)
+head    Rec1 min=35.827 med=36.836 max=39.817 | baseline med=32.723 (ns/call)
+  per-pair median delta (head - narrow) ns/call: 0.50 1.72 1.48 2.10 0.87 1.83   mean: 1.42
+-- int kind test where BEAM type pass can see the arg (PlainInt: head vs widen) --
+head    PlainInt min=32.648 med=33.320 max=39.664 | baseline med=33.404 (ns/call)
+widen   PlainInt min=32.907 med=33.552 max=36.961 | baseline med=33.960 (ns/call)
+widen   PlainInt min=32.712 med=33.408 max=35.939 | baseline med=32.862 (ns/call)
+head    PlainInt min=32.768 med=33.208 max=36.268 | baseline med=32.981 (ns/call)
+head    PlainInt min=32.983 med=33.784 max=37.159 | baseline med=32.754 (ns/call)
+widen   PlainInt min=33.093 med=33.530 max=37.093 | baseline med=32.905 (ns/call)
+widen   PlainInt min=32.569 med=33.305 max=39.096 | baseline med=33.217 (ns/call)
+head    PlainInt min=32.597 med=33.195 max=35.459 | baseline med=33.142 (ns/call)
+head    PlainInt min=32.564 med=32.977 max=36.962 | baseline med=33.044 (ns/call)
+widen   PlainInt min=32.807 med=33.590 max=35.303 | baseline med=33.410 (ns/call)
+widen   PlainInt min=32.575 med=33.062 max=35.285 | baseline med=33.019 (ns/call)
+head    PlainInt min=32.849 med=33.645 max=35.456 | baseline med=33.436 (ns/call)
+  per-pair median delta (head - widen) ns/call: -0.23 -0.20 0.25 -0.11 -0.61 0.58   mean: -0.05
+-- int kind test where it cannot: private Inner fed from a list (ListInt [7]: head vs widen) --
+head    ListInt min=34.896 med=35.942 max=39.710 | baseline med=33.494 (ns/call)
+widen   ListInt min=35.185 med=35.803 max=38.387 | baseline med=33.997 (ns/call)
+widen   ListInt min=34.965 med=36.406 max=40.401 | baseline med=33.431 (ns/call)
+head    ListInt min=34.891 med=35.694 max=38.250 | baseline med=32.971 (ns/call)
+head    ListInt min=34.726 med=35.263 max=38.781 | baseline med=33.017 (ns/call)
+widen   ListInt min=34.961 med=36.188 max=39.243 | baseline med=33.413 (ns/call)
+widen   ListInt min=34.329 med=34.998 max=39.306 | baseline med=32.599 (ns/call)
+head    ListInt min=34.767 med=36.087 max=39.181 | baseline med=33.801 (ns/call)
+head    ListInt min=34.619 med=35.942 max=38.626 | baseline med=33.071 (ns/call)
+widen   ListInt min=34.835 med=36.059 max=37.200 | baseline med=33.406 (ns/call)
+widen   ListInt min=34.927 med=35.441 max=38.730 | baseline med=33.178 (ns/call)
+head    ListInt min=34.944 med=35.550 max=38.920 | baseline med=33.195 (ns/call)
+  per-pair median delta (head - widen) ns/call: 0.14 -0.71 -0.93 1.09 -0.12 0.11   mean: -0.07
+################ neighbours/run-neighbours.sh
 === GLEAM gleam 1.18.1: records are tagged tuples; no guard on any function head ===
   control: well-formed order                           -> {ok,6}
   forged ELEMENT {evil,2,3} -> private line_total      -> {ok,6}
@@ -189,15 +200,12 @@ widen   ListInt min=35.267 med=37.405 max=40.539 | baseline med=33.321 (ns/call)
   plain map element, private reads fields only             -> {:ok, 6}
   forged OUTER (exported struct pattern)                   -> {:raised, FunctionClauseError}
   (Elixir 1.19's own set-theoretic checker also printed a compile-time warning on the forged OUTER call; elided here, see the run)
-################ captured run: output-eunit.txt
-== eunit, build: head (rebar3 eunit in a copy of compiler/ with the labelled delta; the copy lacks the repo-root aoc/ dir, which is why every_aoc_program_still_compiles_test fails on ALL three)
-  body_check_tests: every_aoc_program_still_compiles_test...*failed*
-  Failed: 1.  Skipped: 0.  Passed: 1497.
-== eunit, build: narrow (rebar3 eunit in a copy of compiler/ with the labelled delta; the copy lacks the repo-root aoc/ dir, which is why every_aoc_program_still_compiles_test fails on ALL three)
-  body_check_tests: every_aoc_program_still_compiles_test...*failed*
-  Failed: 1.  Skipped: 0.  Passed: 1497.
-== eunit, build: widen (rebar3 eunit in a copy of compiler/ with the labelled delta; the copy lacks the repo-root aoc/ dir, which is why every_aoc_program_still_compiles_test fails on ALL three)
-  body_check_tests: every_aoc_program_still_compiles_test...*failed*
+################ run-eunit.sh
+== eunit, build: head
+  All 1498 tests passed.
+== eunit, build: narrow
+  All 1498 tests passed.
+== eunit, build: widen
   boundary_kind_tests: a_private_function_is_not_guarded_test...*failed*
   boundary_range_tests: a_private_function_carries_no_range_guard_test...*failed*
-  Failed: 3.  Skipped: 0.  Passed: 1495.
+  Failed: 2.  Skipped: 0.  Passed: 1496.

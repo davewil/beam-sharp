@@ -107,19 +107,28 @@ for v in head narrow widen; do
 done
 
 echo
-echo "=== C. call time, ns/call (15 trials x 10M calls, 5 interleaved VM pairs; median of trial-medians shown per VM) ==="
+echo "=== C. call time, ns/call (15 trials x 10M calls per VM; 6 VM pairs per comparison, ORDER ALTERNATED each pair so a warm-machine effect cannot favour one build) ==="
 call() { # build module fun arg
   (cd "$W" && erl -noshell -pa "$W/o/$1" -pa "$W" -run bench main "$2" "$3" "$4" 15 10000000 2>&1 | tail -1)
 }
+med() { sed -E 's/.* med=([0-9.]+) max=.*/\1/'; }
+# compare MODULE FUN ARG BASELINE_BUILD VARIANT_BUILD : prints each VM line and the per-pair delta (baseline - variant)
+compare() {
+  local m=$1 f=$2 a=$3 b=$4 v=$5 rep x y lb lv deltas=""
+  for rep in 1 2 3 4 5 6; do
+    if [ $((rep % 2)) = 1 ]; then x=$b; y=$v; else x=$v; y=$b; fi
+    lx=$(call $x $m $f "$a"); ly=$(call $y $m $f "$a")
+    printf '%-7s %s\n%-7s %s\n' $x "$lx" $y "$ly"
+    if [ $x = $b ]; then lb=$lx; lv=$ly; else lb=$ly; lv=$lx; fi
+    d=$(echo "$(echo "$lb" | med) $(echo "$lv" | med)" | awk '{printf "%.2f", $1-$2}')
+    deltas="$deltas $d"
+  done
+  echo "  per-pair median delta ($b - $v) ns/call:$deltas   mean: $(echo $deltas | tr ' ' '\n' | awk '{s+=$1} END {printf "%.2f", s/NR}')"
+}
 REC='#{'"'"'Kind'"'"' => '"'"'Rec1.R'"'"', '"'"'F1'"'"' => 1}'
-for rep in 1 2 3 4 5; do
-  for v in head narrow; do printf '%-7s ' $v; call $v Rec1 Run "$REC"; done
-done
-echo "-- int kind test where BEAM type pass can see the arg (PlainInt, head vs widen) --"
-for rep in 1 2 3 4 5; do
-  for v in head widen; do printf '%-7s ' $v; call $v PlainInt Run 7; done
-done
-echo "-- int kind test where it cannot: private Inner fed from a list (ListInt [7], head vs widen) --"
-for rep in 1 2 3 4 5; do
-  for v in head widen; do printf '%-7s ' $v; call $v ListInt Run '[7]'; done
-done
+echo "-- record tag test on a private fn (Rec1: head vs narrow) --"
+compare Rec1 Run "$REC" head narrow
+echo "-- int kind test where BEAM type pass can see the arg (PlainInt: head vs widen) --"
+compare PlainInt Run 7 head widen
+echo "-- int kind test where it cannot: private Inner fed from a list (ListInt [7]: head vs widen) --"
+compare ListInt Run '[7]' head widen

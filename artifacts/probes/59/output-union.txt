@@ -1,4 +1,0 @@
-  Squared(Order o), exported record param, forged Kind=Evil    -> {error,function_clause}
-  Squared(Order o), no Kind key at all                         -> {error,function_clause}
-  Amount(Doc d), exported UNION param, forged Kind=Evil        -> {ok,4}
-  Amount(Doc d), exported UNION param, no Kind key at all      -> {ok,4}

@@ -7,7 +7,7 @@
 Toolchain: Erlang/OTP 28.5 (erts 16.4, built from source, the version `.tool-versions` pins), Elixir 1.19.5,
 Gleam 1.18.1, rebar3 3.27.0, `bsc` built from HEAD of this repo, x86_64 Linux, 4 cores. Every number below
 comes from a script in [`artifacts/probes/59/`](probes/59/); captured output is
-[`probes/59/output.txt`](probes/59/output.txt). Anything that needed a compiler change ran against a
+[`probes/59/output.txt`](probes/59/output.txt), the product of one end-to-end `run-all.sh` run (the earlier per-piece captures were deleted; an earlier run with a bug in the per-pair delta column was discarded and re-run after the fix). Anything that needed a compiler change ran against a
 **scratch copy** carrying a labelled patch ([`prototype-delta.patch`](probes/59/prototype-delta.patch),
 [`prototype-delta-widen.patch`](probes/59/prototype-delta-widen.patch)); `compiler/src` was never edited.
 
@@ -24,7 +24,7 @@ already rejected the wrong value" — is false for nested positions, for the int
 My recommendation is **Option A: one rule, scoped by the type, not by visibility** — widen F24's kind and range
 test to private functions and keep the tag test. It costs 0 bytes of emitted code where the BEAM can already see
 the caller's guard and 5–18 bytes where it cannot. It is not the whole answer (depth is a separate hole, below), and
-it reverses a sentence in 18 §4 and F24 §2 that David wrote on purpose.
+it **reverses a decision David wrote on purpose**: F24 §2 scoped the kind test to exported functions, citing 18 §4 as authority. Option B also contradicts something David wrote (18 §4's *"a value handed to another function counts as unchecked, and is guarded"*, which the ticket's own "It is not" paragraph reads as the private tag test working). Every option contradicts one written sentence; they differ in which.
 
 ---
 
@@ -114,17 +114,17 @@ A checked B# call site proves the *argument's static type*. A forged element ins
 | | tag test on a private fn (HEAD vs Option B) | int kind/range test on a private fn (Option A vs HEAD) |
 |---|---|---|
 | **Code chunk** | **+12 bytes**, identical at 1, 4, 16, 32 fields (125 vs 113 in all four) | `PlainInt` 106→106, `RangeInt` 119→119, `HotLoop` 139→139: **0 bytes** where the exported caller's guard is visible. `ListInt` 135→140 (**+5**), `ListRange` 135→153 (**+18**) where the argument comes out of a list |
-| **Stripped .beam** | +8 to +10 bytes | +0 to +21 bytes |
-| **Call time** | head − narrow = 2.7, 1.2, 1.5, 1.9, 0.7 ns over five interleaved pairs, **positive 5/5, mean ≈ 1.6 ns** on a ≈ 35 ns loop | **unresolved**: `PlainInt`, `ListInt` and the 1M-iteration `HotLoop` medians interleave with no consistent sign |
-| **Compile time** | not resolved (medians 7.0–8.7 ms across the three builds, maxima 15.6–42 ms; ranges overlap and the noisiest median is HEAD's) | not resolved |
-| **Corpus (22 example modules)** | **0 beams change** — no shipped example has a private function with a record parameter | 5 beams change at the abstract-code level (`Fib`, `Foreign`, `Frame`, `Pipeline`, `Shop.Collections.Ints`); **all five Code chunks are the same size** |
-| **Test suite (1498 eunit tests)** | **0 tests fail** | **2 fail**, exactly the two that pin the old rule: `boundary_kind_tests:a_private_function_is_not_guarded_test`, `boundary_range_tests:a_private_function_carries_no_range_guard_test` |
+| **Stripped .beam** | +8 to +13 bytes across four independent builds (the last run: +9 to +11 across 1/4/16/32 fields; the verifier's rebuild: up to +13) | +0 to +20 bytes (last run: 0 for `PlainInt`/`RangeInt`, +4 `ListInt`, +20 `ListRange`) |
+| **Call time** | **≈ 1.3–1.6 ns/call**: 6 pairs with the run order alternated in `run-all.sh`'s run give 0.5, 1.7, 1.5, 2.1, 0.9, 1.8 (mean 1.42, positive 6/6); my earlier head-first run gave a 1.6 mean and the verifier's independent alternated rerun ≈ 1.3. On a ≈ 33 ns loop | **no resolvable difference, but a small lean is not excluded**: per-pair deltas for `PlainInt` span −0.6 to +0.6 (mean −0.05) and for `ListInt` −0.9 to +1.1 (mean −0.07) in this run, while the verifier's rerun saw `PlainInt` widen slower than head by ≈ 0.3 ns on average. Read it as "within ±1 ns per pair; up to ≈ 0.3 ns on average not excluded". `HotLoop` (1M iterations/call) medians interleave |
+| **Compile time** | not resolved (medians 7.4–7.9 ms across the three builds, maxima 10.9–16.6 ms; ranges overlap) | not resolved |
+| **Corpus (23 `.beam` files from the 22 example dirs that compile)** | 0 of 23 change — **this is no evidence about B's blast radius**: no shipped example has a private function with a record parameter, so the test could not have fired | 5 of 23 change at the abstract-code level (`Fib`, `Foreign`, `Frame`, `Pipeline`, `Shop.Collections.Ints`); in all five the **Code chunk is byte-identical** (same md5; the verifier also compared LitT, AtU8, ImpT, ExpT, LocT and Line — only debug info differs) |
+| **Test suite (1498 eunit tests; `run-eunit.sh`, with `aoc/` beside the copy and the escript built)** | **0 fail** (1498/1498 pass) | **2 fail** (1496 pass), exactly the two that pin the old rule: `boundary_kind_tests:a_private_function_is_not_guarded_test`, `boundary_range_tests:a_private_function_carries_no_range_guard_test` |
 
 Two findings behind those numbers worth stating plainly:
 
 - **The BEAM compiler erases the widened int guard whenever it can prove it.** `HotLoop`'s abstract code carries
   `is_integer(N) andalso is_integer(Acc)` on every iteration under widening, and the `.beam` Code chunk is
-  the same size as HEAD's (139 = 139; sizes compared, not contents) and its 1M-iteration time is indistinguishable. The cost of the widened guard
+  the same size as HEAD's (139 = 139; sizes compared, not contents) and its 1M-iteration time is indistinguishable. `HotLoop` is the **best** case for this erasure (the exported caller's guard is visible), so it shows the floor of the cost, not the ceiling; the ceiling is `ListInt`/`ListRange`, and a harder case (argument from `receive`) is unprobed. The cost of the widened guard
   lands only where the compiler *cannot* see the caller's guard — which is where the guard is buying something.
   The record tag test is not erased this way (`map_get(Kind) =:= Tag` is not a type fact the pass derives), so it
   keeps its +12.
@@ -135,9 +135,9 @@ Two findings behind those numbers worth stating plainly:
 
 | | what a forged value in a nested position does | where |
 |---|---|---|
-| **Gleam** 1.18.1 | **Nothing is checked at any function, exported or private.** Records are tagged tuples read by `element/2`: forged `{evil,2,3}` returns `6`; `{order,9,9}` where a `line` is due returns `81`; a forged *outer* `{evil,1,[...]}` is also accepted. The compiler publishes a `-spec` and exports by publicity but emits no guard | `compiler-core/src/erlang.rs:718` (`function_spec_attribute`), `:3685-3703` (`function_export`: a non-importable function is simply not exported), emitted code in the probe output |
+| **Gleam** 1.18.1 | **In the probe, nothing is checked at any function, exported or private.** Records are tagged tuples read by `element/2`: forged `{evil,2,3}` returns `6`; `{order,9,9}` where a `line` is due returns `81`; a forged *outer* `{evil,1,[...]}` is also accepted. The compiler publishes a `-spec` and exports by publicity but emits no guard | `compiler-core/src/erlang.rs:718` (`function_spec_attribute`), `:3685-3703` (`function_export`: a non-importable function is simply not exported), the behavioural probe and one emitted dump (a single 3-function program, not a codegen audit); I did not find a codegen citation for "emits no guard" and the claim rests on that probe |
 | **Elixir** 1.19.5 | Checks exist only where the author wrote a struct pattern. `defp line_total(%Line{...})` raises `FunctionClauseError` on the forged element; the same body reading `l.qty * l.price` returns `6`. `@enforce_keys` is documented as *"a simple compile-time guarantee … not enforced on updates and it does not provide any sort of value-validation"* | `lib/elixir/lib/kernel.ex:5590-5592`; `defp` at `:5408` |
-| **Elm** 0.19 | Checks **depth, not scope**: an incoming port's declared type is turned into a full JSON decoder (`toDecoder`, recursive over lists, records, tuples) and run on every value; Elm code is unreachable unless it succeeded. No per-function guards exist because there is one door | `compiler/src/Optimize/Port.hs:177-200` (elm/compiler `1c278bf`); `src/Elm/Kernel/Platform.js:457-461` (elm/core `65cea00`) |
+| **Elm** 0.19 | Checks **depth, not scope**: an incoming port's declared type is turned into a full JSON decoder (`toDecoder`, recursive over lists, records, tuples) and run on every value; Elm code is unreachable unless it succeeded. No per-function guards exist because there is one door | `compiler/src/Optimize/Port.hs:177-224` (`toDecoder`), `:249` (`decodeList`), `:313` (`decodeRecord`) in the elm/compiler clone at `$REF/elmc`, `1c278bf` — **read, not run**; `src/Elm/Kernel/Platform.js:457-461` (elm/core `65cea00`) |
 
 No neighbour scopes a guard by visibility. Gleam checks nothing; Elixir checks what the author writes; Elm checks
 everything at one door. B#'s closest precedent for its own behaviour is Elixir's: the tag test is B#'s automatic
@@ -164,12 +164,15 @@ in `bs_emit:guard_one/7` (`compiler/src/bs_emit.erl:275-293`) delete the `none w
 
 **Documents and tests that say the old rule:** `bs_emit.erl:330-336` (the comment block), `F24-boundary-kind.md`
 §2 line 115 and §3 lines 120-128 and scenario F24.6 line 229, `LANGUAGE.md:3774` ("exported **refined `int`**") and
-`:3773`, ticket 18 §4's *"exported function's own clause heads"* sentence and §1's *"interior functions already pay
-nothing"* (lines 441, 615), and the two eunit tests named above, which flip.
+`:3773`, ticket 18 §4 (`18-boundary-defence.md:817-818`, *"It looks at the exported function's own clause heads and
+body, and no further"*) and ticket 18 §1's cost section, where both lines 441 and 615 are the **§1** "interior
+functions already pay nothing / the same code un-exported has the test elided entirely" passage (they are not §4),
+and the two eunit tests named above, which flip.
 
-**Evidence:** I3–I6 close (above); corpus 5 modules change with zero Code-size change; cost table column 2.
-**Gets rid of** the two-rule function the ticket complains about, and makes `LANGUAGE.md:3773` ("the boundary tag
-guard on an exported record parameter") true where today it is understated.
+**Evidence:** I3–I6 close (above); corpus: 5 beams change with a byte-identical Code chunk; cost table column 2.
+**Gets rid of** the two-rule function the ticket complains about. `LANGUAGE.md:3773` ("the boundary tag guard on an
+exported record parameter") stays true under A, as it is on HEAD — it is merely silent about private functions;
+`:3774` ("exported **refined `int`**") is the line that goes stale.
 
 **Strongest counterargument:** it reverses a decision made on purpose, with a measured justification. 18 §1 priced
 "the same code un-exported has the test elided entirely" and called it *"the shape C wanted anyway"*, and F24 §2
@@ -189,10 +192,16 @@ LineTotal(l) -> l.Qty * l.Price
 **Compiler delta** ([`prototype-delta.patch`](probes/59/prototype-delta.patch), 2 lines): add
 `{ok, _Tag} when not Public -> {Pat, []};` before the `{ok, Tag}` arm at `bs_emit.erl:277`. The `Public` plumbing
 stays. No eunit test changes (0 of 1498 fail). `LANGUAGE.md:3773` and F3.9 ("an exported function taking a record")
-become *true*, which they are not today.
+are about exported functions and are **true on HEAD today**; they are silent about private ones, so B does not
+make them truer — it only removes a behaviour they never mentioned.
 
-**Evidence:** saves 12 bytes of Code and ≈ 1.6 ns per private-record-parameter call; matches 18 §4 and F24 as
-written; consistent with the ticket's "defect" argument.
+**Evidence:** saves 12 bytes of Code and ≈ 1.3–1.6 ns per private-record-parameter call; consistent with the ticket's "defect" argument and with
+F24 §2's exported-only scope. **It does not "match 18 §4 as written":** 18 §4 says the analysis *"looks at the exported
+function's own clause heads and body, and no further"* (`18-boundary-defence.md:817-818`) **and** *"A value handed to
+another function counts as unchecked, and is guarded"* (`:818`). The ticket's "It is not" paragraph reads the private
+tag test as exactly that second sentence working — the callee guards because the caller's analysis stopped at its own
+boundary. B satisfies the first sentence and contradicts the second; A and today's HEAD honour the second and
+contradict F24 §2's reading of the first. David wrote both; the choice is which to keep.
 
 **Strongest counterargument:** R3, R4 — a forged element that is rejected today is silently summed. The suite does
 not notice (nothing pins it), and the ticket's own rule — "too narrow is a silent hole, too wide is measurable and
@@ -220,7 +229,7 @@ lives" — with no exemption to explain. Reasons, in order:
 
 1. It is the only option under which the nested forgeries I3–I6 and R3–R4 all crash. B leaves R3/R4 open; C leaves I3–I6 open.
 2. The price is measured and small: 0 bytes where the BEAM can see the guard, +5 to +18 bytes where it cannot, no
-   resolvable call-time change, and the record-tag +12 B/≈ 1.6 ns is already being paid.
+   resolvable call-time change (a lean of up to ≈ 0.3 ns on average is not excluded), and the record-tag +12 B/≈ 1.3–1.6 ns is already being paid.
 3. It follows the ticket's own asymmetry rule, and it is **still function-local** — it does not touch 18 §4's
    stability argument (a guard moves only when you edit the function it sits on).
 
@@ -232,12 +241,22 @@ the whole job and the private tag test goes with it. It is a coherent position; 
 
 All three options leave **depth** untouched: the exported guard on `Bands(list<Octet>)` or `Total(Order)` never walks
 the container, so inlining the private helper (R5) accepts forged elements under every option, including today's.
-That is not an accident — 18 §2 refuses `list<Order>` at a *foreign* declaration because a guard must be O(1), and
-`ValidateAs<T>` exists for the deep case — but an **exported B# signature** with `list<Line>` carries no such refusal,
-and the language page (`LANGUAGE.md` §10) says deep validation is explicit. Whether an exported `list<Line>`
-parameter should be refused, accepted-and-documented, or walked is a different question from this ticket's, and I
-have not decided it or tested its cost. I did not search the tickets beyond `grep -il` for "shallow", "every element"
-and "does not walk" (hits: 18 only, at the foreign-declaration rule).
+
+I grepped `wayfinder/issues/*.md` for `depth`, `deep`, `nested`, `container`, `shallow`, `every element` and
+`one level deep` before writing this. What exists, all in ticket 18 unless noted:
+
+- **§2 (`:619-634`)**: a *foreign* declaration may promise only what one O(1) guard decides; `list<Order>` is a compile
+  error there and crosses as `list<term>` plus `ValidateAs<T>`.
+- **`:709` and `:812`**: the option "declare anything, check one level deep" was considered and **rejected** twice
+  (for the FFI, and for callbacks), because it "claims a defence one level deep".
+- **§1(c) (`:392`, `:884`)**: compiler-generated code that operates on a declared element type (an inlined prelude
+  operation, 16 §4's encoder) is guarded unconditionally; a user-written function gets "the ordinary analysis".
+- **`LANGUAGE.md` §10**: deep validation is the explicit `ValidateAs<T>`.
+
+So depth was decided for foreign declarations, callbacks and generated code. I found **no ticket that says what an
+exported B# signature with a container parameter (`list<Line>`) promises** — which is the case the probes exercise.
+If that is right it is a gap worth its own ticket, and it needs David's answer before any cost work; a single-ticket
+suggestion, not a finding that 18 is wrong. The exported-container cost (what a walk would add) is **not measured**.
 
 **Adjacent, already decided (F3.9, for completeness):** a *union* record parameter gets no tag test at all, so an
 exported `Amount(Doc d)` accepts `#{'Id' => 1, 'Total' => 4}` with no `Kind` key and returns `4` (probe 59-E), while
@@ -250,10 +269,10 @@ exported `Amount(Doc d)` accepts `#{'Id' => 1, 'Total' => 4}` with no `Kind` key
 | id | script | claim it tests | control | result | does **not** show |
 |---|---|---|---|---|---|
 | 59-B | `run-behaviour.sh` (R1–R5, I1–I6) | forged values reach private fns through a nested position | R1 well-formed → `{ok,6}`; R2 forged outer tag → refused on all builds; I1, I2 scalar exported → refused | R3, R4: refused on HEAD/widen, **accepted on narrow**. R5: accepted on all. I3–I6: accepted on HEAD/narrow, **refused on widen** | that any real caller sends such values; only that the language admits them |
-| 59-C | `run-cost.sh` §A, §B, §C | byte, compile-time and call-time cost | `PlainInt`/`RangeInt` with a visible guarded caller; Rec1/4/16/32 field-count sweep | tag +12 B flat; int 0 B visible / +5, +18 B not; tag ≈ +1.6 ns (5/5 pairs positive); int ns and compile time unresolved | JIT native-code size; any arch but x86_64; megamorphic or cold call sites. The microbench loop is ≈ 34 ns/call (an `M:F(A)` remote call), so effects under ≈ 1 ns are noise |
-| 59-F | `run-loop.sh` | widened int guard in a hot private loop | HEAD, same program | guards present in abstract code, Code chunk 139 = 139, time indistinguishable | a loop the BEAM cannot prove (e.g. argument from `receive`) |
-| 59-G | `run-corpus.sh` | blast radius over shipped examples | `exemplars` dir skipped (does not compile as a module under any build) | narrow 0 beams change; widen 5, Code sizes equal | content equality of the Code chunks (sizes compared) |
-| — | `rebar3 eunit` in a scratch copy per build (not scripted; counts in `output-eunit.txt`) | which tests pin the behaviour | HEAD: 1 failure (`every_aoc_program_still_compiles_test`, because the scratch copy lacks the repo-root `aoc/`; present on all three builds) | narrow: same 1; widen: those 1 + the 2 named above | the `check-*.sh` gates, `verify.sh`, the clean-checkout double run |
+| 59-C | `run-cost.sh` §A, §B, §C | byte, compile-time and call-time cost | `PlainInt`/`RangeInt` with a visible guarded caller; Rec1/4/16/32 field-count sweep | tag +12 B flat; int 0 B visible / +5, +18 B not; tag ≈ +1.3–1.6 ns (6/6 alternated pairs positive); int ns unresolved with a lean of up to ≈ 0.3 ns not excluded; compile time unresolved | JIT native-code size; any arch but x86_64; megamorphic or cold call sites. The microbench loop is ≈ 34 ns/call (an `M:F(A)` remote call), so a single pair's delta under ≈ 1 ns is noise (the tag effect is read from the sign over 6 pairs and three runs, not from one pair) |
+| 59-F | `run-loop.sh` | widened int guard in a hot private loop — the **best** case for BEAM erasure (the exported caller's guard is visible), not the worst | HEAD, same program | guards present in abstract code, Code chunk 139 = 139, time indistinguishable | a loop the BEAM cannot prove (e.g. argument from `receive`) |
+| 59-G | `run-corpus.sh` | blast radius over shipped examples | `exemplars` dir skipped (does not compile as a module under any build) | narrow 0 of 23 beams change (vacuous: no private record-parameter function in the corpus); widen 5 of 23, Code chunk md5-identical | anything about B's blast radius; the `exemplars` dir |
+| 59-H | `run-eunit.sh` | which tests pin the behaviour | HEAD: all 1498 pass, with the repo's `aoc/` beside the scratch copy and the escript built first (the first, unscripted attempt lacked both and showed two environment failures that were not the patches') | narrow: 1498/1498 pass; widen: 1496 pass, exactly the 2 named above fail | the `check-*.sh` gates and `bin/verify.sh` (**not run under either patch or on HEAD**), the clean-checkout double run |
 | 59-D | `neighbours/run-neighbours.sh` | the same forgery against Gleam and Elixir | well-formed order → 6 on both; Elixir struct-pattern private fn as the control that a check *can* fire | Gleam accepts every forgery; Elixir refuses only where a struct pattern was written | Elm and C# runtime behaviour (Elm: source read only — no Elm program was compiled, the package server is unreachable) |
 | 59-E | `run-union.sh` | F3.9's union-parameter omission | `Squared(Order o)` refuses the same forged map | union param accepts it | whether F3.9's decision should stand |
 
@@ -263,6 +282,11 @@ exported `Amount(Doc d)` accepts `#{'Id' => 1, 'Total' => 4}` with no `Kind` key
   bytes, which I attribute to the platform and the module shape, not to a change in the compiler.
 - The prototype patches are mine and untested beyond the suite runs above; "narrow" and "widen" are the smallest
   edits that realise each option, not designed implementations.
-- I did not run the `check-*.sh` gates or `verify.sh` (the task changes no tracked file other than adding `artifacts/`).
-- Elm was surveyed from source only. C# was not surveyed.
+- The `check-*.sh` gates and `bin/verify.sh` were **not run**, under either patch or on HEAD. Only `rebar3 eunit` was.
+- Elm was surveyed from source only (read, not run). C# was not surveyed.
+- **Unprobed:** (1) the cost of an exported `list<Line>` parameter being walked (the depth option); (2) a hot private loop
+  whose argument the BEAM type pass cannot prove, e.g. one fed from `receive` — `HotLoop` is the erasure best case and
+  `ListInt`/`ListRange` are only a one-element list; (3) JIT native-code size; (4) the 18a/26a "+14 bytes" (their
+  harness was not re-run; my +12 B is a different measurement of a different module shape); (5) compile time beyond
+  the one `Rec32` module; (6) whether any real foreign caller ever forges these values.
 - The verifier subagent's re-run is recorded separately by the coordinator; this brief is the researcher's account.
