@@ -24,6 +24,8 @@ case_() {
   out="$("$BSC" --src-root "$root" "$root/$path" Go 1 2>&1)"; rc=$?
   local want=0
   case "$label" in *"(reserved?)"*|"type ValidationError"*|"type Down"*|"type Exit"*|"public int ToExistingAtom"*|"type option"*|"record list"*|"public int map"*|"module list"*|"public int bs@"*) want=1;; esac
+  # a refusal must also SAY something refusal-shaped, so a crash or an unrelated failure cannot satisfy want=1
+  if [ "$want" = 1 ] && ! printf '%s' "$out" | head -1 | grep -Eq 'reserved|protocol|compiler-known|syntax error|illegal characters'; then rc="$rc(unexpected message)"; fi
   check "$want" "$rc"
   printf '%-46s rc=%s %s %s\n' "$label" "$rc" "$MARK" "$(printf '%s' "$out" | head -1 | sed "s#$root/##")"
 }

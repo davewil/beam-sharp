@@ -1,8 +1,8 @@
 gleam: gleam 1.18.1   stdlib clone: 13359e5   compiler clone: 0d9fa18
 == 1. user types named Result and List (both prelude types) (exit 0) [ok]
      Compiling probe
-== 1b. with a user Result in scope, does the prelude constructor Ok still resolve? (exit 0) [ok]
-     Compiling probe
+== 1b. with a user Result in scope, the prelude Ok pattern-matches and RUNS to 42 (exit 0) [ok]
+   value printed: 42
 == 1-control. fresh type name Outcome (exit 0) [ok]
      Compiling probe
 == 2. a user module named gleam (the prelude's module name) (exit 1) [ok]

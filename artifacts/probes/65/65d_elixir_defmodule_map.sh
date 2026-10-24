@@ -13,9 +13,12 @@ set -uo pipefail
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; cd "$W"
 echo "elixir: $(elixir --version 2>/dev/null | tail -1)"
 PASS=0; FAIL=0
-v() { # label file wanted-exit
+v() { # label file wanted-exit required-output-regex
   local out; out="$(elixir "$2" 2>&1)"; local rc=$?
-  if [ "$rc" = "$3" ]; then PASS=$((PASS+1)); m="[ok]"; else FAIL=$((FAIL+1)); m="[FAILED: wanted exit $3]"; fi
+  local lab="$1" f="$2" want="$3"; shift 3; local ok=1 re
+  for re in "$@"; do printf '%s' "$out" | grep -Eq "$re" || ok=0; done
+  set -- "$lab" "$f" "$want" "$*"
+  if [ "$rc" = "$3" ] && [ "$ok" = 1 ]; then PASS=$((PASS+1)); m="[ok]"; else FAIL=$((FAIL+1)); m="[FAILED: wanted exit $3 and output matching $4]"; fi
   printf '== %s (exit %s) %s\n' "$1" "$rc" "$m"
   printf '%s\n' "$out" | grep -E 'redefining module|UndefinedFunctionError|^:user_map|^%\{|^:ok|lib/(module/types|kernel/lexical_tracker)\.ex:[0-9]+' | sed -E "s#$S/elixir/#<elixir>/#; s/\(current version loaded from.*//" | head -5 | sed 's/^/   /'
 }
@@ -50,10 +53,10 @@ defmodule Other do
 end
 IO.inspect(Other.f(%{a: 1}))
 X
-v "a. defmodule Map; call the user's Map.hi"                       a.exs 1
-v "b. defmodule Map; call the STANDARD Map.new (clobbered?)"       b.exs 1
-v "c. defmodule Map; then define an unrelated module"              c.exs 1
-v "d. CONTROL: Shop.Map (dotted), stdlib Map.update! still works"  d.exs 0
+v "a. defmodule Map; call the user's Map.hi"                       a.exs 1 'redefining module Map' ':user_map' 'Map.update!/3 is undefined or private' 'lib/module/types.ex:291'
+v "b. defmodule Map; call the STANDARD Map.new (clobbered?)"       b.exs 1 'redefining module Map' 'Map.new/0 is undefined or private'
+v "c. defmodule Map; then define an unrelated module"              c.exs 1 'redefining module Map' 'Map.get/2 is undefined or private' 'lexical_tracker.ex:159'
+v "d. CONTROL: Shop.Map (dotted), stdlib Map.update! still works"  d.exs 0 ':user_map' '%\{a: 2\}'
 echo "source of the type-checker call site:"
 echo "   (put_in/2 on a struct-less path expands to Map.update!/3, which is the frame above)"
 sed -n 291p "$S"/elixir/lib/elixir/lib/module/types.ex | sed "s#^#   lib/elixir/lib/module/types.ex:291:#"

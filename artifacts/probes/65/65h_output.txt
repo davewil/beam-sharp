@@ -1,4 +1,7 @@
-HEAD: c01d51f7 2026-10-23
+HEAD: 10b24a6b 2026-10-23
+== history
+commits touching compiler/src/bs_check.erl:        150
+commits in the whole repository:                  967
 == files
 .bs files tracked by git:                            173
 == where the reserved set and its rows live (bs_check.erl)
@@ -27,13 +30,15 @@ HEAD: c01d51f7 2026-10-23
    Roster.Op( calls:                           2 Binary.Append( 
       in compiler/examples/exemplars/25b-websocket-handler/encode.bs
    other module names in the tree that look like standard modules:       1 module Queue       1 module Req       1 module Stats       1 module Stream 
-   eunit inline programs declaring a reserved-name module:
+   eunit inline programs declaring a module named after an ALREADY-reserved word:
       compiler/test/api_tests.erl:278:                        "module List\n"
       compiler/test/float_tests.erl:256:    Src = "module Float\n\n"
       compiler/test/implements_tests.erl:330:                        "module Enumerable\n"
       compiler/test/reserved_qualifier_tests.erl:236:    Out = compile_set([{"List.bs", "module List\n"
       compiler/test/reserved_qualifier_tests.erl:243:    Out = compile_set([{"Map.bs", "module Map\n"
       compiler/test/reserved_qualifier_tests.erl:250:    Out = compile_set([{"Term.bs", "module Term\n"
+   eunit inline programs declaring a module named after any of the ten narrow names or Binary (a whole-name declaration, "module X\n"): 0
+   (the eunit SUITE was not run with the roster delta by this probe; see 65i)
 == dates
    protocol_table (Enumerable) first appears: bf77e4bd 2026-09-28
    Float first reserved:                      6fcaee88 2026-09-16
@@ -56,4 +61,7 @@ HEAD: c01d51f7 2026-10-23
 == module names that differ from an OTP 28 module only by case (the ENG-391 / F54:171 hazard: on a case-insensitive disk 'Queue.beam' IS 'queue.beam')
    OTP 28 modules available in this install: 1020
    distinct module names declared in tracked .bs files: 123
-   of those, lowercased equal an OTP module: ["Math","Queue"]
+   of those, the LOWERCASED name equals an OTP module (only the comparison is lowercased; the atom stays as written): ["Math",
+                                                                                                                       "Queue"]
+   code:which(math) on this case-sensitive disk = /tmp/claude-0/-home-user-beam-sharp/9903cb2c-0a5d-5378-89d7-c06a67894f0b/scratchpad/otp28/lib/erlang/lib/stdlib-7.3/ebin/math.beam  (a stdlib path), so there is no clash here
+   code:which(queue) on this case-sensitive disk = /tmp/claude-0/-home-user-beam-sharp/9903cb2c-0a5d-5378-89d7-c06a67894f0b/scratchpad/otp28/lib/erlang/lib/stdlib-7.3/ebin/queue.beam  (a stdlib path), so there is no clash here

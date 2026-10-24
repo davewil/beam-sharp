@@ -17,10 +17,10 @@ gleam_stdlib = { path = "$REF/stdlib" }
 T
 echo "gleam: $(gleam --version)   stdlib clone: $(git -C "$REF/stdlib" rev-parse --short HEAD)   compiler clone: $(git -C "$REF/gleam" rev-parse --short HEAD)"
 PASS=0; FAIL=0
-build() { # label wanted-exit [lines]
+build() { # label wanted-exit [lines] [required-output-regex]
   rm -rf build/dev/erlang/probe 2>/dev/null
   local out rc; out="$(gleam build 2>&1)"; rc=$?
-  if [ "$rc" = "$2" ]; then PASS=$((PASS+1)); m="[ok]"; else FAIL=$((FAIL+1)); m="[FAILED: wanted exit $2]"; fi
+  if [ "$rc" = "$2" ] && { [ -z "${4:-}" ] || printf '%s' "$out" | grep -Eq "$4"; }; then PASS=$((PASS+1)); m="[ok]"; else FAIL=$((FAIL+1)); m="[FAILED: wanted exit $2${4:+ and output matching $4}]"; fi
   printf '== %s (exit %s) %s\n' "$1" "$rc" "$m"
   printf '%s\n' "$out" | grep -v -E '^ *(Resolving|Added|Compiling gleam_stdlib|Downloading|Compiled in)' | sed '/^$/d' | head -${3:-8} | sed 's/^/   /'
 }
@@ -46,10 +46,17 @@ pub type Result {
   Fine
 }
 pub fn main() {
-  Ok(1)
+  // `Ok`/`Error` can only be the prelude's here: the user's Result has the one constructor Fine.
+  echo case Ok(41) {
+    Ok(x) -> x + 1
+    Error(_) -> 0
+  }
 }
 X
-build "1b. with a user Result in scope, does the prelude constructor Ok still resolve?" 0
+out="$(gleam run 2>&1)"; rc=$?
+if [ "$rc" = 0 ] && printf '%s' "$out" | grep -Eq '^42$|\b42$'; then PASS=$((PASS+1)); m="[ok]"; else FAIL=$((FAIL+1)); m="[FAILED: wanted exit 0 and the value 42]"; fi
+printf '== 1b. with a user Result in scope, the prelude Ok pattern-matches and RUNS to 42 (exit %s) %s\n' "$rc" "$m"
+printf '%s\n' "$out" | grep -E '^[^ ].*42$|^42$|probe.gleam:[0-9]+:[0-9]+ echo|^[0-9]+$' | sed 's/^/   value printed: /' | head -3
 
 reset; cat > src/probe.gleam <<'X'
 pub type Outcome {
@@ -62,13 +69,13 @@ X
 build "1-control. fresh type name Outcome" 0
 
 reset; printf 'pub fn main() { 1 }\n' > src/gleam.gleam
-build "2. a user module named gleam (the prelude's module name)" 1
+build "2. a user module named gleam (the prelude's module name)" 1 8 'Reserved module name'
 
 reset; printf 'pub fn main() { 1 }\n' > src/list.gleam
 build "3. a user module named list (the stdlib's is gleam/list)" 0
 
 reset; mkdir -p src/gleam; printf 'pub fn main() { 1 }\n' > src/gleam/list.gleam
-build "4. a user module named gleam/list (the stdlib's full path)" 1 12
+build "4. a user module named gleam/list (the stdlib's full path)" 1 12 'Duplicate module'
 
 reset; mkdir -p src/shop; printf 'pub fn main() { 1 }\n' > src/shop/list.gleam
 build "4-control. a user module named shop/list" 0

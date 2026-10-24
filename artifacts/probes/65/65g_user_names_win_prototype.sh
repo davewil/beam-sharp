@@ -121,4 +121,4 @@ for name in shadow fall; do
   mkdir -p "$W/o5_$name"; "${BIN[$name]}" --src-root "$W" -o "$W/o5_$name" "$W/P5" >/dev/null 2>&1
   printf '   P5 functions in the compiled beam, %-6s %s\n' "$name" "$(fns "$W/o5_$name" P5)"
 done
-echo "   (a function named like 'bs@list...' / 'Term...Compare' that nothing calls is the stray helper from bs_emit.erl:2102 reserved_forms/1, which these prototypes do NOT patch)"
+echo "   (the P5 beam holds only Go and bs@type_atoms: erlc drops the unused local function, so the helper from bs_emit.erl:2102 reserved_forms/1 survives only as the 'function … is unused' compile warning printed in the P5 rows above. These prototypes do NOT patch reserved_forms/1.)"
