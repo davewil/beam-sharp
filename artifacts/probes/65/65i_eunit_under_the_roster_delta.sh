@@ -19,13 +19,14 @@ mk() { # name patched?
   echo "$d"
 }
 run() { # dir
-  ( cd "$1" && rebar3 escriptize >/dev/null 2>&1 && rebar3 eunit 2>&1 | tail -400 > "$1/eunit.log"; tail -3 "$1/eunit.log" )
+  ( cd "$1" && rebar3 escriptize >/dev/null 2>&1 && rebar3 eunit 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > "$1/eunit.log"; grep -E 'Failed: |Passed: ' "$1/eunit.log" | tail -1 )
 }
 A="$(mk pristine no)"; B="$(mk patched yes)"
 ( run "$A" > "$A/summary.txt" ) & ( run "$B" > "$B/summary.txt" ) & wait
 for d in "$A" "$B"; do
   echo "== $(basename "$d")"; sed 's/^/   /' "$d/summary.txt"
-  echo "   failing-test lines: $(grep -c -E '\*failed\*|^  *Failures:|=ERROR' "$d/eunit.log")"
+  echo "   the failing test(s), full eunit log:"
+  grep -B3 -A6 -E '\*failed\*' "$d/eunit.log" | head -24 | sed 's/^/      /'
 done
-echo "== names of failures only in the patched run (empty = the delta breaks no test)"
-diff <(grep -E '\*failed\*|^[a-z_]+_tests:.*(failed|FAILED)' "$A/eunit.log" | sort) <(grep -E '\*failed\*|^[a-z_]+_tests:.*(failed|FAILED)' "$B/eunit.log" | sort) | grep '^>' | head -20
+echo "== failure lines present only in the patched run (empty = the delta breaks no test)"
+diff <(grep -E '\*failed\*' "$A/eunit.log" | sort) <(grep -E '\*failed\*' "$B/eunit.log" | sort) | grep '^>' | head

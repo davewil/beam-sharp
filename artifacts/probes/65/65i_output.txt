@@ -1,0 +1,27 @@
+== compiler-65i-pristine
+     Failed: 1.  Skipped: 0.  Passed: 1497.
+   the failing test(s), full eunit log:
+        body_check_tests: a_call_to_an_undeclared_name_is_caught_by_bsc_test...ok
+        body_check_tests: a_call_with_the_wrong_arity_is_caught_by_bsc_test...ok
+        body_check_tests: every_example_still_compiles...[15.021 s] ok
+        body_check_tests: every_aoc_program_still_compiles_test...*failed*
+      in function body_check_tests:every_aoc_program_still_compiles_test/0 (/tmp/claude-0/-home-user-beam-sharp/9903cb2c-0a5d-5378-89d7-c06a67894f0b/scratchpad/compiler-65i-pristine/test/body_check_tests.erl, line 297)
+      in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 285)
+      in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+      in call from eunit_proc:run_test/1 (eunit_proc.erl, line 554)
+      in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 379)
+      in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 537)
+== compiler-65i-patched
+     Failed: 1.  Skipped: 0.  Passed: 1497.
+   the failing test(s), full eunit log:
+        body_check_tests: a_call_to_an_undeclared_name_is_caught_by_bsc_test...ok
+        body_check_tests: a_call_with_the_wrong_arity_is_caught_by_bsc_test...ok
+        body_check_tests: every_example_still_compiles...[15.044 s] ok
+        body_check_tests: every_aoc_program_still_compiles_test...*failed*
+      in function body_check_tests:every_aoc_program_still_compiles_test/0 (/tmp/claude-0/-home-user-beam-sharp/9903cb2c-0a5d-5378-89d7-c06a67894f0b/scratchpad/compiler-65i-patched/test/body_check_tests.erl, line 297)
+      in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 285)
+      in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+      in call from eunit_proc:run_test/1 (eunit_proc.erl, line 554)
+      in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 379)
+      in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 537)
+== failure lines present only in the patched run (empty = the delta breaks no test)

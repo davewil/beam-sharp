@@ -6,7 +6,7 @@
 Toolchain: Erlang/OTP 28.5 (erts 16.4, built from `otp_src_28.5`), Elixir 1.19.5, Gleam 1.18.1, `bsc` built from this repo's
 `compiler/` at `c01d51f7`. Elm 0.19.3 is installed but could not compile anything (see the last section). Probes are in
 [`probes/65/`](probes/65/); each prints its evidence, **asserts its expectation and exits non-zero on a mismatch** (65a, 65d, 65e,
-65f; 65b, 65c, 65g and 65h report figures), and has a captured `65x_output.txt` beside it. Every figure below is from those files.
+65f — *what* each asserts is in the ledger; 65b, 65c, 65g, 65h and 65i report figures), and has a captured `65x_output.txt` beside it. Every figure below is from those files.
 
 ## The answer first
 
@@ -25,7 +25,7 @@ names, the protocol **`Enumerable`**, and **30 operation rows** (65a, 65h).
 |---|---|---|
 | **`not` as an identifier** | F27:40-46, LANGUAGE.md:334, ticket 63:406 — *"`not` stays an identifier until 65 says otherwise"* | `Go(int not) when not > 100` compiles and runs (65a §G) |
 | **the `bs@` export prefix** | ticket 87:166-170, F55:172-174 | `public int bs@x(int n)` is already refused, as `illegal characters "@"` (65a §H); nothing to build, something to *record* |
-| **module names that shadow OTP modules** | F54:171, F55:172-174 | `module Lists / Maps / Erlang / Peer / Json` all compile (65a §F). **Two of this repo's own examples are the live instance:** `module Queue` and `module Math` lowercase to OTP's `queue` and `math` (65h) — the ENG-391 `Json.beam`/`peer.beam` hazard on a case-insensitive disk |
+| **module names that shadow OTP modules** | F54:171, F55:172-174 | `module Lists / Maps / Erlang / Peer / Json` all compile (65a §F). **Two of this repo's own examples are the live instance:** `module Queue` and `module Math` differ from OTP's `queue` and `math` only by case (65h compares lowercased names; the atoms stay `Queue` and `Math`). **On this case-sensitive disk there is no clash** — `code:which(queue)` is the stdlib's. The hazard (ENG-391, F54:171) needs a case-insensitive filesystem, or `Queue.beam` copied ahead of stdlib on the path; a verifier simulated the second and the VM died at boot with *module name in object code is Queue*. I did not reproduce either |
 | **when a planned name becomes reserved** | 96 Q6 says *"every qualifier the standard environment adds"* and is silent on timing | the gating question below |
 
 **Closing 65 would strand the first three**, and F27, F54 and F55 would keep saying *"ticket 65, which is open"* with nobody to
@@ -60,7 +60,7 @@ Probe 65c, scratch compiler with the roster added. Two other spellings survive u
 | # | Sub-decision | Position | Status |
 |---|---|---|---|
 | 1 | Reserve when decided, or when built? | **gating** | open |
-| 2 | If when decided: which names — the nine in a *resolved* ticket, or also `Binary` (93, open)? | follows 1 | open |
+| 2 | If when decided: which names — the ten in *resolved* tickets, or also `Binary` (93, open)? | follows 1 | open |
 | 3 | `not`: stay an identifier (F27's holding position, 63's *"the absence teaches"*) or become reserved | independent | open — 65's |
 | 4 | `bs@`: record that the lexer already makes it unwritable | independent | open — 65's, answerable by a sentence |
 | 5 | Module names that differ from an OTP module only by case: refuse, or leave | independent | open — 65's; the corpus has two |
@@ -96,7 +96,7 @@ prelude alone, mirroring what the type prelude already does"*, `48:1077`).
 
 ## The set is closed to outsiders and grows from within (65b)
 
-Read from the 956-commit history of `bs_check.erl` (the clone was shallow; `git fetch --unshallow origin` was run, and the probe
+Read from the history of `bs_check.erl` (150 commits touch it; 967 in the whole repository — `git rev-list --count`, 65h) (the clone was shallow; `git fetch --unshallow origin` was run, and the probe
 refuses a shallow clone because a 50-commit curve would be flat for the wrong reason):
 
 ```
@@ -136,9 +136,9 @@ Go calls String.Length/1, and `String` has no operation of that name
 `String` is a reserved qualifier, so this cannot be fixed with a `using` line — the operations under it are the compiler's own.
 ```
 
-**Narrow means** the names a *resolved* ticket already commits to: the eight 96 Q6 names (`Enum String Int Process GenServer
-Supervisor Logger System`) plus `Task` (ticket 98:45, *"`Task` is a reserved qualifier (ticket 65)"*). **`Binary` is left out** — ticket
-93 is open and asks that very question. The 65c prototype reserved eleven (the nine plus `Binary` and `Agent`), so it is an upper bound.
+**Narrow means** the names a *resolved* ticket already commits to — **ten**: the eight 96 Q6 names (`Enum String Int Process GenServer
+Supervisor Logger System`), `Task` (ticket 98:45, *"`Task` is a reserved qualifier (ticket 65)"*) and `Agent` (ticket 98 Q2, *"`Agent<S>` is in"*, covered by 96 Q6). **`Binary` is left out** — ticket
+93 is open and asks that very question. The 65c and 65i prototypes reserved eleven: these ten plus `Binary`, so they measure the narrow set with one extra name.
 **Compiler delta.** One line in `reserved_qualifiers/0`; the refusal and the "no operation of that name" diagnostic
 (`bs_check.erl:3357-3362`) already exist; extend P3–P6 of the gate.
 **Evidence (65c, scratch copy, 1-line delta).**
@@ -148,7 +148,7 @@ Supervisor Logger System`) plus `Task` (ticket 98:45, *"`Task` is a reserved qua
   never name a roster word as a whole module name (0), as a last segment (0), or as a qualifier (the only use anywhere is
   `Binary.Append` ×2, in `25b-websocket-handler/encode.bs`, which does not compile). The measurement establishes *absence of collisions
   in this corpus*, not safety for other authors.
-- 0 of 173 tracked `.bs` files declare a roster word as a whole module name (65h).
+- 0 of 173 tracked `.bs` files declare a roster word as a whole module name (65h), and no eunit inline program declares one of the ten or `Binary` as a module (65h). **The eunit suite was then run under the delta (65i): 1497 passed, 1 failed — the same single test, `body_check_tests:every_aoc_program_still_compiles_test`, fails identically on the pristine compiler; the delta adds no failure.** (65h's eunit grep covers all eleven names; the earlier version covered only the five already reserved.)
 - Compile time, `bsc examples/Shop`, 40 pairs with order alternated: **pristine median 470.6 ms (IQR 455.6–495.4, stdev 63.2),
   patched 479.8 ms (IQR 462.3–531.7, stdev 49.2), difference +9.2 ms; a bare `erl` start-and-halt is 216.4 ms.** The spread is larger than the
   difference and most of the time is VM startup. **No cost is resolvable** (the difference is inside the interquartile range); the check is a `lists:member/2` over an atom list per qualified call.
@@ -168,13 +168,18 @@ unqualified *function* names (`Get`), not about a module the author imported. So
 
 ```
                                    pristine        half          shadow         fall (per-site)
-P1 module List declared            refused         compiles      compiles       compiles
+P1 module List declared            refused         compiles*     compiles*      compiles*
 P2 using Shop.Coll; List.Length    "two things"    1  <- WRONG   99             99
 P3 using Shop.Coll; List.Sum       "two things"    error         error          2  (falls to the standard op)
 P4 no user List (control)          3               3             3              3   (code md5 identical on all four)
 P5 using Shop.Coll; Term.Compare   "two things"    :lt <- WRONG  :user + warning :user + warning
 P6b using List; Twice(n)+List.Sum  refused         3             3              3
 P6/P7  List.Twice after `using List`, or Map.Twice from inside module Map: "no operation of that name" in every prototype
+
+* "compiles" means the declaration is accepted. **In every prototype the user's top-level `module List` cannot then be called as `List.X`** — not from itself,
+  not after `using List` (P6, P7; the same for a top-level `module Map`, where the standard `Map.Size` still works). Unqualified `Twice(n)` works (P6b).
+  So the headline case of this option — the author declares `module List` and uses it — **does not work in any of the three prototypes**; only the
+  namespace-tier collision (P2, P3, P5) does.
 ```
 
 - **half** (checker only): type-checks against the user's signature and runs the standard operation — `1` where the user's function
@@ -186,8 +191,9 @@ P6/P7  List.Twice after `using List`, or Map.Twice from inside module Map: "no o
   operation, telling the emitter per site with a new `ruser` note (the F64 `pcall` mechanism). **P3 then returns the standard `2`.** It
   is 18 changed lines in `bs_check.erl` and 4 in `bs_emit.erl`. **No warning is emitted** — that needs a `bs_diag` clause and is *not
   built*, so "shadowing does not warn" holds for these prototypes only.
-- **None** of the three patches `reserved_forms/1` (`bs_emit.erl:2102`): P5 under `shadow` and `fall` compiles with `Warning: function
-  bs@Term@Compare@2/2 is unused` — a stray helper for a row the user's module took over. None resolves a top-level user module through
+- **None** of the three patches `reserved_forms/1` (`bs_emit.erl:2102`): P5 under `shadow` and `fall` prints `Warning: function
+  bs@Term@Compare@2/2 is unused` at compile time. The helper is not in the beam (it holds only `Go` and `bs@type_atoms`; erlc drops the unused function), so it survives
+  only as that warning. None resolves a top-level user module through
   a module-tier `using` or from inside itself (P6, P7): the table the delta consults holds namespace-tier claimants only. A complete
   delta must do both.
 
@@ -214,7 +220,7 @@ prelude alone — is ticket 48 Q9 (d), and is what the *type* prelude already do
 
 ## Recommendation
 
-For the gating question: **B, narrow** — reserve now the nine names a resolved ticket commits to, leave `Binary` until 93 closes.
+For the gating question: **B, narrow** — reserve now the ten names resolved tickets commit to, leave `Binary` until 93 closes.
 This **changes my first draft, which recommended A**, for one reason I had left out: the repo's own rule of thumb at
 `LANGUAGE.md:2160-2162` is that reserving late takes a name away from a program that already used it, and F32 followed it with `Map`.
 B costs one line, burns nothing David has not already named, passes the 22 compilable examples with identical code, and replaces
@@ -228,20 +234,21 @@ from an OTP module only by case** — `Queue` and `Math` are in this repo today,
 `reserved_module_name/2` over the OTP module list; 1,020 modules in this OTP install) or write down that B# targets case-sensitive
 disks. I have no recommendation between those two; the failure cannot be reproduced on this Linux filesystem (cited, not run).
 
-**Not C, as built:** it would need the emitter's side channel, the stray-helper path, and the module-tier/self cases before it is
+**Not C, as built:** it would need the emitter's side channel, the `reserved_forms/1` path, and the module-tier/self cases before it is
 correct, to buy a freedom no program in the repo uses.
 
 ## Evidence ledger
 
 | Probe | Claim tested | Control | Result | Does **not** show |
 |---|---|---|---|---|
-| [65a](probes/65/65a_what_is_reserved_today.sh) | What `bsc` reserves; compiler-known types/functions; `not`; `bs@`; OTP-shaped module names | 48 asserted cases incl. fresh names, `Shop.List`, `Foo`, `ValidateAs`, `Bs` | 48/48 as expected | The case-insensitive-disk failure; later qualifiers |
+| [65a](probes/65/65a_what_is_reserved_today.sh) | What `bsc` reserves; compiler-known types/functions; `not`; `bs@`; OTP-shaped module names | 48 asserted cases incl. fresh names, `Shop.List`, `Foo`, `ValidateAs`, `Bs` | 48/48 as expected. **Asserts exit status, plus that a refusal's first line is refusal-shaped; the expected status comes from a label-pattern table inside the script** | The case-insensitive-disk failure; later qualifiers |
 | [65b](probes/65/65b_growth_of_the_standard_environment.sh) | Set grows from within | refuses a shallow clone | 0→4 qualifiers, 30 rows | Future growth; counts `{{'Q','Op',N}` keys only |
 | [65c](probes/65/65c_blast_radius_of_reserving_the_roster.sh) | Cost of reserving the roster now | `module List/String` before/after; author migration cases | 29/29 same status, 22/22 same code, **a near-tautology (above)**; wrong-fix diagnostic; timing within noise | Other authors' programs; the 7 non-compiling exemplars |
-| [65d](probes/65/65d_elixir_defmodule_map.sh) | Elixir `defmodule Map` (1.19.5) | `Shop.Map` runs clean | 4/4 as expected | Elixir ≥ 1.20 |
-| [65e](probes/65/65e_erlang_shadowing.sh) | OTP 28 type and module shadowing | fresh type; `shop_lists` | 9/9 as expected (exit codes now `erlc`'s own) | Releases that embed stdlib |
-| [65f](probes/65/65f_gleam_shadowing.sh) | Gleam 1.18.1 | `Outcome`, `list`, `shop/list` | 7/7 as expected | Gleam's other reserved words |
-| [65g](probes/65/65g_user_names_win_prototype.sh) | User-wins, three prototype deltas | P4 no-user-List; code md5 | table above | Warnings; `reserved_forms`; module-tier/self-qualified; a complete delta |
+| [65d](probes/65/65d_elixir_defmodule_map.sh) | Elixir `defmodule Map` (1.19.5) | `Shop.Map` runs clean | 4/4 as expected. **Asserts exit status and the named error/crash-site strings** | Elixir ≥ 1.20 |
+| [65e](probes/65/65e_erlang_shadowing.sh) | OTP 28 type and module shadowing | fresh type; `shop_lists` | 9/9 as expected. **Asserts `erlc`'s own exit status and the diagnostic text** | Releases that embed stdlib |
+| [65f](probes/65/65f_gleam_shadowing.sh) | Gleam 1.18.1 | `Outcome`, `list`, `shop/list` | 7/7 as expected. **Asserts exit status; cases 2 and 4 also the error title; 1b runs the program and checks it prints 42 (prelude `Ok`); cases 1 and 1-control assert exit status only** | Gleam's other reserved words |
+| [65g](probes/65/65g_user_names_win_prototype.sh) | User-wins, three prototype deltas | P4 no-user-List; code md5 | table above (printed, not asserted) | Warnings; `reserved_forms`; module-tier/self-qualified; a complete delta |
+| [65i](probes/65/65i_eunit_under_the_roster_delta.sh) | The compiler's own eunit suite under the 11-name delta | pristine copy, same command | 1497 passed / 1 failed on both; the failing test is the same and pre-existing | The one failing test (its cause is not investigated); programs outside the suite |
 | [65h](probes/65/65h_counts_and_citations.sh) | Every count, date, line number and status the brief quotes | `shallow` refusal | commands in the file | Nothing about behaviour; it runs no compiler |
 
 ## Not run, not measured, caveats
