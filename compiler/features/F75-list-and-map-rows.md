@@ -1,8 +1,9 @@
 # F75 — `List` and `Map` rows: what is specific to each, over `lists` and `maps`
 
-**Status**      **built 2026-10-21, not closed** — 44 tests in `standard_rows_tests`;
+**Status**      **closed 2026-10-25** (built 2026-10-21) — 44 tests in `standard_rows_tests`;
                 `check-reserved-qualifiers.sh` gained P8, seen red on master first,
-                twelve red stubs and one green. Closing is David's call
+                twelve red stubs and one green. Closed by David in part: the pairs
+                moved to [ENG-324](https://linear.app/davewil/issue/ENG-324)
 **Implements**  [ticket 96](../../wayfinder/issues/96-standard-environment-breadth.md) Q1, Q2
                 and Q5, resolved 2026-09-25, and [ticket 118](../../wayfinder/issues/118-the-list-and-map-rows-that-need-a-decision.md),
                 which this build raised and David resolved 2026-10-21: the rows that can
