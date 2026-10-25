@@ -1,0 +1,9 @@
+module Q1
+
+record A { Id: int }
+record B { Id: int }
+
+// a record absorbed by a wider structural member of the same union
+type C = A | B | map<atom, term>
+public atom H(C c)
+H(c) -> :x

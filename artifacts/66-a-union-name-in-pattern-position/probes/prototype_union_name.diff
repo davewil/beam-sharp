@@ -1,0 +1,79 @@
+--- bsc-build/src/bs_check.erl	2026-10-25 23:07:29.298449233 +0000
++++ 66/proto/src/bs_check.erl	2026-10-25 23:16:58.920787620 +0000
+@@ -17,7 +17,7 @@
+ %% whether a name is a protocol's, for `bs_diag`'s reserved-name wording.
+ -export([implements_of/3, is_protocol/1]).
+ %% The emitter shares type resolution and qualified record tags here.
+--export([resolve/2, qualified/2, record_fields/1, view_pattern/3]).
++-export([resolve/2, qualified/2, record_fields/1, view_pattern/3, union_record_tags/2]).
+ %% The emitter subtracts clause-head guarantees from the declared refinement so
+ %% boundary guards check only the remainder.
+ -export([clause_accepts/2]).
+@@ -4924,7 +4924,14 @@
+ pattern_type({p_rec, Line, Name, Fields} = P, Path, Env) ->
+     case view_pattern(Line, Name, Fields) of
+         {ok, Tuple} -> pattern_type(Tuple, Path, Env);
+-        none        -> record_pattern_type(P, Path, Env)
++        none        ->
++            case Fields =:= [] andalso union_record_tags(Name, Env) of
++                {ok, Tags} ->
++                    {lists:foldl(fun bs_types:union/2, bs_types:none(),
++                                 [bs_types:map_open(#{'Kind' => bs_types:atom_lit(T)})
++                                  || T <- Tags]), #{}, true};
++                _ -> record_pattern_type(P, Path, Env)
++            end
+     end;
+ %% A type prefix is exact only when `part_test/1` decides membership. Raise
+ %% refusal here so both clause heads and switch arms reject it. The emitter
+@@ -4988,6 +4995,27 @@
+      lists:foldl(fun maps:merge/2, #{}, [B || {_, {_, B, _}} <- Triples]),
+      lists:all(fun({_, {_, _, E}}) -> E end, Triples)}.
+ 
++
++%% PROTOTYPE (ticket 66): a name that resolves to a union of >=2 records and
++%% nothing else yields its minted tags.
++union_record_tags(Name, Env) ->
++    try bs_types:unfold(resolve({t_ref, Name}, Env)) of
++        #{maps := Ms, atoms := {finite, []}, ints := [], floats := {finite, []},
++          tuples := [], lists := [], bins := [], opaques := [], vars := [],
++          funs := []} when length(Ms) >= 2 ->
++            Tags = [case M of
++                        {closed, Fs} ->
++                            case maps:find('Kind', Fs) of
++                                {ok, #{atoms := {finite, [T]}}} -> T;
++                                _ -> bad
++                            end;
++                        _ -> bad
++                    end || M <- Ms],
++            case lists:member(bad, Tags) of true -> none; false -> {ok, Tags} end;
++        _ -> none
++    catch _:_ -> none
++    end.
++
+ record_projection(L, Recv, Field, C) ->
+     Lacking = lacking(Recv, Field),
+     case bs_types:is_none(Lacking) of
+--- bsc-build/src/bs_emit.erl	2026-10-25 23:07:29.298864620 +0000
++++ 66/proto/src/bs_emit.erl	2026-10-25 23:16:58.921682989 +0000
+@@ -561,6 +561,11 @@
+         {ok, Bif} -> {p_test, L, Bif, V};
+         {no, Why} -> erlang:error({type_prefix_undecidable, L, TypeExpr, Why})
+     end;
++desugar({p_bind, L, V, {p_rec, _, Name, []} = P}, #{env := Env} = Ctx) ->
++    case bs_check:union_record_tags(Name, Env) of
++        {ok, Tags} -> {p_tags, L, Tags, V};
++        none       -> {p_alias, L, V, desugar(P, Ctx)}
++    end;
+ desugar({p_bind, L, V, P}, Ctx)        -> {p_alias, L, V, desugar(P, Ctx)};
+ desugar({p_tuple, L, Ps}, Ctx)         -> {p_tuple, L, [desugar(P, Ctx) || P <- Ps]};
+ desugar({p_map, L, Fs}, Ctx)           -> {p_map, L, [{K, desugar(P, Ctx)} || {K, P} <- Fs]};
+@@ -631,6 +636,9 @@
+         lists:foldl(
+           fun({{p_test, L, Bif, V}, _Known}, {Acc, Ts, N}) ->
+                   {Acc ++ [{p_var, L, V}], Ts ++ [part_expr(Bif, V, L)], N};
++             ({{p_tags, L, Tags, V}, _Known}, {Acc, Ts, N}) ->
++                  {Acc ++ [{p_var, L, V}],
++                   Ts ++ [fold_or([tag_test(V, T, L) || T <- Tags], L)], N};
+              ({P, Known}, {Acc, Ts, N}) ->
+                   case is_rel(P) of
+                       false -> {Acc ++ [P], Ts, N};

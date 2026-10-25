@@ -491,3 +491,15 @@ the name list was cut down in 08b).
 Not done: no change to `bs_emit.erl` (the alias cost is modelled on the emitted forms); the
 Elixir tokenizer sources are unavailable (read from beam abstract code); Elm skipped as irrelevant;
 a build-tool-generated wrapper module (a `bsc --elixir-wrapper` mode) was not probed.
+
+## Errata from independent verification (verification.md)
+
+The verifier re-ran every probe except 01 (needs rebar3) and reproduced them, and wrote its own `Acme.erl` that confirmed the quoted call `:Acme."New"(1)` works from a script and from `elixirc`. No probe is circular. Corrections:
+
+- **Probe 11's percentages.** The aliases were compiled into real beams, but the baseline is a recompile of the `.abstr` (51,508 B), not bsc's real output (54,640 B). The byte deltas stand (+5,204 and +6,348). Against bsc's real baseline the figures are about **9.5% and 11.6%**, not 10.1% and 12.3%.
+- **Compile-time figures** quoted for Shop and Stream appear in no stored output. The stored lines differ; the conclusion (roughly +0.7 to 0.9 ms on a 5 ms module) is consistent with the stored data.
+- **"No per-call cost"** (probe 14) has no sensitivity control, so "within noise" says little.
+- **"No other BEAM language ships aliases"** is unprobed. Probe 18 measures only Elixir stdlib quoting.
+- **Not probed at all:** the dialyzer claim about an alias without a copied spec, Observer showing both names, and `private_names` / `authors_exports` / `defined` needing to hide aliases (code reading only).
+- **Gleam module names:** a PascalCase module file gives a warning and is not built; it is not rejected at the parser as section 0 says. PascalCase function names are a syntax error, as stated.
+- **Citations:** LANGUAGE.md:3460 is worded differently from the sentence it is grouped with. LANGUAGE.md:1618 does not support "builtins stay lowercase" (the builtin table is near line 577). The ticket 35 quote is at line 132 and reads "without", not "with no".

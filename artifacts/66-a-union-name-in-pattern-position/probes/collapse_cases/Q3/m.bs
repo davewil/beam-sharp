@@ -1,0 +1,8 @@
+module Q3
+
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B | :ok
+public atom H(C c)
+H(c) -> :x

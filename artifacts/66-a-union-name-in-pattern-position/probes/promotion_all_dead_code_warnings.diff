@@ -1,0 +1,39 @@
+--- /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/bsc-build/src/bs_check.erl	2026-10-25 23:07:29.298449233 +0000
++++ src/bs_check.erl	2026-10-25 23:26:31.890894155 +0000
+@@ -3938,11 +3938,11 @@
+                            {map_pattern_deferred, arm, Declared}}];
+                      false ->
+                  case redundancy(PTy, Possible, Residual, Declared) of
+-                     vacuous    -> [{warning, AL, C#ctx.fname,
++                     vacuous    -> [{error, AL, C#ctx.fname,
+                                      {vacuous_arm, N, Declared}}];
+-                     dead_guard -> [{warning, AL, C#ctx.fname,
++                     dead_guard -> [{error, AL, C#ctx.fname,
+                                      {unsatisfiable_arm_guard, N}}];
+-                     shadowed   -> [{warning, AL, C#ctx.fname,
++                     shadowed   -> [{error, AL, C#ctx.fname,
+                                      {unreachable_arm, N}}];
+                      live       -> []
+                  end
+@@ -4022,7 +4022,7 @@
+              %% empty source has no element to match, so nothing is vacuous.
+              false ->
+                  case bs_types:is_none(Elem) orelse redundancy(PTy, PTy, Elem, Elem) of
+-                     vacuous -> [{warning, L, C#ctx.fname, {vacuous_generator, Elem}}];
++                     vacuous -> [{error, L, C#ctx.fname, {vacuous_generator, Elem}}];
+                      _       -> []
+                  end
+          end,
+@@ -4782,9 +4782,9 @@
+     %% distinguish out-of-domain patterns from shadowing and impossible guards.
+     Diags1 =
+         case redundancy(Base, Possible, Residual, Declared) of
+-            vacuous    -> [{warning, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
+-            dead_guard -> [{warning, CLine, Name, {unsatisfiable_guard, N}} | Diags];
+-            shadowed   -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
++            vacuous    -> [{error, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
++            dead_guard -> [{error, CLine, Name, {unsatisfiable_guard, N}} | Diags];
++            shadowed   -> [{error, CLine, Name, {unreachable_clause, N}} | Diags];
+             live       -> Diags
+         end,
+     Diags2 = catch_all_diags(C, Residual, CLine, Name, record_names(Env)) ++ Diags1,

@@ -1,0 +1,8 @@
+module Q6
+
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+public atom H(C | map<atom, term> c)
+H(c) -> :x

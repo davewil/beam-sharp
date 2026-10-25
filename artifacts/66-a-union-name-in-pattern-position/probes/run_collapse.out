@@ -1,0 +1,64 @@
+=== Q1
+record A { Id: int }
+record B { Id: int }
+
+// a record absorbed by a wider structural member of the same union
+type C = A | B | map<atom, term>
+public atom H(C c)
+H(c) -> :x
+--- stock rc/out:
+rc=0
+=== Q2
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+type C2 = C | A
+public atom H(C2 c)
+H(c) -> :x
+--- stock rc/out:
+Q2/m.bs:7:1: error: `{ Kind: :'Q2.A', Id: int }` is absorbed by `{ Kind: :'Q2.A', Id: int } | { Kind: :'Q2.B', Id: int }`
+  in C2
+  every value of `{ Kind: :'Q2.A', Id: int }` is already a `{ Kind: :'Q2.A', Id: int } | { Kind: :'Q2.B', Id: int }`, so the type declared here
+  IS `{ Kind: :'Q2.A', Id: int } | { Kind: :'Q2.B', Id: int }` and the member you wrote is not in it.
+  Delete the absorbed member, or narrow the one absorbing it -
+  which of those you meant is not something the compiler can tell.
+rc=1
+=== Q3
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B | :ok
+public atom H(C c)
+H(c) -> :x
+--- stock rc/out:
+rc=0
+=== Q4
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+// the tagged-failure shape of ticket 15 section 1, over a record union
+public C | (:error, binary) Mk(int i)
+Mk(i) -> A { Id = i }
+--- stock rc/out:
+rc=0
+=== Q5
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+type R = C | atom
+public atom H(R c)
+H(c) -> :x
+--- stock rc/out:
+rc=0
+=== Q6
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+public atom H(C | map<atom, term> c)
+H(c) -> :x
+--- stock rc/out:
+rc=0

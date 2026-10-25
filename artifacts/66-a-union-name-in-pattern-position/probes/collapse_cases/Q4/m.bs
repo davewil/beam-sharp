@@ -1,0 +1,9 @@
+module Q4
+
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+// the tagged-failure shape of ticket 15 section 1, over a record union
+public C | (:error, binary) Mk(int i)
+Mk(i) -> A { Id = i }

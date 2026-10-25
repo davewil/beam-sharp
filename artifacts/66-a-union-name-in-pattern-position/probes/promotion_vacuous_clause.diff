@@ -1,0 +1,11 @@
+--- bsc-build/src/bs_check.erl	2026-10-25 23:07:29.298449233 +0000
++++ 66/promo/src/bs_check.erl	2026-10-25 23:10:22.968806134 +0000
+@@ -4782,7 +4782,7 @@
+     %% distinguish out-of-domain patterns from shadowing and impossible guards.
+     Diags1 =
+         case redundancy(Base, Possible, Residual, Declared) of
+-            vacuous    -> [{warning, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
++            vacuous    -> [{error, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
+             dead_guard -> [{warning, CLine, Name, {unsatisfiable_guard, N}} | Diags];
+             shadowed   -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
+             live       -> Diags
