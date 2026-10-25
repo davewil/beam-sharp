@@ -11,3 +11,9 @@ Ledger base_rc=0 promo_rc=0 warnings=0
 Levels base_rc=0 promo_rc=0 warnings=0
 Math base_rc=0 promo_rc=0 warnings=0
 Names base_rc=0 promo_rc=0 warnings=0
+Parcel base_rc=0 promo_rc=0 warnings=0
+Pipeline base_rc=0 promo_rc=0 warnings=0
+Queue base_rc=0 promo_rc=0 warnings=0
+Readings base_rc=0 promo_rc=0 warnings=0
+Shop base_rc=0 promo_rc=0 warnings=0
+Shop/Billing base_rc=0 promo_rc=0 warnings=0
