@@ -386,3 +386,16 @@ every cell because `$?` was read after a command substitution, and was fixed (th
 
 Scratch artefacts (compiler copies, trees) are in `scratchpad/66/`. Stray `compiler/_build` and
 `*.abstr`/`*.beam` that the test runs wrote into the repo were removed (gitignored, mine).
+
+## Errata from independent verification (verification.md)
+
+The verifier rebuilt stock from HEAD and applied each `.diff` to a fresh copy. No probe is patched-to-pass, hard-coded or filtered. Corrections:
+
+- **"0 of 37 gates" is overstated.** With the compiler shim replaced by `exit 7`, 34 of 37 gates go red; `check-feature-scenarios`, `check-no-silent-skip` and `check-record-idiom` stay green and cannot see any compiler change, and `check-helper-agrees` is red at baseline. Effective count: **0 of 33 informative gates**. "No gate reads severity" is not measured; 10 gates mention "warning".
+- **"28 examples byte-identical" is vacuous for union-versus-duplicated equivalence.** Stock refuses `C c`, so no example uses the new syntax and any additive patch would pass. It supports only "changes nothing shipped"; section 9 leaning on it as a reason for B is weak. The corpus run also skips `compiler/examples/exemplars/` (46 files, none compile on stock). The harness itself is sensitive (a renamed variable prefix reports 2 differences).
+- **Mild circularity in the 3c matrix** (E5 vs E6 use two inputs the predicate was written to separate). The scale table uses byte-identical bodies, the best case for the union; a shared-helper alternative was not measured.
+- **Section 9's "0 for 3c" drops a qualifier** that section 5 states: the full 1508-test suite run for 3c was abandoned, and the figure is for the nine affected modules only. 3b adds exactly 4 failures; 3c adds 0 in those modules; promoting all seven warnings adds 19 newly failing tests (the brief's 18 is a net figure).
+- **Scale numbers:** at N=20 the verifier got 5844 vs 2416 bytes against the brief's 5824 vs 2392 (longer scratch path; ratios unchanged).
+- **Option C's `list<int>` unsoundness** was re-derived independently: `[1, :x]` returns `:ints` on the prototype, because it lacks `part_test` gating. Record prefix versus `type_test` depth also confirmed.
+- **Citations:** `map_arm_deferred` is at `bs_check.erl:3933-3935`, not 3939. The quote "if either is answered as a rule about names, the other is inside it" is ticket 66 line 145, not 85 (85 line 74 says the equivalent).
+- Elm: no claim is made (registry blocked); Gleam `c: Shape` probe and Elixir idiom 3 do not discriminate what they are cited for.
