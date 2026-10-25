@@ -1,0 +1,9 @@
+module MPut
+public map<string, term> P(map<string, term> m)
+P(m) -> Map.Put(m, "k", 1)
+public list<(string, term)> L(map<string, term> m)
+L(m) -> Map.ToList(m)
+public map<string, term> F()
+F() -> Map.FromList([("a", 1), ("b", :x)])
+public list<(string, term)> Run()
+Run() -> Map.ToList(F())

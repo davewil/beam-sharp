@@ -1,0 +1,17 @@
+module Opt2
+
+type Maybe<T> = (:some, T) | :nothing
+
+private Maybe<V> Find<V>(list<(atom, V)> xs, atom k)
+Find([], k) -> :nothing
+Find([(kk, v), ..rest], k) when kk == k -> (:some, v)
+Find([_, ..rest], k) -> Find(rest, k)
+
+public Maybe<term> AtTerm(list<(atom, term)> xs)
+AtTerm(xs) -> Find(xs, :a)
+
+public atom Kind(list<(atom, term)> xs)
+Kind(xs) -> AtTerm(xs) switch { (:some, :nothing) => :stored_nothing, (:some, v) => :present, :nothing => :absent }
+
+public Maybe<int> AtInt(list<(atom, int)> xs)
+AtInt(xs) -> Find(xs, :a)

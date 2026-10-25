@@ -1,0 +1,11 @@
+module E3
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+
+type C = A | B
+type D = A | B | :none
+
+public atom Handle(D d)
+Handle(C c) -> :c
+Handle(:none) -> :none

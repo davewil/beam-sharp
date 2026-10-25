@@ -1,0 +1,5 @@
+run 1: plain 53.8 ns/call, stacktrace-guarded 682.1 ns/call
+run 2: plain 28.8 ns/call, stacktrace-guarded 621.2 ns/call
+run 3: plain 33.5 ns/call, stacktrace-guarded 525.3 ns/call
+run 4: plain 22.3 ns/call, stacktrace-guarded 443.8 ns/call
+run 5: plain 30.8 ns/call, stacktrace-guarded 478.8 ns/call

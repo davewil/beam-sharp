@@ -1,0 +1,6 @@
+module Test.Shop.Orders
+
+using Shop.Orders
+
+public int Check(int n)
+Check(n) -> Total(n)

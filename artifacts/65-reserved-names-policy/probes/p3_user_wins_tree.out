@@ -1,0 +1,36 @@
+######## bsc: App.Go 5  (user Map.Size(5): 1005 if the user wins)
+p3-bsc/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+  `Map.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Map` is still legal, and
+  so is any other path with `Map` as a segment.
+######## bsc: App.Via #{a=>1}  (calls Lib.Count, whose Map.Size is std: 1 if the dependency is unaffected)
+p3-bsc/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+  `Map.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Map` is still legal, and
+  so is any other path with `Map` as a segment.
+######## bsc: AppB.Go 5  (using Map, then std Map.FromList: the shadow's cost)
+p3-bsc/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+  `Map.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Map` is still legal, and
+  so is any other path with `Map` as a segment.
+######## bsc: does Lib's beam still import maps (std row) and no capitalised module?
+######## bsc-opt3: App.Go 5  (user Map.Size(5): 1005 if the user wins)
+1005
+######## bsc-opt3: App.Via #{a=>1}  (calls Lib.Count, whose Map.Size is std: 1 if the dependency is unaffected)
+1
+######## bsc-opt3: AppB.Go 5  (using Map, then std Map.FromList: the shadow's cost)
+p3-bsc-opt3/src/AppB/AppB.bs:6:22: error: Go calls Map.FromList/1, which nothing declares
+  every function has a signature. Write one, or fix the name.
+######## bsc-opt3: does Lib's beam still import maps (std row) and no capitalised module?
+App.abstr
+App.beam
+Lib.abstr
+Lib.beam
+Map.abstr
+Map.beam
+App.beam imports ['Lib','Map',erlang]
+Lib.beam imports [erlang]
+Map.beam imports [erlang]

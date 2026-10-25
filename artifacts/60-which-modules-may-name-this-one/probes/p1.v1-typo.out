@@ -1,0 +1,20 @@
+## Reports (a sibling subtree) calls public RecomputeTax -> expect compiles
+src/Shop/Orders/Total.bs:8:30: error: RecomputeTotal calls List.Sum/2, and `List.Sum` takes 1 argument
+  the operations under a reserved qualifier are the compiler's own,
+  so the arity is fixed rather than overloadable.
+exit=1
+## OrdersTest (the 'test boundary' consumer) calls public RecomputeTax -> compiles today: nothing says no
+src/Shop/Orders/Total.bs:8:30: error: RecomputeTotal calls List.Sum/2, and `List.Sum` takes 1 argument
+  the operations under a reserved qualifier are the compiler's own,
+  so the arity is fixed rather than overloadable.
+exit=1
+## OrdersTest2 calls the private RecomputeTotal -> CONTROL: must be refused
+src/Shop/Orders/Total.bs:8:30: error: RecomputeTotal calls List.Sum/2, and `List.Sum` takes 1 argument
+  the operations under a reserved qualifier are the compiler's own,
+  so the arity is fixed rather than overloadable.
+exit=1
+## --api of Shop.Orders (what 24 s2 says classifies the boundary)
+module Shop.Orders
+int RecomputeTax(int)
+int Total(list<int>)
+exit=0

@@ -1,0 +1,7 @@
+outsider calls hidden module + hidden fun: {10, 50}
+** (ArgumentError) errors were found at the given arguments:
+
+  * 1st argument: out of range
+
+    :erlang.element(5, {:error, :module_not_found})
+    ex/hidden.exs:16: (file)

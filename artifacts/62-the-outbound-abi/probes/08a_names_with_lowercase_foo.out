@@ -1,0 +1,2 @@
+08_names/Names/Names.bs:24:12: error: syntax error before: foo
+(finding: a lowercase-initial function name is a SYNTAX error in B#, so the `Foo` vs `foo` collision cannot arise; see 08b for the rest)

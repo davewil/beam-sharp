@@ -1,0 +1,23 @@
+OTP 29 modules in lib/*/ebin: 1321
+distinct single-segment B# corpus module names: 81
+--- corpus names whose lowercase is an OTP module:
+  Math -> math
+  Queue -> queue
+--- the planned roster (ticket 96) and the reserved four, lowercased, vs OTP:
+  List -> list (not an OTP module)
+  Map -> map (not an OTP module)
+  Term -> term (not an OTP module)
+  Float -> float (not an OTP module)
+  Enum -> enum (not an OTP module)
+  String -> string is an OTP module
+  Int -> int is an OTP module
+  Process -> process (not an OTP module)
+  GenServer -> genserver (not an OTP module)
+  Supervisor -> supervisor is an OTP module
+  Logger -> logger is an OTP module
+  System -> system (not an OTP module)
+  Task -> task (not an OTP module)
+  Agent -> agent (not an OTP module)
+  Binary -> binary is an OTP module
+  Json -> json is an OTP module
+  Peer -> peer is an OTP module

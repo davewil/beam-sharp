@@ -1,0 +1,8 @@
+  Resolving versions
+  Compiling caller
+   Compiled in 0.43s
+caller:run() = order
+caller:shop_new(3) = #{'Kind' => 'Shop.Order','Total' => 0,'Id' => 3}
+=== NEGATIVE: external naming a non-existent B# function must fail at runtime (undef)
+   Compiled in 0.41s
+error:undef

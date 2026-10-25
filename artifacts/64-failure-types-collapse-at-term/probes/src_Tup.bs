@@ -1,0 +1,3 @@
+module Tup
+public result<(atom, binary), binary> A(int k)
+A(k) -> (:error, "x")

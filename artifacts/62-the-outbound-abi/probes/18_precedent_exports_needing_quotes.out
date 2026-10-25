@@ -1,0 +1,13 @@
+18_precedent_exports_needing_quotes.escript:16:1: Warning: function strip/1 is unused
+%   16| strip(S) -> [C || C <- S, C =/= $? , C =/= $!].
+%     | ^
+
+Elixir.Enum      exports= 117 need-quotes-from-Erlang=  9
+Elixir.File      exports=  86 need-quotes-from-Erlang= 48
+Elixir.Integer   exports=  22 need-quotes-from-Erlang=  3
+Elixir.Kernel    exports= 162 need-quotes-from-Erlang= 99
+Elixir.Keyword   exports=  51 need-quotes-from-Erlang= 10
+Elixir.List      exports=  46 need-quotes-from-Erlang= 10
+Elixir.Map       exports=  43 need-quotes-from-Erlang=  8
+Elixir.Path      exports=  25 need-quotes-from-Erlang=  1
+Elixir.String    exports=  78 need-quotes-from-Erlang= 11

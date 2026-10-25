@@ -1,0 +1,13 @@
+module RecSome
+
+record Some<T> { Value: T }
+
+type Found<T> = Some<T> | :nothing
+
+private Found<V> Find<V>(list<(atom, V)> xs, atom k)
+Find([], k) -> :nothing
+Find([(kk, v), ..rest], k) when kk == k -> Some{ Value = v }
+Find([_, ..rest], k) -> Find(rest, k)
+
+public atom Kind(list<(atom, term)> xs)
+Kind(xs) -> Find(xs, :a) switch { Some{ Value: :nothing } => :stored_nothing, Some{ Value: v } => :present, :nothing => :absent }

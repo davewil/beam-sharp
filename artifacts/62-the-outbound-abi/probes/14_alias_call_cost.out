@@ -1,0 +1,8 @@
+### alias style local
+original   'Amount'/1 us (5 runs sorted, 5M calls): [90371,90474,91018,92000,
+                                                     99311]
+alias      amount/1   us: [87684,88129,90647,93814,101364]
+### alias style remote
+original   'Amount'/1 us (5 runs sorted, 5M calls): [90229,91080,91944,92774,
+                                                     96440]
+alias      amount/1   us: [91898,92144,92892,93667,97561]

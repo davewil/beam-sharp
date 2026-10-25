@@ -1,0 +1,4 @@
+module T_result_int_term
+
+public result<int, term> Find(int k)
+Find(k) -> :nothing

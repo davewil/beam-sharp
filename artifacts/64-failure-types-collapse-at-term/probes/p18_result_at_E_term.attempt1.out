@@ -1,0 +1,11 @@
+module RE
+int | (:error, term) Parse(binary)
+atom Show(binary)
+int | (:error, term) Terms(binary)
+Show "1" -> :ok
+Show "x" -> :bad_input
+--- controls: E=term is fine; T that already holds an (:error, _) tuple still collides, whatever E is
+result<(:error, int), atom>        accepted
+result<(atom, int), term>          accepted
+result<(:ok, int), term>           accepted
+result<list<term>, term>           accepted

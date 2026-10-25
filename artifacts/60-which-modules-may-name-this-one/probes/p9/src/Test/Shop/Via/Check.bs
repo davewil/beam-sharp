@@ -1,0 +1,6 @@
+module Test.Shop.Via
+
+using Shop.Support
+
+public int Check(int n)
+Check(n) -> Math.RecomputeTax(n)

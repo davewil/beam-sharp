@@ -1,0 +1,8 @@
+MP/MP.bs:4:1: error: Who destructures a map whose keys are not a fixed list
+  the parameter's type is: map<string, term>
+  `map<K, V>` ships as a type — declare it, pass it, store it,
+  return it — but matching one in a clause head is not built. A pattern
+  over an unbounded key set cannot be proved exhaustive, which is
+  the guarantee every other head in this language keeps.
+  Bind the whole map and read it, or declare a record if the keys
+  are known.

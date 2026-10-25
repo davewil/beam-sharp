@@ -1,0 +1,10 @@
+module P9
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type D = C | :none
+public atom H(D d)
+H(d) -> d switch { C c => :c, :none => :none }

@@ -1,0 +1,38 @@
+OTP 29
+=== t_list: erlc 
+t_list.erl:3:2: Warning: local redefinition of built-in type: list()
+%    3| -type list() :: {my, list}.
+%     |  ^
+
+exit=0
+=== t_atom: erlc 
+t_atom.erl:3:2: Warning: local redefinition of built-in type: atom()
+%    3| -type atom() :: integer().
+%     |  ^
+
+exit=0
+=== t_atom_nowarn: erlc 
+t_atom_nowarn.erl:4:2: Warning: local redefinition of built-in type: atom()
+%    4| -type atom() :: integer().
+%     |  ^
+
+exit=0
+=== t_mine: erlc 
+exit=0
+=== t_int_warn: erlc 
+t_int_warn.erl:3:2: Warning: local redefinition of built-in type: integer()
+%    3| -type integer() :: atom().
+%     |  ^
+
+exit=0
+=== t_int_nowarn: erlc 
+exit=0
+=== does the shadow take effect? (t_int_warn spec uses integer() = atom(); dialyzer-free check via abstract code)
+{attribute,{3,2},type,{integer,{type,{3,20},atom,[]},[]}}
+{attribute,{4,2},
+           spec,
+           {{f,1},
+            [{type,{4,8},
+                   'fun',
+                   [{type,{4,8},product,[{type,{4,9},integer,[]}]},
+                    {atom,{4,23},ok}]}]}}

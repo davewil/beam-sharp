@@ -1,0 +1,9 @@
+module Shop.Bypass
+
+// No `using Shop.Orders`. Name the callee's compiled atom as a foreign module instead.
+using :'Shop.Orders' {
+    int RecomputeTax(int net)
+}
+
+public int Probe(int n)
+Probe(n) -> RecomputeTax(n)

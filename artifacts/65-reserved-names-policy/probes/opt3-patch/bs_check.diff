@@ -1,0 +1,38 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-25 23:05:30.034087231 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/opt3/src/bs_check.erl	2026-10-25 23:11:11.514899159 +0000
+@@ -241,7 +241,7 @@
+ reserved_module_name(Module, Sources) ->
+     %% A protocol's name qualifies its operations as a reserved qualifier does
+     %% (F64), so a module of that name would never be reached.
+-    case lists:member(Module, reserved_qualifiers() ++ maps:keys(protocol_table())) of
++    case lists:member(Module, maps:keys(protocol_table())) of
+         false -> ok;
+         true  ->
+             %% The fallback must include both line and column for `bs_diag`.
+@@ -1698,6 +1698,15 @@
+ %% `Map` is reserved even without operations.
+ reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
+ 
++%% PROTOTYPE (ticket 65 probe, not in the repo): option 3. A module imported under
++%% the qualifier's own name wins; the standard row is shadowed in this module only.
++user_wins(Mod0, L, C) ->
++    Imps = C#ctx.imports,
++    W = lists:member(Mod0, maps:get(imported, Imps, [])) orelse
++        maps:get(Mod0, maps:get(mods, Imps, #{}), []) =/= [],
++    case W of true -> put({user_wins, Mod0, L}, true); _ -> ok end,
++    W.
++
+ %% The standard environment's rows: `{Qualifier, Name, Arity}` and the OTP
+ %% function that already does it, or `generated` where none answers in B#'s
+ %% terms. The signature half of each row is `reserved_sig/4`. Keys include
+@@ -3238,8 +3247,9 @@
+     %% Handle reserved qualifiers before import resolution: they have no
+     %% entries in the import tables. A protocol's name qualifies its
+     %% operations the same way (F64).
++    UserWins = user_wins(Mod0, L, C),
+     case {maps:is_key(Mod0, protocol_table()),
+-          lists:member(Mod0, reserved_qualifiers())} of
++          (not UserWins) andalso lists:member(Mod0, reserved_qualifiers())} of
+         {true, _} -> protocol_call(L, Mod0, Fun, Args, S, C);
+         {_, true} -> reserved_call(L, Mod0, Fun, Args, S, C);
+         _ ->

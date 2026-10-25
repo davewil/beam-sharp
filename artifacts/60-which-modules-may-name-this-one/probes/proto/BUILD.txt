@@ -1,0 +1,3 @@
+cp -r scratchpad/bsc-build/src proto/src; patch -p0 each file per within-only.patch (paths are repo-relative a/ b/ pairs; or apply with `patch bs_check.erl`),
+then: erl -noshell -eval 'leex:file("bs_lexer.xrl"), yecc:file("bs_parser.yrl"), halt().' && erlc -o ../ebin +debug_info *.erl
+Prototype only. Repo compiler/src is untouched. Ebin used by p9.sh etc.: scratchpad/60/proto/ebin

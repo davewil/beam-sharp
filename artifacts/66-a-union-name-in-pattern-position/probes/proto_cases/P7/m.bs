@@ -1,0 +1,10 @@
+module P7
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type U = A | B | int
+public atom H(U u)
+H(U x) -> :u

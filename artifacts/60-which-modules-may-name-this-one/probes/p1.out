@@ -1,0 +1,16 @@
+## Reports (a sibling subtree) calls public RecomputeTax -> expect compiles
+36
+exit=0
+## OrdersTest (the 'test boundary' consumer) calls public RecomputeTax -> compiles today: nothing says no
+10
+exit=0
+## OrdersTest2 calls the private RecomputeTotal -> CONTROL: must be refused
+src/Shop/OrdersTest2/Check2.bs:6:14: error: Probe2 calls RecomputeTotal/1, which Shop.Orders declares `private`
+  a private function is not exported, so no other module can
+  reach it. Mark it `public` in Shop.Orders, or move the call inside it.
+exit=1
+## --api of Shop.Orders (what 24 s2 says classifies the boundary)
+module Shop.Orders
+int RecomputeTax(int)
+int Total(list<int>)
+exit=0

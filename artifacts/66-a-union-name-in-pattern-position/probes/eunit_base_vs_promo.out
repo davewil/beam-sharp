@@ -1,0 +1,60 @@
+== /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/bsc-build
+**error:{assertNotEqual,[{module,visibility_tests},
+                 {line,202},
+                 {expression,"string : find ( Out , What )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+visibility_tests: a_public_function_is_reachable_across_modules_test...*failed*
+in function visibility_tests:said/2 (test/visibility_tests.erl, line 202)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 286)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 558)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 382)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 541)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 483)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 372)
+**error:{assertNotEqual,[{module,visibility_tests},
+                 {line,202},
+                 {expression,"string : find ( Out , What )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+  SKIPPED (no escript \x{2014} run `rebar3 escriptize`)
+=======================================================
+  Failed: 499.  Skipped: 0.  Passed: 1009.
+error
+
+real	0m24.675s
+user	0m19.826s
+sys	0m3.925s
+== /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/66/promo
+**error:{assertNotEqual,[{module,visibility_tests},
+                 {line,202},
+                 {expression,"string : find ( Out , What )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+visibility_tests: a_public_function_is_reachable_across_modules_test...*failed*
+in function visibility_tests:said/2 (test/visibility_tests.erl, line 202)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 286)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 558)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 382)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 541)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 483)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 372)
+**error:{assertNotEqual,[{module,visibility_tests},
+                 {line,202},
+                 {expression,"string : find ( Out , What )"},
+                 {value,nomatch}]}
+  output:<<"">>
+
+  SKIPPED (no escript \x{2014} run `rebar3 escriptize`)
+=======================================================
+  Failed: 503.  Skipped: 0.  Passed: 1005.
+error
+
+real	0m24.669s
+user	0m20.376s
+sys	0m3.217s

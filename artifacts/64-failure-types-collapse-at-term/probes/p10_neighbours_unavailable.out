@@ -1,0 +1,10 @@
+--- npm gleam_stdlib
+npm error code E404
+npm error 404 Not Found - GET https://registry.npmjs.org/gleam_stdlib - Not found
+--- pip gleam_stdlib
+ERROR: No matching distribution found for gleam_stdlib
+--- find dict.gleam / Dict.elm on disk
+--- elm package cache (elm/core would live here)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/elmhome/.elm/0.19.3/packages/lock
+--- gleam binary embeds stdlib dict.gleam?
+0

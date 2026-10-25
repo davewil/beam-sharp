@@ -1,0 +1,9 @@
+Elixir.Enum      exports= 117 need-quotes-from-Erlang=  9  of-which-have-same-named-unquoted-twin=3
+Elixir.File      exports=  86 need-quotes-from-Erlang= 48  of-which-have-same-named-unquoted-twin=39
+Elixir.Integer   exports=  22 need-quotes-from-Erlang=  3  of-which-have-same-named-unquoted-twin=3
+Elixir.Kernel    exports= 162 need-quotes-from-Erlang= 99  of-which-have-same-named-unquoted-twin=91
+Elixir.Keyword   exports=  51 need-quotes-from-Erlang= 10  of-which-have-same-named-unquoted-twin=7
+Elixir.List      exports=  46 need-quotes-from-Erlang= 10  of-which-have-same-named-unquoted-twin=4
+Elixir.Map       exports=  43 need-quotes-from-Erlang=  8  of-which-have-same-named-unquoted-twin=6
+Elixir.Path      exports=  25 need-quotes-from-Erlang=  1  of-which-have-same-named-unquoted-twin=1
+Elixir.String    exports=  78 need-quotes-from-Erlang= 11  of-which-have-same-named-unquoted-twin=1

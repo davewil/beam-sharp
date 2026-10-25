@@ -1,0 +1,13 @@
+module Fx
+
+public map<string, term> Sample()
+Sample() -> Map.FromList([("user_id", 42), ("flag", :nothing)])
+
+public atom Kind(string k)
+Kind(k) -> Map.Fetch(Sample(), k) switch { (:ok, :nothing) => :stored_nothing, (:ok, v) => :present, :error => :absent }
+
+public term Strict(string k)
+Strict(k) -> Map.Get(Sample(), k)
+
+public (:ok, term) | :error Raw(string k)
+Raw(k) -> Map.Fetch(Sample(), k)

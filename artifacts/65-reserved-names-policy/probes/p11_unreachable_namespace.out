@@ -1,0 +1,38 @@
+######## bsc: App Mine [1,2,3]
+p11-bsc/src/List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+  `List.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.List` is still legal, and
+  so is any other path with `List` as a segment.
+######## bsc: App Theirs [1,2,3]
+p11-bsc/src/List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+  `List.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.List` is still legal, and
+  so is any other path with `List` as a segment.
+######## bsc: App Dep [1,2,3]
+p11-bsc/src/List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+  `List.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.List` is still legal, and
+  so is any other path with `List` as a segment.
+######## bsc: Std Go 1
+1
+######## bsc: Old Go [1,2,3]
+6
+######## bsc-opt2: App Mine [1,2,3]
+1000
+######## bsc-opt2: App Theirs [1,2,3]
+6
+######## bsc-opt2: App Dep [1,2,3]
+6
+######## bsc-opt2: Std Go 1
+p11-bsc-opt2/src/Std/Std.bs:1:1: error: `Std` is a reserved qualifier, so no module may be called it
+  `Std.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Std` is still legal, and
+  so is any other path with `Std` as a segment.
+######## bsc-opt2: Old Go [1,2,3]
+p11-bsc-opt2/src/Old/Old.bs:4:15: error: List is called but never imported
+  add `using List` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.

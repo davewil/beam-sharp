@@ -1,0 +1,10 @@
+## HEAD compiler, no within: Shop.Orders (parent) calling child module
+60
+## HEAD compiler, no within: Shop.Reports (sibling) calling the child module -> accepted
+10
+## patched, within Shop.Orders: parent
+60
+## patched, within Shop.Orders: sibling Reports -> refused
+src/Shop/Reports/Gross.bs:3:1: error: Shop.Reports may not name Shop.Orders.Internal
+  Shop.Orders.Internal declares `within Shop.Orders`: only that subtree may name it
+p11 beams: Shop.Orders.Internal.beam Shop.Orders.beam

@@ -1,0 +1,9 @@
+module P5
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+public atom H((C, int) p)
+H((C c, n)) -> :c

@@ -1,0 +1,25 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-25 23:05:30.034087231 +0000
++++ 65/opt2/src/bs_emit.erl	2026-10-25 23:15:48.451758126 +0000
+@@ -1046,8 +1046,9 @@
+                  [{clause, L, [{atom, L, T}], [], [Call(M, F, V)]}
+                   || {T, M, F} <- Targets]}]}]}
+     end;
+-expr({e_qcall, L, Mod, Fn, As}, C) ->
+-    case lists:member(Mod, bs_check:reserved_qualifiers()) of
++expr({e_qcall, L, Mod0, Fn, As}, C) ->
++    {Mod, IsStd} = case bs_check:std_name(Mod0) of {ok, Q} -> {Q, true}; none -> {Mod0, false} end,
++    case IsStd of
+         true ->
+             Key = {Mod, Fn, length(As)},
+             Es = [expr(A, C) || A <- As],
+@@ -2098,8 +2099,8 @@
+ 
+ reserved_forms(Fns) ->
+     Used = lists:usort([{M, F, length(As)}
+-                        || {e_qcall, _, M, F, As} <- qcall_nodes(Fns),
+-                           lists:member(M, bs_check:reserved_qualifiers())]),
++                        || {e_qcall, _, M0, F, As} <- qcall_nodes(Fns),
++                           {ok, M} <- [bs_check:std_name(M0)]]),
+     lists:append([reserved_form(K) || K <- Used,
+                                       bs_check:standard_target(K) =:= generated])
+     ++ lists:append([fold_flip_form()

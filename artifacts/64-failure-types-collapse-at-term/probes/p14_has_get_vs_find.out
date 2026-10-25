@@ -1,0 +1,4 @@
+maps:find (tagged)         min   22559 med   23303 max   30709 us  result 500000000
+is_key + get (pair)        min   14854 med   15780 max   18163 us  result 500000000
+get/3 sentinel (bare)      min    9802 med   14447 max   15276 us  result 500000000
+stored nothing, get/3 sentinel: nothing ; find: {ok,nothing}

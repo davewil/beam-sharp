@@ -1,0 +1,8 @@
+reserved qualifiers (bs_check:reserved_qualifiers/0): ['List','Map','Term',
+                                                       'Float']
+is_protocol('Enumerable')=true  is_protocol('Foo')=false (control)
+operations (rows) in standard_table: 30
+  'List': 16 rows
+  'Map': 12 rows
+  'Term': 1 rows
+  'Float': 1 rows

@@ -1,0 +1,9 @@
+{:one, %A{id: 1}, {:member, 1}}
+{:one, %B{id: 2}, {:member, 2}}
+{:one, %E{id: 3}, :other}
+{:one, 5, :other}
+{:two, %A{id: 1}, {:member, 1}}
+{:two, %B{id: 2}, {:member, 2}}
+{:two, %E{id: 3}, :other}
+{:two, 5, :other}
+:e

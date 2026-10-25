@@ -1,0 +1,67 @@
+gleam 1.19.1
+=== control: empty project builds
+exit=0
+=== user type Result/List shadowing prelude types (and constructors Ok/Error/Nil)
+exit=0
+=== user type Bool with constructors True/False
+src/probe.gleam:0: Warning: local redefinition of built-in type: bool()
+src/probe.gleam:0: Warning: type bool() is now called boolean(); please use the new name instead
+exit=0
+=== local module src/gleam/list.gleam
+exit=0
+=== local module src/list.gleam
+exit=0
+=== local module src/gleam/erlang.gleam
+exit=0
+=== local module src/erlang.gleam
+error: Erlang module name collision
+
+The module
+`/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/s
+cratchpad/65/p7/probe/src/erlang.gleam` compiles to an Erlang module named
+`erlang`.
+
+By default Erlang includes a module with the same name so if we were to
+compile and load your module it would overwrite the Erlang one, potentially
+causing confusing errors and crashes.
+
+Hint: Rename this module and try again.
+
+exit=1
+=== local module src/lists.gleam
+error: Erlang module name collision
+
+The module
+`/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/s
+cratchpad/65/p7/probe/src/lists.gleam` compiles to an Erlang module named
+`lists`.
+
+By default Erlang includes a module with the same name so if we were to
+compile and load your module it would overwrite the Erlang one, potentially
+causing confusing errors and crashes.
+
+Hint: Rename this module and try again.
+
+exit=1
+=== local module src/maps.gleam
+error: Erlang module name collision
+
+The module
+`/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/s
+cratchpad/65/p7/probe/src/maps.gleam` compiles to an Erlang module named
+`maps`.
+
+By default Erlang includes a module with the same name so if we were to
+compile and load your module it would overwrite the Erlang one, potentially
+causing confusing errors and crashes.
+
+Hint: Rename this module and try again.
+
+exit=1
+=== local module src/gleam.gleam
+error: Reserved module name
+
+The module name `gleam` is reserved.
+Try a different name for this module.
+
+exit=1

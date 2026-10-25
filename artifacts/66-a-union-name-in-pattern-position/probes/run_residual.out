@@ -1,0 +1,42 @@
+=== R1
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+type D = C | :none
+
+public atom H(D d)
+H(:none) -> :none
+--- stock bsc:
+R1/m.bs:9:13: error: H is not exhaustive
+  no clause matches:
+    H(A a) -> ...
+    H(B b) -> ...
+--- --diagnostics json:
+{"function":"H","line":9,"tag":"inexhaustive","file":"R1/m.bs","column":13,"severity":"error","heads":{"kind":"products","products":[[["{ Kind: :'R1.A' }","{ Kind: :'R1.B' }"]]],"pasteable":["H(A a) -> ...","H(B b) -> ..."]},"residual":"({ Kind: :'R1.A' } | { Kind: :'R1.B' })"}
+R1/m.bs:9:13: error: H is not exhaustive
+  no clause matches:
+    H(A a) -> ...
+    H(B b) -> ...
+
+=== R2
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+type F = C | E
+
+public atom H(F d)
+H(E e) -> :e
+--- stock bsc:
+R2/m.bs:9:13: error: H is not exhaustive
+  no clause matches:
+    H(A a) -> ...
+    H(B b) -> ...
+--- --diagnostics json:
+{"function":"H","line":9,"tag":"inexhaustive","file":"R2/m.bs","column":13,"severity":"error","heads":{"kind":"products","products":[[["{ Kind: :'R2.A' }","{ Kind: :'R2.B' }"]]],"pasteable":["H(A a) -> ...","H(B b) -> ..."]},"residual":"({ Kind: :'R2.A' } | { Kind: :'R2.B' })"}
+R2/m.bs:9:13: error: H is not exhaustive
+  no clause matches:
+    H(A a) -> ...
+    H(B b) -> ...
+

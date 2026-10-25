@@ -1,0 +1,67 @@
+=== option<term> ===
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_option_term/T_option_term.bs:3:21: error: `:nothing` is absorbed by `term`
+  in Find
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, term) | :nothing
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_option_term/T_option_term.bs:3:21: error: `:nothing` is absorbed by `term`
+  in Find
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, term) | :nothing
+=== result<term, atom> ===
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_result_term_atom/T_result_term_atom.bs:3:27: error: `(:error, atom)` is absorbed by `term`
+  in Find
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  The failure member already carries its tag, so tagging it again
+  repairs nothing: narrow the success type until it cannot hold an
+  `(:error, ...)` of its own.
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_result_term_atom/T_result_term_atom.bs:3:27: error: `(:error, atom)` is absorbed by `term`
+  in Find
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  The failure member already carries its tag, so tagging it again
+  repairs nothing: narrow the success type until it cannot hold an
+  `(:error, ...)` of its own.
+=== result<int, term> ===
+module T_result_int_term
+int | (:error, term) Find(int)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_result_int_term/T_result_int_term.bs:4:1: error: Find returns a value its signature does not declare
+  not covered by the declared return type:
+    :nothing
+  If `result<int, term>` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
+    public result<int, term> | :nothing Find(int k)
+=== option<atom> ===
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_option_atom/T_option_atom.bs:3:21: error: `:nothing` is absorbed by `atom`
+  in Find
+  the failure channel does not survive normalisation, so the type
+  declared here IS `atom`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, atom) | :nothing
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_option_atom/T_option_atom.bs:3:21: error: `:nothing` is absorbed by `atom`
+  in Find
+  the failure channel does not survive normalisation, so the type
+  declared here IS `atom`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, atom) | :nothing
+=== option<int> ===
+module T_option_int
+:nothing | int Find(int)
+=== result<int, atom> ===
+module T_result_int_atom
+int | (:error, atom) Find(int)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/T_result_int_atom/T_result_int_atom.bs:4:1: error: Find returns a value its signature does not declare
+  not covered by the declared return type:
+    :nothing
+  If `result<int, atom>` is what you meant, fix the clause, not the signature.
+  Otherwise, the signature its clauses justify:
+    public result<int, atom> | :nothing Find(int k)
+=== option<(:ok, term) > ===
+module T_option_ok_term
+:nothing | (:ok, term) Find(int)

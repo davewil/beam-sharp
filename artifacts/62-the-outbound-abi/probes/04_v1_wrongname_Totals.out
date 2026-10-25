@@ -1,0 +1,24 @@
+make: %{Kind: :"Shop.Order", Total: 0, Id: 3}
+which: :order
+piped: %{Kind: :"Shop.Order", Total: 0, Id: 4}
+capture: %{Kind: :"Shop.Order", Total: 0, Id: 5}
+typo (expect UndefinedFunctionError): UndefinedFunctionError
+formatter keeps quotes?: ":Shop.\"New\"(1)"
+formatter on lowercase-quoted: ":Shop.new(1)"
+to_string: ":Shop.\"New\"(1)"
+AST: {{:., [], [:Shop, :New]}, [], [1]}
+AST lowercase for comparison: {{:., [], [:shop, :new]}, [], [1]}
+    warning: :"Shop.Reports"."Totals"/1 is undefined or private
+    │
+  7 │   def nested(o), do: :"Shop.Reports"."Totals"([o])
+    │                                      ~
+    │
+    └─ 04_elixir_compiled_caller.exs:7:38: Caller.nested/1
+
+    warning: :Shop."Nwe"/1 is undefined or private
+    │
+  9 │   def typo(id), do: :Shop."Nwe"(id)      # NEGATIVE CONTROL: no such export
+    │                           ~
+    │
+    └─ 04_elixir_compiled_caller.exs:9:27: Caller.typo/1
+

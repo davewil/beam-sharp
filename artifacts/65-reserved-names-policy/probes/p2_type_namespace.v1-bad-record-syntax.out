@@ -1,0 +1,16 @@
+== lowercase type alias int: type int = string
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:6: error: syntax error before: int
+== lowercase record list: record list { int X }
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:8: error: syntax error before: list
+== lowercase type atom: type atom = int
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:6: error: syntax error before: atom
+== record named Map: record Map { int X }
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:14: error: syntax error before: int
+== record named List: record List { int X }
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:15: error: syntax error before: int
+== record named Enumerable: record Enumerable { int X }
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:21: error: syntax error before: int
+== type alias Map: type Map = int
+1
+== control: record Money: record Money { int X }
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p2/src/T/T.bs:3:16: error: syntax error before: int

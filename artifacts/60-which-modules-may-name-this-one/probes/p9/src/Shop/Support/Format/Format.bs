@@ -1,0 +1,4 @@
+module Shop.Support.Format
+
+public binary Label(int n)
+Label(n) -> "ok"

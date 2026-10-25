@@ -1,0 +1,5 @@
+module MP
+
+public atom Who(map<string, term> m)
+Who({ "user_id": uid }) -> :saw_user
+Who(m) -> :no_user

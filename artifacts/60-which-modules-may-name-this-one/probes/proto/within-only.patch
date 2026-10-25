@@ -1,0 +1,130 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-25 23:05:30.034087231 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/60/proto/src/bs_check.erl	2026-10-25 23:15:22.837871926 +0000
+@@ -487,24 +487,47 @@
+     Imports = [{L, M} || {import, L, M} <- Decls],
+     Known = maps:keys(World),
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+-                #{funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
++                #{only => [O || {only, _, O} <- Decls],
++                  funs => #{}, mods => #{}, types => #{}, qual => qual_table(World),
+                   polys => poly_table(World),
+                   privates => private_table(World), imported => []},
+                 Imports).
+ 
+ add_import(L, M, Self, World, Known, Mode, Acc) ->
+     case maps:is_key(M, World) of
+-        true  -> add_module_import(M, World, Acc);
++        true  -> visible_or_refuse(L, M, Self, World, Mode, Acc),
++                 add_module_import(M, World, Acc);
+         false ->
+             %% Namespaces emit nothing. Exclude `Self`: importing its namespace
+             %% must not make a module its own dependency.
+             case {children(M, Known) -- [Self], Mode} of
+                 {[], strict}  -> erlang:error({unknown_module, M, L});
+                 {[], lenient} -> Acc;
+-                {Children, _} -> add_namespace_import(M, Children, Acc)
++                {Children, _} -> add_namespace_import(M, [C || C <- Children, namable(Self, C, World, Acc)], Acc)
+             end
+     end.
+ 
++%% PROTOTYPE (ticket 60 brief). Callee side: `within P` in M's decls = only P and
++%% P.* may name M. Caller side: `only X` in Self's decls = Self may name only X.
++within_ok(Self, P) ->
++    S = atom_to_list(Self), Q = atom_to_list(P),
++    S =:= Q orelse lists:prefix(Q ++ ".", S).
++
++namable(Self, M, World, Acc) ->
++    Within = maps:get(within, maps:get(M, World, #{}), []),
++    Only = maps:get(only, Acc, []),
++    (Within =:= [] orelse lists:any(fun(P) -> within_ok(Self, P) end, Within))
++        andalso (Only =:= [] orelse lists:any(fun(O) -> within_ok(M, O) end, Only)).
++
++visible_or_refuse(_L, _M, _Self, _World, lenient, _Acc) -> ok;
++visible_or_refuse(L, M, Self, World, strict, Acc) ->
++    case namable(Self, M, World, Acc) of
++        true  -> ok;
++        false -> erlang:error({not_nameable, M, Self,
++                               maps:get(within, maps:get(M, World), []),
++                               maps:get(only, Acc, []), L})
++    end.
++
+ %% Local names take precedence over imports at `unqualified_key/4`.
+ add_module_import(M, World, Acc) ->
+     Entry = maps:get(M, World),
+--- /home/user/beam-sharp/compiler/src/bs_diag.erl	2026-10-23 23:06:09.689822763 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/60/proto/src/bs_diag.erl	2026-10-25 23:15:22.839696081 +0000
+@@ -666,6 +666,9 @@
+     #{tag => unknown_module, severity => error, file => Path, line => Line,
+       module => Mod};
+ %% A file's `using` declarations define its dependencies.
++built(Path, {not_nameable, Mod, Self, Within, Only, Line}) ->
++    #{tag => not_nameable, severity => error, file => Path, line => Line,
++      module => Mod, caller => Self, within => Within, only => Only};
+ built(Path, {module_not_imported, Mod, Line}) ->
+     #{tag => module_not_imported, severity => error, file => Path, line => Line,
+       module => Mod};
+@@ -2092,6 +2095,15 @@
+      "  a module is a source file this invocation can reach; a namespace~n"
+      "  is a path that other modules sit under. Neither matched.~n",
+      [P, L, C, Mod]};
++message(#{tag := not_nameable, file := P, line := L, column := C, module := Mod,
++          caller := Self, within := Within, only := Only}) ->
++    {"~s:~p:~p: error: ~s may not name ~s~n"
++     "  ~s~n",
++     [P, L, C, Self, Mod,
++      case Within of
++          [] -> io_lib:format("~s's own `only` list excludes it: ~p", [Self, Only]);
++          _  -> io_lib:format("~s declares `within ~s`: only that subtree may name it", [Mod, lists:join(", ", [atom_to_list(W) || W <- Within])])
++      end]};
+ message(#{tag := module_not_imported, file := P, line := L, column := C, module := Mod}) ->
+     {"~s:~p:~p: error: ~s is called but never imported~n"
+      "  add `using ~s` — a file's `using` lines are its dependency list,~n"
+--- /home/user/beam-sharp/compiler/src/bsc.erl	2026-10-23 23:06:09.689822763 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/60/proto/src/bsc.erl	2026-10-25 23:15:22.838492022 +0000
+@@ -238,6 +238,7 @@
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
++                                     within => [P || {within, _, P} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+                                      %% name in type position.
+--- /home/user/beam-sharp/compiler/src/bs_parser.yrl	2026-10-23 23:06:09.689822763 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/60/proto/src/bs_parser.yrl	2026-10-25 23:15:01.990320661 +0000
+@@ -21,12 +21,12 @@
+   body binding
+   expr expr_low expr_list elist_items assign_fields assign_field
+   switch_arms switch_arm modpath using_decl visibility call
+-  block_clauses block_clause implements_decl impl_clauses impl_for
++  block_clauses block_clause implements_decl impl_clauses impl_for within_decl only_decl
+   .
+ 
+ Terminals
+   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
++  'within' 'only' 'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+@@ -103,6 +103,10 @@
+ decl -> behaviour_decl : '$1'.
+ decl -> record_decl : '$1'.
+ decl -> using_decl  : '$1'.
++decl -> within_decl : '$1'.
++decl -> only_decl : '$1'.
++within_decl -> 'within' modpath : {within, line('$1'), modatom('$2')}.
++only_decl -> 'only' modpath : {only, line('$1'), modatom('$2')}.
+ decl -> implements_decl : '$1'.
+ 
+ %% Tickets 99 and 91 Q2. The block holds clauses only: the protocol supplies the
+--- /home/user/beam-sharp/compiler/src/bs_lexer.xrl	2026-10-23 23:06:09.689822763 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/60/proto/src/bs_lexer.xrl	2026-10-25 23:15:22.824305189 +0000
+@@ -42,6 +42,8 @@
+ type                    : {token, {'type', TokenLoc}}.
+ when                    : {token, {'when', TokenLoc}}.
+ using                   : {token, {'using', TokenLoc}}.
++within                  : {token, {'within', TokenLoc}}.
++only                    : {token, {'only', TokenLoc}}.
+ %% Both spellings are accepted and one token is produced; the emitter writes
+ %% the BEAM's own `behaviour`.
+ behaviour               : {token, {'behaviour', TokenLoc}}.

@@ -1,0 +1,30 @@
+--- compile (Bad must be refused)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Assigns/Assigns.bs:15:1: error: C1 uses find, which nothing binds
+  a name comes from a clause head or a binding above it.
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Assigns/Assigns.bs:19:1: error: C1Kind uses find, which nothing binds
+  a name comes from a clause head or a binding above it.
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Assigns/Assigns.bs:23:1: error: C2Kind uses get, which nothing binds
+  a name comes from a clause head or a binding above it.
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Assigns/Assigns.bs:27:1: error: C2Raw uses get, which nothing binds
+  a name comes from a clause head or a binding above it.
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Assigns/Assigns.bs:40:1: error: Bad uses find, which nothing binds
+  a name comes from a clause head or a binding above it.
+--- after removing Bad:
+module Assigns
+int C1(string)
+atom C1Kind(string)
+atom C2Kind(string)
+term C2Raw(string)
+atom C3Kind(string)
+map<string, term> Sample()
+C1Kind "user_id" ->   a name comes from a clause head or a binding above it.
+C1Kind "flag" ->   a name comes from a clause head or a binding above it.
+C1Kind "nope" ->   a name comes from a clause head or a binding above it.
+C2Kind "user_id" ->   a name comes from a clause head or a binding above it.
+C2Kind "flag" ->   a name comes from a clause head or a binding above it.
+C2Kind "nope" ->   a name comes from a clause head or a binding above it.
+C3Kind "user_id" ->   a name comes from a clause head or a binding above it.
+C3Kind "flag" ->   a name comes from a clause head or a binding above it.
+C3Kind "nope" ->   a name comes from a clause head or a binding above it.
+C2Raw "nope" -> /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Assigns/Assigns.bs:27:1: error: C2Raw uses get, which nothing binds
+  a name comes from a clause head or a binding above it.

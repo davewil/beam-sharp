@@ -1,0 +1,8 @@
+module Test.Shop.B2
+
+// CONTROL for B: an agent-written test module that simply omits the declaration is unfenced.
+using Shop.Orders
+using Shop.Support.Math
+
+public int Check(int n)
+Check(n) -> RecomputeTax(n)

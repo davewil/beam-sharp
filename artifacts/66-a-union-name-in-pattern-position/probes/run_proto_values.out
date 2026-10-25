@@ -1,0 +1,10 @@
+P1   { Kind = :'P1.A', Id = 1 }         => :member 
+P1   { Kind = :'P1.B', Id = 1 }         => :member 
+P1   { Kind = :'P1.E', Id = 1 }         => :other 
+P1   5                                  => :other 
+P1   :none                              => :other 
+P6   { Kind = :'P6.A', Id = 11 }        => 11 
+P6   { Kind = :'P6.B', Id = 22 }        => 22 
+P6   :none                              => 0 
+P9   { Kind = :'P9.B', Id = 1 }         => :c 
+P9   :none                              => :none 

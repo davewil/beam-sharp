@@ -1,0 +1,36 @@
+--- OTP maps.erl line numbers
+115:-spec get(Key, Map) -> Value when
+138:-spec find(Key, Map) -> {ok, Value} | error when
+304:-spec is_key(Key,Map) -> boolean() when
+488:-spec take(Key, Map1) -> {Value,Map2} | error when
+686:-spec get(Key, Map, Default) -> Value | Default when
+Map.fetch/2  [doc anno 287]
+   spec: fetch(map(), key()) :: {:ok, value()} | :error
+   doc : Fetches the value for a specific `key` in the given `map`.
+Map.fetch!/2  [doc anno 311]
+   spec: fetch!(map(), key()) :: value()
+   doc : Fetches the value for a specific `key` in the given `map`, erroring out if
+`map` doesn't contain `key`.
+Map.get/3  [doc anno 566]
+   spec: get(map(), key(), value()) :: value()
+   doc : Gets the value for a specific `key` in `map`.
+Map.has_key?/2  [doc anno 271]
+   spec: has_key?(map(), key()) :: boolean()
+   doc : Returns whether the given `key` exists in the given `map`.
+Keyword.fetch/2  [doc anno 579]
+   spec: fetch(t(), key()) :: {:ok, value()} | :error
+   doc : Fetches the value for a specific `key` and returns it in a tuple.
+Keyword.fetch!/2  [doc anno 600]
+   spec: fetch!(t(), key()) :: value()
+   doc : Fetches the value for specific `key`.
+Keyword.get/3  [doc anno 379]
+   spec: get(t(), key(), default()) :: value() | default()
+   doc : Gets the value under the given `key`.
+Keyword.has_key?/2  [doc anno 1120]
+   spec: has_key?(t(), key()) :: boolean()
+   doc : Returns whether a given `key` exists in the given `keywords`.
+Map.get(%{a: nil}, :a)  (stored nil): nil
+Map.get(%{}, :a)           (absent): nil
+Map.fetch stored nil: {:ok, nil}
+Map.fetch absent: :error
+Map.get/3 default: :dflt

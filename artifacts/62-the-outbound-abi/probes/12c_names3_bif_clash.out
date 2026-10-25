@@ -1,0 +1,9 @@
+##### Names3 (BIF / module_info clashes) call=local
+Names3: ALIAS BUILD FAILED {:error, [{~c"08_names/Names3/Names3.bs", [{1, :erl_lint, {:redefine_function, {:module_info, 0}}}]}], [{[], [{0, :erl_lint, {:duplicated_export, {:module_info, 0}}}]}]}
+##### Names4 = Names3 minus ModuleInfo
+Names4: public=4 aliases=4 beam 1000 -> 1240 (+240 B, 24.0%) compile ms min/med/max 1.2/1.3/1.4 -> 1.7/1.8/2.1
+   Length/1 -> length
+   Abs/1 -> abs
+   Self/0 -> self
+   Node/0 -> node
+TOTAL beam 1000 -> 1240 (+240 B, 24.0%), 4 aliases, 60.0 B per alias

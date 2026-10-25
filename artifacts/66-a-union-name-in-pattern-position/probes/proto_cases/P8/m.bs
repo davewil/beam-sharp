@@ -1,0 +1,11 @@
+module P8
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+record F { Id: int }
+type C2 = C | F
+public atom H(C2 c)
+H(C2 x) -> :u

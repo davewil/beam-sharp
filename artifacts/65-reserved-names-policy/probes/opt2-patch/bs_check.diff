@@ -1,0 +1,48 @@
+--- /home/user/beam-sharp/compiler/src/bs_check.erl	2026-10-25 23:05:30.034087231 +0000
++++ 65/opt2/src/bs_check.erl	2026-10-25 23:15:48.450816199 +0000
+@@ -23,7 +23,7 @@
+ -export([clause_accepts/2]).
+ %% The emitter lowers each reserved call to its row's target and emits only
+ %% operations admitted by the checker.
+--export([reserved_qualifiers/0, reserved_table/0, standard_target/1, standard_order/1]).
++-export([std_name/1, reserved_qualifiers/0, reserved_table/0, standard_target/1, standard_order/1]).
+ %% The emitter builds `ParseAtom<T>` arms from the admitted member list.
+ -export([parse_atom_members/1, built_obligations/0, codegen_obligations/0]).
+ 
+@@ -241,7 +241,7 @@
+ reserved_module_name(Module, Sources) ->
+     %% A protocol's name qualifies its operations as a reserved qualifier does
+     %% (F64), so a module of that name would never be reached.
+-    case lists:member(Module, reserved_qualifiers() ++ maps:keys(protocol_table())) of
++    case (Module =:= 'Std' orelse lists:prefix("Std.", atom_to_list(Module))) orelse lists:member(Module, maps:keys(protocol_table())) of
+         false -> ok;
+         true  ->
+             %% The fallback must include both line and column for `bs_diag`.
+@@ -1698,6 +1698,14 @@
+ %% `Map` is reserved even without operations.
+ reserved_qualifiers() -> ['List', 'Map', 'Term', 'Float'].
+ 
++%% PROTOTYPE (ticket 65 probe, option 2): the standard operations live under `Std.`.
++std_name(Mod) ->
++    case atom_to_list(Mod) of
++        "Std." ++ R -> Q = list_to_atom(R),
++                       case lists:member(Q, reserved_qualifiers()) of true -> {ok, Q}; false -> none end;
++        _ -> none
++    end.
++
+ %% The standard environment's rows: `{Qualifier, Name, Arity}` and the OTP
+ %% function that already does it, or `generated` where none answers in B#'s
+ %% terms. The signature half of each row is `reserved_sig/4`. Keys include
+@@ -3238,10 +3246,9 @@
+     %% Handle reserved qualifiers before import resolution: they have no
+     %% entries in the import tables. A protocol's name qualifies its
+     %% operations the same way (F64).
+-    case {maps:is_key(Mod0, protocol_table()),
+-          lists:member(Mod0, reserved_qualifiers())} of
++    case {maps:is_key(Mod0, protocol_table()), std_name(Mod0)} of
+         {true, _} -> protocol_call(L, Mod0, Fun, Args, S, C);
+-        {_, true} -> reserved_call(L, Mod0, Fun, Args, S, C);
++        {_, {ok, Q}} -> reserved_op(L, Q, Fun, Args, S, C);
+         _ ->
+             Mod = qualified_module(Mod0, L, C),
+             call(L, {q, Mod, Fun, length(Args)}, qualified_name(Mod, Fun),

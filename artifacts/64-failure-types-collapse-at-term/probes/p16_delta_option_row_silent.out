@@ -1,0 +1,4 @@
+module Pk
+:nothing | int OnInt(map<string, int>)
+term OnTerm(map<string, term>)
+atom Use(map<string, term>)

@@ -1,0 +1,26 @@
+===== local
+1. crash via ORIGINAL :Shop."Which"/1: FunctionClauseError
+    /home/user/beam-sharp/compiler/examples/Shop/shop.bs:18: :Shop."Which"(%{Kind: :"MyApp.Order", Id: 9, Total: 5})
+    13_alias_trace_cost.exs:8: anonymous fn/2 in :elixir_compiler_0.__FILE__/1
+    13_alias_trace_cost.exs:10: (file)
+    (elixir 1.20.4) src/elixir_compiler.erl:102: :elixir_compiler.dispatch/4
+    (elixir 1.20.4) src/elixir_compiler.erl:76: :elixir_compiler.compile/4
+    (elixir 1.20.4) src/elixir_compiler.erl:42: :elixir_compiler.optimize_defmodule/2
+    (elixir 1.20.4) src/elixir_lexical.erl:18: :elixir_lexical.run/3
+    (elixir 1.20.4) src/elixir_compiler.erl:21: :elixir_compiler.quoted/3
+
+2. crash via ALIAS :Shop.which/1      : FunctionClauseError
+    /home/user/beam-sharp/compiler/examples/Shop/shop.bs:18: :Shop."Which"(%{Kind: :"MyApp.Order", Id: 9, Total: 5})
+    13_alias_trace_cost.exs:8: anonymous fn/2 in :elixir_compiler_0.__FILE__/1
+    13_alias_trace_cost.exs:11: (file)
+    (elixir 1.20.4) src/elixir_compiler.erl:102: :elixir_compiler.dispatch/4
+    (elixir 1.20.4) src/elixir_compiler.erl:76: :elixir_compiler.compile/4
+    (elixir 1.20.4) src/elixir_compiler.erl:42: :elixir_compiler.optimize_defmodule/2
+    (elixir 1.20.4) src/elixir_lexical.erl:18: :elixir_lexical.run/3
+    (elixir 1.20.4) src/elixir_compiler.erl:21: :elixir_compiler.quoted/3
+
+--- exports now: [Amount: 1, Band: 1, Bump: 1, New: 1, Pay: 1, Squared: 1, Total: 1, Which: 1, amount: 1, band: 1, bump: 1, new: 1, pay: 1, squared: 1, total: 1, which: 1]
+--- global call tracing on the ORIGINAL (what dbg/recon/observer trace users write)
+trace events when caller uses original name : 0
+trace events when caller uses the alias      : 0   (0 => the alias hid the call from a global trace)
+--- current_function / process_info inside a slow call is not measured: tail call leaves no frame

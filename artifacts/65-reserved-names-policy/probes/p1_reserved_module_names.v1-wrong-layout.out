@@ -1,0 +1,60 @@
+== module Map
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Map is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module List
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/List is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Term
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Term is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Float
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Float is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module String
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/String is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Binary
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Binary is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Option
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Option is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Result
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Result is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Json
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Json is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Set
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Set is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Int
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Int is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Bool
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Bool is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Atom
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Atom is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Tuple
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Tuple is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.
+== module Foo
+bsc: --src-root /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/p1/Foo is the module directory itself
+  a module needs at least one path segment below the root to take
+  its name from. Name the root one level up.

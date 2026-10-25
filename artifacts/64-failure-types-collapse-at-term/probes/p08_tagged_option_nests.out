@@ -1,0 +1,10 @@
+module Nest
+:nothing | (:some, atom) A(int)
+:nothing | (:some, term) B(int)
+:nothing | (:some, :nothing | (:some, int)) C(int)
+:nothing | (:some, (:some, int)) D(int)
+--- bare option at the same T for control
+B_atom/B_atom.bs:2:21: error: `:nothing` is absorbed by `atom`
+  in A
+B_option_int_/B_option_int_.bs:2:28: error: `:nothing` is absorbed by `:nothing | int`
+  in A

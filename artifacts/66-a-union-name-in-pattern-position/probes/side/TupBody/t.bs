@@ -1,0 +1,12 @@
+module TupBody
+
+record R1 { Id: int }
+record R2 { Id: int }
+
+public (atom, int) | :none H(R1 | R2 | :none d)
+
+H(R1 c) ->
+    var a = c.Id * 2
+    (:ok, a)
+H(R2 c) -> (:ok, 0)
+H(:none) -> :none

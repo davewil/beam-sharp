@@ -1,0 +1,5 @@
+hand defdelegate new/1: %{Kind: :"Shop.Order", Id: 1, Total: 0}
+macro-derived which(new(2)): :order
+macro-derived functions: [amount: 1, band: 1, bump: 1, new: 1, pay: 1, squared: 1, total: 1, which: 1]
+crash through wrapper: top frame (mod, fun): {FunctionClauseError, :Shop, :Which}
+NEGATIVE nonexistent wrapper: UndefinedFunctionError

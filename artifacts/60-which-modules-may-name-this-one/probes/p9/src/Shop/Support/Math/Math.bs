@@ -1,0 +1,8 @@
+module Shop.Support.Math
+
+// Option A: the callee names who may name it. Subtree `Shop` (this module included).
+within Shop
+
+// public on the BEAM (the export table has no caller column) but nameable only from Shop.*
+public int RecomputeTax(int net)
+RecomputeTax(net) -> net / 5

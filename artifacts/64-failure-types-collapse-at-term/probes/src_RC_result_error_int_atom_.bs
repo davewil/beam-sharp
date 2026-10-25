@@ -1,0 +1,3 @@
+module RC_result_error_int_atom_
+public result<(:error, int), atom> F(int k)
+F(k) -> (:error, :x)

@@ -1,0 +1,29 @@
+## gleam.toml of app:
+name = "app"
+version = "1.0.0"
+internal_modules = ["shop/internal", "shop/internal/*"]
+## client (a SEPARATE package, path dependency on app) imports app's internal module shop/internal/tax
+  Resolving versions
+      Added app v1.0.0
+  Compiling app
+  Compiling client
+   Compiled in 0.41s
+exit=0
+## same-package intruder module importing the internal module
+  Resolving versions
+  Compiling app
+   Compiled in 0.44s
+exit=0
+## @internal on a pub fn: client calls it
+  Resolving versions
+  Compiling client
+   Compiled in 0.36s
+exit=0
+## docs: @internal fn and internal module hidden from docs? (control: 'gross' must appear)
+gross: 1
+helper: 0
+recompute_tax: 0
+## gleam binary strings mentioning the publish-time rule
+CannotPublishLeakedInternalType
+internal types in their public API and cannot be published:
+internal types in their public API so cannot be published

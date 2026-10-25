@@ -1,0 +1,3 @@
+module Fy
+public atom Kind(map<string, term> m, string k)
+Kind(m, k) -> Map.Fetch(m, k) switch { (:ok, v) => :present }

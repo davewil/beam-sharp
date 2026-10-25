@@ -1,0 +1,161 @@
+=================== P1
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+public atom H(term t)
+H(C c) -> :member
+H(_) -> :other
+--- stock:
+P1/m.bs:9:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+=================== P2
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type D = C | :none
+public atom H(D d)
+H(C c) -> :member
+--- stock:
+P2/m.bs:10:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+P2/m.bs:9:13: error: H is not exhaustive
+  no clause matches:
+    H(:none) -> ...
+=================== P3
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+public atom H(C c)
+H(A a) -> :a
+H(C c) -> :c
+--- stock:
+P3/m.bs:10:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+=================== P4
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+public atom H(C c)
+H(C c) -> :c
+H(A a) -> :a
+--- stock:
+P4/m.bs:9:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+P4/m.bs:10:1: warning: clause 2 of H is unreachable
+  every value it matches is matched by an earlier clause.
+=================== P5
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+public atom H((C, int) p)
+H((C c, n)) -> :c
+--- stock:
+P5/m.bs:9:4: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+Error! Failed to eval: bsc:main(init:get_plain_arguments()), halt(0).
+
+Runtime terminating during boot ({function_clause,[{bs_emit,pattern,[{p_tags,{9,4},['P5.A','P5.B'],c},#{}],[]},{bs_emit,'-pattern/2-lc$^0/1-0-',2,[{file,"src/bs_emit.erl"},{line,831}]},{bs_emit,pattern,2,[{file,"src/bs_emit.erl"},{line,831}]},{bs_emit,'-clause/4-lc$^3/1-3-',2,[{file,"src/bs_emit.erl"},{line,211}]},{bs_emit,clause,4,[{file,"src/bs_emit.erl"},{line,211}]},{bs_emit,'-function/2-lc$^0/1-0-',4,[{file,"src/bs_emit.erl"},{line,163}]},{bs_emit,function,2,[{file,"src/bs_emit.erl"},{line,163}]},{bs_emit,'-file_group/5-lc$^1/1-0-',4,[{file,"src/bs_emit.erl"},{line,103}]}]})
+
+Crash dump is being written to: erl_crash.dump...done
+=================== P6
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type D = C | :none
+public int H(D d)
+H(A a) -> a.Id
+H(C c) -> c.Id
+H(:none) -> 0
+--- stock:
+P6/m.bs:11:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+=================== P7
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type U = A | B | int
+public atom H(U u)
+H(U x) -> :u
+--- stock:
+P7/m.bs:10:3: error: U is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+P7/m.bs:10:3: error: U is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+=================== P8
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+record F { Id: int }
+type C2 = C | F
+public atom H(C2 c)
+H(C2 x) -> :u
+--- stock:
+P8/m.bs:11:3: error: C2 is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+=================== P9
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type D = C | :none
+public atom H(D d)
+H(d) -> d switch { C c => :c, :none => :none }
+--- stock:
+P9/m.bs:10:20: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:

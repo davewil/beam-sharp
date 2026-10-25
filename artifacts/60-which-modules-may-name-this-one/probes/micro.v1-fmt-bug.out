@@ -1,0 +1,11 @@
+escript: exception error: bad argument
+  in function  io:format/2
+     called as io:format("run ~p: ~.1f us for ~p edges (~.0f ns/edge)~n",
+                         [1,117.7265,1164,101.13960481099656])
+     *** argument 1: failed to format string
+  in call from micro_escript__escript__1792__970253__227480__1125:'-main/1-lc$^4/1-2-'/2 (./micro.escript:13)
+  in call from escript:run/2 (escript.erl:908)
+  in call from escript:start/1 (escript.erl:422)
+  in call from init:start_it/1 
+  in call from init:start_em/1 
+  in call from init:do_boot/3 

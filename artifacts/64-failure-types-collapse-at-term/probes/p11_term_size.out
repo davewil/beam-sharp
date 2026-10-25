@@ -1,0 +1,20 @@
+value                        bare words  tag words    delta bare ext B  tag ext B
+small int 7                           0          3        3          3          9
+big int 1 bsl 70                      3          6        3         13         19
+atom                                  0          3        3          6         12
+float                                 2          5        3         10         16
+short binary <64B (heap)              3          6        3         11         17
+binary 100B (refc)                    8         11        3        106        112
+2-tuple {1,2}                         3          6        3          7         13
+list of 3                             6          9        3          7         13
+small map #{a=>1}                     6          9        3         11         17
+absent atom :nothing words=0 ; tagged absent :absent words=0
+control: {some, V} == {ok,V} words: 3 vs 3
+
+loop N=1000000, 1000-key map, 50% hit; 7 runs each (us), spread min/median/max, minor GCs, words allocated (heap_size delta not meaningful)
+  bare value         min   15011  med   15482  max   19788 us   minorGC/run 2   result 500000000
+  tagged {ok,V}      min   15929  med   16146  max   26202 us   minorGC/run 593   result 500000000
+
+same, stored value is an existing 3-element list (no new alloc for bare)
+  bare list value    min   15710  med   16100  max   17740 us   minorGC/run 0   result 250000000
+  tagged {ok,list}   min   17116  med   17970  max   18995 us   minorGC/run 970   result 250000000

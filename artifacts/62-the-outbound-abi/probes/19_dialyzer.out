@@ -1,0 +1,45 @@
+### (a) original Shop
+misuse.erl:4:1: Function via_original/0 has no local return
+misuse.erl:4:35: The call 'Shop':'Amount'
+         ('not_a_map') will never return since the success typing is 
+         (map()) -> 
+          any() and the contract is 
+          (#{'Id' := integer(),
+            'Kind' := 'Shop.Invoice',
+            'Total' := integer()} |
+          #{'Id' := integer(),
+            'Kind' := 'Shop.Order',
+            'Total' := integer()}) ->
+             integer()
+misuse.erl:5:16: Call to missing or unexported function 'Shop':amount/1
+ done in 0m0.20s
+done (warnings were emitted)
+### (b) Shop with local-call aliases + copied specs
+misuse.erl:4:1: Function via_original/0 has no local return
+misuse.erl:4:35: The call 'Shop':'Amount'
+         ('not_a_map') will never return since the success typing is 
+         (map()) -> 
+          any() and the contract is 
+          (#{'Id' := integer(),
+            'Kind' := 'Shop.Invoice',
+            'Total' := integer()} |
+          #{'Id' := integer(),
+            'Kind' := 'Shop.Order',
+            'Total' := integer()}) ->
+             integer()
+misuse.erl:5:1: Function via_alias/0 has no local return
+misuse.erl:5:30: The call 'Shop':amount
+         ('not_a_map') will never return since the success typing is 
+         (#{'Id' := integer(),
+            'Kind' := 'Shop.Invoice' | 'Shop.Order',
+            'Total' := integer()}) -> 
+          integer() and the contract is 
+          (#{'Id' := integer(),
+            'Kind' := 'Shop.Invoice',
+            'Total' := integer()} |
+          #{'Id' := integer(),
+            'Kind' := 'Shop.Order',
+            'Total' := integer()}) ->
+             integer()
+ done in 0m0.16s
+done (warnings were emitted)

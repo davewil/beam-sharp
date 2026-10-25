@@ -1,0 +1,5 @@
+which(Map)="./Map.beam"
+Map:size -> user_map_size
+maps:size -> 1
+lists:map -> [1]
+--- what the real B# programs of P3 (opt3 build) load: App.beam imports

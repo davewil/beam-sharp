@@ -1,0 +1,5 @@
+module Fz
+public atom Kind(map<string, int> m)
+Kind(m) -> Map.Fetch(m, "a") switch { (:ok, v) => :present, :error => :absent }
+public atom Wrong(map<string, int> m)
+Wrong(m) -> Map.Fetch(m, :a) switch { (:ok, v) => :present, :error => :absent }

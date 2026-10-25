@@ -1,0 +1,20 @@
+control: call 'Amount' directly    -> 1 trace event(s) [{'Shop','Amount',
+                                                         [#{'Kind' =>
+                                                             'Shop.Order',
+                                                            'Total' => 0,
+                                                            'Id' => 1}]}]
+via alias amount/1                 -> 0 trace event(s) []
+control: call 'Amount' directly    -> 1 trace event(s) [{'Shop','Amount',
+                                                         [#{'Kind' =>
+                                                             'Shop.Order',
+                                                            'Total' => 0,
+                                                            'Id' => 1}]}]
+via alias amount/1                 -> 1 trace event(s) [{'Shop','Amount',
+                                                         [#{'Kind' =>
+                                                             'Shop.Order',
+                                                            'Total' => 0,
+                                                            'Id' => 1}]}]
+
+Runtime terminating during boot ({undef,[{'Shop',amount,[#{'Kind'=>'Shop.Order','Total'=>0,'Id'=>1}],[]},{'13b_trace_alias',trial,2,[{file,"13b_trace_alias.erl"},{line,11}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,1044}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done

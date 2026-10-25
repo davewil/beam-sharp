@@ -1,0 +1,10 @@
+src/kernel.gleam -> collision-refusals=1
+src/stdlib.gleam -> collision-refusals=0
+src/code.gleam -> collision-refusals=1
+src/application.gleam -> collision-refusals=1
+src/init.gleam -> collision-refusals=1
+src/io.gleam -> collision-refusals=1
+src/string.gleam -> collision-refusals=1
+src/unicode.gleam -> collision-refusals=1
+src/file.gleam -> collision-refusals=1
+src/gen_server.gleam -> collision-refusals=1

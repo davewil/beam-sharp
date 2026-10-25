@@ -1,0 +1,6 @@
+module Shop.OrdersTest2
+
+using Shop.Orders
+
+public int Probe2(list<int> n)
+Probe2(n) -> RecomputeTotal(n)

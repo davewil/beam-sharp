@@ -1,0 +1,10 @@
+false
+control: call 'Amount' directly    -> 0 trace event(s) []
+via alias amount/1                 -> 0 trace event(s) []
+false
+control: call 'Amount' directly    -> 0 trace event(s) []
+via alias amount/1                 -> 1 trace event(s) [{'Shop','Amount',
+                                                         [#{'Kind' =>
+                                                             'Shop.Order',
+                                                            'Total' => 0,
+                                                            'Id' => 1}]}]

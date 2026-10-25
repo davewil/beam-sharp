@@ -1,0 +1,27 @@
+# strings of the elm 0.19.3 binary near module-name conflicts (offline evidence only; not a behavioural probe)
+I was expecting to see a module name next, like in these examples:
+BAD MODULE DECLARATION
+Notice that the module names start with capital letters. That is required!
+Notice that the module names all start with capital letters. That is required!
+I was expecting to see the module name next, like in these examples:
+EXPECTING MODULE NAME
+Effect modules are designed to allow certain core functionality to be defined separately from the compiler. So the @elm organization has access to this so that certain changes, extensions, and fixes can be introduced without needing to release new Elm binaries. For example, we want to make it possible to test effects, but this may require changes to the design of effect modules. By only having them defined in the @elm organization, that kind of design work can proceed much more smoothly.
+I require that module names correspond to file paths. This makes it much easier to explore unfamiliar codebases! So if you want to keep the current module name, try renaming the file instead.
+t looks like this module name is out of sync:
+MODULE NAME MISMATCH
+I need the module name to be declared at the top of this file, like this:
+MODULE NAME MISSING
+nderscore
+It seems possible to resolve this with new syntax in imports, but that is more complicated than it sounds. Right now, our module names are tied to GitHub repos, but we may want to get rid of that dependency for a variety of reasons. That would in turn have implications for our package infrastructure, hosting costs, and possibly on how package names are specified. The particular syntax chosen seems like it would interact with all these factors in ways that are difficult to predict, potentially leading to harder problems later on. So more design work and planning is needed on these topics.
+Change the module names to be distinct!
+DUPLICATE DOCS
+I need you to be explicit about what this module exposes:
+elm-0.19.3-inplace-elm:Reporting.Error.Docs.NameDuplicate_Type
+elm-0.19.3-inplace-elm:Reporting.Error.Docs.NameDuplicate_Var
+elm-0.19.3-inplace-elm:Reporting.Error.Docs.NameDuplicate_Op
+# more strings (offline)
+Try changing the name of the locally defined module to clear up the ambiguity?
+AMBIGUOUS IMPORT
+vailable!
+If it is not a typo, check the "dependencies" and "source-directories" of your elm.json to make sure all the packages you need are listed there!
+I checked the "dependencies" and "source-directories" listed in your elm.json, but I cannot find it! Maybe it is a typo for one of these names?

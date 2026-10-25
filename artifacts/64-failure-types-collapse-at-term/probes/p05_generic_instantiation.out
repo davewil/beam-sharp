@@ -1,0 +1,18 @@
+=== generic option<V> used at V=int
+7
+=== same generic used at V=term (return written option<term>)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/GenOptTerm/GenOptTerm.bs:8:21: error: `:nothing` is absorbed by `term`
+  in AtTerm
+  the failure channel does not survive normalisation, so the type
+  declared here IS `term`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, term) | :nothing
+=== same generic, caller declares bare term (instantiation V=term not written as option)
+5
+=== ... and with the key absent, the caller sees:
+:nothing
+=== a STORED :nothing is indistinguishable from absent (the actual harm):
+:nothing
+=== --api of the caller:
+module GenOptTerm2
+term AtTerm(list<(atom, term)>)

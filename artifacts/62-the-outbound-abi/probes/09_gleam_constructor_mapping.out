@@ -1,0 +1,13 @@
+  Compiling caller
+   Compiled in 0.51s
+[to_json,h_t_t_p_get,i_o_error,take2,get_i_d,get_id,foo,a,a_b,u_r_ls,
+ ver1_beta,parse_u_r_l,parse_url]
+=== NEGATIVE: gleam refuses an underscore in a constructor name (so Get_Id has no Gleam analogue)
+  Compiling caller
+error: Invalid type variant name
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/62/gl4/src/caller.gleam:1:14
+  │
+1 │ pub type N { Get_Id }
+  │              ^^^^^^ This is not a valid type variant name
+
+Hint: Type variant names start with an uppercase letter and contain only

@@ -1,0 +1,29 @@
+## Shop/Reports
+exit=0
+## Test/Shop/Orders
+exit=0
+## Test/Shop/Orders2
+src/Test/Shop/Orders2/Check.bs:4:1: error: Test.Shop.Orders2 may not name Shop.Support.Math
+  Shop.Support.Math declares `within Shop`: only that subtree may name it
+exit=1
+## Test/Shop/Via
+src/Test/Shop/Via/Check.bs:6:17: error: Math is called but never imported
+  add `using Math` — a file's `using` lines are its dependency list,
+  and a call that skips them makes that list wrong.
+exit=1
+## Test/Shop/Via2
+exit=0
+## run Shop.Reports Gross 50 (allowed caller; value 50+10 + 10 = 70)
+70
+
+## CONTROL: same tree with the 'within Shop' line deleted, compiled by the HEAD compiler (must ACCEPT the intruder, proving the line is what refuses it)
+## HEAD, no within: Test/Shop/Orders2
+exit=0
+## HEAD, no within: Test/Shop/Via
+exit=0
+
+## --api of the restricted module under the patched compiler: does the manifest consumer (ticket 24 s6) see the restriction?
+module Shop.Support.Math
+int RecomputeTax(int)
+## CONTROL: the same file under the HEAD compiler cannot even parse 'within' (confirms nothing at HEAD reads it)
+src/Shop/Support/Math/Math.bs:7:1: error: syntax error before: public

@@ -1,0 +1,34 @@
+##### rule=macro
+Names: public=15 aliases=11 beam 1932 -> 2612 (+680 B, 35.2%) compile ms min/med/max 2.8/2.9/3.2 -> 4.2/4.3/4.4
+   COLLISION alias {:get_id, 1} <- [:GetID, :GetId]
+   COLLISION alias {:parse_url, 1} <- [:ParseURL, :ParseUrl]
+   ToJson/1 -> to_json
+   HTTPGet/1 -> http_get
+   IOError/1 -> io_error
+   Take2/1 -> take2
+   Foo/1 -> foo
+   Get_Id/1 -> get__id
+   A/1 -> a
+   AB/1 -> ab
+   URLs/1 -> ur_ls
+   Ver1Beta/1 -> ver1_beta
+   Ver_1_Beta/1 -> ver_1__beta
+TOTAL beam 1932 -> 2612 (+680 B, 35.2%), 11 aliases, 61.8 B per alias
+##### rule=gleam
+Names: public=15 aliases=15 beam 1932 -> 2856 (+924 B, 47.8%) compile ms min/med/max 2.9/3.4/4.0 -> 4.6/4.8/4.8
+   ToJson/1 -> to_json
+   HTTPGet/1 -> h_t_t_p_get
+   IOError/1 -> i_o_error
+   Take2/1 -> take2
+   GetID/1 -> get_i_d
+   GetId/1 -> get_id
+   Foo/1 -> foo
+   Get_Id/1 -> get__id
+   ParseURL/1 -> parse_u_r_l
+   ParseUrl/1 -> parse_url
+   A/1 -> a
+   AB/1 -> a_b
+   URLs/1 -> u_r_ls
+   Ver1Beta/1 -> ver1_beta
+   Ver_1_Beta/1 -> ver_1__beta
+TOTAL beam 1932 -> 2856 (+924 B, 47.8%), 15 aliases, 61.6 B per alias

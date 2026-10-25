@@ -1,0 +1,22 @@
+--- stock compiler (control: must refuse)
+Fx/Fx.bs:7:109: warning: arm 3 of this switch in Kind matches no value
+  the subject's type is none, and this arm's pattern is not a
+  member of it — so no value reaching this switch can take
+--- delta compiler
+module Fx
+atom Kind(string)
+:error | (:ok, term) Raw(string)
+map<string, term> Sample()
+term Strict(string)
+Kind "user_id" -> :present
+Kind "flag" -> :stored_nothing
+Kind "nope" -> :absent
+Strict "nope" -> crashed: badkey "nope"
+--- negative: non-exhaustive caller refused
+Fy/Fy.bs:3:31: error: this switch in Kind is not exhaustive
+  no arm matches:
+    :error => ...
+--- a key of the wrong type is refused by the existing row machinery
+Fz/Fz.bs:5:16: error: Wrong has Map.Fetch look for :a in a collection whose keys are string
+  argument 2 can never equal one of them, so the answer is fixed
+  before the program runs.

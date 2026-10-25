@@ -1,0 +1,5 @@
+    warning: :Shop."Nwe"/1 is undefined or private
+  5 │   def via_quoted(id), do: :Shop."Nwe"(id)
+    │                                 ~
+    └─ 04b_apply_gets_no_xref_warning.exs:5:33: C2.via_quoted/1
+

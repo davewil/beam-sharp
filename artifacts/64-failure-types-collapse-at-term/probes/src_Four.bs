@@ -1,0 +1,12 @@
+module Four
+
+// hand-rolled tagged
+public (:ok, term) | :absent FindF(list<(atom, term)> xs, atom k)
+FindF([], k) -> :absent
+FindF([(kk, v), ..rest], k) when kk == k -> (:ok, v)
+FindF([_, ..rest], k) -> FindF(rest, k)
+
+public option<int> FindI(list<(atom, int)> xs, atom k)
+FindI([], k) -> :nothing
+FindI([(kk, v), ..rest], k) when kk == k -> v
+FindI([_, ..rest], k) -> FindI(rest, k)

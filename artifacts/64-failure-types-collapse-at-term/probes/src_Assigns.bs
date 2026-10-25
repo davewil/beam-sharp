@@ -1,0 +1,37 @@
+module Assigns
+
+type Found = (:ok, term) | :error
+
+using :maps {
+    Found find(string k, map<string, term> m)
+    term get(string k, map<string, term> m)
+}
+
+public map<string, term> Sample()
+Sample() -> Map.FromList([("user_id", 42), ("flag", :nothing)])
+
+// C1 -- tagged
+public int C1(string k)
+C1(k) -> :maps.find(k, Sample()) switch { (:ok, n) => 1, :error => 0 }
+
+// the caller shape the tagged form demands: one clause per outcome, exhaustive
+public atom C1Kind(string k)
+C1Kind(k) -> :maps.find(k, Sample()) switch { (:ok, :nothing) => :stored_nothing, (:ok, v) => :present, :error => :absent }
+
+// C2 -- Has + Get
+public atom C2Kind(string k)
+C2Kind(k) -> Map.Has(Sample(), k) switch { :true => (:maps.get(k, Sample()) switch { :nothing => :stored_nothing, v => :present }), :false => :absent }
+
+// C2 misuse: Get alone, absent key
+public term C2Raw(string k)
+C2Raw(k) -> :maps.get(k, Sample())
+
+// C3 -- scan the list view
+private Found Scan(list<(string, term)> xs, string k)
+Scan([], k) -> :error
+Scan([(kk, v), ..rest], k) when kk == k -> (:ok, v)
+Scan([_, ..rest], k) -> Scan(rest, k)
+
+public atom C3Kind(string k)
+C3Kind(k) -> Scan(Map.ToList(Sample()), k) switch { (:ok, :nothing) => :stored_nothing, (:ok, v) => :present, :error => :absent }
+

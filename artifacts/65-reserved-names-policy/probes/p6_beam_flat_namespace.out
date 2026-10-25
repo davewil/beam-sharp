@@ -1,0 +1,14 @@
+=== A: erlc lists.erl (module named like stdlib)
+exit=0
+=== B: erlc -o with sticky stdlib: code:which, then load from cwd (-pa .) and call lists:map and lists:foldl (a stdlib fn the user module lacks)
+Runtime terminating during boot ({undef,[{lists,usort,[[unicode,string,io_lib_pretty]],[]},{code,ensure_modules_loaded_1,1,[{file,"code.erl"},{line,1328}]},{io_lib,test_modules_loaded,3,[{file,"io_lib.erl"},{line,465}]},{io_lib,format,2,[{file,"io_lib.erl"},{line,345}]},{application_controller,to_string,1,[{file,"application_controller.erl"},{line,2407}]},{init,start_in_kernel,5,[]},{init,eval_script,2,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done
+=== C: same but erl started with -pa FIRST making the user lists.beam shadow in the path (path order; stdlib sticky dirs)
+Runtime terminating during boot ({undef,[{lists,usort,[[unicode,string,io_lib_pretty]],[]},{code,ensure_modules_loaded_1,1,[{file,"code.erl"},{line,1328}]},{io_lib,test_modules_loaded,3,[{file,"io_lib.erl"},{line,465}]},{io_lib,format,2,[{file,"io_lib.erl"},{line,345}]},{application_controller,to_string,1,[{file,"application_controller.erl"},{line,2407}]},{init,start_in_kernel,5,[]},{init,eval_script,2,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done
+=== D: embedded mode (init -mode embedded) loads boot-script modules only; user dir via -pa
+Runtime terminating during boot ({undef,[{lists,usort,[[]],[]},{code,ensure_modules_loaded_1,1,[{file,"code.erl"},{line,1328}]},{io_lib,test_modules_loaded,3,[{file,"io_lib.erl"},{line,465}]},{io_lib,format,2,[{file,"io_lib.erl"},{line,345}]},{application_controller,to_string,1,[{file,"application_controller.erl"},{line,2407}]},{init,start_in_kernel,5,[]},{init,eval_script,2,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done

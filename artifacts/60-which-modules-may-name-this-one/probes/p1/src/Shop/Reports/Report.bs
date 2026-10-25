@@ -1,0 +1,6 @@
+module Shop.Reports
+
+using Shop.Orders
+
+public int Gross(list<int> lines)
+Gross(lines) -> Total(lines) + RecomputeTax(Total(lines))

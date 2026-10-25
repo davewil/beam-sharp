@@ -1,0 +1,10 @@
+module Nest
+type Maybe<T> = (:some, T) | :nothing
+public Maybe<atom> A(int k)
+A(k) -> :nothing
+public Maybe<term> B(int k)
+B(k) -> (:some, :nothing)
+public Maybe<Maybe<int>> C(int k)
+C(k) -> (:some, :nothing)
+public Maybe<(:some, int)> D(int k)
+D(k) -> :nothing

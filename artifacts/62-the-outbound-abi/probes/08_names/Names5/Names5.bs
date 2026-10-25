@@ -1,0 +1,5 @@
+module Names5
+
+// A function named after a BIF whose body uses the BIF through the standard environment.
+public int Length(list<int> xs)
+Length(xs) -> List.Length(xs)

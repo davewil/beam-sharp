@@ -1,0 +1,3 @@
+module Nested
+public option<option<int>> A(int k)
+A(k) -> :nothing

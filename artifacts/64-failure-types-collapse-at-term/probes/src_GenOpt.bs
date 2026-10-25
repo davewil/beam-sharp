@@ -1,0 +1,12 @@
+module GenOpt
+
+private option<V> Find<V>(list<(atom, V)> xs, atom k)
+Find([], k) -> :nothing
+Find([(kk, v), ..rest], k) when kk == k -> v
+Find([_, ..rest], k) -> Find(rest, k)
+
+public option<int> AtInt(list<(atom, int)> xs)
+AtInt(xs) -> Find(xs, :a)
+
+public int Run()
+Run() -> AtInt([(:a, 7)]) switch { :nothing => 0, n => n }

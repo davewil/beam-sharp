@@ -1,0 +1,12 @@
+N2dup      clauses= 3 handle_flat_words=   639 all_forms_flat_words=  1099 beam_bytes=  1780  compile_us min/med/max=10090/12365/74821
+N2union    clauses= 2 handle_flat_words=   439 all_forms_flat_words=   903 beam_bytes=  1624  compile_us min/med/max=8796/9585/62290
+N2sig      clauses= 1 handle_flat_words=   269 all_forms_flat_words=   710 beam_bytes=  1468  compile_us min/med/max=7923/8940/65126
+N5dup      clauses= 6 handle_flat_words=  1545 all_forms_flat_words=  2170 beam_bytes=  2448  compile_us min/med/max=13628/16367/75143
+N5union    clauses= 2 handle_flat_words=   658 all_forms_flat_words=  1287 beam_bytes=  1736  compile_us min/med/max=12933/14086/59733
+N5sig      clauses= 1 handle_flat_words=   269 all_forms_flat_words=   875 beam_bytes=  1532  compile_us min/med/max=8918/9615/64497
+N10dup     clauses=11 handle_flat_words=  3055 all_forms_flat_words=  3957 beam_bytes=  3580  compile_us min/med/max=22169/25625/69883
+N10union   clauses= 2 handle_flat_words=  1023 all_forms_flat_words=  1929 beam_bytes=  1968  compile_us min/med/max=15959/18295/69429
+N10sig     clauses= 1 handle_flat_words=   269 all_forms_flat_words=  1152 beam_bytes=  1640  compile_us min/med/max=12066/13571/61205
+N20dup     clauses=21 handle_flat_words=  6075 all_forms_flat_words=  7527 beam_bytes=  5824  compile_us min/med/max=45631/48586/107977
+N20union   clauses= 2 handle_flat_words=  1753 all_forms_flat_words=  3209 beam_bytes=  2392  compile_us min/med/max=35711/46349/83801
+N20sig     clauses= 1 handle_flat_words=   269 all_forms_flat_words=  1702 beam_bytes=  1844  compile_us min/med/max=26603/28214/81787

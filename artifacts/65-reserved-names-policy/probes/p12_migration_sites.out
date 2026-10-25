@@ -1,0 +1,4 @@
+.bs files (excl _build):  50 sites in 20 files
+compiler/test/*.erl:     187 sites in 9 files
+LANGUAGE.md + CONTEXT.md: 30 sites
+wayfinder/*.md:          181 sites

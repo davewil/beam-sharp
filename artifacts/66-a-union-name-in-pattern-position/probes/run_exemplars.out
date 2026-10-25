@@ -1,0 +1,50 @@
+=== E1
+
+public int Take(C c)
+Take(c) -> c.Id
+public int Run() 
+Run() -> Take(A { Id = 7 })
+--- bsc:
+rc=0
+=== E2
+
+public int Take(C c)
+Take(c) -> c.Id
+public int Bad()
+Bad() -> Take(5)
+--- bsc:
+E2/e2.bs:12:10: error: Bad hands Take an argument it does not accept
+  argument 1 is not covered by Take's declared type:
+    5
+rc=1
+=== E3
+
+public atom Handle(D d)
+Handle(C c) -> :c
+Handle(:none) -> :none
+--- bsc:
+E3/e3.bs:10:8: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+rc=1
+=== E4
+
+public atom Handle(D d)
+Handle(A a) -> :c
+Handle(B b) -> :c
+Handle(:none) -> :none
+--- bsc:
+rc=0
+=== E5
+
+public atom Bad(C c)
+Bad(A a) -> :a
+Bad(B b) -> :b
+Bad(E e) -> :e
+--- bsc:
+E5/e5.bs:12:1: warning: clause 3 of Bad matches no value of its input
+  the declared input is ({ Kind: :'E5.A' } | { Kind: :'E5.B' }), and this clause's pattern is not
+  a member of it — so no call can reach this clause.
+rc=0

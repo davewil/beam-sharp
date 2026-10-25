@@ -1,0 +1,41 @@
+C = A | B                          is_map(V)
+andalso
+is_integer(map_get('Id', V))
+andalso
+map_get('Kind', V) =:= 'M.A'
+orelse
+is_map(V)
+andalso
+is_integer(map_get('Id', V))
+andalso
+map_get('Kind', V) =:= 'M.B'
+D = A | B | :none                  V =:= none
+orelse
+is_map(V)
+andalso
+is_integer(map_get('Id', V))
+andalso
+map_get('Kind', V) =:= 'M.A'
+orelse
+is_map(V)
+andalso
+is_integer(map_get('Id', V))
+andalso
+map_get('Kind', V) =:= 'M.B'
+Amount = int | float               is_integer(V)
+orelse
+is_float(V)
+Meters = int where >=0 (range)     is_integer(V)
+andalso
+V >= 0
+int | :none                        V =:= none
+orelse
+is_integer(V)
+list<int>                          V =:= []
+orelse
+is_list(V)
+andalso
+V =/= []
+andalso
+is_integer(hd(V))
+string                             REFUSED error:{foreign_return_guard,string}

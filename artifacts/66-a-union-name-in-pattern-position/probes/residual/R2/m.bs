@@ -1,0 +1,10 @@
+module R2
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+type F = C | E
+
+public atom H(F d)
+H(E e) -> :e

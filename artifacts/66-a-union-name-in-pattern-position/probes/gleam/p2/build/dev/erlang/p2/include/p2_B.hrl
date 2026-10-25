@@ -1,0 +1,3 @@
+-record(b, {
+    id :: integer()
+}).

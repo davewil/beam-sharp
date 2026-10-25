@@ -1,0 +1,10 @@
+module P1
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+public atom H(term t)
+H(C c) -> :member
+H(_) -> :other

@@ -1,0 +1,7 @@
+1747a1748,1749
+>      {{'Map', 'Get', 2},        {maps, get},        [2, 1], "V Get<K, V>(map<K, V> m, K k)"},
+>      {{'Map', 'Fetch', 2},      {maps, find},       [2, 1], "(:ok, V) | :error Fetch<K, V>(map<K, V> m, K k)"},
+1763c1765
+< sought_row({'Map', Op, 2}) when Op =:= 'Remove'; Op =:= 'Has'       -> {1, key, 2, one};
+---
+> sought_row({'Map', Op, 2}) when Op =:= 'Remove'; Op =:= 'Has'; Op =:= 'Get'; Op =:= 'Fetch' -> {1, key, 2, one};

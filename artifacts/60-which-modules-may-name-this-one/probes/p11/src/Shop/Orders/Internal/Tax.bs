@@ -1,0 +1,6 @@
+module Shop.Orders.Internal
+
+within Shop.Orders
+
+public int RecomputeTax(int net)
+RecomputeTax(net) -> net / 5

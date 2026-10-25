@@ -1,0 +1,4 @@
+##### Names5: BIF-named function whose body calls the BIF
+Names5: public=1 aliases=1 beam 820 -> 884 (+64 B, 7.8%) compile ms min/med/max 0.8/0.9/1.0 -> 1.1/1.1/1.7
+   Length/1 -> length
+TOTAL beam 820 -> 884 (+64 B, 7.8%), 1 aliases, 64.0 B per alias

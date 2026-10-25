@@ -1,0 +1,19 @@
+--- .bs files mentioning option<
+14
+--- occurrences of option< in .bs (excluding artifacts/)
+27
+--- occurrences of :nothing in .bs
+30
+--- by tree
+compiler/examples: files=11 lines=33
+aoc: files=0 lines=0
+wayfinder: files=4 lines=15
+handoff: files=0 lines=0
+--- erl test/src files mentioning option<
+17
+--- docs mentioning option<T> (md)
+66
+--- option< lines in .bs by top-level dir
+     18 compiler/examples
+      9 wayfinder/prototypes
+--- the 14 ticket-108 pair rows are all unbuilt; option<T> consumers today are user code only (no stdlib row returns option<T>):

@@ -1,0 +1,3 @@
+'Shop':'New'(1)          {call,atom,atom}
+Shop:New(1)              {call,var,var}
+shop:new(1)              {call,atom,atom}

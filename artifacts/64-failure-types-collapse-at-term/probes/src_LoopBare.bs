@@ -1,0 +1,12 @@
+module LoopBare
+
+private option<int> Probe(int i)
+Probe(i) when i % 2 == 1 -> i * 2
+Probe(i) -> :nothing
+
+private int Loop(int i, int n, int acc)
+Loop(i, n, acc) when i > n -> acc
+Loop(i, n, acc) -> Loop(i + 1, n, Probe(i) switch { :nothing => acc, v => acc + v })
+
+public int Run(int n)
+Run(n) -> Loop(1, n, 0)

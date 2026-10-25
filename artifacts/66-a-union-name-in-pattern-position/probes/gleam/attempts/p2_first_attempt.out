@@ -1,0 +1,19 @@
+  Resolving versions
+  Compiling p2
+error: Extra alternative pattern variable
+   ┌─ /home/user/beam-sharp/artifacts/66-a-union-name-in-pattern-position/probes/gleam/p2/src/p2.gleam:10:22
+   │
+10 │     A(..) | B(..) as c -> take_ab(c)
+   │                      ^ Has not been previously defined
+
+All alternative patterns must define the same variables as the initial
+pattern. This variable `c` has not been previously defined.
+
+error: Unknown variable
+   ┌─ /home/user/beam-sharp/artifacts/66-a-union-name-in-pattern-position/probes/gleam/p2/src/p2.gleam:10:35
+   │
+10 │     A(..) | B(..) as c -> take_ab(c)
+   │                                   ^ Did you mean `A`?
+
+The name `c` is not in scope here.
+

@@ -1,0 +1,22 @@
+######## bsc: App.Go 5  (user Map.Size(5): expect 1005 if the user wins)
+p3-bsc/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+  `Map.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Map` is still legal, and
+  so is any other path with `Map` as a segment.
+######## bsc: Lib.Count of a one-key map, compiled alone (std Map.Size: expect 1)
+1
+######## bsc: App.Both 5 (Lib is a dependency; App also uses std Map.FromList through the shadow)
+p3-bsc/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+  `Map.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Map` is still legal, and
+  so is any other path with `Map` as a segment.
+######## bsc-opt3: App.Go 5  (user Map.Size(5): expect 1005 if the user wins)
+p3-bsc-opt3/src/App/App.bs:10:21: error: Both calls Map.FromList/1, which nothing declares
+  every function has a signature. Write one, or fix the name.
+######## bsc-opt3: Lib.Count of a one-key map, compiled alone (std Map.Size: expect 1)
+1
+######## bsc-opt3: App.Both 5 (Lib is a dependency; App also uses std Map.FromList through the shadow)
+p3-bsc-opt3/src/App/App.bs:10:21: error: Both calls Map.FromList/1, which nothing declares
+  every function has a signature. Write one, or fix the name.

@@ -1,0 +1,11 @@
+module RE
+
+public result<int, term> Parse(binary b)
+Parse(b) when b == "1" -> 1
+Parse(b) -> (:error, (:bad, b))
+
+public atom Show(binary b)
+Show(b) -> Parse(b) switch { (:error, (:bad, x)) => :bad_input, (:error, e) => :other, n => :ok }
+
+public result<int, term> Terms(binary b)
+Terms(b) -> (:error, :boom)

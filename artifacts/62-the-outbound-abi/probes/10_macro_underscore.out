@@ -1,0 +1,21 @@
+ToJson      to_json
+HTTPGet     http_get
+IOError     io_error
+Take2       take2
+GetID       get_id
+GetId       get_id
+Foo         foo
+A           a
+AB          ab
+URLs        ur_ls
+Ver1Beta    ver1_beta
+Ver_1_Beta  ver_1__beta
+ParseURL    parse_url
+ParseUrl    parse_url
+Get_Id      get__id
+ModuleInfo  module_info
+HandleCall  handle_call
+Length      length
+--- collisions under Macro.underscore
+{"get_id", ["GetID", "GetId"]}
+{"parse_url", ["ParseURL", "ParseUrl"]}

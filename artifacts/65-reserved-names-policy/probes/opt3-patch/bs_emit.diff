@@ -1,0 +1,11 @@
+--- /home/user/beam-sharp/compiler/src/bs_emit.erl	2026-10-25 23:05:30.034087231 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/65/opt3/src/bs_emit.erl	2026-10-25 23:11:11.522347705 +0000
+@@ -1047,7 +1047,7 @@
+                   || {T, M, F} <- Targets]}]}]}
+     end;
+ expr({e_qcall, L, Mod, Fn, As}, C) ->
+-    case lists:member(Mod, bs_check:reserved_qualifiers()) of
++    case lists:member(Mod, bs_check:reserved_qualifiers()) andalso get({user_wins, Mod, L}) =:= undefined of
+         true ->
+             Key = {Mod, Fn, length(As)},
+             Es = [expr(A, C) || A <- As],

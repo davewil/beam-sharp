@@ -1,0 +1,4 @@
+module T_option_atom
+
+public option<atom> Find(int k)
+Find(k) -> :nothing

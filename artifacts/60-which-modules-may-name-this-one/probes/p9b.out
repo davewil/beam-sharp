@@ -1,0 +1,6 @@
+## Test/Shop/B1
+src/Test/Shop/B1/Check.bs:7:1: error: Test.Shop.B1 may not name Shop.Support.Math
+  Test.Shop.B1's own `only` list excludes it: ['Shop.Orders']
+exit=1
+## Test/Shop/B2
+exit=0

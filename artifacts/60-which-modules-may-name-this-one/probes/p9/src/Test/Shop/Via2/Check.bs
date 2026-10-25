@@ -1,0 +1,6 @@
+module Test.Shop.Via2
+
+using Shop.Support
+
+public binary Check(int n)
+Check(n) -> Format.Label(n)

@@ -1,0 +1,13 @@
+a_ticket_repro.exs run1 exit=1 update!-crash=0
+a_ticket_repro.exs run2 exit=1 update!-crash=0
+a_ticket_repro.exs run3 exit=1 update!-crash=0
+a_ticket_repro.exs run4 exit=1 update!-crash=0
+a_ticket_repro.exs run5 exit=1 update!-crash=0
+a_ticket_repro.exs run6 exit=1 update!-crash=0
+d_which.exs run1 exit=1 update!-crash=1
+d_which.exs run2 exit=1 update!-crash=1
+d_which.exs run3 exit=1 update!-crash=1
+d_which.exs run4 exit=1 update!-crash=1
+d_which.exs run5 exit=1 update!-crash=1
+d_which.exs run6 exit=1 update!-crash=1
+elixirc b_compiled.ex update!-crash=0

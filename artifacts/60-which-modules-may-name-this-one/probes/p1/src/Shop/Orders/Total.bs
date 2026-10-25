@@ -1,0 +1,8 @@
+module Shop.Orders
+
+public int Total(list<int> lines)
+Total(lines) -> RecomputeTotal(lines)
+
+// no marker: private by default (F12)
+int RecomputeTotal(list<int> lines)
+RecomputeTotal(lines) -> List.Sum(lines)

@@ -1,0 +1,3 @@
+module MQGet
+public option<int> A(map<string, int> m)
+A(m) -> Map.?Get(m, "k")

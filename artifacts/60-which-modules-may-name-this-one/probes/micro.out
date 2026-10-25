@@ -1,0 +1,5 @@
+run 1: 110.3 us for 1164 edges (95 ns/edge)
+run 2: 111.9 us for 1164 edges (96 ns/edge)
+run 3: 111.8 us for 1164 edges (96 ns/edge)
+run 4: 114.2 us for 1164 edges (98 ns/edge)
+run 5: 117.6 us for 1164 edges (101 ns/edge)

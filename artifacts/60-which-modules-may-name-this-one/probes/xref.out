@@ -1,0 +1,17 @@
+all call edges: 5
+cross-module edges into Shop.Orders: [{'Shop.OrdersTest','Probe',1,
+                                       'Shop.Orders','RecomputeTax',1},
+                                      {'Shop.Reports','Gross',1,
+                                       'Shop.Orders','RecomputeTax',1},
+                                      {'Shop.Reports','Gross',1,
+                                       'Shop.Orders','Total',1}]
+callers outside prefix "Shop.Reports": [{'Shop.OrdersTest','Probe',1,
+                                         'Shop.Orders','RecomputeTax',1}]
+all call edges: 5
+cross-module edges into Shop.Orders: [{'Shop.OrdersTest','Probe',1,
+                                       'Shop.Orders','RecomputeTax',1},
+                                      {'Shop.Reports','Gross',1,
+                                       'Shop.Orders','RecomputeTax',1},
+                                      {'Shop.Reports','Gross',1,
+                                       'Shop.Orders','Total',1}]
+callers outside prefix "Shop": []

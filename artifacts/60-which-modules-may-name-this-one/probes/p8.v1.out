@@ -1,0 +1,19 @@
+orders exit=0
+## bypass module, compiled alone
+src/Shop/Bypass/Bypass.bs:5:9: error: syntax error before: 'RecomputeTax'
+exit=1
+Error! Failed to eval: io:format("~p~n", ['Shop.Bypass':'Probe'(50)]), halt().
+
+Runtime terminating during boot ({undef,[{'Shop.Bypass','Probe',"2",[]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,1044}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},{erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,1664}]},{erl_eval,expr_list,5,[{file,"erl_eval.erl"},{line,1660}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,754}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},{init,start_it,1,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done
+## CONTROL: foreign block naming a B# module's lowercase callback (Counter.init/1), no 'using Counter'
+counter exit=0
+src/Shop/Bypass2/Bypass2.bs:10:1: error: Probe uses init, which nothing binds
+  a name comes from a clause head or a binding above it.
+bypass2 exit=1
+Error! Failed to eval: io:format("~p~n", ['Shop.Bypass2':'Probe'(50)]), halt().
+
+Runtime terminating during boot ({undef,[{'Shop.Bypass2','Probe',"2",[]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,1044}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,441}]},{erl_eval,expr_list,7,[{file,"erl_eval.erl"},{line,1664}]},{erl_eval,expr_list,5,[{file,"erl_eval.erl"},{line,1660}]},{erl_eval,expr,6,[{file,"erl_eval.erl"},{line,754}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,276}]},{init,start_it,1,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done

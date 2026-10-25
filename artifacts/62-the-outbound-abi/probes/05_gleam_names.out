@@ -1,0 +1,38 @@
+=== NEGATIVE: can a Gleam FUNCTION be PascalCase?
+  Resolving versions
+error: Syntax error
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/62/gl2/src/caller2.gleam:1:8
+  │
+1 │ pub fn ToJson(x: Int) -> Int { x }
+  │        ^^^^^^ I'm expecting a lowercase name here
+
+A variable name must start with a lowercase letter, and can contain a-z,
+0-9, or _.
+
+=== NEGATIVE: can a Gleam MODULE FILE be PascalCase?
+warning: Invalid module name
+
+Module names must begin with a lowercase letter and contain only lowercase
+alphanumeric characters or underscores.
+
+Hint: Rename
+`/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/s
+cratchpad/62/gl2/src/Bad.gleam` to be valid, or remove this file from the
+project source.
+
+  Compiling caller
+   Compiled in 0.60s
+=== positive build
+   Compiled in 0.46s
+=== module atoms
+caller.app
+caller.beam
+caller@@main.beam
+deep@nested.beam
+=== exports of caller.beam
+[{to_json,1},{make,0},{read,0},{module_info,0},{module_info,1}]
+make() = [{circle,1},unit_square,{h_t_t_p_error,3}]
+read() = read_failed
+deep@nested:go() = {some_tag,1}
+=== generated .erl (gleam export erlang-shipment / --target erlang keeps .erl?)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/62/gl2/build/dev/erlang/caller/_gleam_artefacts/caller@@main.erl

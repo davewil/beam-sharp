@@ -1,0 +1,16 @@
+== lowercase type alias int: type int = string
+.../65/p2/src/T/T.bs:3:6: error: syntax error before: int
+== lowercase record list: record list { X: int }
+.../65/p2/src/T/T.bs:3:8: error: syntax error before: list
+== lowercase type atom: type atom = int
+.../65/p2/src/T/T.bs:3:6: error: syntax error before: atom
+== record named Map: record Map { X: int }
+1
+== record named List: record List { X: int }
+1
+== record named Enumerable: record Enumerable { X: int }
+1
+== type alias Map: type Map = int
+1
+== control: record Money: record Money { X: int }
+1

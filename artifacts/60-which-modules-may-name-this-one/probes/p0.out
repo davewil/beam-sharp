@@ -1,0 +1,13 @@
+# P0: re-check of the ticket's grep claim at the current HEAD (git rev below)
+1429fdc
+$ grep -n -i "internal\|friend\|sealed\|visible_to" compiler/src/bs_check.erl (minus erl_internal / "internal note" prose)
+(no friend/sealed/visible_to hits above)
+109:    %% Internal notes travel through the diagnostic channel; remove them before
+185:%% diagnostic, and every internal note, passes through.
+2844:%% Calls are legal only to guard BIFs, as defined by erl_internal:guard_bif/2.
+2875:    case erl_internal:guard_bif(Fun, length(Args)) of
+5066:%% instead of an internal `function_clause`.
+$ grep -n "^add_module_import\|^add_import" compiler/src/bs_check.erl
+486:import_env(Decls, Self, World, Mode) ->
+495:add_import(L, M, Self, World, Known, Mode, Acc) ->
+509:add_module_import(M, World, Acc) ->

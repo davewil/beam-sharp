@@ -1,0 +1,15 @@
+19,21c19,20
+< HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+< COMPILER="$HERE/../../compiler"
+< BSC="$COMPILER/_build/default/bin/bsc"
+---
+> COMPILER=/home/user/beam-sharp/compiler
+> BSC=/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/bsc
+25,28c24,25
+< if [ ! -x "$BSC" ]; then
+<     echo "building bsc..."
+<     (cd "$COMPILER" && rebar3 escriptize >/dev/null 2>&1)
+< fi
+---
+> export PATH=/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/beam/bin:$PATH LANG=C.UTF-8 ELIXIR_ERL_OPTIONS="+fnu"
+> # ADAPTED: bsc is the prebuilt wrapper; rebar3 unavailable

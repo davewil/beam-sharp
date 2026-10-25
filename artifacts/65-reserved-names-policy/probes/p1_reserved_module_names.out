@@ -1,0 +1,50 @@
+== module Map
+p1/src/Map/Map.bs:1:1: error: `Map` is a reserved qualifier, so no module may be called it
+  `Map.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Map` is still legal, and
+  so is any other path with `Map` as a segment.
+== module List
+p1/src/List/List.bs:1:1: error: `List` is a reserved qualifier, so no module may be called it
+  `List.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.List` is still legal, and
+  so is any other path with `List` as a segment.
+== module Term
+p1/src/Term/Term.bs:1:1: error: `Term` is a reserved qualifier, so no module may be called it
+  `Term.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Term` is still legal, and
+  so is any other path with `Term` as a segment.
+== module Float
+p1/src/Float/Float.bs:1:1: error: `Float` is a reserved qualifier, so no module may be called it
+  `Float.` names operations the compiler knows and inlines at the site;
+  no beam ships for it and no `using` is ever written. The name is
+  taken only as a WHOLE module name — `Shop.Float` is still legal, and
+  so is any other path with `Float` as a segment.
+== module String
+1
+== module Binary
+1
+== module Option
+1
+== module Result
+1
+== module Json
+1
+== module Set
+1
+== module Int
+1
+== module Bool
+1
+== module Atom
+1
+== module Tuple
+1
+== module Foo
+1
+== module Shop.List
+1
+== module lists (lowercase)
+p1/src/lists/lists.bs:1:8: error: syntax error before: lists

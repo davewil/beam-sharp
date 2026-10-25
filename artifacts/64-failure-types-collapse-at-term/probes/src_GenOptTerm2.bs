@@ -1,0 +1,9 @@
+module GenOptTerm2
+
+private option<V> Find<V>(list<(atom, V)> xs, atom k)
+Find([], k) -> :nothing
+Find([(kk, v), ..rest], k) when kk == k -> v
+Find([_, ..rest], k) -> Find(rest, k)
+
+public term AtTerm(list<(atom, term)> xs)
+AtTerm(xs) -> Find(xs, :a)

@@ -1,0 +1,10 @@
+=== MGet
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/MGet/MGet.bs:3:12: error: A calls Map.Get/2, and `Map` has no operation of that name
+  `Map` is a reserved qualifier, so this cannot be fixed with a
+  `using` line — the operations under it are the compiler's own.
+=== MQGet
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/MQGet/MQGet.bs:3:13: error: syntax error before: '?'
+=== MHas
+=== MPut
+=== MPut
+[("a", 1), ("b", :x)]

@@ -1,0 +1,7 @@
+module Pk
+public option<int> OnInt(map<string, int> m)
+OnInt(m) -> Map.PeekOpt(m, "k")
+public term OnTerm(map<string, term> m)
+OnTerm(m) -> Map.PeekOpt(m, "k")
+public atom Use(map<string, term> m)
+Use(m) -> Map.PeekOpt(m, "k") switch { :nothing => :absent, v => :present }

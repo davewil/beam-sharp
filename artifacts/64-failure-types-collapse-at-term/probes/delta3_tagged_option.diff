@@ -1,0 +1,4 @@
+1351c1351
+<                  {t_union, [{t_ref, 'T'}, {t_atom, nothing}]}},
+---
+>                  {t_union, [{t_tuple, [{t_atom, some}, {t_ref, 'T'}]}, {t_atom, nothing}]}},

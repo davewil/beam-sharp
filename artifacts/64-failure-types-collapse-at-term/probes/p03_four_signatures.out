@@ -1,0 +1,10 @@
+module Four
+:absent | (:ok, term) FindF(list<(atom, term)>, atom)
+:nothing | int FindI(list<(atom, int)>, atom)
+--- result<(atom, binary), binary> and option<option<int>> (F31's two non-atom-top cases)
+/tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/64/work/Nested/Nested.bs:2:28: error: `:nothing` is absorbed by `:nothing | int`
+  in A
+  the failure channel does not survive normalisation, so the type
+  declared here IS `:nothing | int`. No caller can write the failure clause,
+  because no failure member is left to match.
+  hint: tag it - (:some, :nothing | int) | :nothing

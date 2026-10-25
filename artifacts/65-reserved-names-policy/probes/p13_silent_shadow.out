@@ -1,0 +1,9 @@
+######## bsc: R.Go [1,2,3]  (std List.Sum = 6; Shop.List.Sum = 1000)
+p13-bsc/src/R/R.bs:6:15: error: Go calls List.Sum, and `List` means two things here
+  `List` is a reserved qualifier — the compiler's own operations —
+  and a `using` line also short-qualifies these to it:
+    Shop.List.Sum(...)
+  write the module's full path to reach it, or drop the namespace
+  import to reach `List.Sum`.
+######## bsc-opt3: R.Go [1,2,3]  (std List.Sum = 6; Shop.List.Sum = 1000)
+1000

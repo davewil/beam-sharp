@@ -1,0 +1,4 @@
+module T_option_term
+
+public option<term> Find(int k)
+Find(k) -> :nothing

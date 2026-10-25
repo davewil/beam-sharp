@@ -1,0 +1,6 @@
+.bs files under compiler/ excluding _build (examples, exemplars, fixtures): 89
+function-clause heads/decls  (line starts with an UpperIdent then '('): 603
+  of which 'public' declarations: 148
+all PascalCase-call tokens '[A-Z]ident(' in .bs: 830
+wayfinder tickets mentioning PascalCase: 18 of 120
+LANGUAGE.md lines: 3855; code-fence lines containing 'Name(' : 283

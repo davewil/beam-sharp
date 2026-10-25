@@ -1,0 +1,9 @@
+module Names2
+
+// Underscore + lowercase is legal in a B# identifier ({UPPER}{ALNUM}*, ALNUM includes `_`,
+// bs_lexer.xrl:14-16,150). Under the gleam-style rule `Get_id` -> get_id, exactly what `GetId` gives.
+public int GetId(int x)
+GetId(x) -> 2
+
+public int Get_id(int x)
+Get_id(x) -> 3

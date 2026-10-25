@@ -1,0 +1,6 @@
+LoopBare N=0 result=0 wall_ms(sorted of 5)= 437 443 467 509 552 
+LoopBare N=1000000 result=500000000000 wall_ms(sorted of 5)= 469 483 504 554 592 
+LoopBare N=10000000 result=50000000000000 wall_ms(sorted of 5)= 530 570 575 578 607 
+LoopTag N=0 result=0 wall_ms(sorted of 5)= 412 427 446 467 515 
+LoopTag N=1000000 result=500000000000 wall_ms(sorted of 5)= 441 450 457 508 516 
+LoopTag N=10000000 result=50000000000000 wall_ms(sorted of 5)= 534 547 550 572 664 

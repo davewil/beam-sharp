@@ -1,0 +1,6 @@
+module Shop.Orders
+
+using Shop.Support.Math
+
+public int Total(int net)
+Total(net) -> net + RecomputeTax(net)

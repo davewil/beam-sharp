@@ -1,0 +1,10 @@
+module Test.Shop.B1
+
+// Option B: the CALLER declares what it may name. The restricted party writes its own fence.
+only Shop.Orders
+
+using Shop.Orders
+using Shop.Support.Math
+
+public int Check(int n)
+Check(n) -> RecomputeTax(n)

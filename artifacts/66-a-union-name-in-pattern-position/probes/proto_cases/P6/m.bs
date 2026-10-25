@@ -1,0 +1,12 @@
+module P6
+
+record A { Id: int }
+record B { Id: int }
+record E { Id: int }
+type C = A | B
+
+type D = C | :none
+public int H(D d)
+H(A a) -> a.Id
+H(C c) -> c.Id
+H(:none) -> 0

@@ -1,0 +1,4 @@
+module T_result_term_atom
+
+public result<term, atom> Find(int k)
+Find(k) -> :nothing

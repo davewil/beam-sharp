@@ -1,0 +1,8 @@
+##### Names2 rule=gleam
+Names2: public=2 aliases=0 beam 888 -> 888 (+0 B, 0.0%) compile ms min/med/max 1.2/1.3/2.2 -> 1.2/1.3/2.2
+   COLLISION alias {:get_id, 1} <- [:GetId, :Get_id]
+TOTAL beam 888 -> 888 (+0 B, 0.0%), 0 aliases, 0.0 B per alias
+##### Names2 rule=macro
+Names2: public=2 aliases=0 beam 888 -> 888 (+0 B, 0.0%) compile ms min/med/max 1.2/1.3/1.4 -> 1.1/1.2/1.3
+   COLLISION alias {:get_id, 1} <- [:GetId, :Get_id]
+TOTAL beam 888 -> 888 (+0 B, 0.0%), 0 aliases, 0.0 B per alias

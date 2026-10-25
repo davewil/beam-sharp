@@ -1,0 +1,18 @@
+./compiler/bin/fixtures/residual-switch/SwitchArms                          stock=1   tagged-option=1
+./compiler/bin/fixtures/residual/WholeList                                  stock=1   tagged-option=1
+./compiler/examples/Levels                                                  stock=0   tagged-option=2
+./compiler/examples/Names                                                   stock=0   tagged-option=0
+./compiler/examples/Parcel                                                  stock=0   tagged-option=1
+./compiler/examples/exemplars/25d-database-querying                         stock=0   tagged-option=0
+./compiler/examples/exemplars/25d-database-querying                         stock=0   tagged-option=0
+./compiler/examples/exemplars/25d-database-querying                         stock=0   tagged-option=0
+./compiler/examples/exemplars/25d-database-querying                         stock=0   tagged-option=0
+./compiler/examples/exemplars/25e-dynamic-web-page                          stock=1   tagged-option=1
+./compiler/examples/exemplars/25e-dynamic-web-page                          stock=1   tagged-option=1
+./compiler/examples/exemplars/25f-llm-evaluation-client                     stock=1   tagged-option=1
+./compiler/examples/exemplars/25g-jev-server                                stock=1   tagged-option=1
+./wayfinder/prototypes/31d-middleware-measured/Collapse                     stock=1   tagged-option=1
+./wayfinder/prototypes/31d-middleware-measured/Controls                     stock=0   tagged-option=0
+./wayfinder/prototypes/31d-middleware-measured/Optional                     stock=0   tagged-option=3
+./wayfinder/prototypes/49a-what-the-arm-must-be/Collapse                    stock=1   tagged-option=1
+modules compiled: 17 ; modules with MORE errors under tagged option<T>: 3 ; errors stock=8 tagged=14

@@ -1,0 +1,45 @@
+    warning: variable "ast" is unused (if the variable is not meant to be used, prefix it with an underscore)
+    │
+  7 │       {:ok, ast} ->
+    │             ~
+    │
+    └─ 03_elixir_spellings.exs:7:13
+
+--- POSITIVE controls (lowercase function must work: control for the harness)
+control :erlang.abs(-1)                     {:OK, "1"}
+control :Shop.module_info(:module)          {:OK, ":Shop"}
+--- ticket's claims
+:Shop.New(1)                                {:PARSE_ERROR, "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ("}
+:"Shop".New(1)                              {:PARSE_ERROR, "unexpected ( after alias New. Function names and identifiers in Elixir start with lowercase characters or underscore. For example:\n\n    hello_world()\n    _starting_with_underscore()\n    numb3rs_are_allowed()\n    may_finish_with_question_mark?()\n    may_finish_with_exclamation_mark!()\n\nUnexpected token: ("}
+--- candidate: quoted call :Shop."New"(1)
+:Shop."New"(1)                              {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+:"Shop"."New"(1)                            {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+m = :Shop; m."New"(1)                       {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+--- other spellings
+apply(:Shop, :New, [1])                     {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+Kernel.apply(:Shop, :New, [1])              {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+:erlang.apply(:Shop, :New, [1])             {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+Function.capture(:Shop, :New, 1).(1)        {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+&:Shop.New/1                                {:PARSE_ERROR, "atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error before: '.'"}
+(&:Shop.New/1).(1)                          {:PARSE_ERROR, "atom cannot be followed by an alias. If the '.' was meant to be part of the atom's name, the atom name must be quoted. Syntax error before: '.'"}
+&:Shop."New"/1                              {:OK, "&:Shop.\"New\"/1"}
+(&:Shop."New"/1).(1)                        {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+fun = &:Shop."New"/1; fun.(1)               {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+    error: invalid args for &, expected one of:
+
+      * &Mod.fun/arity to capture a remote function, such as &Enum.map/2
+      * &fun/arity to capture a local or imported function, such as &is_atom/1
+      * &some_code(&1, ...) containing at least one argument as &1, such as &List.flatten(&1)
+
+    Got: Shop.New / 1
+    │
+  9 │           {v, _} = Code.eval_string(src, [], __ENV__)
+    │           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    │
+    └─ 03_elixir_spellings.exs:9
+
+&Shop.New/1 (alias form)                    {:RUNTIME, CompileError}
+&:Shop.new/1 (lowercase negative control)   {:OK, "&:Shop.new/1"}
+Module.concat unquote macro dot-call        {:OK, "Shop"}
+apply(&:Shop."New"/1, [1])                  {:OK, "%{Kind: :\"Shop.Order\", Total: 0, Id: 1}"}
+Kernel.apply(:Shop, :new, [1]) (neg: no such fn){:RUNTIME, UndefinedFunctionError}

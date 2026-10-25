@@ -1,0 +1,10 @@
+module Shop.Bypass2
+
+// CONTROL: a lowercase foreign name parses. B# callbacks lower to lowercase (init/1), so a
+// B# module's callback is reachable through a foreign block without any `using Counter`.
+using :'Counter' {
+    (:ok, int) init(int seed)
+}
+
+public (:ok, int) Probe(int n)
+Probe(n) -> :'Counter'.init(n)

@@ -1,0 +1,21 @@
+m_all     beam=840 bytes exports=[{f,1},{g,1},{h,1}] locals=[] ExpT=64 LocT=4
+m_friend  beam=848 bytes exports=[{f,1},{g,1}] locals=[{h,1}] ExpT=52 LocT=16
+m_one     beam=840 bytes exports=[{f,1}] locals=[{g,1},{h,1}] ExpT=40 LocT=28
+m_friend:g(1) from the shell (an arbitrary caller): 8
+m_one:g(1) (local): {'EXIT',
+                        {undef,
+                            [{m_one,g,[1],[]},
+                             {erl_eval,do_apply,7,
+                                 [{file,"erl_eval.erl"},{line,1044}]},
+                             {erl_eval,expr,6,
+                                 [{file,"erl_eval.erl"},{line,780}]},
+                             {erl_eval,expr,6,
+                                 [{file,"erl_eval.erl"},{line,441}]},
+                             {erl_eval,expr_list,7,
+                                 [{file,"erl_eval.erl"},{line,1664}]},
+                             {erl_eval,expr_list,5,
+                                 [{file,"erl_eval.erl"},{line,1660}]},
+                             {erl_eval,expr,6,
+                                 [{file,"erl_eval.erl"},{line,754}]},
+                             {erl_eval,exprs,6,
+                                 [{file,"erl_eval.erl"},{line,276}]}]}}

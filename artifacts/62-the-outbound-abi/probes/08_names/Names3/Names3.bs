@@ -1,0 +1,17 @@
+module Names3
+
+// Names that, snake_cased, equal Erlang auto-imported BIFs or the VM's module_info.
+public int Length(int x)
+Length(x) -> 1
+
+public int Abs(int x)
+Abs(x) -> 2
+
+public int Self()
+Self() -> 3
+
+public int ModuleInfo()
+ModuleInfo() -> 4
+
+public int Node()
+Node() -> 5

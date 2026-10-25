@@ -1,0 +1,47 @@
+module Names
+
+public int ToJson(int x)
+ToJson(x) -> x
+
+public int HTTPGet(int x)
+HTTPGet(x) -> x
+
+public int IOError(int x)
+IOError(x) -> x
+
+public int Take2(int x)
+Take2(x) -> x
+
+public int GetID(int x)
+GetID(x) -> 1
+
+public int GetId(int x)
+GetId(x) -> 2
+
+public int Foo(int x)
+Foo(x) -> 3
+
+
+public int Get_Id(int x)
+Get_Id(x) -> 5
+
+public int ParseURL(int x)
+ParseURL(x) -> 6
+
+public int ParseUrl(int x)
+ParseUrl(x) -> 7
+
+public int A(int x)
+A(x) -> 8
+
+public int AB(int x)
+AB(x) -> 9
+
+public int URLs(int x)
+URLs(x) -> 10
+
+public int Ver1Beta(int x)
+Ver1Beta(x) -> 11
+
+public int Ver_1_Beta(int x)
+Ver_1_Beta(x) -> 12

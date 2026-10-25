@@ -1,0 +1,3 @@
+module MHas
+public bool H(map<string, term> m, string k)
+H(m, k) -> Map.Has(m, k)

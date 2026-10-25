@@ -1,0 +1,5 @@
+module Shop.Orders
+
+// public only because Shop.Reports needs it: the ticket-24 "unclassified" shape
+public int RecomputeTax(int net)
+RecomputeTax(net) -> net / 5

@@ -1,0 +1,5 @@
+modules=150 usings/module<=8  total using edges: 1164
+HEAD compiler, no within             ms: [946,959,822,894,759,790,753]  median=822 min=753 max=959
+patched, check runs, no rules        ms: [699,746,848,813,890,838,896]  median=838 min=699 max=896
+patched, every module 'within Gen'   ms: [727,735,760,766,742,767,815]  median=760 min=727 max=815
+HEAD compiler again (drift check)    ms: [764,838,933,906,780,901,826]  median=838 min=764 max=933

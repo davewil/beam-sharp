@@ -1,0 +1,50 @@
+
+Elixir 1.20.4 (compiled with Erlang/OTP 27)
+=== A: ticket's repro, as a script (elixir a_ticket_repro.exs)
+    warning: redefining module Map (current version loaded from /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/beam/lib/elixir/lib/elixir/ebin/Elixir.Map.beam)
+    │
+  1 │ defmodule Map do
+    │ ~~~~~~~~~~~~~~~~
+    │
+    └─ a_ticket_repro.exs:1: Map (module)
+
+Map.get after redefinition: :mine_not_stdlibs
+** (UndefinedFunctionError) function Map.new/1 is undefined or private
+    (elixir 1.20.4) Map.new([{1, 2}])
+    a_ticket_repro.exs:5: (file)
+exit=1
+=== B: same via elixirc (a file that also calls Map.update!/3 elsewhere)
+    warning: redefining module Map (current version loaded from /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/beam/lib/elixir/lib/elixir/ebin/Elixir.Map.beam)
+    │
+  1 │ defmodule Map do
+    │ ~~~~~~~~~~~~~~~~
+    │
+    └─ b_compiled.ex:1: Map (module)
+
+exit=0
+=== C: control, a module that is NOT stdlib-named
+control: :mine
+stdlib Map.get intact: 1
+exit=0
+=== D: code server view after A
+    warning: redefining module Map (current version loaded from /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/beam/lib/elixir/lib/elixir/ebin/Elixir.Map.beam)
+    │
+  1 │ defmodule Map do
+    │ ~~~~~~~~~~~~~~~~
+    │
+    └─ d_which.exs:1: Map (module)
+
+code.which(Map): []
+exports now: 4
+functions now: 1
+** (EXIT from #PID<0.95.0>) an exception was raised:
+    ** (UndefinedFunctionError) function Map.update!/3 is undefined or private
+        (elixir 1.20.4) Map.update!(%{vars: %{}, failed: false, warnings: [], reverse_arrows: %{}, local_sigs: %{}, local_used: %{}, conditional_vars: nil, pattern_info: nil, subpatterns: %{}}, :local_sigs, #Function<11.14848143/1 in Module.Types.local_handler/5>)
+        (elixir 1.20.4) lib/module/types.ex:303: Module.Types.local_handler/5
+        (elixir 1.20.4) lib/module/types.ex:237: anonymous fn/4 in Module.Types.warnings/6
+        (elixir 1.20.4) lib/enum.ex:2622: Enum."-reduce/3-lists^foldl/2-0-"/3
+        (elixir 1.20.4) lib/module/types.ex:234: Module.Types.warnings/6
+        (elixir 1.20.4) lib/module/parallel_checker.ex:281: Module.ParallelChecker.check_module/4
+        (elixir 1.20.4) lib/module/parallel_checker.ex:91: anonymous fn/7 in Module.ParallelChecker.spawn_checker/7
+
+exit=1

@@ -1,0 +1,6 @@
+module Shop.OrdersTest
+
+using Shop.Orders
+
+public int Probe(int n)
+Probe(n) -> RecomputeTax(n)
