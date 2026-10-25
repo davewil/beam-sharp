@@ -1,5 +1,17 @@
 # Decision brief: ticket 64 (ENG-254), what does an author reach for to say "absent" at `map<string, term>`?
 
+> **VERIFICATION CORRECTIONS (read first; details in verification.md).** An independent verifier re-ran the probes.
+> - **p16 is invalid.** It used `--api`, which does no type checking (`bsc.erl:152`), so its control cannot fail. In a real compile the scratch `option<V>` row is rejected ("no type named option takes a type argument"). Every statement below that "all eight ticket-108 `?` rows collapse silently today" is **unsupported**: those rows are unbuilt and `Map.?Get` does not parse (p04). Read the gating claim as: *user-written generics* collapse silently at `V = term` (p05 stands, with a control the verifier added: the same generic returned as `public int` at `V = int` is refused, at `term` accepted). Whether future standard rows would is a hypothesis, not a measurement.
+> - **p12's explanation is false.** The null result is noise, not inlining: `LoopTag.beam` does build `{some, ...}`. p12 says nothing either way about allocation cost.
+> - **p11:** GC counts re-measured 1 vs 363 (brief: 2 vs 593); slowdown +2% to +17% on mins, medians -25% to +11%. Only the direction survives.
+> - **p18 cannot support "whatever E is".** `result<(atom,int), term>` is accepted although `(:error, 5)` is both a success and a failure. Open 3 closes only as "no new refusal needed".
+> - **p03's stored `.out`** is stale and lacks the `Tup` refusal block; the verifier's fresh run supports the brief.
+> - **p17:** "17 modules" is 17 per-file iterations over about 12 distinct directories; the 3 worse modules and +6 errors are correct.
+> - **Citations:** `declared_rows` is at `bs_check.erl:1722`, not 1721; the `ToExistingAtom` row is `STANDARD-ENVIRONMENT.md:116` (`:108` is `Map.Get`); p07's comment cites unrelated `bs_check.erl:710-712`.
+> - "hex.pm blocked", "package.elm-lang.org unreachable" and "records erase to maps" have no probe behind them.
+> - The recommendation's part 1 (refuse at instantiation) therefore rests on p05 alone and is narrower than written.
+
+
 Compiler under test: `bsc` built from `compiler/src` at HEAD `1429fdc`, OTP 29 (the ticket says OTP 28).
 Every claim below cites a probe in `probes/`; probe names are `pNN_*`. Nothing under `wayfinder/` was touched.
 Where a probe needed a modified compiler it ran a scratch copy of `bs_check.erl` (diffs kept in `probes/delta*.diff`);

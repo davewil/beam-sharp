@@ -23,3 +23,6 @@ check-negation.sh                  base=0 promo=0
 check-no-silent-skip.sh            base=0 promo=0
 check-readme.sh                    base=0 promo=0
 check-record-idiom.sh              base=0 promo=0
+check-record-pattern.sh            base=0 promo=0
+check-recursive-types.sh           base=0 promo=0
+check-reserved-qualifiers.sh       base=0 promo=0
