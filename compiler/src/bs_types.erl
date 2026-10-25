@@ -15,12 +15,14 @@
 -export([key_str/1]).
 -export([nil/0, cons/1, list/1]).
 %% Callers query list properties through this API, not the spine shape.
--export([list_elem/1, flat_elem/1, names_atom/2, admits_atom/2, has_lists/1, has_nil/1, has_cons/1, spine/2]).
+-export([list_elem/1, flat_elem/1, names_var/2, has_lists/1, has_nil/1, has_cons/1, spine/2]).
 %% Signature inference uses the union of types at a tuple position.
 -export([tuple_comp/3]).
 -export([binary_top/0, string/0, str_lit/1, only_str_lits/1, widen_strs/1]).
 %% F60: a process, a reference and a port, opaque to the type language.
 -export([opaque/1]).
+%% F45, ENG-881: a type variable while its declaration's body is checked.
+-export([tvar/1]).
 %% F60: the compiler-known named views of the tuples OTP sends.
 -export([views/0, is_view/1, view_of_tuple/1, view_parts/1]).
 -export([map_closed/1, map_open/1, map_dom/2, is_dom/1, map_kv/1]).
@@ -98,6 +100,14 @@
 %% of kinds; unlike it, every kind has a surface spelling.
 -type opaque_part() :: [pid | port | reference].
 
+%% F45: the type variables a polymorphic body is checked against, an ordset of
+%% their names. A variable is a part of its own, not an atom, so no `atom` set
+%% absorbs it: `T | atom` keeps `T` (ENG-881). It is disjoint from every other
+%% part, as opacity requires, and every instantiation lies inside `term`, so a
+%% variable is contained in whatever holds all of `term` (`v_full/1`). `term()`
+%% names none, so a residual of `term` carries no variable to print.
+-type var_part() :: [atom()].
+
 %% Function containment is pairwise, with contravariant domains and covariant
 %% codomains: each function has one arrow per arity, not an intersection.
 %% Subtraction removes contained arrows and keeps others whole, conservatively
@@ -116,13 +126,15 @@
 
 -type ty() :: #{atoms := atom_part(), ints := int_part(), floats := float_part(),
                 tuples := tuple_part(), lists := list_part(), maps := map_part(),
-                bins := bin_part(), opaques := opaque_part(), funs := fun_part()}
+                bins := bin_part(), opaques := opaque_part(), vars := var_part(),
+                funs := fun_part()}
             | rec_ty().
 
 %%% --- Constructors ---
 
 none() -> #{atoms => {finite, []}, ints => [], floats => {finite, []},
-            tuples => [], lists => [], maps => [], bins => [], opaques => [], funs => []}.
+            tuples => [], lists => [], maps => [], bins => [], opaques => [], vars => [],
+            funs => []}.
 
 %%% --- Binders ---
 
@@ -212,11 +224,12 @@ components(T) ->
              end,
     Ts ++ Ls ++ Ms ++ Arrows.
 
-%% Every part must be full for `term` to remain the top type.
+%% Every part must be full for `term` to remain the top type. The variables
+%% are the exception: each is inside `term` without being named by it.
 term() ->
     #{atoms => {cofinite, []}, ints => [{neg_inf, pos_inf}], floats => {cofinite, []},
       tuples => top, lists => [{[], {open, any}}], maps => top,
-      bins => [other, utf8], opaques => [pid, port, reference], funs => top}.
+      bins => [other, utf8], opaques => [pid, port, reference], vars => [], funs => top}.
 
 float_top() -> (none())#{floats => {cofinite, []}}.
 
@@ -274,6 +287,8 @@ widen_strs(T) ->
 
 opaque(K) when K =:= pid; K =:= port; K =:= reference -> (none())#{opaques => [K]}.
 
+tvar(V) when is_atom(V) -> (none())#{vars => [V]}.
+
 %%% --- Named views ---
 %%%
 %%% A view names the positions of a tuple the platform sends, after its tag.
@@ -309,7 +324,7 @@ narrowed(Name, Named) ->
 view_of_tuple([Tag | Rest]) ->
     case Tag of
         #{atoms := {finite, [A]}, ints := [], floats := {finite, []}, tuples := [],
-          lists := [], maps := [], bins := [], opaques := [], funs := []} ->
+          lists := [], maps := [], bins := [], opaques := [], vars := [], funs := []} ->
             case [{Name, Fields} || {Name, {T, Fields}} <- maps:to_list(views()),
                                     T =:= A, length(Fields) =:= length(Rest)] of
                 [{Name, Fields}] -> {ok, Name, lists:zip(Fields, Rest)};
@@ -343,27 +358,16 @@ list(T) -> union(nil(), cons(T)).
 
 list_elem(#{lists := Ss}) -> l_elem(Ss).
 
-%% Whether `T` names one of `Atoms` as a member of a finite atom set, at any
-%% depth. A cofinite set such as `atom` admits every atom without naming one,
-%% which is the difference between a written `atom` and the singleton a type
-%% variable is checked as (F45). A recursive type is opened once.
-names_atom(Atoms, T) -> atom_walk(fun({finite, L}, A) -> lists:member(A, L);
-                                     (_, _) -> false
-                                  end, Atoms, T, []).
+%% Whether `T` holds one of the variables `Vars` at any depth. A recursive
+%% type is opened once.
+names_var(Vars, T) -> names_var(Vars, T, []).
 
-%% Whether `T` could hold one of `Atoms` at any depth, named or not: a union
-%% with `atom` absorbs a variable's singleton, and only this sees it there.
-admits_atom(Atoms, T) -> atom_walk(fun({finite, L}, A) -> lists:member(A, L);
-                                      ({cofinite, L}, A) -> not lists:member(A, L)
-                                   end, Atoms, T, []).
-
-atom_walk(Test, Atoms, #{mu := _} = M, Seen) ->
-    not lists:member(M, Seen) andalso atom_walk(Test, Atoms, unfold(M), [M | Seen]);
-atom_walk(_Test, _Atoms, #{recvar := _}, _Seen) -> false;
-atom_walk(Test, Atoms, T, Seen) ->
-    Set = maps:get(atoms, T),
-    lists:any(fun(A) -> Test(Set, A) end, Atoms)
-        orelse lists:any(fun(C) -> atom_walk(Test, Atoms, C, Seen) end, components(T)).
+names_var(Vars, #{mu := _} = M, Seen) ->
+    not lists:member(M, Seen) andalso names_var(Vars, unfold(M), [M | Seen]);
+names_var(_Vars, #{recvar := _}, _Seen) -> false;
+names_var(Vars, T, Seen) ->
+    lists:any(fun(V) -> lists:member(V, Vars) end, maps:get(vars, T))
+        orelse lists:any(fun(C) -> names_var(Vars, C, Seen) end, components(T)).
 
 %% What `lists:flatten/1` leaves of an element type: the part that is not a
 %% list, joined with the same of the element of the part that is, at every
@@ -487,7 +491,7 @@ is_none(#{recvar := N}, Seen) ->
 %% emptiness here with the assumption chain, not with `sp_empty/1`. Arrows are
 %% always inhabited, so the function part must be absent.
 is_none(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := Ts,
-          lists := Ls, maps := Ms, bins := [], opaques := [], funs := []}, Seen)
+          lists := Ls, maps := Ms, bins := [], opaques := [], vars := [], funs := []}, Seen)
   when Ts =/= top, Ms =/= top ->
     lists:all(fun(Cs) -> lists:any(fun(C) -> is_none(C, Seen) end, Cs) end, Ts)
         andalso lists:all(fun(S) -> sp_none(S, Seen) end, Ls)
@@ -515,7 +519,7 @@ is_subtype(A, B) -> is_none(subtract(A, B)).
 %%% `none()` is not open; callers requiring enumeration must first exclude it,
 %%% as `bs_check:closed_and_inhabited/1` does.
 is_open(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
-          maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
+          maps := Ms, bins := Bs, opaques := Os, vars := Vs, funs := Fs}) ->
     a_open(As) orelse lists:any(fun r_unbounded/1, Is) orelse t_open(Ts)
         orelse l_open(Ls) orelse m_open(Ms)
         %% Cofinite float sets cannot be enumerated.
@@ -524,6 +528,8 @@ is_open(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
         orelse b_open(Bs)
         %% No pattern names a particular process, reference or port.
         orelse Os =/= []
+        %% No pattern takes a type variable's value apart (F45.6).
+        orelse Vs =/= []
         %% No pattern enumerates the functions of a type.
         orelse Fs =/= [].
 
@@ -600,6 +606,7 @@ u_parts(A, B) ->
       %% `string` is nested within `binary`, so their union is `binary`.
       bins   => b_union(maps:get(bins, A), maps:get(bins, B)),
       opaques => ordsets:union(maps:get(opaques, A), maps:get(opaques, B)),
+      vars   => ordsets:union(maps:get(vars, A), maps:get(vars, B)),
       funs   => f_union(maps:get(funs, A), maps:get(funs, B))}.
 
 %%% --- Recursive operation assumptions ---
@@ -655,6 +662,7 @@ i_parts(A, B, As) ->
       maps   => m_intersect(maps:get(maps, A), maps:get(maps, B), As),
       bins   => b_intersect(maps:get(bins, A), maps:get(bins, B)),
       opaques => ordsets:intersection(maps:get(opaques, A), maps:get(opaques, B)),
+      vars   => v_intersect(A, B),
       funs   => f_intersect(maps:get(funs, A), maps:get(funs, B), As)}.
 
 %%% --- Subtraction ---
@@ -682,7 +690,31 @@ s_parts(A, B, As) ->
       maps   => m_subtract(maps:get(maps, A), maps:get(maps, B), As),
       bins   => b_subtract(maps:get(bins, A), maps:get(bins, B)),
       opaques => ordsets:subtract(maps:get(opaques, A), maps:get(opaques, B)),
+      vars   => v_subtract(A, B),
       funs   => f_subtract(maps:get(funs, A), maps:get(funs, B), As)}.
+
+%%% --- Variable part ---
+%%%
+%%% A variable meets another type only where that type names it or holds all
+%%% of `term`, which every instantiation lies inside. Anything narrower could
+%%% miss the caller's choice, so it neither contains nor overlaps the variable.
+
+v_intersect(A, B) ->
+    #{vars := VA} = A,
+    #{vars := VB} = B,
+    ordsets:union([ordsets:intersection(VA, VB),
+                   [V || VB =/= [], v_full(A), V <- VB],
+                   [V || VA =/= [], v_full(B), V <- VA]]).
+
+v_subtract(#{vars := []}, _B) -> [];
+v_subtract(#{vars := VA}, B) ->
+    case v_full(B) of
+        true  -> [];
+        false -> ordsets:subtract(VA, maps:get(vars, B))
+    end.
+
+%% `term()` names no variable, so this subtraction never comes back here.
+v_full(T) -> is_none(subtract(term(), T)).
 
 %%% --- Function part ---
 %%%
@@ -1092,7 +1124,7 @@ kind_tags(Fields) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, Tags}, ints := [], floats := {finite, []},
                tuples := [], lists := [], maps := [], bins := [], opaques := [],
-               funs := []}} -> Tags;
+               vars := [], funs := []}} -> Tags;
         _ -> none
     end.
 
@@ -1361,12 +1393,15 @@ parts(#{mu := N, body := B}) ->
     end;
 parts(#{recvar := N}) -> [rec_str(N)];
 parts(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls, maps := Ms,
-        bins := Bs, opaques := Os, funs := Fs}) ->
-    a_str(As) ++ [i_str(R) || R <- Is] ++ fl_str(Fl) ++ ts_str(Ts) ++ l_str(Ls)
-        ++ ms_str(Ms) ++ b_str(Bs) ++ o_str(Os) ++ f_str(Fs).
+        bins := Bs, opaques := Os, vars := Vs, funs := Fs}) ->
+    v_str(Vs) ++ a_str(As) ++ [i_str(R) || R <- Is] ++ fl_str(Fl) ++ ts_str(Ts)
+        ++ l_str(Ls) ++ ms_str(Ms) ++ b_str(Bs) ++ o_str(Os) ++ f_str(Fs).
 
 %% F60: each opaque kind is spelled as its builtin name.
 o_str(Os) -> [atom_to_list(O) || O <- Os].
+
+%% A variable is spelled as its declaration writes it.
+v_str(Vs) -> [atom_to_list(V) || V <- Vs].
 
 %% The lexer accepts every shortest round-tripping spelling from
 %% float_to_list/2.
@@ -1441,10 +1476,10 @@ pat_parts(#{mu := N, body := B}) ->
     end;
 pat_parts(#{recvar := N}) -> [rec_str(N)];
 pat_parts(T = #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
-                maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
+                maps := Ms, bins := Bs, opaques := Os, vars := Vs, funs := Fs}) ->
     case is_subtype(term(), T) of
         true  -> ["term"];
-        false -> a_str(As) ++ [i_str(R) || R <- Is] ++ fl_str(Fl) ++ ts_pat(Ts)
+        false -> v_str(Vs) ++ a_str(As) ++ [i_str(R) || R <- Is] ++ fl_str(Fl) ++ ts_pat(Ts)
                      ++ l_str(Ls) ++ ms_pat(Ms) ++ b_str(Bs) ++ o_str(Os) ++ f_str(Fs)
     end.
 
@@ -1519,6 +1554,12 @@ head_reach(T) ->
 guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
 guard_buckets(#{recvar := _}) -> [atom, int, float, tuple, list, map, bin, pid, port,
                                   reference, 'fun'];
+%% A variable sits in the atom bucket, where its singleton-atom encoding put it
+%% before ENG-881, so the unions a signature may write are unchanged: `T | int`
+%% is accepted and `T | atom` refused. Which buckets a variable belongs in is for
+%% ticket 119 (ENG-926) to decide.
+guard_buckets(#{vars := [_ | _]} = T) ->
+    [atom | lists:delete(atom, guard_buckets(T#{vars => []}))];
 guard_buckets(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
                 maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
     [atom  || As =/= {finite, []}] ++
@@ -1564,6 +1605,8 @@ part_test(#{} = T) ->
         [{opaques, [reference]}]           -> {ok, is_reference};
         %% Two opaque kinds share no single guard.
         [{opaques, _}]                     -> {no, several_parts};
+        %% No guard decides a variable; any test would pick its instantiation.
+        [{vars, _}]                        -> {no, several_parts};
         [{lists, [{[], {open, any}}]}]     -> {ok, is_list};
         [{maps, top}]                      -> {ok, is_map};
         [{tuples, top}]                    -> {ok, is_tuple};
@@ -1585,7 +1628,8 @@ part_bif(tuples) -> is_tuple;
 part_bif(funs)   -> is_function.
 
 inhabited_parts(#{atoms := As, ints := Is, floats := Fl, tuples := Ts,
-                  lists := Ls, maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
+                  lists := Ls, maps := Ms, bins := Bs, opaques := Os, vars := Vs,
+                  funs := Fs}) ->
     [{atoms, As}  || As =/= {finite, []}] ++
     [{ints, Is}   || Is =/= []] ++
     [{floats, Fl} || Fl =/= {finite, []}] ++
@@ -1594,6 +1638,7 @@ inhabited_parts(#{atoms := As, ints := Is, floats := Fl, tuples := Ts,
     [{maps, Ms}   || Ms =/= []] ++
     [{bins, Bs}   || Bs =/= []] ++
     [{opaques, Os} || Os =/= []] ++
+    [{vars, Vs}   || Vs =/= []] ++
     [{funs, Fs}   || Fs =/= []].
 
 %% Pairwise checks need normalised members after flattening and absorption, not
@@ -1601,7 +1646,7 @@ inhabited_parts(#{atoms := As, ints := Is, floats := Fl, tuples := Ts,
 constituents(#{mu := _} = T)     -> [T];
 constituents(#{recvar := _} = T) -> [T];
 constituents(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
-               maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
+               maps := Ms, bins := Bs, opaques := Os, vars := Vs, funs := Fs}) ->
     N = none(),
     [N#{atoms => As} || As =/= {finite, []}]
         ++ [N#{ints => [R]} || R <- Is]
@@ -1611,6 +1656,7 @@ constituents(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
         ++ part_cs(Ms, fun(V) -> N#{maps => V} end)
         ++ [N#{bins => Bs} || Bs =/= []]
         ++ [N#{opaques => [O]} || O <- Os]
+        ++ [N#{vars => [V]} || V <- Vs]
         ++ part_cs(Fs, fun(V) -> N#{funs => V} end).
 
 %% top is one constituent, not a member list.
@@ -1710,13 +1756,17 @@ hd_parts(#{mu := N} = T, Names, Pos, Seen) ->
     end;
 hd_parts(#{recvar := _}, _Names, _Pos, _Seen) -> [{binder, binder("x")}];
 hd_parts(T = #{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
-               maps := Ms, bins := Bs, opaques := Os, funs := Fs}, Names, Pos, Seen) ->
+               maps := Ms, bins := Bs, opaques := Os, vars := Vs, funs := Fs}, Names, Pos, Seen) ->
     case is_subtype(term(), T) of
         true  -> [{binder, binder("x")}];
-        false -> a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ fl_pat(Fl)
+        false -> v_pat(Vs) ++ a_pat(As) ++ [i_pat(R, Pos) || R <- Is] ++ fl_pat(Fl)
                      ++ ts_hd(Ts, Names, Seen) ++ l_pat(Ls, Names, Seen)
                      ++ ms_hd(Ms, Names) ++ b_pat(Bs) ++ o_pat(Os) ++ f_pat(Fs)
     end.
+
+%% F45.6: a variable's value admits only a binder.
+v_pat([]) -> [];
+v_pat(_)  -> [{binder, binder("x")}].
 
 %% F60: no literal names a process, reference or port; a head binds one.
 o_pat([]) -> [];
@@ -1819,7 +1869,8 @@ m_hd({dom, K, V}, _Names) ->
 m_hd({_Kind, Fields}, Names) ->
     case maps:find('Kind', Fields) of
         {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
-               tuples := [], lists := [], maps := [], bins := [], opaques := []}} ->
+               tuples := [], lists := [], maps := [], bins := [], opaques := [],
+               vars := []}} ->
             case maps:find(Tag, Names) of
                 {ok, Src} -> [{shape, Src ++ " " ++ binder(initial(Src))}];
                 error     -> [{shape, "{ Kind: " ++ atom_str(Tag) ++ " }"}]
@@ -1836,7 +1887,8 @@ m_hd({_Kind, Fields}, Names) ->
 %% The spellings a field's value takes in a head: each literal of a key that
 %% holds only string literals, and `_` for anything else.
 tag_pats(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := [],
-           lists := [], maps := [], bins := [{finite, Strs}], opaques := [], funs := []}) ->
+           lists := [], maps := [], bins := [{finite, Strs}], opaques := [], vars := [],
+           funs := []}) ->
     [key_str(S) || S <- Strs];
 tag_pats(_) ->
     ["_"].
@@ -1845,7 +1897,8 @@ tag_pats(_) ->
 %% the head has to say it: `{ "type": _ }` printed once per member names no
 %% member. Any other value prints `_`, as it did.
 tag_pat(#{atoms := {finite, []}, ints := [], floats := {finite, []}, tuples := [],
-          lists := [], maps := [], bins := [{finite, [S]}], opaques := [], funs := []}) ->
+          lists := [], maps := [], bins := [{finite, [S]}], opaques := [], vars := [],
+          funs := []}) ->
     key_str(S);
 tag_pat(_) ->
     "_".
@@ -1923,7 +1976,8 @@ m_pat({_Kind, Fields}) ->
         %% Require an empty binary part so a Kind union containing string
         %% cannot collapse to a bare atom tag.
         {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
-               tuples := [], lists := [], maps := [], bins := [], opaques := []}} ->
+               tuples := [], lists := [], maps := [], bins := [], opaques := [],
+               vars := []}} ->
             "{ Kind: " ++ atom_str(Tag) ++ " }";
         _ ->
             Ks = lists:sort(maps:keys(Fields)),

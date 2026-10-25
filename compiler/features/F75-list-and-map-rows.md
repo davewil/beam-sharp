@@ -81,23 +81,18 @@ validated twice.
   a list, so `List.Flatten` over it cannot promise `list<T>` back, and the same holds for a `T`
   at any depth (`list<list<T>>`). The cold review found this promise being made and kept by
   the checker while the value broke it.
-- **How a variable is recognised.** While a polymorphic body is checked, `T` is the singleton
-  atom `'T'` (F45). `bs_types:names_atom/2` looks for it as a named member of a finite atom set,
-  at any depth, so a plain `atom`, which admits `'T'` without naming it, is not a variable. A
-  `:T` literal written inside a generic over `T` is the same atom and reads as the variable:
-  that is F45's representation, not this feature's, and it only makes these two rules more
-  permissive there.
-- **The refusal stands down further than the typing.** A body that joins a variable with
-  `atom`, `[x, ..ys]` with `ys` a `list<atom>`, absorbs the variable's singleton into `atom`,
-  and nothing names it any more. The sought-value check therefore asks
-  `bs_types:admits_atom/2`, *could* this type hold the variable, and stands down if so: inside
-  a polymorphic function it costs the diagnostic wherever either side holds `atom` (or `term`)
-  at any depth, `List.Contains(list<atom>, 5)` among them, and it never refuses a program a
-  caller's choice makes right. The absorption itself is an F45 defect, measured on
-  master before this feature: `G<T>(T x, list<atom> ys) -> [x, ..ys]` is accepted as
-  `list<atom>` and returns `[[5], :a]`. Filed as
-  [ENG-881](https://linear.app/davewil/issue/ENG-881); `List.Flatten` over such a list
-  inherits it.
+- **How a variable is recognised.** While a polymorphic body is checked, `T` is a part of
+  the type algebra of its own (F45, since [ENG-881](https://linear.app/davewil/issue/ENG-881)).
+  `bs_types:names_var/2` looks for it at any depth, so a plain `atom` is not a variable, and
+  neither is a `:'T'` literal.
+- **The refusal stands down where the typing does.** The sought-value check stands down when
+  either side holds a variable, since a caller's choice could make it the value sought. Until
+  ENG-881 it stood down further: a body that joined a variable with `atom`, `[x, ..ys]` with
+  `ys` a `list<atom>`, absorbed the variable's singleton into `atom`, so the check asked
+  whether a type *could* hold the variable and gave up the diagnostic over any `atom` inside a
+  polymorphic function. ENG-881 keeps the variable apart from `atom`, and
+  `List.Contains(ys, "x")` over a `list<atom>` inside a generic is refused again
+  (`a_plain_atom_in_a_polymorphic_function_is_refused_test`).
 - **`List.Insert` is Elixir's `insert_at`** (ticket 118 Q3): no OTP function inserts at an
   index, so it is the second `generated` row after `Term.Compare`, a local function over
   `lists:split/2` written into the module that calls it. An index past the end appends; a

@@ -387,12 +387,23 @@ an_atom_element_is_not_read_as_a_variable_test() ->
                   "private list<atom> G<T>(list<atom> xs, T y)\n"
                   "G(xs, y) -> List.Flatten(xs)\n")).
 
-%% A variable joined with `atom` in the body is absorbed, and a caller may make
-%% it the value sought: here `T` is `string` and the answer is `:true`.
-a_variable_absorbed_into_atom_is_not_refused_test() ->
+%% A variable joined with `atom` in the body is still the variable (ENG-881),
+%% and a caller may make it the value sought: here `T` is `string` and the
+%% answer is `:true`.
+a_variable_joined_with_atom_is_not_refused_test() ->
     {Root, Main} = in_dir([caller("public bool H(int n)\n"
                                   "H(n) -> G(\"x\", [:a])\n\n"
                                   "private bool G<T>(T x, list<atom> ys)\n"
                                   "G(x, ys) -> List.Contains([x, ..ys], \"x\")\n")]),
     ?assertEqual(":true",
                  value(bs_test_support:run_cli("--src-root " ++ Root ++ " " ++ Main ++ " H 1"))).
+
+%% With the variable kept apart from `atom`, a plain `atom` inside a polymorphic
+%% function is no variable, and a string is never one of its elements.
+a_plain_atom_in_a_polymorphic_function_is_refused_test() ->
+    Out = compile("public bool H(int n)\n"
+                  "H(n) -> G(n, [:a])\n\n"
+                  "private bool G<T>(T x, list<atom> ys)\n"
+                  "G(x, ys) -> List.Contains(ys, \"x\")\n"),
+    bad_rc(Out),
+    has(Out, "never equal").

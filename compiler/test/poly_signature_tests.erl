@@ -158,6 +158,57 @@ a_body_outside_the_declared_shape_is_refused_at_the_declaration_test() ->
           "Only(row, rest) -> (:error, row)\n",
     ?assert(lists:member(return_not_declared, tags(errors(Src)))).
 
+%% ENG-881: `atom` admits every atom, so a variable bound to one would vanish
+%% into it, and `[[5], :a]` would pass as a `list<atom>`.
+g_src(Ret) ->
+    "module P\n"
+    "public " ++ Ret ++ " H(int n)\n"
+    "H(n) -> G([n], [:a])\n"
+    "private " ++ Ret ++ " G<T>(T x, list<atom> ys)\n"
+    "G(x, ys) -> [x, ..ys]\n".
+
+a_variable_joined_with_atom_is_not_absorbed_test() ->
+    Src = g_src("list<atom>"),
+    ?assertMatch([{error, _, 'G', _}], errors(Src)),
+    ?assertEqual([return_not_declared], tags(errors(Src))),
+    Out = run_cli_src(Src),
+    bad_rc(Out),
+    has(Out, "[T, ..]").
+
+%% The join holds the variable and the atoms apart: each is inside `term`, and
+%% the atoms are not the variable.
+a_variable_joined_with_atom_is_inside_term_test() ->
+    ?assertEqual([], errors(g_src("list<term>"))).
+
+a_variable_joined_with_atom_is_not_only_the_variable_test() ->
+    Src = "module P\n"
+          "private list<T> G<T>(T x, list<atom> ys)\n"
+          "G(x, ys) -> [x, ..ys]\n",
+    ?assertEqual([return_not_declared], tags(errors(Src))).
+
+%% `:'T'` is an atom a source can write, and it is not the variable `T`.
+an_atom_spelled_as_the_variable_is_not_the_variable_test() ->
+    Src = "module P\n"
+          "private T G<T>(T x)\n"
+          "G(x) -> :'T'\n",
+    ?assertEqual([return_not_declared], tags(errors(Src))).
+
+%% A signature that writes a variable beside another type is judged as it was
+%% while a variable was a singleton atom: `T | int` stands, `T | atom` is
+%% refused, now because no clause head can tell them apart.
+u_src(Ret) ->
+    "module U\n"
+    "private " ++ Ret ++ " G<T>(T x)\n"
+    "G(x) -> x\n".
+
+a_variable_beside_int_in_a_signature_stands_test() ->
+    ?assertEqual([], errors(u_src("T | int"))).
+
+a_variable_beside_atom_in_a_signature_is_refused_test() ->
+    Out = run_cli_src(u_src("T | atom")),
+    bad_rc(Out),
+    has(Out, "no clause head can tell `atom` from `T`").
+
 %%% ---------------------------------------------------------------------------
 %%% F45.6 — a bare type variable admits only a binding pattern.
 %%% ---------------------------------------------------------------------------

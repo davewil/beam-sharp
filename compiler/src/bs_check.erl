@@ -765,9 +765,10 @@ sig(Params, Ret, Env) ->
 
 %%% Polymorphic signatures
 %%% Erased variables give callers the maximal extent and emit `any()` specs.
-%%% Declarations instead bind variables to opaque singleton atoms the source
-%%% cannot spell bare. This prevents assumptions about an instantiation's shape
-%%% and checks exhaustiveness once for every instantiation.
+%%% Declarations instead bind each variable to a part of the algebra of its
+%%% own (`bs_types:tvar/1`), which no other type absorbs. This prevents
+%%% assumptions about an instantiation's shape and checks exhaustiveness once
+%%% for every instantiation.
 %%% Rationale: compiler/features/F45-polymorphic-signatures.md.
 
 erased_env(Vars, Env) ->
@@ -819,7 +820,7 @@ contra(pos) -> neg;
 contra(neg) -> pos.
 
 opaque_env(Vars, Env) ->
-    maps:merge(Env, maps:from_list([{V, bs_types:atom_lit(V)} || V <- Vars])).
+    maps:merge(Env, maps:from_list([{V, bs_types:tvar(V)} || V <- Vars])).
 
 %% Keys match `callees/3` for local and imported polymorphic callees.
 polys(Decls, Env, Imports) ->
@@ -1019,7 +1020,7 @@ subst_tpl({t_fun, Ds, C}, S)          -> bs_types:fun_ty([subst_tpl(D, S) || D <
 
 %% Every type variable must occur in a parameter for call-site inference. A
 %% bare type-variable parameter permits only a binder or wildcard. Reject shape
-%% tests before the walk can misreport opaque atoms as vacuous.
+%% tests before the walk can misreport opaque variables as vacuous.
 recoverable_diags(#fn{tvars = []}) -> [];
 recoverable_diags(#fn{name = Name, line = L, params = Params, tvars = Vars}) ->
     InParams = lists:append([vars_in(T, Vars) || {param, T, _} <- Params]),
@@ -3319,7 +3320,7 @@ sought_diags(L, Q, Fun, ATys, D, C) ->
                          each -> bs_types:list_elem(bs_types:unfold(lists:nth(SI, ATys)))
                      end,
             case bs_types:is_none(Held) orelse bs_types:is_none(Sought)
-                 orelse may_hold_variable(Held, C) orelse may_hold_variable(Sought, C)
+                 orelse holds_variable(Held, C) orelse holds_variable(Sought, C)
                  orelse not bs_types:is_none(bs_types:intersect(Held, Sought)) of
                 true  -> [];
                 false -> [{error, L, C#ctx.fname,
@@ -3329,18 +3330,11 @@ sought_diags(L, Q, Fun, ATys, D, C) ->
         _ -> []
     end.
 
-%% A declaration's type variables are singleton atoms while its body is checked
-%% (F45), so a type holding one, at any depth, could be anything a caller
-%% chooses there. A plain `atom` admits those atoms without naming them.
+%% A declaration's type variables are a part of their own while its body is
+%% checked (F45), so a type holding one, at any depth, could be anything a
+%% caller chooses there.
 holds_variable(_Ty, #ctx{tvars = []}) -> false;
-holds_variable(Ty, #ctx{tvars = Vars}) -> bs_types:names_atom(Vars, Ty).
-
-%% The refusal's side: a variable joined with `atom` is absorbed and no longer
-%% named, so a refusal stands down wherever one could be, rather than refuse a
-%% program a caller's choice makes right. It costs the diagnostic over a plain
-%% `atom` inside a polymorphic function.
-may_hold_variable(_Ty, #ctx{tvars = []}) -> false;
-may_hold_variable(Ty, #ctx{tvars = Vars}) -> bs_types:admits_atom(Vars, Ty).
+holds_variable(Ty, #ctx{tvars = Vars}) -> bs_types:names_var(Vars, Ty).
 
 %% A row's text names builtins and its own variables only, so it resolves in
 %% an empty environment, where no author's alias can capture a name it uses.
@@ -4193,15 +4187,13 @@ non_numeric(_Op, _ATy, _BTy, _C) ->
 %%
 %% A type variable is not refused: `F<T>(T a) -> a + 1` compiled before F67,
 %% and whether ticket 27's opacity refuses it is not decided (F67's Leaves).
-%% The body sees a variable as an opaque atom (`opaque_env/2`), so a type
-%% holding that atom is the variable, unless it holds every atom: `atom` holds
-%% `:T` too, and is no variable.
+%% The body sees a variable as a part of its own (`opaque_env/2`), so a type
+%% holding one is the variable.
 operand_verdict(Ty, C) ->
     Numeric = bs_types:union(bs_types:int(), bs_types:float_top()),
     Variable = fun() ->
-                       lists:any(fun(V) -> bs_types:is_subtype(bs_types:atom_lit(V), Ty) end,
+                       lists:any(fun(V) -> bs_types:is_subtype(bs_types:tvar(V), Ty) end,
                                  C#ctx.tvars)
-                           andalso not bs_types:is_subtype(bs_types:atom_top(), Ty)
                end,
     case bs_types:is_none(Ty) of
         true -> uninhabited;
