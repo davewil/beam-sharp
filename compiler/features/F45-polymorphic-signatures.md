@@ -228,7 +228,10 @@ touched: it lists the seven things the old README wrongly called out, and this w
    while the runtime hands back `5`. The opaque atom closes that without a node: it is the
    smallest type contained in nothing but itself, and every existing operation — subtract,
    the residual printer, exhaustiveness — reads it as the ordinary atom it is. The one place
-   it must not leak is the emitted spec, which reads the erased binding instead.
+   it must not leak is the emitted spec, which reads the erased binding instead. *(Superseded
+   by [ENG-881](https://linear.app/davewil/issue/ENG-881): an ordinary atom is one `atom`
+   contains, so a body's `T | atom` forgot `T`. The variable is now a part of its own; see
+   **Two bindings**.)*
 2. **The two tickets that own this feature had each written a refusal the pricing did not
    count.** 27 §2's diagnostic text was on the record since 2026-08-13, and 28 §6 made the
    recoverability rule a spec obligation on 2026-08-14. Neither is a decision this feature

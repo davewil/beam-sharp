@@ -79,8 +79,7 @@ forms(Module = #{module := Mod, functions := Fns, env := Env}) ->
     %% Recursive `-type` declarations precede the specs that refer to them, so
     %% a reader meets the definition first; Erlang does not care.
     ++ rec_type_attrs(Fns, Env)
-    ++ [type_atoms_form(Fns, Env, maps:get(declared_types, Module, []),
-                        maps:get(type_vars, Module, []))]
+    ++ [type_atoms_form(Fns, Env, maps:get(declared_types, Module, []))]
     ++ lists:append([file_group(Path, Fs, Env, Behaviours, Ctx)
                      || {Path, Fs} <- Files])
     %% Generated code goes last and carries no `file` attribute: it belongs to
@@ -477,9 +476,10 @@ is_int_only(TypeExpr, Ctx) -> kind_only(TypeExpr, Ctx) =:= int.
 kind_only(TypeExpr, #{env := Env}) ->
     try bs_check:resolve(TypeExpr, Env) of
         #{ints := Is, atoms := {finite, []}, floats := {finite, []}, tuples := [],
-          lists := [], maps := [], bins := [], opaques := [], funs := []} when Is =/= [] -> int;
+          lists := [], maps := [], bins := [], opaques := [], vars := [], funs := []}
+          when Is =/= [] -> int;
         #{floats := Fl, atoms := {finite, []}, ints := [], tuples := [],
-          lists := [], maps := [], bins := [], opaques := [], funs := []}
+          lists := [], maps := [], bins := [], opaques := [], vars := [], funs := []}
           when Fl =/= {finite, []} -> float;
         _ -> none
     catch _:_ -> none
@@ -509,11 +509,11 @@ record_tag(TypeExpr, #{env := Env}) ->
     try bs_types:unfold(bs_check:resolve(TypeExpr, Env)) of
         #{maps := [{closed, Fields}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
-          opaques := [], funs := []} ->
+          opaques := [], vars := [], funs := []} ->
             case maps:find('Kind', Fields) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                        tuples := [], lists := [], maps := [], bins := [],
-                       opaques := [], funs := []}} -> {ok, Tag};
+                       opaques := [], vars := [], funs := []}} -> {ok, Tag};
                 _ -> none
             end;
         _ -> none
@@ -1498,13 +1498,13 @@ signature_types(Fns, Env) ->
                ++ [bs_check_resolve(element(4, F), E)]
        end || F <- Fns]).
 
-%% Declared aliases use opaque singleton atoms for their variables; `Vars`
-%% removes those placeholders from the atoms to intern.
-type_atoms_form(Fns, Env, Declared, Vars) ->
+%% Declared aliases hold their variables in a part of their own, never among
+%% the atoms, so every atom collected is a literal to intern.
+type_atoms_form(Fns, Env, Declared) ->
     Tys = signature_types(Fns, Env) ++ Declared,
     {Atoms, _Seen} = lists:foldl(fun collect_atoms/2, {[], #{}}, Tys),
     {function, ?A, type_atoms_name(), 0,
-     [{clause, ?A, [], [], [atom_list(lists:usort(Atoms) -- Vars)]}]}.
+     [{clause, ?A, [], [], [atom_list(lists:usort(Atoms))]}]}.
 
 %% Walk each binder once and stop at `recvar`. Include cofinite exclusions and
 %% map field names: `components/1` yields field types, not their names.

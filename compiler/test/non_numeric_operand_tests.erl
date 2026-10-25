@@ -257,6 +257,12 @@ an_atom_beside_a_type_variable_is_refused_test() ->
     refused([{"GenLit.bs", "module GenLit\npublic int F<T>(T x, :ok | :err a)\n"
                            "F(x, a) -> a + 1\n"}]).
 
+%% ENG-881: an atom spelled as the variable is an atom like any other, and no
+%% longer the variable's own: it is refused, where it raised `badarith`.
+an_atom_spelled_as_the_variable_is_refused_test() ->
+    refused([{"GenQuoted.bs", "module GenQuoted\npublic int F<T>(T x)\n"
+                              "F(x) -> :'T' + 1\n"}]).
+
 %% F67.14 — a literal's text is characters, not bytes: the advice prints `é`
 %% as the author wrote it, the pasted template builds the string the literal
 %% would, and the JSON channel carries the text. The first cut printed

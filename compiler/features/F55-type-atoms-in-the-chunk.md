@@ -132,11 +132,11 @@ module that declares `record Point { X: int }` and never constructs one has
 cannot be resolved (`needs_type_args`), and erasing `T` to `term` — the
 review's first suggestion — does not work either: `:zzz_tagged | term` is the
 top, and the literal is absorbed. So the alias body is resolved under the
-checker's **opaque** binding, each variable a singleton atom spelled as the
-variable, which keeps every literal beside it; the variables' own atoms then
-come out of the set. The one cost is an author who names an atom exactly as
-an alias names a variable, `:T` beside `type Box<T>`, which loses `:T`;
-variables are single capitals by convention and atoms are not.
+checker's **opaque** binding, which keeps every literal beside it. Each
+variable was a singleton atom spelled as the variable, taken back out of the
+set, so `:'T'` beside `type Box<T>` was lost; since
+[ENG-881](https://linear.app/davewil/issue/ENG-881) a variable is a part of the
+algebra of its own, never among the atoms, and `:'T'` is kept.
 
 Signatures are walked after `bs_check_resolve/2`, which is what makes the set
 the *expanded* one: `list<Mode>` contributes `Mode`'s members, and a prelude

@@ -99,6 +99,15 @@ a_declared_but_unused_type_still_counts_keys_included_test() ->
                        "Inc(n) -> n + 1\n", 'Decl'),
     ?assertEqual(['Decl.Point', 'Kind', 'X', zzz_tagged], D:'bs@type_atoms'()).
 
+%% An alias's variable is not an atom (ENG-881), so an atom spelled as the
+%% variable is kept beside it.
+an_atom_spelled_as_an_alias_variable_still_counts_test() ->
+    D = build_and_load("module Boxed\n"
+                       "type Box<T> = :'T' | T\n"
+                       "public int Inc(int n)\n"
+                       "Inc(n) -> n + 1\n", 'Boxed'),
+    ?assertEqual(['T'], D:'bs@type_atoms'()).
+
 %% Only Uses.beam is on the fresh VM path; neither name is a value in Uses.
 an_imported_types_atoms_reach_the_importing_modules_chunk_test() ->
     Root = bs_test_support:fixture_root(),

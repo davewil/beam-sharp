@@ -26,10 +26,7 @@
                 arithmetic as a capability only a bound would grant, which reads as refusing it,
                 while ticket 112's rule is written over concrete types. F67 keeps what compiled,
                 and the question is [ticket 116](../../wayfinder/issues/116-arithmetic-over-a-type-variable.md),
-                [ENG-579](https://linear.app/davewil/issue/ENG-579); the
-                atom literal spelled like a variable in scope, `:'T'` in a function generic over
-                `T`, which escapes the refusal and raises `badarith`, since F45 represents the
-                variable as that same atom and the checker cannot tell them apart; a template for a chain whose operands are not names, one-level
+                [ENG-579](https://linear.app/davewil/issue/ENG-579); a template for a chain whose operands are not names, one-level
                 projections or plain literals, where the advice names the form without writing it;
                 a parenthesised chain on the right, `"a" + (s + "b")`, which is advised the inner
                 chain's template alone, since flattening it would reorder numeric additions C# does
@@ -70,8 +67,9 @@ Pasted as the body, the template returns `"-/glm-5.2/opencode"`.
 - **Meets, not is a subtype of.** `int | :none` and `term` have a numeric part, and compile as they
   did. **A type variable is not refused**, since whether arithmetic over one is legal is not
   decided (see *Leaves*), and `F<T>(T a) -> a + 1` ran `F(4)` to `5` before F67. The body sees a
-  variable as an opaque atom, so a type holding that atom is read as the variable, unless it holds
-  every atom: `atom` holds `:T` too, and is refused beside a type variable as it is anywhere else.
+  variable as a part of the type algebra of its own, so a type holding it is read as the variable;
+  `atom`, and a `:'T'` literal, are refused beside a type variable as anywhere else
+  ([ENG-881](https://linear.app/davewil/issue/ENG-881)).
 - **Arithmetic over an uninhabited operand is uninhabited.** An operand of type `none` never arrives,
   whether it raised or was refused below. It answered `int` before, so the second `+` of a string
   chain refused the first one's `int`, and the return check refused an `int` the chain never made.
@@ -143,7 +141,7 @@ key was renamed from `repair` to `template`, and F67.11 was then green in 16 of 
 | F67.10 | `s * 2` over a `string` | refused, and no template offered |
 | F67.11 | the diagnostic on the term channel, in `--batch` and standalone, with a rendered template and with `none` | byte-identical (ENG-349). Red in 2 runs of 8 while the key was `repair`, which printed before `op` in one VM and after it in the other; the key is `template` |
 | F67.12 | `(a + 2.0) + 3` in a function returning `float` | `mixed_operands` alone: no `return_not_declared` for the `int` the outer `+` used to answer |
-| F67.13 | `a + 1` over an `atom`, and over `:ok \| :err`, in a function generic over `T` | refused, each: the variable's exemption does not reach `atom` or another literal beside it (the literal `:'T'` is a *Leaves* line) |
+| F67.13 | `a + 1` over an `atom`, and over `:ok \| :err`, in a function generic over `T` | refused, each: the variable's exemption does not reach `atom` or another literal beside it (and, since ENG-881, the literal `:'T'`) |
 | F67.14 | `"café/" + s`, the advice pasted back; `"€" + s` on the JSON channel | `$"café/{s}"`, which builds what `"café/x"` is; the JSON carries the template as text, `"$\"€{s}\""`, and does not crash |
 | F67.15 | `-s` over a `string`; `-n` over `int \| :none` | refused, `op => '-'`, `side => operand`, "as its operand" and no "each side"; the union compiles |
 | F67.16 | `-("a" + s)`, `-(-s)` and `-(n + "a")` in a function returning `int`; `-(-s)` in a clause guard and `-("a" + x)` in a switch arm's; `-(raise :x)` returning `int` and `float` | one `non_numeric_operand` each, and no `return_not_declared` offering `int \| float`; the raise compiles under both |

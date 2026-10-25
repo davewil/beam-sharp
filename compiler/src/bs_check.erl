@@ -143,11 +143,8 @@ check_dir1(Sources0, World, Expect) ->
                          files => PerFile1,
                          %% The emitter retains atoms from all declared types
                          %% in the chunk. Opaque alias variables preserve
-                         %% literals that `term` would absorb; `type_vars` lets
-                         %% the emitter exclude the variables' own atoms.
+                         %% literals that `term` would absorb.
                          declared_types => declared_types(Decls, Env),
-                         type_vars => lists:usort(lists:append(
-                             [Ps || {type_alias, _, _, Ps, _} <- Decls])),
                          behaviours => [B || {behaviour, _, B} <- Decls],
                          %% The emitter consumes imports resolved at check
                          %% time.
@@ -1866,11 +1863,11 @@ record_of(Name, Line, Env) ->
     case bs_types:unfold(resolve({t_ref, Name}, Env)) of
         #{maps := [{closed, Fs}], atoms := {finite, []}, ints := [],
           floats := {finite, []}, tuples := [], lists := [], bins := [],
-          opaques := [], funs := []} ->
+          opaques := [], vars := [], funs := []} ->
             case maps:find('Kind', Fs) of
                 {ok, #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                        tuples := [], lists := [], maps := [], bins := [],
-                       opaques := [], funs := []}} ->
+                       opaques := [], vars := [], funs := []}} ->
                     %% `Kind` is compiler-minted and cannot be written in a
                     %% record pattern.
                     {Tag, maps:keys(Fs) -- ['Kind']};
@@ -3437,7 +3434,7 @@ first_inseparable([A | Rest]) ->
 %% enumerated for code generation.
 parse_atom_members(#{atoms := {finite, As}, ints := [], floats := {finite, []},
                      tuples := [], lists := [], maps := [], bins := [],
-                     opaques := [], funs := []}) when As =/= [] ->
+                     opaques := [], vars := [], funs := []}) when As =/= [] ->
     {ok, lists:usort(As)};
 parse_atom_members(_) ->
     error.
@@ -4712,7 +4709,7 @@ minted_tag(Name, Env) ->
             case field_type(Ty, 'Kind') of
                 #{atoms := {finite, [Tag]}, ints := [], floats := {finite, []},
                   tuples := [], lists := [], maps := [], bins := [],
-                  opaques := [], funs := []} -> Tag;
+                  opaques := [], vars := [], funs := []} -> Tag;
                 _ -> undefined
             end
     catch
