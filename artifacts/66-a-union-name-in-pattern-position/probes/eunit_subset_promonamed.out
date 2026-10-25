@@ -1,0 +1,4 @@
+  diagnostic_term_tests: every_contractual_tag_is_rendered_test
+  diagnostic_term_tests: the_diagnostics_gate_passes_test
+=======================================================
+  Failed: 2.  Skipped: 0.  Passed: 167.

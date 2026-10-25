@@ -1,0 +1,6 @@
+module G3
+
+type Names = list<int>
+public atom H(term t)
+H(Names n) -> :names
+H(_) -> :other

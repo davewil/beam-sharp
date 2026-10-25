@@ -1,0 +1,68 @@
+--- /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/66/proto/src/bs_check.erl	2026-10-25 23:16:58.920787620 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/66/proto2/src/bs_check.erl	2026-10-25 23:30:40.915232642 +0000
+@@ -4930,7 +4930,14 @@
+                     {lists:foldl(fun bs_types:union/2, bs_types:none(),
+                                  [bs_types:map_open(#{'Kind' => bs_types:atom_lit(T)})
+                                   || T <- Tags]), #{}, true};
+-                _ -> record_pattern_type(P, Path, Env)
++                _ ->
++                    %% PROTOTYPE 2: any other NAMED non-record type whose resolution is not a single record
++                    case Fields =:= [] andalso is_single_record(Name, Env) of
++                        false ->
++                            T = resolve({t_ref, Name}, Env),
++                            {T, #{}, true};
++                        _ -> record_pattern_type(P, Path, Env)
++                    end
+             end
+     end;
+ %% A type prefix is exact only when `part_test/1` decides membership. Raise
+@@ -4998,6 +5005,9 @@
+ 
+ %% PROTOTYPE (ticket 66): a name that resolves to a union of >=2 records and
+ %% nothing else yields its minted tags.
++is_single_record(Name, Env) ->
++    try record_of(Name, 0, Env) of _ -> true catch _:_ -> false end.
++
+ union_record_tags(Name, Env) ->
+     try bs_types:unfold(resolve({t_ref, Name}, Env)) of
+         #{maps := Ms, atoms := {finite, []}, ints := [], floats := {finite, []},
+--- /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/66/proto/src/bs_emit.erl	2026-10-25 23:16:58.921682989 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/66/proto2/src/bs_emit.erl	2026-10-25 23:30:40.916815499 +0000
+@@ -564,7 +564,11 @@
+ desugar({p_bind, L, V, {p_rec, _, Name, []} = P}, #{env := Env} = Ctx) ->
+     case bs_check:union_record_tags(Name, Env) of
+         {ok, Tags} -> {p_tags, L, Tags, V};
+-        none       -> {p_alias, L, V, desugar(P, Ctx)}
++        none       ->
++            case record_tag({t_ref, Name}, Ctx) of
++                {ok, _} -> {p_alias, L, V, desugar(P, Ctx)};
++                none    -> {p_tytest, L, bs_check:resolve({t_ref, Name}, Env), V}
++            end
+     end;
+ desugar({p_bind, L, V, P}, Ctx)        -> {p_alias, L, V, desugar(P, Ctx)};
+ desugar({p_tuple, L, Ps}, Ctx)         -> {p_tuple, L, [desugar(P, Ctx) || P <- Ps]};
+@@ -636,6 +640,8 @@
+         lists:foldl(
+           fun({{p_test, L, Bif, V}, _Known}, {Acc, Ts, N}) ->
+                   {Acc ++ [{p_var, L, V}], Ts ++ [part_expr(Bif, V, L)], N};
++             ({{p_tytest, L, Ty, V}, _Known}, {Acc, Ts, N}) ->
++                  {Acc ++ [{p_var, L, V}], Ts ++ [{e_abs, L, V, type_test({var, L, var_name(V)}, Ty, L)}], N};
+              ({{p_tags, L, Tags, V}, _Known}, {Acc, Ts, N}) ->
+                   {Acc ++ [{p_var, L, V}],
+                    Ts ++ [fold_or([tag_test(V, T, L) || T <- Tags], L)], N};
+@@ -742,6 +748,7 @@
+ guard_vars({guard, Expr}) -> used_vars(Expr, sets:new([{version, 2}])).
+ 
+ used_vars({e_var, _, V}, Acc)        -> sets:add_element(V, Acc);
++used_vars({e_abs, _, V, _}, Acc)     -> sets:add_element(V, Acc);
+ used_vars({e_tuple, _, Es}, Acc)     -> lists:foldl(fun used_vars/2, Acc, Es);
+ used_vars({e_call, _, _, As}, Acc)   -> lists:foldl(fun used_vars/2, Acc, As);
+ %% Only the value argument of a `ValidateAs` holds variables; the type
+@@ -1143,6 +1150,7 @@
+ %% return guard must wrap the exception wrapper: a wrong-shaped return must
+ %% crash outside the callee's failure channel. Caught failures pass it.
+ %% Rationale: compiler/features/F52-channelled-foreign-return-guard.md.
++expr({e_abs, _, _, Abs}, _C) -> Abs;
+ expr({e_foreign_call, L, Mod, Fn, As}, C) ->
+     Call = {call, L, {remote, L, {atom, L, Mod}, {atom, L, Fn}},
+             [expr(A, C) || A <- As]},

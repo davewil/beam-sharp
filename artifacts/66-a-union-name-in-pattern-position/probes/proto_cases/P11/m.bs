@@ -1,0 +1,7 @@
+module P11
+
+type Amount = int | float
+
+public atom H(Amount | :none t)
+H(Amount a) -> :amount
+H(:none) -> :none

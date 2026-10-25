@@ -1,0 +1,8 @@
+orpat_bad.erl:4:25: syntax error before: '|'
+%    4| f(#{kind := a, id := I} | #{kind := b, id := I}) -> I;
+%     |                         ^
+
+orpat_bad.erl:2:2: function f/1 undefined
+%    2| -export([f/1]).
+%     |  ^
+

@@ -1,0 +1,9 @@
+module G6
+
+record A { Id: int }
+record B { Id: int }
+
+// not exhaustive on purpose: control, the checker still reports the residual with D clause
+type D = A | B | :none
+public atom H(term t)
+H(D d) -> :member

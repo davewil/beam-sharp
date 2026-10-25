@@ -1,0 +1,174 @@
+=================== G1
+record A { Id: int }
+record B { Id: int }
+
+type D = A | B | :none
+// the 'any named type' reading: D mixes a record union with an atom
+public atom H(term t)
+H(D d) -> :member
+H(_) -> :other
+--- prototype 2:
+=================== G1.abstr
+sed: can't read G1.abstr/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G1.beam
+sed: can't read G1.beam/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G2
+// ticket 85 (a): an alias to a part union, in a wider parameter
+type Amount = int | float
+public atom H(Amount | :none t)
+H(Amount a) -> :amount
+H(:none) -> :none
+--- prototype 2:
+=================== G2.abstr
+sed: can't read G2.abstr/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G2.beam
+sed: can't read G2.beam/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G3
+type Names = list<int>
+public atom H(term t)
+H(Names n) -> :names
+H(_) -> :other
+--- prototype 2:
+=================== G3.abstr
+sed: can't read G3.abstr/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G3.beam
+sed: can't read G3.beam/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G4
+public atom H(term t)
+H(string s) -> :s
+H(_) -> :other
+--- prototype 2:
+G4/m.bs:4:3: error: `string` cannot name a pattern
+  `is_binary` is true of more values than `string` holds,
+  so one test does not decide it: it can be declared, passed and
+  returned, and never matched on. Matching one is not built.
+  The refusal is temporary by construction — the day a pattern form
+  reaches inside, the type becomes decidable and it lifts.
+  A type prefix names a record, whose minted tag the pattern matches,
+  or a part the platform tests whole: `int`, `float`, `atom`,
+=================== G5
+type Meters = int where value >= 0
+public atom H(int | :none t)
+H(Meters m) -> :m
+H(int i) -> :neg
+H(:none) -> :none
+--- prototype 2:
+=================== G5.abstr
+sed: can't read G5.abstr/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G5.beam
+sed: can't read G5.beam/m.bs: Not a directory
+--- prototype 2:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+=================== G6
+record A { Id: int }
+record B { Id: int }
+
+// not exhaustive on purpose: control, the checker still reports the residual with D clause
+type D = A | B | :none
+public atom H(term t)
+H(D d) -> :member
+--- prototype 2:
+G6/m.bs:8:13: error: H is not exhaustive
+  no clause matches:
+    H(n) -> ...
+    H(f) -> ...
+    H(t) -> ...
+    ... (6 more)
+=================== values
+G1  { Kind = :'G1.A', Id = 1 }         => :member 
+
+G1  :none                              => :member 
+
+G1  :other                             => :other 
+
+G1  5                                  => :other 
+
+G1  { Kind = :'G1.A' }                 => :other 
+
+G2  5                                  => :amount 
+
+G2  2.5                                => :amount 
+
+G2  :none                              => :none 
+
+G5  3                                  => :m 
+
+G5  -3                                 => :neg 
+
+=================== G3 soundness control: list<int> by head-only test (this is why 84 refuses list<int>)
+G3  [1, 2]                             => :names 
+
+G3  [1, :x]                            => :names 
+
+G3  [:x, 1]                            => :other 
+

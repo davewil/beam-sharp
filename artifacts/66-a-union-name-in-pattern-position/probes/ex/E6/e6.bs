@@ -1,0 +1,12 @@
+module E6
+
+record A { Id: int }
+record B { Id: int }
+
+type C = A | B
+
+// a structural vacuity, no type named: the :some shape of ticket 25 finding 4
+public atom Note((:ok, int) | :none t)
+Note((:some, s)) -> :some
+Note((:ok, n)) -> :ok
+Note(:none) -> :none

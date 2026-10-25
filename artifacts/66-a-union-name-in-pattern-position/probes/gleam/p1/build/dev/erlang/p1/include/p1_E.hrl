@@ -1,3 +1,0 @@
--record(e, {
-    id :: integer()
-}).

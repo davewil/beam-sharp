@@ -1,0 +1,27 @@
+--- /tmp/claude-0/-home-user-beam-sharp/4d32ff9e-1235-5fa8-9491-be9b1e51ca5e/scratchpad/bsc-build/src/bs_check.erl	2026-10-25 23:07:29.298449233 +0000
++++ src/bs_check.erl	2026-10-25 23:32:10.875069989 +0000
+@@ -4770,6 +4770,14 @@
+ map_arm_deferred(P, Subject) ->
+     bs_types:is_dom(Subject) andalso destructures_map(P).
+ 
++%% PROMOTION VARIANT 3c: a vacuous clause whose head NAMES a type (record prefix or part prefix) is an error.
++names_a_type({clause, _, _, Ps, _, _}) -> lists:any(fun named/1, Ps).
++named({p_rec, _, _, _})     -> true;
++named({p_type, _, _, _})    -> true;
++named({p_bind, _, _, P})    -> named(P);
++named({p_tuple, _, Ps})     -> lists:any(fun named/1, Ps);
++named(_)                    -> false.
++
+ walk([], Residual, _Declared, _Ctx, Diags, _N) ->
+     {Residual, lists:reverse(Diags)};
+ walk([C = {clause, CLine, Name, _, _, _} | Rest], Residual, Declared, Ctx, Diags, N) ->
+@@ -4782,7 +4790,8 @@
+     %% distinguish out-of-domain patterns from shadowing and impossible guards.
+     Diags1 =
+         case redundancy(Base, Possible, Residual, Declared) of
+-            vacuous    -> [{warning, CLine, Name, {vacuous_clause, N, Declared}} | Diags];
++            vacuous    -> [{case names_a_type(C) of true -> error; false -> warning end,
++                            CLine, Name, {vacuous_clause, N, Declared}} | Diags];
+             dead_guard -> [{warning, CLine, Name, {unsatisfiable_guard, N}} | Diags];
+             shadowed   -> [{warning, CLine, Name, {unreachable_clause, N}} | Diags];
+             live       -> Diags

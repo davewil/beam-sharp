@@ -1,0 +1,9 @@
+module P12
+
+record A { Id: int }
+record B { Id: int }
+type C = A | B | map<atom, term>
+
+public atom H(C c)
+H(C x) -> :x
+H(_) -> :y

@@ -1,0 +1,7 @@
+=================== G3 soundness control: list<int> by head-only test (this is why 84 refuses list<int>)
+G3  [1, 2]                             => :names 
+
+G3  [1, :x]                            => :names 
+
+G3  [:x, 1]                            => :other 
+

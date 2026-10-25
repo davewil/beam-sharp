@@ -1,0 +1,216 @@
+======================== EUnit ========================
+module 'bindings_tests'
+  bindings_tests: a_binding_names_a_value_test...[0.193 s] ok
+  bindings_tests: several_bindings_run_in_order_test...[0.008 s] ok
+  bindings_tests: a_binding_reads_a_projection_once_test...[0.016 s] ok
+  bindings_tests: a_binding_before_a_self_call_stays_a_tail_call_test...[0.014 s] ok
+  bindings_tests: rebinding_a_name_is_an_error_test...ok
+  bindings_tests: a_binding_may_not_shadow_a_parameter_test...ok
+  bindings_tests: an_unbound_name_is_caught_before_erlc_test...ok
+  bindings_tests: an_unused_binding_compiles_without_a_warning_test...[0.473 s] ok
+  bindings_tests: a_bare_binding_refuses_and_names_var_test...ok
+  bindings_tests: a_bare_destructuring_bind_refuses_test...ok
+  bindings_tests: a_bare_match_that_introduces_nothing_still_works_test...[0.007 s] ok
+  bindings_tests: var_makes_map_destructuring_reachable_test...[0.008 s] ok
+  bindings_tests: a_marked_name_matches_the_value_it_holds_test...[0.007 s] ok
+  bindings_tests: a_marked_name_emits_no_guard_test...[0.007 s] ok
+  bindings_tests: a_matched_name_does_not_widen_its_neighbours_test...[0.009 s] ok
+  bindings_tests: a_marked_name_credits_nothing_to_certain_test...ok
+  bindings_tests: a_repeated_bare_name_in_a_head_is_an_error_test...ok
+  bindings_tests: a_repeated_bare_name_inside_a_pattern_is_an_error_test...ok
+  bindings_tests: a_marked_name_that_is_not_bound_is_an_error_test...ok
+  [done in 0.799 s]
+module 'columns_tests'
+  columns_tests: the_term_carries_a_column_test...[0.291 s] ok
+  columns_tests: the_column_follows_the_text_test...[0.601 s] ok
+  columns_tests: the_prose_names_the_column_test...[0.302 s] ok
+  columns_tests: a_resolve_time_error_carries_a_position_test...[0.304 s] ok
+  columns_tests: line_and_column_travel_together_test...[0.424 s] ok
+  [done in 1.937 s]
+module 'comprehension_tests'
+  comprehension_tests: a_pattern_narrows_and_skips_test...[0.432 s] ok
+  comprehension_tests: a_pattern_destructures_test...[0.482 s] ok
+  comprehension_tests: a_guard_filters_test...[0.479 s] ok
+  comprehension_tests: a_part_prefix_narrows_test...[0.507 s] ok
+  comprehension_tests: two_generators_test...[0.548 s] ok
+  comprehension_tests: a_nested_comprehension_test...[0.451 s] ok
+  comprehension_tests: a_head_calls_another_module_test...[0.401 s] ok
+  comprehension_tests: a_vacuous_generator_warns_test...[0.942 s] ok
+  comprehension_tests: a_guard_cannot_call_test...[0.272 s] ok
+  comprehension_tests: a_guard_refuses_mixed_operands_test...[0.352 s] ok
+  comprehension_tests: a_binder_does_not_leak_test...[0.322 s] ok
+  comprehension_tests: a_generator_cannot_rebind_test...[0.286 s] ok
+  comprehension_tests: a_source_must_be_a_list_test...[0.629 s] ok
+  comprehension_tests: a_comprehension_in_a_guard_is_refused_test...[0.567 s] ok
+  comprehension_tests: it_lowers_to_one_comprehension_test...[0.443 s] ok
+  comprehension_tests: the_term_channel_is_the_same_in_a_batch...[1.769 s] ok
+  comprehension_tests: a_map_pattern_is_deferred_in_a_generator_test...[0.567 s] ok
+  comprehension_tests: an_equality_pattern_matches_the_bound_value_test...[1.404 s] ok
+  comprehension_tests: two_relational_generators_test...[0.412 s] ok
+  comprehension_tests: a_generator_binds_a_name_once_test...[0.257 s] ok
+  comprehension_tests: a_nested_relational_pattern_is_refused_test...[0.567 s] ok
+  comprehension_tests: a_guard_narrows_its_generator_test...[0.435 s] ok
+  comprehension_tests: guards_narrow_in_turn_test...[0.781 s] ok
+  comprehension_tests: a_guard_that_narrows_nothing_compiles_test...[0.444 s] ok
+  comprehension_tests: a_guard_across_generators_does_not_narrow_test...[0.729 s] ok
+  comprehension_tests: guards_are_checked_as_an_arms_guard_is_test...[1.996 s] ok
+  comprehension_tests: a_guard_admitting_nothing_leaves_what_follows_checked_test...[0.508 s] ok
+  comprehension_tests: consecutive_guards_narrow_as_one_test...[1.501 s] ok
+  [done in 18.567 s]
+module 'diagnostic_json_tests'
+  diagnostic_json_tests: the_json_is_published_on_stdout_test...[0.267 s] ok
+  diagnostic_json_tests: the_prose_is_unchanged_under_json_test...[0.931 s] ok
+  diagnostic_json_tests: the_json_is_the_term_test...[0.538 s] ok
+  diagnostic_json_tests: a_raised_condition_is_json_too_test...[0.641 s] ok
+  diagnostic_json_tests: a_warning_is_json_and_still_compiles_test...[0.959 s] ok
+  diagnostic_json_tests: a_path_is_utf8_on_the_wire_test...[0.275 s] ok
+  diagnostic_json_tests: the_json_channel_is_refused_in_the_repl_test...[0.230 s] ok
+  diagnostic_json_tests: an_unknown_channel_is_refused_naming_all_three_test...[0.466 s] ok
+  diagnostic_json_tests: the_api_answer_is_json_test...[0.626 s] ok
+  diagnostic_json_tests: an_unclassified_detail_is_printed_text_test...[0.007 s] ok
+  diagnostic_json_tests: the_declared_arities_are_an_array_on_the_wire_test...[0.592 s] ok
+  diagnostic_json_tests: the_bare_name_arities_are_an_array_on_the_wire_test...[0.280 s] ok
+  diagnostic_json_tests: an_unrostered_integer_list_crashes_rather_than_encoding_test...ok
+  diagnostic_json_tests: an_empty_list_is_an_array_test...[0.366 s] ok
+  [done in 6.220 s]
+module 'diagnostic_term_tests'
+  diagnostic_term_tests: the_term_is_published_on_stdout_test...[0.273 s] ok
+  diagnostic_term_tests: the_default_channel_writes_nothing_to_stdout_test...[0.624 s] ok
+  diagnostic_term_tests: the_prose_is_the_format_of_the_term_test...[0.631 s] ok
+  diagnostic_term_tests: a_raised_condition_gets_a_descriptor_too_test...[0.336 s] ok
+  diagnostic_term_tests: a_warning_carries_its_severity_and_still_compiles_test...[0.841 s] ok
+  diagnostic_term_tests: an_unsynthesisable_caller_head_offers_nothing_test...ok
+  diagnostic_term_tests: a_synthesisable_caller_head_is_pasteable_test...ok
+  diagnostic_term_tests: an_unknown_tag_crashes_rather_than_rendering_generic_prose_test...ok
+  diagnostic_term_tests: every_contractual_tag_is_rendered_test...*failed*
+in function diagnostic_term_tests:every_contractual_tag_is_rendered_test/0 (test/diagnostic_term_tests.erl, line 146)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 286)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 558)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 382)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 541)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 483)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 372)
+**error:{badmatch,{error,enoent}}
+  output:<<"">>
+
+  diagnostic_term_tests: the_descriptor_keeps_every_case_the_prose_truncates_test...[0.569 s] ok
+  diagnostic_term_tests: the_diagnostics_gate_passes_test...*failed*
+in function diagnostic_term_tests:the_diagnostics_gate_passes_test/0 (test/diagnostic_term_tests.erl, line 182)
+in call from eunit_test:'-mf_wrapper/2-fun-0-'/2 (eunit_test.erl, line 286)
+in call from eunit_test:run_testfun/1 (eunit_test.erl, line 83)
+in call from eunit_proc:run_test/1 (eunit_proc.erl, line 558)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 382)
+in call from eunit_proc:handle_test/2 (eunit_proc.erl, line 541)
+in call from eunit_proc:tests_inorder/3 (eunit_proc.erl, line 483)
+in call from eunit_proc:with_timeout/3 (eunit_proc.erl, line 372)
+**error:{assertEqual,[{module,diagnostic_term_tests},
+              {line,182},
+              {expression,"Rc"},
+              {expected,0},
+              {value,2}]}
+  output:<<"">>
+
+  diagnostic_term_tests: two_diagnostics_are_two_independently_parseable_lines_test...[0.311 s] ok
+  diagnostic_term_tests: the_term_channel_is_refused_in_the_repl_test...[0.218 s] ok
+  [done in 3.864 s]
+module 'down_view_tests'
+  down_view_tests: opaque_types_are_types_test...[0.012 s] ok
+  down_view_tests: a_foreign_pid_is_guarded_test...[0.005 s] ok
+  down_view_tests: a_down_matches_by_name_test...[0.007 s] ok
+  down_view_tests: a_bound_down_projects_its_parts_test...[0.007 s] ok
+  down_view_tests: a_down_parameter_is_covered_by_views_test...[0.001 s] ok
+  down_view_tests: a_misshaped_down_clause_is_reported_test...ok
+  down_view_tests: an_unknown_part_is_refused_test...ok
+  down_view_tests: an_exit_matches_by_name_test...[0.008 s] ok
+  down_view_tests: a_view_cannot_be_redeclared_test...ok
+  down_view_tests: a_view_cannot_be_constructed_test...ok
+  down_view_tests: -the_residual_prints_the_view_test_/0-fun-3-...[0.279 s] ok
+  down_view_tests: to_json_refuses_a_pid_test...ok
+  down_view_tests: a_bare_prefix_binds_the_view_test...[0.008 s] ok
+  down_view_tests: -a_residual_names_only_the_narrowed_part_test_/0-fun-5-...[0.311 s] ok
+  down_view_tests: a_view_cannot_be_updated_test...ok
+  down_view_tests: a_switch_arm_matches_a_view_test...[0.010 s] ok
+  down_view_tests: -an_unknown_part_lists_the_declared_ones_test_/0-fun-2-...[0.284 s] ok
+  [done in 0.983 s]
+module 'float_tests'
+  float_tests: mean_of_ints_is_a_float_test...[0.014 s] ok
+  float_tests: int_division_still_truncates_beside_float_division_test...[0.012 s] ok
+  float_tests: verdict_of_the_empty_mean_is_empty_test...[0.014 s] ok
+  float_tests: float_literals_lex_in_every_spelling_test...[0.006 s] ok
+  float_tests: one_dot_dot_five_is_not_a_float_test...ok
+  float_tests: negation_is_the_beams_test...[0.007 s] ok
+  float_tests: the_float_zero_head_matches_positive_zero_alone_test...[0.016 s] ok
+  float_tests: the_float_zero_head_draws_no_warning_test...[0.481 s] ok
+  float_tests: a_negative_zero_head_is_its_own_case_test...[0.007 s] ok
+  float_tests: an_int_returned_where_a_float_is_declared_is_refused_test...[0.345 s] ok
+  float_tests: a_remainder_over_two_floats_is_refused_test...[0.007 s] ok
+  float_tests: a_mixed_pair_at_an_operator_is_refused_test...ok
+  float_tests: every_operator_refuses_the_mixed_pair_test...[0.009 s] ok
+  float_tests: the_mixed_pair_message_names_the_conversion_test...[0.566 s] ok
+  float_tests: two_floats_or_two_ints_at_an_operator_compile_test...[0.007 s] ok
+  float_tests: an_already_refused_operand_reports_once_test...ok
+  float_tests: a_float_compared_with_an_int_literal_in_a_guard_is_refused_test...ok
+  float_tests: a_float_guard_selects_but_credits_nothing_test...[0.009 s] ok
+  float_tests: float_from_int_is_inlined_test...[0.400 s] ok
+  float_tests: float_from_int_refuses_a_float_test...ok
+  float_tests: float_of_is_not_an_operation_test...ok
+  float_tests: a_module_named_float_is_refused_test...[0.283 s] ok
+  float_tests: term_holds_the_float_test...[0.008 s] ok
+  float_tests: int_or_float_is_discriminable_test...[0.005 s] ok
+  float_tests: a_float_literal_alone_is_not_exhaustive_test...ok
+  float_tests: float_prints_as_float_test...[0.282 s] ok
+  float_tests: a_float_inside_a_list_and_a_tuple_test...[0.008 s] ok
+  float_tests: a_public_float_parameter_is_guarded_test...[0.010 s] ok
+  float_tests: a_float_still_does_not_reach_an_int_parameter_test...[0.006 s] ok
+  float_tests: a_float_literal_head_needs_no_kind_test_test...[0.006 s] ok
+  float_tests: the_spec_publishes_float_test...[0.381 s] ok
+  float_tests: a_foreign_float_return_is_guarded_test...[0.008 s] ok
+  float_tests: the_obligations_carry_the_part_test...[0.022 s] ok
+  float_tests: a_provably_zero_float_divisor_is_refused_test...[0.008 s] ok
+  float_tests: a_mixed_pair_in_a_switch_arm_guard_is_refused_test...[0.008 s] ok
+  float_tests: a_float_literal_in_a_switch_arm_test...[0.008 s] ok
+  [done in 3.053 s]
+module 'heads_tests'
+  heads_tests: showcase_runs_test...[0.009 s] ok
+  heads_tests: four_clauses_become_four_clause_heads_test...[0.010 s] ok
+  heads_tests: spec_is_emitted_test...[0.015 s] ok
+  heads_tests: foreign_term_crashes_rather_than_lying_test...[0.010 s] ok
+  heads_tests: inexhaustive_is_rejected_test...ok
+  heads_tests: residual_names_the_missing_case_test...ok
+  heads_tests: unreachable_clause_is_warned_test...ok
+  heads_tests: vacuous_clause_is_not_reported_as_shadowed_test...ok
+  heads_tests: vacuous_clause_carries_the_domain_it_is_not_a_member_of_test...ok
+  heads_tests: vacuous_clause_does_not_make_a_covered_function_inexhaustive_test...ok
+  heads_tests: unsatisfiable_guard_is_its_own_diagnostic_test...ok
+  heads_tests: an_untranslatable_guard_is_not_called_unsatisfiable_test...ok
+  [done in 0.080 s]
+module 'switch_tests'
+  switch_tests: a_switch_dispatches_and_runs_test...[0.008 s] ok
+  switch_tests: a_tuple_subject_is_exhaustive_without_a_catch_all_test...[0.014 s] ok
+  switch_tests: bare_true_and_false_are_atoms_not_variables_test...[0.007 s] ok
+  switch_tests: an_inexhaustive_switch_names_the_missing_arm_test...ok
+  switch_tests: a_guard_on_an_arm_is_credited_test...[0.010 s] ok
+  switch_tests: a_guard_on_an_arm_leaves_the_gap_it_should_test...ok
+  switch_tests: an_untranslatable_arm_guard_credits_nothing_test...ok
+  switch_tests: an_arm_body_under_an_unreadable_guard_is_still_checked_test...ok
+  switch_tests: a_redundant_arm_is_a_warning_about_an_arm_test...ok
+  switch_tests: an_arm_binds_its_own_names_test...[0.008 s] ok
+  switch_tests: an_unbound_name_in_an_arm_body_is_reported_test...ok
+  switch_tests: an_arm_may_not_rebind_a_name_in_scope_test...ok
+  switch_tests: a_parameter_read_only_inside_an_arm_is_not_underscored_test...[0.006 s] ok
+  switch_tests: a_switch_return_is_checked_against_the_signature_test...ok
+  switch_tests: braces_nest_three_ways_test...[0.009 s] ok
+  switch_tests: a_switch_in_a_guard_is_refused_test...ok
+  switch_tests: a_binding_then_a_switch_on_the_bound_name_test...[0.007 s] ok
+  switch_tests: an_arm_may_not_rebind_a_name_a_binding_introduced_test...ok
+  switch_tests: a_switch_in_tail_position_keeps_the_tail_call_test...[0.018 s] ok
+  switch_tests: a_vacuous_arm_is_not_reported_as_shadowed_test...ok
+  switch_tests: a_vacuous_arm_carries_the_domain_it_is_not_a_member_of_test...ok
+  switch_tests: a_vacuous_arm_does_not_make_a_covered_switch_inexhaustive_test...ok
+  switch_tests: an_unsatisfiable_arm_guard_is_its_own_diagnostic_test...ok
+  switch_tests: an_untranslatable_arm_guard_is_not_called_unsatisfiable_test...ok
+  switch_tests: a_switch_residual_is_spelled_as_a_head_spells_it_test...ok
+  [done in 0.163 s]
+=======================================================
+  Failed: 2.  Skipped: 0.  Passed: 167.

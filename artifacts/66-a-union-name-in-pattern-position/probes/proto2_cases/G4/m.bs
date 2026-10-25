@@ -1,0 +1,5 @@
+module G4
+
+public atom H(term t)
+H(string s) -> :s
+H(_) -> :other

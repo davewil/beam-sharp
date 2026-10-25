@@ -14,6 +14,125 @@ P1/m.bs:9:3: error: C is not a record, so it cannot name a pattern
   `int` beside one taking `float`.
   to constrain fields without naming a type, write `{ Field: ... }`.
 --- prototype:
+=================== P1.abstr
+sed: can't read P1.abstr/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P1.beam
+sed: can't read P1.beam/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P10
+record A { Id: int }
+record B { Id: int }
+type C = A | B
+type D = C | :none
+
+public atom H(term t)
+H(D d) -> :member
+H(_) -> :other
+--- stock:
+P10/m.bs:9:3: error: D is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+P10/m.bs:9:3: error: D is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+=================== P11
+type Amount = int | float
+
+public atom H(Amount | :none t)
+H(Amount a) -> :amount
+H(:none) -> :none
+--- stock:
+P11/m.bs:6:3: error: Amount is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+P11/m.bs:6:3: error: Amount is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+=================== P12
+record A { Id: int }
+record B { Id: int }
+type C = A | B | map<atom, term>
+
+public atom H(C c)
+H(C x) -> :x
+H(_) -> :y
+--- stock:
+P12/m.bs:8:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+--- prototype:
+P12/m.bs:8:3: error: C is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
 =================== P2
 record A { Id: int }
 record B { Id: int }
@@ -49,6 +168,66 @@ P3/m.bs:10:3: error: C is not a record, so it cannot name a pattern
   `int` beside one taking `float`.
   to constrain fields without naming a type, write `{ Field: ... }`.
 --- prototype:
+=================== P3.abstr
+sed: can't read P3.abstr/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P3.beam
+sed: can't read P3.beam/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
 =================== P4
 record A { Id: int }
 record B { Id: int }
@@ -67,6 +246,66 @@ P4/m.bs:9:3: error: C is not a record, so it cannot name a pattern
 --- prototype:
 P4/m.bs:10:1: warning: clause 2 of H is unreachable
   every value it matches is matched by an earlier clause.
+=================== P4.abstr
+sed: can't read P4.abstr/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P4.beam
+sed: can't read P4.beam/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
 =================== P5
 record A { Id: int }
 record B { Id: int }
@@ -105,6 +344,66 @@ P6/m.bs:11:3: error: C is not a record, so it cannot name a pattern
   `int` beside one taking `float`.
   to constrain fields without naming a type, write `{ Field: ... }`.
 --- prototype:
+=================== P6.abstr
+sed: can't read P6.abstr/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P6.beam
+sed: can't read P6.beam/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
 =================== P7
 record A { Id: int }
 record B { Id: int }
@@ -143,6 +442,66 @@ P8/m.bs:11:3: error: C2 is not a record, so it cannot name a pattern
   `int` beside one taking `float`.
   to constrain fields without naming a type, write `{ Field: ... }`.
 --- prototype:
+=================== P8.abstr
+sed: can't read P8.abstr/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P8.beam
+sed: can't read P8.beam/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
 =================== P9
 record A { Id: int }
 record B { Id: int }
@@ -159,3 +518,63 @@ P9/m.bs:10:20: error: C is not a record, so it cannot name a pattern
   `int` beside one taking `float`.
   to constrain fields without naming a type, write `{ Field: ... }`.
 --- prototype:
+=================== P9.abstr
+sed: can't read P9.abstr/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output
+=================== P9.beam
+sed: can't read P9.beam/m.bs: Not a directory
+--- stock:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+--- prototype:
+usage: bsc [-o DIR] [-v] [--src-root DIR] [--diagnostics term|json]
+           [--api] PATH [FUNCTION] [ARG...]
+       bsc --batch MANIFEST RESULTS
+  PATH is a module, which is a DIRECTORY — naming one of its
+  files means the same thing. With no ARGs it compiles; with
+  ARGs it compiles then runs:
+      bsc examples/Fib 5
+      bsc --src-root examples examples/Shop/Reports Restate 3
+  --api reports what operations the module offers, in
+  beam-sharp's own types and with nothing built:
+      bsc --api examples/Counter
+  --batch runs every invocation listed in MANIFEST in this one
+  VM and writes each one's stdout, stderr, merged output and
+  exit status under RESULTS as <id>.stdout, .stderr, .output

@@ -1,0 +1,7 @@
+module G5
+
+type Meters = int where value >= 0
+public atom H(int | :none t)
+H(Meters m) -> :m
+H(int i) -> :neg
+H(:none) -> :none

@@ -1,0 +1,10 @@
+module G1
+
+record A { Id: int }
+record B { Id: int }
+
+type D = A | B | :none
+// the 'any named type' reading: D mixes a record union with an atom
+public atom H(term t)
+H(D d) -> :member
+H(_) -> :other
