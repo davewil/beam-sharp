@@ -1,0 +1,11 @@
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -75,6 +75,8 @@
+      %% is on every module.
+      {attribute, ?A, export, [{name(F, Behaviours), A} || {F, A} <- Exports]
+                              ++ [{type_atoms_name(), 0}]}]
++    ++ [{attribute, ?A, compile,
++         [{inline, [{name(F, Behaviours), arity(F)} || F <- Fns, not is_public(F)]}]}]
+     ++ [{attribute, ?A, behaviour, bs_otp:behaviour_name(B)} || B <- Behaviours]
+     %% Recursive `-type` declarations precede the specs that refer to them, so
+     %% a reader meets the definition first; Erlang does not care.

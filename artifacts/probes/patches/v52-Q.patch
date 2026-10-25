@@ -1,0 +1,14 @@
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -96,6 +96,11 @@
+     %% `declared/4` has refused it by kind.
+     Sources = [{P, desugar_implements(D)} || {P, D} <- Sources0],
+     Decls = lists:append([D || {_, D} <- Sources]),
++    %% PROTOTYPE (ticket 52): a `using :mod { .. }` whose module the code path cannot load is a compile-time refusal.
++    [case code:ensure_loaded(FMod) of
++         {module, _} -> ok;
++         _           -> erlang:error({unknown_module, FMod, FLine})
++     end || {foreign, FLine, FMod, _} <- Decls],
+     Module = module_name(Decls),
+     PerFile = [{P, collect(D)} || {P, D} <- Sources],
+     Foreigns = foreign_wrappers(Decls, Env),

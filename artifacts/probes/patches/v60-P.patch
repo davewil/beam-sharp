@@ -1,0 +1,113 @@
+--- a/compiler/src/bs_check.erl
++++ b/compiler/src/bs_check.erl
+@@ -10,7 +10,7 @@
+ %% `check/2` is the single-source case of the `check_dir/3` declaration pass.
+ -export([check_dir/2, check_dir/3]).
+ %% `bsc` builds imports from modules already checked in this invocation.
+--export([exports_of/1, exports_of/2, exports_of/3, private_of/1, types_of/3, hinted/2]).
++-export([exports_of/1, exports_of/2, exports_of/3, private_of/1, internal_of/1, types_of/3, hinted/2]).
+ %% The emitter publishes polymorphic signatures under the erased environment.
+ -export([polys_of/2, erased_env/2, type_source/1]).
+ %% F64: which records implement a protocol, for a dependent's World entry, and
+@@ -362,7 +362,7 @@
+     behaviours_satisfied(Decls),
+     maps:from_list([{{N, length(Ps)},
+                      at_loc(L, fun() -> erased_sig(Ps, R, TV, Env) end)}
+-                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public]).
++                    || {signature, L, N, R, Ps, V, TV} <- Decls, V =:= public orelse V =:= internal]).
+ 
+ %% Build public polymorphic templates under the same environment as
+ %% `exports_of/2`, so dependents resolve names consistently.
+@@ -476,9 +476,31 @@
+ 
+ private_of(Decls) ->
+     maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls,
+-                                       V =/= public],
++                                       V =/= public, V =/= internal],
+                    true).
+ 
++internal_of(Decls) ->
++    maps:from_keys([{N, length(Ps)} || {signature, _, N, _, Ps, V, _} <- Decls, V =:= internal], true).
++
++%% PROTOTYPE (ticket 60): a module's internals are callable only from inside the subtree rooted at its parent namespace.
++subtree_root(M) ->
++    case string:split(atom_to_list(M), ".", trailing) of
++        [Root, _] -> Root;
++        [Whole]   -> Whole
++    end.
++within(Self, Root) ->
++    S = atom_to_list(Self),
++    S =:= Root orelse lists:prefix(Root ++ ".", S).
++restrict(Self, World) ->
++    maps:map(fun(M, #{internal := Int} = E) when map_size(Int) > 0 ->
++                     case within(Self, subtree_root(M)) of
++                         true  -> E;
++                         false -> E#{exports := maps:without(maps:keys(Int), maps:get(exports, E)),
++                                     private := maps:merge(maps:get(private, E), Int)}
++                     end;
++                (_, E) -> E
++             end, World).
++
+ %% Import tables use modules checked in this invocation:
+ %%   funs: {Name, Arity} -> [Module], module-tier imports
+ %%   mods: Short -> [Module], namespace-tier imports
+@@ -486,7 +508,8 @@
+ %%   types: Name -> [Module], consumed by `imported_types/2`
+ %% The resolved path determines the import tier, not its spelling. Compilation
+ %% refuses unknown imports; `--api` skips them.
+-import_env(Decls, Self, World, Mode) ->
++import_env(Decls, Self, World0, Mode) ->
++    World = restrict(Self, World0),
+     Imports = [{L, M} || {import, L, M} <- Decls],
+     Known = maps:keys(World),
+     lists:foldl(fun({L, M}, Acc) -> add_import(L, M, Self, World, Known, Mode, Acc) end,
+--- a/compiler/src/bs_emit.erl
++++ b/compiler/src/bs_emit.erl
+@@ -138,7 +138,7 @@
+ arity(F) -> length(element(5, F)).              % length(#fn.params)
+ %% Private is the default, so the test is `=:= public` and not `=/= private`;
+ %% the other spelling would export every unmarked function.
+-is_public(F) -> element(7, F) =:= public.       % #fn.vis
++is_public(F) -> element(7, F) =:= public orelse element(7, F) =:= internal.       % #fn.vis
+ 
+ %%% ---------------------------------------------------------------------------
+ %%% Functions and clauses
+--- a/compiler/src/bsc.erl
++++ b/compiler/src/bsc.erl
+@@ -237,6 +237,7 @@
+                                      %% Rationale:
+                                      %% compiler/features/F12-public-and-private.md.
+                                      private => bs_check:private_of(Decls),
++                                     internal => bs_check:internal_of(Decls),
+                                      behaviours => [B || {behaviour, _, B} <- Decls],
+                                      %% The module's `record` and `type`
+                                      %% names, resolved, for a dependent to
+--- a/compiler/src/bs_parser.yrl
++++ b/compiler/src/bs_parser.yrl
+@@ -26,7 +26,7 @@
+ 
+ Terminals
+   'module' 'type' 'when' 'using' 'behaviour' 'record' 'with' 'switch' 'var'
+-  'and' 'or' 'where' 'public' 'private' 'raise' 'fn' 'implements' 'for' 'in'
++  'and' 'or' 'where' 'public' 'private' 'internal' 'raise' 'fn' 'implements' 'for' 'in'
+   uident lident atom_lit integer float string_lit interp hole_root '_'
+   '->' '=>' '==' '!=' '<=' '>=' '<<' '<' '>' '+' '-' '*' '/' '%'
+   '=' '|' '|>' '|?>' ',' '(' ')' '[' ']' '{' '}' '..' '.' ':' '?'
+@@ -324,6 +324,7 @@
+ 
+ visibility -> 'public'  : public.
+ visibility -> 'private' : private.
++visibility -> 'internal' : internal.
+ 
+ params -> '$empty'    : [].
+ params -> param_list  : '$1'.
+--- a/compiler/src/bs_lexer.xrl
++++ b/compiler/src/bs_lexer.xrl
+@@ -56,6 +56,7 @@
+ %% function and there is no separate export list (F12, ticket 40 §3).
+ public                  : {token, {'public',  TokenLoc}}.
+ private                 : {token, {'private', TokenLoc}}.
++internal                : {token, {'internal', TokenLoc}}.
+ %% `record` declares a record type (ticket 26 §1).
+ record                  : {token, {'record', TokenLoc}}.
+ %% `o with { Total = 500 }` updates a record without changing its field set;
