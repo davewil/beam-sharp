@@ -223,3 +223,16 @@ All re-runnable from `probes/` (scripts resolve their own paths; the `bsc`, `erl
 | `proto/within-only.patch`, `proto/BUILD.txt` | see BUILD.txt | The exact prototype diff against repo `compiler/src` at `1429fdc` |
 
 Probes that failed or misled me, kept: `p1.v1-typo.out` (my fixture), `elm.out` (network), `ex.v1-docs-in-memory.out`, `p8.v1.out`, `p9.control-head-unparseable.out` (an unclean control, replaced by the within-line-deleted control), `p9.v1-api-ran-in-control-tree.out` and `p9.v2-api-ran-under-HEAD-ebin.out` (my script left `cwd`/`EB` pointing at the control, so `--api` ran in the wrong place; fixed, and the HEAD result kept as an explicit second control), `cost.v1-shell-quoting-bug.out`, `micro.v1-fmt-bug.out`.
+
+## Errata from independent verification (verification.md)
+
+The verifier rebuilt the `within` prototype from a fresh copy and re-ran every probe. No probe is circular. Controls it ran: with the `within` line deleted the patched compiler accepts; `Shop.Zed` is admitted; `Zed.Q`, `Shopx.Q` and `Shop2` are refused; with `within Shop.Reports`, `Shop.ReportsX` and `Shop.Report` are refused and `Shop.Reports` and `Shop.Reports.Sub` are admitted. Corrections:
+
+- **"No measurable compile-time difference" is true but weak.** `cost.sh` had no positive control. The verifier added one: a deliberate slow check costing about +23 ms per tree was not detected, and one costing about +115 ms was. The harness resolves only about 100 ms. The real support for "negligible" is `micro.escript`, which times a replica of `namable/4`, not the compiler's code. "0.014% of a compile" is arithmetic from that replica.
+- **p9b's `B2 exit 0` control is tautological.** A caller-declared rule is unfenced when omitted, by definition. It illustrates the argument and measures nothing.
+- **Gleam:** the exit-0 claims are sound, but the control shows the `internal_modules` pattern is live for docs only. "No import refusal" rests on exit 0 alone.
+- **Wrong citation:** "ticket 06 already accepts this for `private`" is unsupported. Ticket 06 says nothing about `private`, and `private` is unexported, so Erlang cannot bypass it, unlike `within`.
+- **Minor:** the `private_callee` sites at `bs_check.erl` 3850 and 4391 are on the callee-not-found path; `types_world` starts at `bsc.erl:286`, not 293.
+- **No probe behind:** the "two beams" claim has no script line (the verifier reproduced it by hand); the tail-call-erases-the-frame claim was confirmed only in a 5-line test.
+- **Not run:** the prototype was not run against the repo test suite or a corpus compile. `within` and `only` become reserved words; grep finds them only in comments in `examples/` and `test/`.
+- Repo HEAD moved to `ad33427` during the run; the cited lines are unchanged.

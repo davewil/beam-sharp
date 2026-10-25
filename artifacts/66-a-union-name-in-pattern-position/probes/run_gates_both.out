@@ -26,3 +26,12 @@ check-record-idiom.sh              base=0 promo=0
 check-record-pattern.sh            base=0 promo=0
 check-recursive-types.sh           base=0 promo=0
 check-reserved-qualifiers.sh       base=0 promo=0
+check-residual-pasteable.sh        base=0 promo=0
+check-switch-diagnostics.sh        base=0 promo=0
+check-tagged-union.sh              base=0 promo=0
+check-to-json.sh                   base=0 promo=0
+check-tour.sh                      base=0 promo=0
+check-validate-target.sh           base=0 promo=0
+check-validation-error-record.sh   base=0 promo=0
+check-validation-reason.sh         base=0 promo=0
+check-valve.sh                     base=0 promo=0

@@ -17,3 +17,13 @@ Queue base_rc=0 promo_rc=0 warnings=0
 Readings base_rc=0 promo_rc=0 warnings=0
 Shop base_rc=0 promo_rc=0 warnings=0
 Shop/Billing base_rc=0 promo_rc=0 warnings=0
+Shop/Collections/Ints base_rc=0 promo_rc=0 warnings=0
+Shop/Discounts base_rc=0 promo_rc=0 warnings=0
+Shop/Pricing base_rc=0 promo_rc=0 warnings=0
+Shop/Reports base_rc=0 promo_rc=0 warnings=0
+Shop/Rows base_rc=0 promo_rc=0 warnings=0
+Signalbox base_rc=0 promo_rc=0 warnings=0
+Stats base_rc=0 promo_rc=0 warnings=0
+Stream base_rc=0 promo_rc=0 warnings=0
+Wire base_rc=0 promo_rc=0 warnings=0
+modules=28
