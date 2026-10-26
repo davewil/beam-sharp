@@ -41,8 +41,12 @@ Hot loop = the repo's `Spin`/`Wrap`/`Hit`, hand-written in Erlang variants. Min 
 
 Other measurements:
 
-- **The harness resolves ~1%.** The control `v_s_extra_guard` (one extra comparison per click) reads +8% in all three runs, so a real 20% would be unmistakable.
-- **The `bsc` build route is not the cause** (`abstr_route.out`): the same module sent through `.abstr` → `compile:file(from_abstr, debug_info)`, with function and attribute annotations set to 0 as `bs_emit.erl:20` does, keeps `tr=2` in all four modes.
+- **Verifier correction — five of these ten variants are the same machine code.** With the module name masked, `erlc -S` of `v_a_ops` is identical to `v_b_remote`, `v_c_retguard`, `v_d_spec` and `v_m_guarded_private`, and `v_k_spec_exported` is identical to `v_h_spin_exported`. Their timing rows are layout noise, not evidence: the remote `rem` call, the F42 return-guard `case`, the `integer()` specs and redundant private guards compile to nothing. Four byte-identical copies of `v_a_ops` ran 17.36–17.83 ms: **the noise floor for identical code is ~2.7%**, so differences under ~2% (b, c, d, m, and "g 1% faster") are not resolvable. What survives: h/k ~3% faster, j ~4% slower, the +8% control.
+- **No private mimic reproduces the ticket's symptom** (bare `{x,0}` in `Spin`); only the *exported* variants (g, h, k) lose `{tr,…}`, and `bsc`'s `Spin` is private (`is_public`, `bs_emit.erl:140`). So the mechanism is shown reproducible in hand-written Erlang, not shown to apply to `bsc`'s Spin.
+- `v_g`/`v_h` also change instruction scheduling (`gc_bif '+'` moves ahead of `allocate`), so "types are correlation, not cause" is not isolated by them. The `tr` column counts `{tr,` lines, not operands (`v_a` is 3 operand annotations on 2 lines) and ignores `var_info` lines (`v_h` loses three in `spin/4`).
+- `v_j` also differs from `v_a` by export, two guard sets and `is_integer` tests; its honest control is exported-without-guards (`v_h`): 18.17 vs 16.97 ms is **~+7%**, not +4%.
+- **The harness resolves ~2–3% for identical code (see above), not ~1%.** The control `v_s_extra_guard` (one extra comparison per click) reads +8% in all three runs, so a real 20% would be unmistakable.
+- **The `bsc` build route is not the cause** (`abstr_route.out`): the same module sent through `.abstr` → `compile:file(from_abstr, debug_info)`, with function and attribute annotations set to 0 as `bs_emit.erl:21`/`:163` do (function and attribute forms only; clause and expression lines keep the `.bs` source line), keeps `tr=2` in all four modes.
 - **Elixir 1.14** (`elixir_tr.out`): `defp` version of the benchmark keeps `tr=2`, same as Erlang.
 - `.beam` sizes 1244–1364 bytes (`beam_sizes.out`); compile time of the Erlang side 0.25 s/module for both baseline and return-guard variants (`compile_time.out`), no difference.
 - The ticket says Erlang infers `{t_integer,{0,99}}`; on OTP 25 it infers `{-99,99}` for the same code (`tr_annotations.out`). So the ticket's example does not transfer between OTP versions.
@@ -56,7 +60,7 @@ Other measurements:
 | | `beam_ssa_type.erl:683` | callee arg types updated only for `exported=false` callees |
 | | `beam_asm.erl:197-200` | types travel to the JIT in a `Type` chunk |
 | Elixir 1.14 | `elixir_tr.out` (measured; `elixir_erl` source is not installed) | `defp` keeps both annotations — private-ness is what matters, not the front end |
-| `bsc` **[cited, not re-executed]** | `bs_emit.erl:32-35`, `:140` | private functions are unexported; `-spec` on every function |
+| `bsc` **[cited, not re-executed]** | `bs_emit.erl:32-35`; `:140` is `is_public`; `spec_attr` `:1448` | private functions are unexported and `-spec`'d like public ones |
 | | `bs_emit.erl:324-360` | `is_integer` + range guards emitted for **exported** refined-int params only |
 | | `bs_emit.erl:1138-1148`, `:1259-1266` | foreign calls become remote calls wrapped in a return-guard `case` unless the declared type is `term` |
 | | `bsc.erl:843` | `compile:file(.abstr, [from_abstr, debug_info, …])` |
@@ -65,7 +69,7 @@ Other measurements:
 ## Decision 1 — settle the cause, once
 
 **Option 1a: run the §3.2 experiment on OTP 28.** `./run-all.sh` on an OTP 28 host, unchanged. Reading rule stated before running: if `v_g_exported` is not at least ~10% slower than `v_a_ops`, lost operand types do not explain a 20% gap and the emitter is innocent of it.
-- Evidence here: on OTP 25 `v_g_exported` loses the `{tr,…}` operands (2 -> 1) and runs **1% faster**, `v_k` 3% faster (`timings.out`). So on this VM, types are correlation, not cause.
+- Evidence here: on OTP 25 `v_g_exported` loses the `{tr,…}` operands (2 -> 1) and runs within noise of baseline, `v_h`/`v_k` ~3% faster (`timings.out`) — but those variants also change instruction scheduling, so this does not isolate types. Suggestive only.
 - Strongest counterargument: OTP 28's JIT may consume type info far more aggressively than OTP 25's. I have no evidence either way; this result may simply not transfer.
 
 **Option 1b: diff `bsc`'s real output for Day01 against `bench_erl`.** On a host with OTP 28: `bsc -o out aoc/bench/Day01`, then `erlc +from_abstr -S out/Day01.abstr` and `erlc -S aoc/bench/bench_erl.erl`; compare `var_info` / `{tr,` in `Spin`, and look for any remote-call/`case` shape the Erlang lacks.
@@ -82,15 +86,15 @@ Under each answer the same B# program, `Spin` with private `Wrap`, emits differe
 
 **Option 2b: emit refinement ranges as entry guards on exported functions.** Extends `int_guard/6` (`bs_emit.erl:324-360`, already doing this for declared refinements) to a function whose checker-proved parameter range is narrower than its declaration. Emits `v_j`.
 - Evidence: the optimiser does trust guards: `tr` goes 1 -> 7 in `spin/4` (`tr_annotations.out`).
-- Strongest counterargument: on OTP 25 it is **4% slower** (18.17 vs 17.46 ms, stable across 3 runs) because the tests run on every call and the extra annotations bought nothing measurable. Whether OTP 28 reverses that is unknown.
+- Strongest counterargument: on OTP 25 it is **4% slower than baseline, ~7% slower than the same function exported without guards** (18.17 vs 17.46 vs 16.97 ms, stable across 3 runs) because the tests run on every call and the extra annotations bought nothing measurable. Whether OTP 28 reverses that is unknown.
 
 **Option 2c: ranges only via a new "assert" form (e.g. a `case` the optimiser can fold).** Compiler delta: a new emitted pattern in `bs_emit` plus a checker note per call site. **Not probed** — I have no evidence for it, and 2b already answers "does the optimiser use AF-carried ranges" (yes, for guards; no, for specs).
 
 ## Recommendation
 
 1. **Do 1b first** (an hour on an OTP 28 host; no design needed): it says whether `bsc`'s `Spin` actually differs from Erlang's. If it does not differ, the 20% is not an emission problem and the ticket should be reframed. Then **1a** to see whether types matter at all on the pinned OTP.
-2. **Take 2a (no change) until 1a shows a type-sensitive gap of ≥10% on OTP 28.** Measured here: the only mechanism that makes the optimiser use a range (guards) costs 4% on OTP 25, and specs do nothing.
-3. Fix the ticket's premise when it is resolved: it predates F42 (the `bs_emit.erl:1259` return guard) and its `{0,99}` is an OTP 28 observation not reproducible on 25.
+2. **Take 2a (no change) as a default, not a conclusion** — the ≥10% threshold for revisiting it after 1a is arbitrary (set before running, derived from nothing). Measured here: guards on an *exported* Spin cost ~4–7% on OTP 25, guards on a *private* function compile to nothing (`v_m`), and specs do nothing. None of this is about what 2b would emit for Day01's private `Spin`.
+3. The ticket's premise may need rewording: it predates F42 (the `bs_emit.erl:1259` return guard) and its `{0,99}` is an OTP 28 observation not reproducible on 25. **"Stale" is only half shown:** my F42 mimic (`v_c`) assembles identically to the unguarded form, so if the mimic is faithful F42 does not change the ticket's "26 instructions identical" finding. I did not confirm that `type_test` for an unbounded `int` emits nothing more than `is_integer`.
 
 ## Evidence limits
 
@@ -110,4 +114,4 @@ Under each answer the same B# program, `Spin` with private `Wrap`, emits differe
 | `elixir_tr.exs` | `elixir_tr.out` | Elixir behaves like Erlang |
 | — | `beam_sizes.out`, `compile_time.out`, `env.out` | sizes, compile time, host |
 
-Circularity check: no probe was tuned after seeing a result. The `v_g/h/k` outcome (faster, not slower) was unexpected given the ticket's hypothesis and is reported as measured.
+Circularity check: the worker states no probe was tuned after seeing a result; that cannot be confirmed from the artifacts. An independent verifier reproduced every number (beam_sizes/compile_time are noise) and is the source of the corrections above. The `v_g/h/k` outcome (faster, not slower) was unexpected given the ticket's hypothesis and is reported as measured.
