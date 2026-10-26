@@ -1,0 +1,31 @@
+depa built: Elixir.Depa.beam
+depa.app
+### case 1: app does not declare depa, depa NOT on the code path
+Compiling 1 file (.ex)
+warning: Depa.hello/0 is undefined (module Depa is not available or is yet to be defined)
+  lib/app.ex:1: App.go/0
+
+Generated app app
+mix exit=0
+### case 2: depa on the code path via ERL_LIBS-style -pa but still undeclared
+Compiling 1 file (.ex)
+warning: Depa.hello/0 defined in application :depa is used by the current application but the current application does not depend on :depa. To fix this, you must do one of:
+
+  1. If :depa is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
+
+  2. If :depa is a dependency, make sure it is listed under "def deps" in your mix.exs
+
+  3. In case you don't want to add a requirement to :depa, you may optionally skip this warning by adding [xref: [exclude: [Depa]]] to your "def project" in mix.exs
+
+  lib/app.ex:1: App.go/0
+
+Generated app app
+mix exit=0
+### case 3: declared as a path dep
+==> depa
+Compiling 1 file (.ex)
+Generated depa app
+==> app
+Compiling 1 file (.ex)
+Generated app app
+mix exit=0

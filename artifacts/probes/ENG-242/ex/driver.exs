@@ -1,0 +1,12 @@
+# usage: elixir driver.exs trace|plain DIR
+[mode, dir] = System.argv()
+:ets.new(:violations, [:named_table, :public, :bag])
+Code.require_file(Path.join(__DIR__, "tracer.exs"))
+if mode == "trace", do: Code.put_compiler_option(:tracers, [InternalTracer])
+files = Path.wildcard(Path.join(dir, "**/*.ex"))
+t0 = System.monotonic_time(:millisecond)
+Kernel.ParallelCompiler.compile(files, return_diagnostics: true)
+t1 = System.monotonic_time(:millisecond)
+n = length(:ets.tab2list(:violations))
+IO.puts("#{mode} files=#{length(files)} ms=#{t1 - t0} violations=#{n}")
+System.halt(if n > 0, do: 1, else: 0)

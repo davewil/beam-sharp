@@ -1,0 +1,39 @@
+### run 1
+# rotations=4732 clicks=671458 answer(all variants)=6704
+variant                  min_ms   med_ms   max_ms min_rel
+v_a_ops                   17.51    17.96    19.83   1.00x
+v_b_remote                17.77    18.13    23.61   1.02x
+v_c_retguard              17.71    18.45    28.60   1.01x
+v_d_spec                  17.55    18.24    22.06   1.00x
+v_g_exported              17.24    17.73    25.27   0.98x
+v_h_spin_exported         16.97    17.42    19.95   0.97x
+v_j_guarded_exported      18.25    18.57    22.05   1.04x
+v_k_spec_exported         16.96    17.34    18.94   0.97x
+v_m_guarded_private       17.66    18.02    20.73   1.01x
+v_s_extra_guard           19.01    19.36    24.97   1.09x
+### run 2
+# rotations=4732 clicks=671458 answer(all variants)=6704
+variant                  min_ms   med_ms   max_ms min_rel
+v_a_ops                   17.54    18.16    21.05   1.00x
+v_b_remote                17.55    18.07    21.73   1.00x
+v_c_retguard              17.75    18.10    23.82   1.01x
+v_d_spec                  17.54    17.95    27.86   1.00x
+v_g_exported              17.31    17.61    19.76   0.99x
+v_h_spin_exported         16.97    17.31    19.55   0.97x
+v_j_guarded_exported      18.23    18.81    22.62   1.04x
+v_k_spec_exported         17.04    17.43    21.63   0.97x
+v_m_guarded_private       17.66    18.16    21.38   1.01x
+v_s_extra_guard           18.86    19.47    22.14   1.08x
+### run 3
+# rotations=4732 clicks=671458 answer(all variants)=6704
+variant                  min_ms   med_ms   max_ms min_rel
+v_a_ops                   17.46    17.96    22.47   1.00x
+v_b_remote                17.63    18.17    21.68   1.01x
+v_c_retguard              17.64    18.13    21.43   1.01x
+v_d_spec                  17.49    17.95    21.40   1.00x
+v_g_exported              17.23    17.64    23.36   0.99x
+v_h_spin_exported         16.98    17.32    23.23   0.97x
+v_j_guarded_exported      18.17    18.51    22.83   1.04x
+v_k_spec_exported         16.95    17.48    23.03   0.97x
+v_m_guarded_private       17.68    18.12    21.71   1.01x
+v_s_extra_guard           18.86    19.37    26.11   1.08x

@@ -1,0 +1,13 @@
+variant                  tr-operands-in-spin/4  (first var_info line in spin/4)
+v_a_ops                  tr=2   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_b_remote               tr=2   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_c_retguard             tr=2   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_d_spec                 tr=2   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_g_exported             tr=1   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_h_spin_exported        tr=1   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_j_guarded_exported     tr=7   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_k_spec_exported        tr=1   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_m_guarded_private      tr=2   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+v_s_extra_guard          tr=2   {'%',{var_info,{x,0},[{type,{t_integer,{-99,99}}}]}}.
+--- baseline: the repo's own aoc/bench/bench_erl.erl
+bench_erl tr=2

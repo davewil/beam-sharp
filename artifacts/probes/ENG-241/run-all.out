@@ -1,0 +1,128 @@
+# OTP 25
+## P1 sizes
+tag test (map_get('Kind') == order), 1 fn                  code   67 ->   79 (+12)   beam  564 ->  604 (+40)
+int test (is_integer), 1 fn                                code   68 ->   73 (+5)   beam  552 ->  576 (+24)
+g_none -> g_pub  (exported-only guards, 2 fn pairs)        code  120 ->  137 (+17)   beam  720 ->  768 (+48)
+g_pub  -> g_both (adds guards to the two private fns)      code  137 ->  149 (+12)   beam  768 ->  784 (+16)
+## P2 elision (local fns)
+-- g_pub
+{function, inner_int, 1, 4}.
+    {func_info,{atom,g_pub},{atom,inner_int},1}.
+{function, inner_tag, 1, 8}.
+    {func_info,{atom,g_pub},{atom,inner_tag},1}.
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+-- g_both
+{function, inner_int, 1, 4}.
+    {func_info,{atom,g_both},{atom,inner_int},1}.
+{function, inner_tag, 1, 8}.
+    {func_info,{atom,g_both},{atom,inner_tag},1}.
+    {bif,map_get,{f,7},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}.
+    {test,is_eq_exact,{f,7},[{x,1},{atom,order}]}.
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+-- g_unknown
+{function, inner, 1, 4}.
+    {func_info,{atom,g_unknown},{atom,inner},1}.
+    {test,is_integer,{f,3},[{x,0}]}.
+## P3 entry labels
+{function, pub, 1, 2}.
+  {label,1}.
+    {func_info,{atom,e_labels},{atom,pub},1}.
+  {label,2}.
+    {test,is_integer,{f,1},[{x,0}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+
+{function, caller, 1, 4}.
+  {label,3}.
+    {func_info,{atom,e_labels},{atom,caller},1}.
+  {label,4}.
+    {call_only,1,{f,2}}. % pub/1
+
+
+{function, module_info, 0, 6}.
+## P4 bench
+tag_no                 min  10.31 ns/call  median  10.71  max  16.93  (9 runs x 10M)
+tag_yes                min  17.28 ns/call  median  17.66  max  25.40  (9 runs x 10M)
+int_no                 min   4.58 ns/call  median   4.70  max   5.33  (9 runs x 10M)
+int_yes                min   4.80 ns/call  median   4.87  max   8.25  (9 runs x 10M)
+tag_no(2nd pass)       min  10.35 ns/call  median  11.69  max  20.18  (9 runs x 10M)
+tag_yes(2nd pass)      min  17.53 ns/call  median  20.86  max  25.28  (9 runs x 10M)
+int_no(2nd pass)       min   4.58 ns/call  median   4.91  max   5.90  (9 runs x 10M)
+int_yes(2nd pass)      min   4.82 ns/call  median   4.95  max   5.43  (9 runs x 10M)
+## P5 forged reachability
+ship(Forged)            exported, tag-tested                                   => {error,
+                                                                                   function_clause}
+ship(Real)                                                                     => {shipped,
+                                                                                   #{'Kind' =>
+                                                                                      order,
+                                                                                     'Total' =>
+                                                                                      1}}
+ship_all([Forged])      exported list<Order>, private fn UNguarded             => [{shipped,
+                                                                                    #{'Kind' =>
+                                                                                       not_an_order,
+                                                                                      'Total' =>
+                                                                                       1}}]
+ship_all_guarded_inner([Forged])  same, private fn tag-tested                  => {error,
+                                                                                   function_clause}
+ship_field(Envelope{Order=Forged}) nested record, private UNguarded            => {shipped,
+                                                                                   #{'Kind' =>
+                                                                                      not_an_order,
+                                                                                     'Total' =>
+                                                                                      1}}
+## P5b container hole for the int kind
+total([1, 2.5])          private int fn UNguarded                  => 5.5
+total_guarded([1, 2.5])  private int fn is_integer-guarded         => {error,
+                                                                       function_clause}
+## P6 Elixir
+== inner/1
+inner(#{'__struct__' := 'Elixir.Order'} = _o@1) ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+== inner_plain/1
+inner_plain(_o@1) ->
+    case _o@1 of
+        #{total := _@1} ->
+            _@1;
+        _@1 when is_atom(_@1), _@1 =/= nil, _@1 =/= true, _@1 =/= false ->
+            _@1:total();
+        _@1 ->
+            error({badkey, total, _@1})
+    end.
+
+== ship/1
+ship(#{'__struct__' := 'Elixir.Order'} = _o@1) ->
+    inner(_o@1).
+
+== ship_loose/1
+ship_loose(_o@1) ->
+    inner(_o@1).
+
+[
+  {:line, 1},
+  {:label, 10},
+  {:func_info, {:atom, Shop}, {:atom, :inner}, 1},
+  {:label, 11},
+  {:test, :is_map, {:f, 10}, [x: 0]},
+  {:get_map_elements, {:f, 10},
+   {:tr, {:x, 0}, {{:t_map, :any, :any}, 0, 18446744073709551615}},
+   {:list, [atom: :__struct__, x: 1]}},
+  {:test, :is_eq_exact, {:f, 10}, [x: 1, atom: Order]},
+  {:get_map_elements, {:f, 12},
+   {:tr, {:x, 0}, {{:t_map, :any, :any}, 0, 18446744073709551615}},
+   {:list, [atom: :total, x: 1]}}
+]
+## P7 Elm
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages

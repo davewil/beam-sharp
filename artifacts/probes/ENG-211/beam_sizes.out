@@ -1,0 +1,10 @@
+v_a_ops                  1272 bytes
+v_b_remote               1284 bytes
+v_c_retguard             1296 bytes
+v_d_spec                 1280 bytes
+v_g_exported             1244 bytes
+v_h_spin_exported        1280 bytes
+v_j_guarded_exported     1364 bytes
+v_k_spec_exported        1280 bytes
+v_m_guarded_private      1308 bytes
+v_s_extra_guard          1296 bytes

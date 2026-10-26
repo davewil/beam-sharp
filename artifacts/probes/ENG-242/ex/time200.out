@@ -1,0 +1,11 @@
+generated 200
+run 1: plain=3366ms trace=2861ms
+run 2: plain=3246ms trace=2393ms
+run 3: plain=2216ms trace=2511ms
+run 4: plain=2625ms trace=2334ms
+run 5: plain=2395ms trace=2447ms
+run 6: plain=2817ms trace=2946ms
+run 7: plain=2912ms trace=2761ms
+run 8: plain=2842ms trace=2240ms
+plain: min=2216 median=2829.5 max=3366
+trace: min=2240 median=2479.0 max=2946

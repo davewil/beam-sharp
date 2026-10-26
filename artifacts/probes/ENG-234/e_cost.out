@@ -1,0 +1,9 @@
+code:lib_dir(fakeapp) "/tmp/tmp.TpAem3p7XU/libs/fakeapp"
+code:lib_dir(absent)  {error,bad_name}
+code:where_is_file("fakeapp.app") "/tmp/tmp.TpAem3p7XU/libs/fakeapp/ebin/fakeapp.app"
+code:which(lists) "/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam"
+first lib_dir hit us:   10
+avg lib_dir hit us (n=10000):  5.1763
+avg lib_dir miss us (n=10000): 2.376
+avg where_is_file miss us (n=1000):  1129.862
+code path entries: 39

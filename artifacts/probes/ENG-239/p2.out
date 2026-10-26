@@ -1,0 +1,82 @@
+=== erlc +to_pp  (guards of g/1, clause of p/1)
+11:                         {op,{3,16},'-',{integer,{3,17},5}}}]],
+21:                             {integer,{4,18},5}}}]],
+23:           {clause,{5,1},
+24:                   [{var,{5,3},'X'}],
+25:                   [[{op,{5,13},
+27:                         {var,{5,11},'X'},
+28:                         {op,{5,17},
+29:                             '+',
+30:                             {integer,{5,16},2},
+31:                             {integer,{5,18},3}}}]],
+32:                   [{atom,{5,23},c}]},
+38:                         {op,{6,18},
+39:                             'bsl',
+49:                             '*',
+=== erlc +dexp  (guards of g/1, clause of p/1)
+11:                         {op,{3,16},'-',{integer,{3,17},5}}}]],
+21:                             {integer,{4,18},5}}}]],
+23:           {clause,{5,1},
+24:                   [{var,{5,3},'X'}],
+25:                   [[{op,{5,13},
+27:                         {var,{5,11},'X'},
+28:                         {op,{5,17},
+29:                             '+',
+30:                             {integer,{5,16},2},
+31:                             {integer,{5,18},3}}}]],
+32:                   [{atom,{5,23},c}]},
+38:                         {op,{6,18},
+39:                             'bsl',
+49:                             '*',
+=== erlc +dcore  (guards of g/1, clause of p/1)
+9:		    [{[102|[111|[108|[100|[46|[101|[114|[108]]]]]]]],1}]]
+16:		  when try
+19:				(5)
+29:		  when try
+32:				(0, 5)
+40:	      %% Line 5
+42:		  when try
+44:			    call 'erlang':'+'
+55:		  when try
+57:			    call 'erlang':'bsl'
+68:		  when try
+70:			    call 'erlang':'+'
+72:			in  let <_5> =
+76:				    call 'erlang':'*'
+=== erlc +to_core  (guards of g/1, clause of p/1)
+9:		    [{[102|[111|[108|[100|[46|[101|[114|[108]]]]]]]],1}]]
+16:		  when call 'erlang':'>='
+19:			 -5) ->
+23:		  when call 'erlang':'>='
+26:			 -5) ->
+28:	      %% Line 5
+30:		  when call 'erlang':'>='
+33:			 5) ->
+37:		  when call 'erlang':'>='
+40:			 8) ->
+44:		  when call 'erlang':'>='
+47:			 -5) ->
+49:	      %% Line 8
+50:	      <_9> when 'true' ->
+=== erlc +to_kernel  (guards of g/1, clause of p/1)
+11:      when 
+12:	   test (remote 'erlang':'>='/2)(_0, -5)
+15:	   test (remote 'erlang':'>='/2)(_0, -5)
+18:	   test (remote 'erlang':'>='/2)(_0, 5)
+21:	   test (remote 'erlang':'>='/2)(_0, 8)
+24:	   test (remote 'erlang':'>='/2)(_0, -5)
+34:	  -5 ->
+41:      bif (remote 'erlang':'+'/2)(_0, -5) >> <_1>
+=== erlc +dkern  (guards of g/1, clause of p/1)
+11:      when 
+12:	   test (remote 'erlang':'>='/2)(_0, -5)
+15:	   test (remote 'erlang':'>='/2)(_0, -5)
+18:	   test (remote 'erlang':'>='/2)(_0, 5)
+21:	   test (remote 'erlang':'>='/2)(_0, 8)
+24:	   test (remote 'erlang':'>='/2)(_0, -5)
+34:	  -5 ->
+41:      bif (remote 'erlang':'+'/2)(_0, -5) >> <_1>
+=== erlc -S (final asm; guard tests)
+15:    {test,is_ge,{f,3},[{x,0},{integer,-5}]}.
+28:    {test,is_eq_exact,{f,6},[{x,0},{integer,-5}]}.
+41:    {gc_bif,'+',{f,0},1,[{x,0},{integer,-5}],{x,0}}.

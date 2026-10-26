@@ -1,0 +1,3 @@
+elixir 1.14 BenchEx (defp)  tr-in-spin=2
+erlang v_a_ops (same awk)   tr-in-spin=2
+erlang v_g_exported (same awk) tr-in-spin=1

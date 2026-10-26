@@ -1,0 +1,10 @@
+f(X) when X >= -5 -> a.
+   {function,f,1,[{clause,[{var,'X'}],[[{op,'>=',{var,'X'},{op,'-',{integer,5}}}]],[{atom,a}]}]}
+f(X) when X >= 0-5 -> a.
+   {function,f,1,[{clause,[{var,'X'}],[[{op,'>=',{var,'X'},{op,'-',{integer,0},{integer,5}}}]],[{atom,a}]}]}
+f(X) when X >= 2+3 -> a.
+   {function,f,1,[{clause,[{var,'X'}],[[{op,'>=',{var,'X'},{op,'+',{integer,2},{integer,3}}}]],[{atom,a}]}]}
+f(-5) -> a.
+   {function,f,1,[{clause,[{op,'-',{integer,5}}],[],[{atom,a}]}]}
+f(X) -> X + -5.
+   {function,f,1,[{clause,[{var,'X'}],[],[{op,'+',{var,'X'},{op,'-',{integer,5}}}]}]}

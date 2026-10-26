@@ -1,0 +1,7 @@
+erlc exit=0
+attributes: [{app,[req]},{external,[{elixir,req}]},{vsn,"1"}]
+m:module_info(attributes): [{app,[req]},{external,[{elixir,req}]},{vsn,"1"}]
+## same via the Abstract Format (what bs_emit would hand to compile:file from_abstr)
+[{app,[req]},
+ {external,[{elixir,req}]},
+ {vsn,[23266244227878824844396878948502687383]}]

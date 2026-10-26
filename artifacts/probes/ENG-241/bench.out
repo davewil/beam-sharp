@@ -1,0 +1,8 @@
+tag_no                 min  10.31 ns/call  median  10.71  max  16.93  (9 runs x 10M)
+tag_yes                min  17.28 ns/call  median  17.66  max  25.40  (9 runs x 10M)
+int_no                 min   4.58 ns/call  median   4.70  max   5.33  (9 runs x 10M)
+int_yes                min   4.80 ns/call  median   4.87  max   8.25  (9 runs x 10M)
+tag_no(2nd pass)       min  10.35 ns/call  median  11.69  max  20.18  (9 runs x 10M)
+tag_yes(2nd pass)      min  17.53 ns/call  median  20.86  max  25.28  (9 runs x 10M)
+int_no(2nd pass)       min   4.58 ns/call  median   4.91  max   5.90  (9 runs x 10M)
+int_yes(2nd pass)      min   4.82 ns/call  median   4.95  max   5.43  (9 runs x 10M)

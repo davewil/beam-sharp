@@ -1,0 +1,19 @@
+ship(Forged)            exported, tag-tested                                   => {error,
+                                                                                   function_clause}
+ship(Real)                                                                     => {shipped,
+                                                                                   #{'Kind' =>
+                                                                                      order,
+                                                                                     'Total' =>
+                                                                                      1}}
+ship_all([Forged])      exported list<Order>, private fn UNguarded             => [{shipped,
+                                                                                    #{'Kind' =>
+                                                                                       not_an_order,
+                                                                                      'Total' =>
+                                                                                       1}}]
+ship_all_guarded_inner([Forged])  same, private fn tag-tested                  => {error,
+                                                                                   function_clause}
+ship_field(Envelope{Order=Forged}) nested record, private UNguarded            => {shipped,
+                                                                                   #{'Kind' =>
+                                                                                      not_an_order,
+                                                                                     'Total' =>
+                                                                                      1}}

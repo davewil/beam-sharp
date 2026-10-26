@@ -1,0 +1,8 @@
+## erlc caller.erl
+exit=0
+## run
+error:undef
+## xref:d(.) undefined_function_calls
+[]
+## dialyzer (no PLT, -Wunknown only on this module)
+dialyzer present

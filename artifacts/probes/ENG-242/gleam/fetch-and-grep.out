@@ -1,0 +1,31 @@
+== config.rs: where internal_modules is declared and what is_internal_module says it is for
+207:    pub internal_modules: Option<Vec<Glob>>,
+    /// Determines whether the given module should be hidden in the docs or not
+    ///
+    /// The developer can specify a list of glob patterns in the gleam.toml file
+    /// to determine modules that should not be shown in the package's documentation
+    pub fn is_internal_module(&self, module: &str) -> bool {
+== analyse.rs: what the compiler does with an internal module
+363:            .is_internal_module(self.module_name.as_str());
+1382:            Publicity::Public if self.package_config.is_internal_module(&self.module_name) => {
+        // We check is the type comes from an internal module and restrict its
+        // publicity.
+        let publicity = match publicity {
+            // It's important we only restrict the publicity of public types.
+            Publicity::Public if self.package_config.is_internal_module(&self.module_name) => {
+                Publicity::Internal {
+                    attribute_location: None,
+                }
+            }
+            // If a type is private we don't want to make it internal just because
+            // it comes from an internal module, so in that case the publicity is
+            // left unchanged.
+            Publicity::Public | Publicity::Private | Publicity::Internal { .. } => *publicity,
+        };
+== docs.rs: the other consumer
+86:        .filter(|module| !config.is_internal_module(&module.name));
+== type_/error.rs: any error variant that rejects an import from an internal module?
+756:    /// internals of the other package.
+766:    /// internals of the other package.
+1317:    InternalAnnotation,
+1334:            FeatureKind::InternalAnnotation | FeatureKind::NestedTupleAccess => {

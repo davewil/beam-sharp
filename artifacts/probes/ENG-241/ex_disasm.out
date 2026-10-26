@@ -1,0 +1,14 @@
+[
+  {:line, 1},
+  {:label, 10},
+  {:func_info, {:atom, Shop}, {:atom, :inner}, 1},
+  {:label, 11},
+  {:test, :is_map, {:f, 10}, [x: 0]},
+  {:get_map_elements, {:f, 10},
+   {:tr, {:x, 0}, {{:t_map, :any, :any}, 0, 18446744073709551615}},
+   {:list, [atom: :__struct__, x: 1]}},
+  {:test, :is_eq_exact, {:f, 10}, [x: 1, atom: Order]},
+  {:get_map_elements, {:f, 12},
+   {:tr, {:x, 0}, {{:t_map, :any, :any}, 0, 18446744073709551615}},
+   {:list, [atom: :total, x: 1]}}
+]

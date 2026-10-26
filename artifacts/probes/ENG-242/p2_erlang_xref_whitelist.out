@@ -1,0 +1,8 @@
+check.escript non-comment lines: 11
+violations: [{{shop_billing,bill,1},{shop_orders_inner,recompute,1}}]
+unresolved (escape the check): [{{shop_billing,sneaky,1},
+                                 {'$M_EXPR',recompute,1}}]
+
+real	0m0.229s
+user	0m0.248s
+sys	0m0.079s

@@ -1,0 +1,10 @@
+## files with a foreign using block that is not an OTP module (names starting Elixir. or other)
+./wayfinder/prototypes/51a-code-path/Req/req.bs:37:using :'Elixir.Req' {
+./wayfinder/prototypes/51a-code-path/Req/req.bs:43:using :'Elixir.Application' {
+./wayfinder/prototypes/51a-code-path/Elx/elx.bs:13:using :'Elixir.String' {
+./wayfinder/prototypes/51a-code-path/Elx/elx.bs:17:using :'Elixir.Enum' {
+./compiler/examples/exemplars/25f-llm-evaluation-client/index.bs:52:using :json {
+./compiler/examples/exemplars/25d-database-querying/index.bs:12:using :epgsql {
+## count by file: Elixir.* blocks
+./wayfinder/prototypes/51a-code-path/Req/req.bs:2
+./wayfinder/prototypes/51a-code-path/Elx/elx.bs:2

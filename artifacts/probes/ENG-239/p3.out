@@ -1,0 +1,22 @@
+== quoted AST
+x >= -5  =>  {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+x >= 0 - 5  =>  {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [0, 5]}]}
+x >= 2 + 3  =>  {:>=, [line: 1], [{:x, [line: 1], nil}, {:+, [line: 1], [2, 3]}]}
+-5  =>  {:-, [line: 1], [5]}
+f(-5)  =>  {:f, [line: 1], [{:-, [line: 1], [5]}]}
+
+== literal -5 in patterns / guards (compiled, then called)
+calls: {:minus5, :other, :in, :out, :ge5, :lt5, :in, :out, :ok, :no}
+
+== pattern `-5..5` in a match (range literal with unary minus)
+match?(-5..5, -5..5): true
+
+== is `-5` folded at the parser, or later? Macro.expand / compile-time AST of the clause
+quote do: -5 (raw): {:-, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [5]}
+Macro.expand(quote do: -5): -5
+  ...is an integer literal?: true
+Macro.expand(quote do: 2 + 3): {:+, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [2, 3]}
+
+== the erlang forms Elixir emits for the guard (does Elixir fold before erlc?)
+a: guard = [[{:op, 2, :>=, {:var, 2, :_x@1}, {:op, 2, :-, {:integer, 2, 5}}}]]
+b: guard = [[{:op, 3, :>=, {:var, 3, :_x@1}, {:op, 3, :+, {:integer, 3, 2}, {:integer, 3, 3}}}]]

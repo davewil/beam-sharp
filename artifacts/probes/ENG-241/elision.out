@@ -1,0 +1,18 @@
+-- g_pub
+{function, inner_int, 1, 4}.
+    {func_info,{atom,g_pub},{atom,inner_int},1}.
+{function, inner_tag, 1, 8}.
+    {func_info,{atom,g_pub},{atom,inner_tag},1}.
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+-- g_both
+{function, inner_int, 1, 4}.
+    {func_info,{atom,g_both},{atom,inner_int},1}.
+{function, inner_tag, 1, 8}.
+    {func_info,{atom,g_both},{atom,inner_tag},1}.
+    {bif,map_get,{f,7},[{atom,'Kind'},{tr,{x,0},{t_map,any,any}}],{x,1}}.
+    {test,is_eq_exact,{f,7},[{x,1},{atom,order}]}.
+    {bif,map_get,{f,0},[{atom,'Total'},{tr,{x,0},{t_map,any,any}}],{x,0}}.
+-- g_unknown
+{function, inner, 1, 4}.
+    {func_info,{atom,g_unknown},{atom,inner},1}.
+    {test,is_integer,{f,3},[{x,0}]}.

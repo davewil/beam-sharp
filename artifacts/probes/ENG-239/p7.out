@@ -1,0 +1,10 @@
+expand -x: {:-, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [{:x, [], Elixir}]}
+expand -(5): -5
+expand +5: 5
+expand -5.0: {:-, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [5.0]}
+expand 0-5: {:-, [context: Elixir, imports: [{1, Kernel}, {2, Kernel}]], [0, 5]}
+a: head=[{:var, 2, :_x@1}] guard=[[{:op, 2, :>=, {:var, 2, :_x@1}, {:op, 2, :-, {:integer, 2, 5}}}]] body=[{:integer, 2, 1}]
+f: head=[] guard=[] body=[{:op, 5, :-, {:integer, 5, 5}}]
+g: head=[{:var, 6, :_x@1}] guard=[] body=[{:op, 6, :-, {:var, 6, :_x@1}, {:integer, 6, 5}}]
+neg: head=[{:var, 3, :_x@1}] guard=[[{:op, 3, :>=, {:var, 3, :_x@1}, {:integer, 3, -5}}]] body=[{:integer, 3, 1}]
+p: head=[{:integer, 4, -5}] guard=[] body=[{:integer, 4, 1}]

@@ -1,0 +1,13 @@
+## xref: three views, reported as-is
+undefined_function_calls: [{{caller,go,0},{req,new,1}}]
+locals_not_used/deprecated skipped
+q (XC - UC) || (XU - X - B): [{{caller,go,0},{req,new,1}}]
+q unresolved XU - X - B: [{req,new,1}]
+## dialyzer: build a tiny PLT (erts kernel stdlib) then -Wunknown
+plt exit=0
+  Checking whether the PLT p.plt is up-to-date... yes
+  Proceeding with analysis...
+Unknown functions:
+  req:new/1 (caller.erl:3:9)
+ done in 0m0.18s
+done (warnings were emitted)

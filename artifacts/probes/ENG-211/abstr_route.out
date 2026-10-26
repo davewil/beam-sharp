@@ -1,0 +1,4 @@
+route=ident  tr-in-spin=2
+route=zero_fn_line  tr-in-spin=2
+route=bs_like  tr-in-spin=2
+route=nodebug  tr-in-spin=2

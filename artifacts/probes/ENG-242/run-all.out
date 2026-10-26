@@ -1,0 +1,125 @@
+################ p1_beam_cannot_restrict.sh
+static: secret_value
+computed: secret_value
+--- OTP release: 25
+################ p2_erlang_xref_whitelist.sh
+check.escript non-comment lines: 11
+violations: [{{shop_billing,bill,1},{shop_orders_inner,recompute,1}}]
+unresolved (escape the check): [{{shop_billing,sneaky,1},
+                                 {'$M_EXPR',recompute,1}}]
+
+real	0m0.191s
+user	0m0.218s
+sys	0m0.071s
+################ p3_erlang_otp25_moduledoc.sh
+OTP 25
+erlc exit=0
+--- -deprecated is advisory: compiles, warns, still callable
+erlc exit=0
+ok
+--- is -moduledoc a real attribute on OTP 25 or an inert wild attribute?
+[{vsn,[130139309566882950942444300562123197581]},{moduledoc,[false]}]
+--- does anything enforce -deprecated? only xref
+{ok,[{{e,h,0},{d,g,0}}]}
+################ p5_corpus_audiences.sh
+root=../../../compiler/examples bs_files=75 modules=35 foreign_using=17
+modules named by at least one other module: 3
+distinct caller modules per callee (callers: count of callees): {1: 3}
+  Shop <- Shop.Billing
+  Shop.Collections.Ints <- Shop.Reports
+  Support.Triage <- Jev
+################ ex/xref.sh
+Compiling 4 files (.ex)
+Generated shop app
+--- mix xref callers Shop.Orders.Internal
+lib/billing.ex (runtime)
+lib/orders/orders.ex (runtime)
+--- mix xref graph --sink (file path is the 1.14 argument form; the module name was a usage error, first run)
+lib:
+billing.ex
+orders
+shop
+
+lib/orders:
+internal.ex
+orders.ex
+lib/billing.ex
+|-- lib/orders/internal.ex
+`-- lib/orders/orders.ex
+lib/orders/orders.ex
+`-- lib/orders/internal.ex
+################ elm/run.sh
+ls ~/.elm/0.19.1:
+total 12
+drwxr-xr-x 3 root root 4096 Oct 26 23:10 .
+drwxr-xr-x 3 root root 4096 Oct 26 23:10 ..
+drwxr-xr-x 2 root root 4096 Oct 26 23:10 packages
+-- PROBLEM LOADING PACKAGE LIST ------------------------------------------------
+
+I need the list of published packages to verify your dependencies, so I tried to
+fetch:
+
+    https://package.elm-lang.org/all-packages
+
+But my HTTP library is giving me the following error message:
+
+    ProxyConnectException "package.elm-lang.org" 443 (Status {statusCode = 403, statusMessage = "Forbidden"})
+
+Are you somewhere with a slow internet connection? Or no internet? Does the link
+I am trying to fetch work in your browser? Maybe the site is down? Does your
+internet connection have a firewall that blocks certain domains? It is usually
+something like that!
+
+                            Dependencies ready!
+elm exit=1
+################ gleam/fetch-and-grep.sh
+== config.rs: where internal_modules is declared and what is_internal_module says it is for
+207:    pub internal_modules: Option<Vec<Glob>>,
+    /// Determines whether the given module should be hidden in the docs or not
+    ///
+    /// The developer can specify a list of glob patterns in the gleam.toml file
+    /// to determine modules that should not be shown in the package's documentation
+    pub fn is_internal_module(&self, module: &str) -> bool {
+== analyse.rs: what the compiler does with an internal module
+363:            .is_internal_module(self.module_name.as_str());
+1382:            Publicity::Public if self.package_config.is_internal_module(&self.module_name) => {
+        // We check is the type comes from an internal module and restrict its
+        // publicity.
+        let publicity = match publicity {
+            // It's important we only restrict the publicity of public types.
+            Publicity::Public if self.package_config.is_internal_module(&self.module_name) => {
+                Publicity::Internal {
+                    attribute_location: None,
+                }
+            }
+            // If a type is private we don't want to make it internal just because
+            // it comes from an internal module, so in that case the publicity is
+            // left unchanged.
+            Publicity::Public | Publicity::Private | Publicity::Internal { .. } => *publicity,
+        };
+== docs.rs: the other consumer
+86:        .filter(|module| !config.is_internal_module(&module.name));
+== type_/error.rs: any error variant that rejects an import from an internal module?
+756:    /// internals of the other package.
+766:    /// internals of the other package.
+1317:    InternalAnnotation,
+1334:            FeatureKind::InternalAnnotation | FeatureKind::NestedTupleAccess => {
+################ ex/time200.sh
+generated 200
+run 1: plain=2073ms trace=2249ms
+run 2: plain=2197ms trace=2418ms
+run 3: plain=2320ms trace=2182ms
+run 4: plain=1967ms trace=2617ms
+run 5: plain=2657ms trace=2793ms
+run 6: plain=2697ms trace=2603ms
+run 7: plain=2707ms trace=2705ms
+run 8: plain=2569ms trace=2678ms
+plain: min=1967 median=2444.5 max=2707
+trace: min=2182 median=2610.0 max=2793
+################ ex/driver.exs on the 3-module project (plain, then traced)
+plain files=3 ms=15 violations=0
+exit=0
+billing.ex:3: error: Shop.Billing may not name Shop.Orders.Internal (only Shop.Orders.* may)
+billing.ex:3: error: Shop.Billing may not name Shop.Orders.Internal (only Shop.Orders.* may)
+trace files=3 ms=21 violations=1
+exit=1

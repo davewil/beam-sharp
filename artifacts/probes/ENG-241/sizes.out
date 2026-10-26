@@ -1,0 +1,4 @@
+tag test (map_get('Kind') == order), 1 fn                  code   67 ->   79 (+12)   beam  564 ->  604 (+40)
+int test (is_integer), 1 fn                                code   68 ->   73 (+5)   beam  552 ->  576 (+24)
+g_none -> g_pub  (exported-only guards, 2 fn pairs)        code  120 ->  137 (+17)   beam  720 ->  768 (+48)
+g_pub  -> g_both (adds guards to the two private fns)      code  137 ->  149 (+12)   beam  768 ->  784 (+16)

@@ -1,0 +1,4 @@
+## compile time: erlc reads no .app; nothing to run. Boot time:
+{error,{req_absent,{"no such file or directory","req_absent.app"}}}
+## app listed but ERL_LIBS has it -> ok? (fake req_absent app)
+{ok,[req_absent,me]}

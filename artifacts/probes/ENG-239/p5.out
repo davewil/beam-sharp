@@ -1,0 +1,4 @@
+clauses=10000 runs=7
+parse_us  min=38105 median=61392
+fold_us   min=5911 median=8915
+unary-minus-literal nodes: before=10000 after=0

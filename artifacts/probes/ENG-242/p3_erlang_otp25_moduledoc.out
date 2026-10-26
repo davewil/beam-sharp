@@ -1,0 +1,9 @@
+OTP 25
+erlc exit=0
+--- -deprecated is advisory: compiles, warns, still callable
+erlc exit=0
+ok
+--- is -moduledoc a real attribute on OTP 25 or an inert wild attribute?
+[{vsn,[130139309566882950942444300562123197581]},{moduledoc,[false]}]
+--- does anything enforce -deprecated? only xref
+{ok,[{{e,h,0},{d,g,0}}]}

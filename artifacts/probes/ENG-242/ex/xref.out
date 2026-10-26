@@ -1,0 +1,19 @@
+Compiling 4 files (.ex)
+Generated shop app
+--- mix xref callers Shop.Orders.Internal
+lib/billing.ex (runtime)
+lib/orders/orders.ex (runtime)
+--- mix xref graph --sink (file path is the 1.14 argument form; the module name was a usage error, first run)
+lib:
+billing.ex
+orders
+shop
+
+lib/orders:
+internal.ex
+orders.ex
+lib/billing.ex
+|-- lib/orders/internal.ex
+`-- lib/orders/orders.ex
+lib/orders/orders.ex
+`-- lib/orders/internal.ex
