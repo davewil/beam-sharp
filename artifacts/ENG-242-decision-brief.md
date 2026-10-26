@@ -33,7 +33,7 @@ Probes: `artifacts/probes/ENG-242/` (`run-all.sh` re-runs everything). Ticket:
 **Prior decisions this must not contradict (grepped `wayfinder/issues/` for internal / friend / visible / namespace):**
 nothing decides who may name a module. Binding constraints: 22 (do not borrow C# `internal`'s
 spelling without its semantics; enforcement is "compile-time visibility over beam-sharp source only");
-18 §5 (BEAM elision is exported-vs-local, one entry label, so the emitter cannot enforce it); 22's
+18 §1 (BEAM elision is exported-vs-local, one entry label, so the emitter cannot enforce it); 22's
 resolution (no new keyword was spent on an incomplete marker, so keyword budget is a live concern);
 F15 (a directory with `.bs` files is a module, modules may nest: `Shop` is a module holding module
 `Shop.Billing`; a directory with only directories is an erased namespace); CONTEXT.md has no entry for
@@ -83,20 +83,26 @@ It becomes new information only if entries are *patterns* (a layering rule: "Bil
 `Shop.Core.*`"), which is a different, larger feature (architecture rules) that this ticket did not ask for.
 
 **Nobody; no construct.** A repo-level check outside the language. Measured (P2, P4): on the BEAM
-a caller whitelist is 11 non-comment lines of escript over `xref` and runs in 0.23–0.34 s on three
-modules; in Elixir it is a 22-line compile tracer that reported
+a caller whitelist is 11 non-comment lines of escript over `xref` and runs in 0.19–0.23 s on three
+modules; in Elixir it is a 21-line compile tracer that reported
 `billing.ex:3: error: Shop.Billing may not name Shop.Orders.Internal (only Shop.Orders.* may)` and
 exited 1 (`ex/tracer3.out`). Strongest counterargument to doing it: CLAUDE.md rules that a gate guards
 the language or the handoff, and a check living outside `bsc` is invisible to the clean-room handoff
 (an implementer of B# cannot agree with it, because it is not part of B#).
 
-**Corpus measurement (P5, `p5_corpus_audiences.out`), the argument against building anything yet.** Over
-`compiler/examples` (35 modules, 75 files) exactly 3 modules are named by another B# module, and
-**each by exactly one caller** (`Shop`←`Shop.Billing`, `Shop.Collections.Ints`←`Shop.Reports`,
-`Support.Triage`←`Jev`). No module in the corpus has two callers, so no example can yet *exercise* a
-refusal that a callee-side rule would make. Caveat: the corpus is mostly single-feature probes, and
-module names were inferred from `module` lines or directory paths by a 30-line script, so treat the
-counts as approximate.
+**Corpus measurement — CORRECTED after verification.** The committed probe P5 (`p5_corpus_audiences.out`)
+reported "35 modules, exactly 3 named, each by one caller, no module has two callers". **That is wrong and
+is withdrawn**: the script takes a directory's module to be the first `module` line in any of its files and
+drops self-edges, but `compiler/examples/exemplars/25g-jev-server/` holds two modules (`Jev`, `Triage`) in
+one directory, and 25a–25d have no `module` line so the script invented four names. An independent recount
+(every `*.bs` under `compiler/examples`, 75 files; module = distinct `module X` declaration; `using Uident…`
+at line start; foreign `using :atom` excluded): 32 declared modules. In the **compiling** examples, 28
+modules and 2 named (`Shop`←`Shop.Billing`, `Shop.Collections.Ints`←`Shop.Reports`), one caller each.
+Including the exemplars (which are headed "does not parse today", and 25g's layout violates F15's
+module-path rule): 4 named, and **`Support.Triage` has two callers** (`Jev` and `Triage`, `jev_index.bs:15`
+and `triage_index.bs:15`) — a hierarchy-crossing case. `Shop.Collections` is a namespace named by two
+modules; `Shop.Orders` (named by 25a) exists nowhere. So the corpus gives **little signal either way** — 2
+named modules in the compiling set — and is not an argument for holding the build.
 
 **Strongest counterargument to callee-side:** the owner must name its callers, so renaming or
 splitting `Shop.Checkout` edits `Shop.Pricing`'s `index.bs`: coupling points from the stable thing
@@ -104,8 +110,10 @@ to the volatile one. Caller-side ("layering") scales better to large trees; this
 Boundary-style tools work from the caller. (Named for vocabulary only; not executed here.)
 
 **Recommendation:** callee names its audience, at module level, in `index.bs`. It is the only answer
-whose refusal carries information `using` does not. Hold the **build** until an exemplar has a module
-with two callers where one must be refused: P5 says none exists. Deciding the shape now is cheap and
+whose refusal carries information `using` does not. Whether to build now or wait is a **separate
+call the evidence does not settle**: the original corpus argument for waiting was a miscount (see the corrected
+corpus measurement), and the corrected recount is too thin either way (2 named modules in the compiling set;
+`Support.Triage` has two callers only in non-compiling exemplars). Deciding the shape now is cheap and
 leaves no hole where 22 left one.
 
 ---
@@ -197,7 +205,7 @@ Work, concretely (all cited from the repo, **not re-executed; no `bsc` build her
 
 - *Any caller outside B# source.* P1: an Erlang module called an exported function of another through
   `apply(M, secret, [])` with `M` built at run time and got `secret_value`; the BEAM has nothing to
-  restrict. This confirms 18 §5 / 22: compile-time on the caller is the only enforcement point, and it
+  restrict. This confirms 18 §1 / 22: compile-time on the caller is the only enforcement point, and it
   covers B# sources only.
 - *What a static caller check cannot see.* P2: `xref` reported the computed-module call as unresolved
   (`{'$M_EXPR',recompute,1}`) rather than as a violation; P4: the Elixir tracer reported the aliased call
@@ -240,7 +248,11 @@ assembly, so `internal` is the false friend.
   *proposed*, not observed.
 - OTP 25 / Elixir 1.14, not the pinned OTP 28.
 - Elm and Gleam give no behavioural evidence.
-- P5's corpus is small and toy-shaped; module names are inferred.
+- P5 (corpus) was miscounted by the worker's script and is corrected above; its committed `.out` is kept as the evidence of the defect, not of the claim.
+- Verifier results: p1, p2, p3, the Elixir tracer and xref probes reproduce (timing noise only). The 200-module tracer overhead is a noise-limited bound, not a measurement: min plain 1951 ms vs traced 1967 ms over 10 alternating runs (verifier), ~35k trace events at ~1 µs ≈ 1–2% estimated; the verifier confirmed the tracer really fires and that a planted violation fails the build (exit 1). Rules in p2 and the tracer are hard-coded to the planted names (capability demos, each with an allowed call that is correctly not flagged); the tracer matches by `starts_with?` prefix text, so `Shop.OrdersX` would also match. `-moduledoc` on OTP 25 is an inert attribute and says nothing about its behaviour on the pinned OTP 28. The p3 script's own label says "warns" though its output shows no warning.
+- **The `using` chokepoint is leakier than stated:** foreign declarations are processed by `{foreign, _, Mod, Sigs} <- Decls` (`bs_check.erl:620`, `:638`) with no World lookup, so a `using :'Shop.Pricing' {…}` would bypass an `add_import` hook (likely, by reading; not executed), and the namespace branch of `add_import` (`~bs_check.erl:501-505`) bypasses `add_module_import`, so the delta is more than "one clause".
+- Gleam: nine source files fetched from unpinned `main` were saved and read as text only (never executed); the quoted lines were verified to exist (`config.rs:207`, `:291-294`, `analyse.rs:1382-1390`, `docs.rs:86`, `type_/error.rs:756,766,1317,1334`) and `type_/environment.rs:1009` additionally hides other-package internal modules from suggestions. Commit provenance not checked.
+- Mis-citations fixed: the exported-vs-local elision finding is in ticket 18 §1 (not §5, which is "No opt-out"); `24-testing-story.md` quotes are at 218-220 and 229; ticket 22 says only that no keyword was spent on the incomplete marker (the "keyword budget is a live concern" is this brief's inference); the xref run time is 0.19–0.23 s (no 0.34 s run exists); the tracer file is 21 lines. Ticket 41:490 still draws an `Internal/` "SUB-MODULE, source-only" directory that F15 later reinterpreted — a wording hazard for the `visible to` design.
 - The timing runs' variance exceeds the effect and flips sign between runs; no overhead conclusion beyond "undetected".
 
 ## Verification
