@@ -1,0 +1,38 @@
+# record-field nesting (not list): Q.bs
+module Q
+
+record Order { Id: int, Total: int }
+record Wrap { N: int, O: Order }
+type Octet = int where value >= 0 and value <= 255
+record Cell { V: Octet }
+
+public int Use(Cell c)
+Use(c) -> Big(c.V)
+
+int Big(Octet n)
+Big(>= 9) -> 1
+Big(>= 0 and <= 8) -> 0
+
+public int UseO(Wrap w)
+UseO(w) -> Total(w.O)
+
+int Total(Order o)
+Total(o) -> o.Total
+== A
+  Use { Kind = :'Q.Cell', V = 300 }  -> 1
+  Use { Kind = :'Q.Cell', V = 100.5 }  -> 1
+  UseO { Kind = :'Q.Wrap', N = 1, O = { Kind = :'Other', Id = 1, Total = 5 } }  -> crashed: error:function_clause
+== B
+  Use { Kind = :'Q.Cell', V = 300 }  -> crashed: error:function_clause
+  Use { Kind = :'Q.Cell', V = 100.5 }  -> crashed: error:function_clause
+  UseO { Kind = :'Q.Wrap', N = 1, O = { Kind = :'Other', Id = 1, Total = 5 } }  -> crashed: error:function_clause
+== C
+  Use { Kind = :'Q.Cell', V = 300 }  -> 1
+  Use { Kind = :'Q.Cell', V = 100.5 }  -> 1
+  UseO { Kind = :'Q.Wrap', N = 1, O = { Kind = :'Other', Id = 1, Total = 5 } }  -> 5
+
+# fun-escape keeps guard under B (is_integer insns): x2=no fun, x3=BigFn handed out
+x2 A: beams=1 is_integer_insns=1 is_float_insns=0 is_eq_exact_insns=0
+x2 B: beams=1 is_integer_insns=1 is_float_insns=0 is_eq_exact_insns=0
+x3 A: beams=1 is_integer_insns=1 is_float_insns=0 is_eq_exact_insns=0
+x3 B: beams=1 is_integer_insns=2 is_float_insns=0 is_eq_exact_insns=0

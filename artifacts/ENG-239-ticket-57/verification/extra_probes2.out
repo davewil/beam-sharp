@@ -1,0 +1,13 @@
+=========== baseline
+lambda (-1) => 0                   {crashed,error,
+         {badmatch,{error,{{5,1},
+                           bs_parser,
+                           "a lambda's parameter is a pattern: a name, `_`, a literal, or a tuple or list of those"}}}}
+lambda (1) => 0 control            {refused,[{error,{5,1},'Go',{lambda_param_refuted,1,#{atoms => {...},...}}}]}
+lambda (x) => 0 control            accepted
+bare -1 = n                        {crashed,error,{badmatch,{error,{{4,1},bs_parser,[[...]|...]}}}}
+=========== A1
+lambda (-1) => 0                   {refused,[{error,{5,1},'Go',{lambda_param_refuted,1,#{atoms => {...},...}}}]}
+lambda (1) => 0 control            {refused,[{error,{5,1},'Go',{lambda_param_refuted,1,#{atoms => {...},...}}}]}
+lambda (x) => 0 control            accepted
+bare -1 = n                        {crashed,error,{badmatch,{error,{{4,1},bs_parser,[[...]|...]}}}}

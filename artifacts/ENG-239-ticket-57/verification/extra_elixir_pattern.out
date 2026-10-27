@@ -1,0 +1,2 @@
+[[[{:integer, [generated: true, location: 0], -5}], [{:var, 1, :_}]]]
+[[[[{:op, 1, :>=, {:var, 1, :_x@1}, {:op, 1, :-, {:integer, 1, 5}}}]]]]

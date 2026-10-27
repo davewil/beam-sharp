@@ -93,7 +93,7 @@ exactly where it works.** A tag test is paid in full either way. The `erlc` find
 provenance analysis S3 asked for, supplied for free. It is OTP 25's; see limits.
 
 The 26a/18a record that "the tag itself costs nothing measurable" (7.04 vs 8.78 ns, arm64, OTP 28)
-is **not reproduced** here: +9–11 ns on a trivial body (p4). A real body amortises it; still, a flat
+is **not reproduced** here as 'nothing': about 6 ns by min and 10-16 ns by median on a trivial body (verifier, 5 reruns; the box is bimodal, median noise 7-10 ns). Ticket 26's 7.04 vs 8.78 compares two guarded forms, so it is not strictly contradicted; the guard-versus-none delta was never stated there (verifier's rerun of 26a: +4 ns). A real body amortises it; still, a flat
 "nothing" is not what this box saw.
 
 ## 5. Options
@@ -110,8 +110,8 @@ Compiler delta: `guard_one/8` — `{ok, Tag}` gains `when Public`, with `{ok, _}
 "exported" only; line 460 notes it is narrower than that) and add a scenario that a private record
 parameter is unguarded.
 
-Evidence: saves 12 B and ≈9–11 ns per private call (p3, p4). Corpus: **removes 0 tests**
-(22 modules compared, tag tests 9 → 9, p6): no example has a private record parameter, so this option
+Evidence: saves 12 B and roughly 6-16 ns per private call on a trivial body (p3, p4, verifier). Corpus: **removes 0 tests in 22 small modules**
+(tag tests 9 → 9, p6); **but staging 25f/25g removes 5 of 17 tag tests (-78 B)** (verifier): no example has a private record parameter, so this option
 is invisible to the gates as they stand. Nested forged record → `5` silently (p2a', p8 variant C).
 
 Strongest counterargument: **it makes the never-silently sentence false for records as well**, so
@@ -157,9 +157,9 @@ in the language.
 ## 6. Recommendation
 
 **Option 2.** It is the only option under which the sentence in 18 §1 is true for the cases
-measured, it costs 0 surviving instructions across the 22-module corpus, and it states one rule
+measured, it costs 0 surviving instructions across the 22-module corpus (corpus-specific: every one of the 19 added guards receives an argument erlc can already prove an integer, so this does not estimate Option 2's cost on code that passes an untested value into a private int function), and it states one rule
 instead of two. It does not rest on the ticket's "exported pass-through" argument, which p2 shows
-was already closed. Option 1 is the right call only if the guarantee is deliberately limited to
+was already closed for directly typed parameters (nested list elements and record fields still reach private functions untested). Option 1 is the right call only if the guarantee is deliberately limited to
 "direct calls", which is a statement 18 would have to make explicitly.
 
 The decision stays open for human review.
@@ -216,3 +216,11 @@ The decision stays open for human review.
 | `p6_corpus_variants.sh` (+`count_guards`, `count_beam_tests`) | corpus: A / B / C source guards vs surviving instructions | B +19 source, +0 surviving; C −0 |
 | `p7_nested_survives.sh` | under B the nested guard survives and refuses | ok |
 | `p8_private_as_value.sh` | private function handed out as a fun, three variants | matches EXPECTED line |
+
+
+## Verification status
+Independently re-run: `verification/VERIFIER.md`. p1, p2, p3, p5-p8 reproduce; fresh bsc copies with the shim and both patches built; `bs_emit.erl` identical to the repo. Standing: the exported function's own guard closes the direct forged-record path; nested `SumBig([100.5])`/`SumBig([300])` return 1 silently (also for record fields); `SumTotals([forged])` returns 5 once the private tag test is stripped. Softened above. Remaining weak spots:
+- The stripped counterfactual (p2 a') and variant C's `5` in p8 are true by construction; p7 is a designed survivor case (existence, not frequency); p4's median statistic is fragile on this bimodal box.
+- Signalbox fails under the unpatched build too (shim's fake token columns); `exemplars` is a namespace holding ~46% of `.bs` lines, so the 22-module corpus is not representative.
+- The verifier overwrote the tracked `verification/p6_corpus_variants.rerun.out` with the complete (previously truncated) output.
+The recommendation (Option 2) is now weaker than the brief reads: it rests on 'one rule, nested-element coverage' as a design argument, and its zero-cost evidence is corpus-specific. Option 1's saving is also not zero on the exemplars.

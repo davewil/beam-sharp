@@ -16,3 +16,9 @@ patch C:
 skipped (does not compile under all three on OTP 25): Signalbox
 skipped (does not compile under all three on OTP 25): exemplars
 compared modules: Aliasing Counter Escalate Fib Foreign Frame Intake Interop Label Ledger Levels Math Names Parcel Pipeline Queue Readings Shop Stats Stream Wire
+A emitted abstr : modules=22 tag_tests=9 is_integer=48 is_float=6 code_bytes=9599
+A compiled beam : beams=22 is_integer_insns=44 is_float_insns=4 is_eq_exact_insns=51
+B emitted abstr : modules=22 tag_tests=9 is_integer=67 is_float=6 code_bytes=9599
+B compiled beam : beams=22 is_integer_insns=44 is_float_insns=4 is_eq_exact_insns=51
+C emitted abstr : modules=22 tag_tests=9 is_integer=48 is_float=6 code_bytes=9599
+C compiled beam : beams=22 is_integer_insns=44 is_float_insns=4 is_eq_exact_insns=51

@@ -1,0 +1,13 @@
+== variant A
+  Total(forged map)  -> function_clause
+  Big(100.5)         -> 1
+  Big(300)           -> 1
+== variant B
+  Total(forged map)  -> function_clause
+  Big(100.5)         -> function_clause
+  Big(300)           -> function_clause
+== variant C
+  Total(forged map)  -> 5
+  Big(100.5)         -> 1
+  Big(300)           -> 1
+EXPECTED  A: function_clause / 1 / 1   B: function_clause / function_clause / function_clause   C: 5 / 1 / 1

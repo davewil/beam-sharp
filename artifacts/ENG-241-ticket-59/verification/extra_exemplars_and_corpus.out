@@ -1,0 +1,24 @@
+# exemplars 25f/25g (Support.Triage, Jev, Triage; 6 modules) under A/B/C; Shop.Page fails the checker under all three (unrelated)
+A modules=6 tag_tests=17 is_integer=6 is_float=0 code_bytes=22772
+A beams=6 is_integer_insns=13 is_float_insns=7 is_eq_exact_insns=143
+B modules=6 tag_tests=17 is_integer=6 is_float=0 code_bytes=22772
+B beams=6 is_integer_insns=13 is_float_insns=7 is_eq_exact_insns=143
+C modules=6 tag_tests=12 is_integer=6 is_float=0 code_bytes=22694
+C beams=6 is_integer_insns=13 is_float_insns=7 is_eq_exact_insns=138
+
+# corpus: functions whose is_integer guard count changes A->B
+Fib.abstr 'Series'/4 0 -> 6
+Foreign.abstr 'Fallback'/2 0 -> 2
+Frame.abstr 'Classify'/1 0 -> 2
+Frame.abstr 'Name'/1 0 -> 2
+Pipeline.abstr 'Twice'/1 0 -> 1
+Pipeline.abstr 'Validate'/1 0 -> 2
+Pipeline.abstr 'Charge'/1 0 -> 1
+Pipeline.abstr 'Confirm'/1 0 -> 1
+Shop.Collections.Ints.abstr 'Length'/2 0 -> 2
+
+# signalbox failure cause (shim artifact, same under A/B/C):
+compile: Function: 'ModelKey'/1
+/tmp/tmp.aptgearkMq/Signalbox.abstr: internal error in pass core:
+exception error: bad argument
+  in function  erl_anno:anno_info/2

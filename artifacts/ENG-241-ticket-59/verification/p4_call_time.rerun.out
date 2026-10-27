@@ -1,0 +1,60 @@
+--- run 1
+TIME t_a   min=12.67 ns/call  median=23.64 ns/call
+TIME t_a2  min=30.16 ns/call  median=30.89 ns/call
+TIME t_g   min=19.36 ns/call  median=39.47 ns/call
+TIME i_a   min=10.60 ns/call  median=13.18 ns/call
+TIME i_a2  min=10.78 ns/call  median=13.39 ns/call
+TIME i_g   min=10.78 ns/call  median=13.12 ns/call
+OTP 25  jit=jit  schedulers_online=4
+NOISE   tag A vs A' (identical)   median delta = 7.24 ns/call
+GUARD   tag guard vs none          median delta = 15.83 ns/call
+NOISE   int A vs A' (identical)   median delta = 0.21 ns/call
+GUARD   is_integer vs none         median delta = -0.07 ns/call
+--- run 2
+TIME t_a   min=12.86 ns/call  median=24.00 ns/call
+TIME t_a2  min=12.66 ns/call  median=14.36 ns/call
+TIME t_g   min=18.70 ns/call  median=40.35 ns/call
+TIME i_a   min=13.37 ns/call  median=14.00 ns/call
+TIME i_a2  min=10.29 ns/call  median=12.89 ns/call
+TIME i_g   min=10.55 ns/call  median=11.49 ns/call
+OTP 25  jit=jit  schedulers_online=4
+NOISE   tag A vs A' (identical)   median delta = -9.63 ns/call
+GUARD   tag guard vs none          median delta = 16.35 ns/call
+NOISE   int A vs A' (identical)   median delta = -1.11 ns/call
+GUARD   is_integer vs none         median delta = -2.51 ns/call
+--- run 3
+TIME t_a   min=20.66 ns/call  median=25.34 ns/call
+TIME t_a2  min=13.19 ns/call  median=29.69 ns/call
+TIME t_g   min=20.26 ns/call  median=35.86 ns/call
+TIME i_a   min=10.42 ns/call  median=12.70 ns/call
+TIME i_a2  min=10.86 ns/call  median=12.64 ns/call
+TIME i_g   min=11.11 ns/call  median=12.41 ns/call
+OTP 25  jit=jit  schedulers_online=4
+NOISE   tag A vs A' (identical)   median delta = 4.36 ns/call
+GUARD   tag guard vs none          median delta = 10.52 ns/call
+NOISE   int A vs A' (identical)   median delta = -0.06 ns/call
+GUARD   is_integer vs none         median delta = -0.29 ns/call
+--- run 4
+TIME t_a   min=12.68 ns/call  median=28.42 ns/call
+TIME t_a2  min=13.46 ns/call  median=28.28 ns/call
+TIME t_g   min=18.76 ns/call  median=39.69 ns/call
+TIME i_a   min=10.20 ns/call  median=13.02 ns/call
+TIME i_a2  min=10.20 ns/call  median=12.98 ns/call
+TIME i_g   min=11.50 ns/call  median=13.26 ns/call
+OTP 25  jit=jit  schedulers_online=4
+NOISE   tag A vs A' (identical)   median delta = -0.14 ns/call
+GUARD   tag guard vs none          median delta = 11.26 ns/call
+NOISE   int A vs A' (identical)   median delta = -0.04 ns/call
+GUARD   is_integer vs none         median delta = 0.23 ns/call
+--- run 5
+TIME t_a   min=13.06 ns/call  median=24.04 ns/call
+TIME t_a2  min=12.66 ns/call  median=14.21 ns/call
+TIME t_g   min=18.64 ns/call  median=42.05 ns/call
+TIME i_a   min=10.61 ns/call  median=12.47 ns/call
+TIME i_a2  min=11.06 ns/call  median=13.49 ns/call
+TIME i_g   min=11.00 ns/call  median=17.25 ns/call
+OTP 25  jit=jit  schedulers_online=4
+NOISE   tag A vs A' (identical)   median delta = -9.83 ns/call
+GUARD   tag guard vs none          median delta = 18.01 ns/call
+NOISE   int A vs A' (identical)   median delta = 1.03 ns/call
+GUARD   is_integer vs none         median delta = 4.78 ns/call

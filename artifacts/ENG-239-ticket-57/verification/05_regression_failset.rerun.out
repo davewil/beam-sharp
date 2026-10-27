@@ -1,0 +1,11 @@
+baseline failed-tests=635 modules-failing=failing=48
+A1 failed-tests=635 modules-failing=failing=48
+A2 failed-tests=635 modules-failing=failing=48
+B1 failed-tests=635 modules-failing=failing=48
+B2 failed-tests=635 modules-failing=failing=48
+B3 failed-tests=635 modules-failing=failing=48
+diff baseline vs A1: identical
+diff baseline vs A2: identical
+diff baseline vs B1: identical
+diff baseline vs B2: identical
+diff baseline vs B3: identical

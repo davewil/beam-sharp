@@ -1,0 +1,21 @@
+{error,{2,1},
+       'S',
+       {inexhaustive,#{atoms => {finite,[]},
+                       bins => [],
+                       floats => {finite,[]},
+                       funs => [],ints => [],lists => [],maps => [],
+                       opaques => [],
+                       tuples =>
+                           [[#{atoms => {finite,[]},
+                               bins => [],
+                               floats => {finite,[]},
+                               funs => [],
+                               ints => [{neg_inf,pos_inf}],
+                               lists => [],maps => [],opaques => [],
+                               tuples => [],vars => []}]],
+                       vars => []},
+                     #{'ValidationError' => "ValidationError"}}}
+m.bs:2:1: error: S is not exhaustive
+  no clause matches:
+    S(n) -> ...
+

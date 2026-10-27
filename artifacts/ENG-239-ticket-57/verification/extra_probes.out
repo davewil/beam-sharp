@@ -1,0 +1,164 @@
+=========== baseline
+n / (1 - 1)                              accepted
+n / (0 - 0)                              accepted
+n / -0                                   accepted
+n % -0                                   accepted
+n / -(0)                                 accepted
+n / -(-0)                                accepted
+guard >=-1 + catch-all                   accepted
+guard >=0 only (no catchall)             {refused,[inexhaustive]}
+guard >=-1 only (no catchall)            {refused,[inexhaustive]}
+lambda param -1                          {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+lambda (x) ok control                    {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+bind -1 = n                              {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'-'"]}}}}
+bind 1 = n control                       {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ","1"]}}}}
+ref -5: {crashed,error,{opaque_refinement,{2,1}}}
+full refusal term: {error,
+                       [{error,
+                            {2,1},
+=========== A1
+n / (1 - 1)                              accepted
+n / (0 - 0)                              accepted
+n / -0                                   {refused,[divide_by_zero]}
+n % -0                                   {refused,[divide_by_zero]}
+n / -(0)                                 {refused,[divide_by_zero]}
+n / -(-0)                                {refused,[divide_by_zero]}
+guard >=-1 + catch-all                   accepted
+guard >=0 only (no catchall)             {refused,[inexhaustive]}
+guard >=-1 only (no catchall)            {refused,[inexhaustive]}
+lambda param -1                          {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+lambda (x) ok control                    {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+bind -1 = n                              {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'-'"]}}}}
+bind 1 = n control                       {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ","1"]}}}}
+ref -5: accepted
+full refusal term: {ok,
+                    #{behaviours => [],declared_types => [],
+                      env =>
+=========== A2
+n / (1 - 1)                              accepted
+n / (0 - 0)                              accepted
+n / -0                                   accepted
+n % -0                                   accepted
+n / -(0)                                 accepted
+n / -(-0)                                accepted
+guard >=-1 + catch-all                   accepted
+guard >=0 only (no catchall)             {refused,[inexhaustive]}
+guard >=-1 only (no catchall)            {refused,[inexhaustive]}
+lambda param -1                          {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+lambda (x) ok control                    {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+bind -1 = n                              {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'-'"]}}}}
+bind 1 = n control                       {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ","1"]}}}}
+ref -5: accepted
+full refusal term: {error,
+                       [{error,
+                            {2,1},
+=========== B2
+n / (1 - 1)                              accepted
+n / (0 - 0)                              accepted
+n / -0                                   accepted
+n % -0                                   accepted
+n / -(0)                                 accepted
+n / -(-0)                                accepted
+guard >=-1 + catch-all                   accepted
+guard >=0 only (no catchall)             {refused,[inexhaustive]}
+guard >=-1 only (no catchall)            {refused,[inexhaustive]}
+lambda param -1                          {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+lambda (x) ok control                    {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{3,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'('"]}}}}
+bind -1 = n                              {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ",
+                                              "'-'"]}}}}
+bind 1 = n control                       {crashed,error,
+                                          {badmatch,
+                                           {error,
+                                            {{4,1},
+                                             bs_parser,
+                                             ["syntax error before: ","1"]}}}}
+ref -5: accepted
+full refusal term: {ok,
+                    #{behaviours => [],declared_types => [],
+                      env =>

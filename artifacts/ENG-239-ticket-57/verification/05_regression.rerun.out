@@ -3,3 +3,28 @@
  type_redeclared_tests,validate_as_tests,validation_error_record_tests,
  validation_reason_tests,visibility_tests]
 test modules not compiled: 0
+== A1
+ template_tests,to_existing_atom_tests,to_json_tests,type_import_tests,
+ type_redeclared_tests,validate_as_tests,validation_error_record_tests,
+ validation_reason_tests,visibility_tests]
+test modules not compiled: 0
+== A2
+ template_tests,to_existing_atom_tests,to_json_tests,type_import_tests,
+ type_redeclared_tests,validate_as_tests,validation_error_record_tests,
+ validation_reason_tests,visibility_tests]
+test modules not compiled: 0
+== B1
+ template_tests,to_existing_atom_tests,to_json_tests,type_import_tests,
+ type_redeclared_tests,validate_as_tests,validation_error_record_tests,
+ validation_reason_tests,visibility_tests]
+test modules not compiled: 0
+== B2
+ template_tests,to_existing_atom_tests,to_json_tests,type_import_tests,
+ type_redeclared_tests,validate_as_tests,validation_error_record_tests,
+ validation_reason_tests,visibility_tests]
+test modules not compiled: 0
+== B3
+ template_tests,to_existing_atom_tests,to_json_tests,type_import_tests,
+ type_redeclared_tests,validate_as_tests,validation_error_record_tests,
+ validation_reason_tests,visibility_tests]
+test modules not compiled: 0
