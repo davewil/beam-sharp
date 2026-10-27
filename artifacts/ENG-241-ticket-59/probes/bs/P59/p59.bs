@@ -25,3 +25,10 @@ TotalOf(o) -> Total(o)
 
 public int BigOf(Octet n)
 BigOf(n) -> Big(n)
+
+// a private function handed out as a value: the caller of the returned fun is not a checked B# site
+public fn(Order) -> int TotalFn()
+TotalFn() -> Total
+
+public fn(Octet) -> int BigFn()
+BigFn() -> Big

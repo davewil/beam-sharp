@@ -2,6 +2,8 @@
 # H2: Elixir accepts `def f(-5)` and `when x >= -5 + 1` (folded later, by the expander/compiler), and refuses `def f(x + 2)`.
 # H3: the Erlang forms Elixir emits hold a literal for `-5 + 1`.
 # FALSIFIED if: H1 shows a bare -5; H2 accepts f(x + 2); H3's guard still contains a '+' op.
+# RESULT (see 07_elixir.out): H1 held. H2 held for `f(x + 2)` but `f(1 + 2)` is ALSO refused in a pattern (only -N is
+# special-cased there). H3 was FALSIFIED: Elixir hands the Erlang compiler the unfolded ops; folding happens after.
 IO.puts("Elixir #{System.version()} on OTP #{:erlang.system_info(:otp_release)}")
 for s <- ["-5", "x >= -5", "x >= -5 + 1", "- -5"] do
   IO.puts("quoted #{String.pad_trailing(s, 14)} #{inspect(Code.string_to_quoted!(s), limit: :infinity)}")

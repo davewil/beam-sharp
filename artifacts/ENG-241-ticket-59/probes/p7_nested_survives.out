@@ -1,0 +1,8 @@
+== variant A
+1
+1
+beams=1 is_integer_insns=1 is_float_insns=0 is_eq_exact_insns=2
+== variant B
+crashed: error:function_clause
+crashed: error:function_clause
+beams=1 is_integer_insns=2 is_float_insns=0 is_eq_exact_insns=2

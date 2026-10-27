@@ -3,6 +3,8 @@
 #     adds guards, and (C) eliding the record tag test on private functions removes guards;
 #     A is the shipped rule. Counts are real bsc output (shimmed lexer, OTP 25) with a ONE-LINE
 #     patch to bs_emit:guard_one/8 per variant (patches below). Falsifier: B adds 0 or C removes 0.
+# Also counts the test INSTRUCTIONS left in the compiled .beam (beam_disasm): erlc may drop
+# a guard bsc emitted (p3), so 'guards emitted' and 'guards that survive' are different numbers.
 # Command: ./p6_corpus_variants.sh
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -22,5 +24,6 @@ echo "compared modules: ${MODS[*]}"
 for v in A B C; do
   OUT=$(mktemp -d)
   for m in "${MODS[@]}"; do (cd "$EX/.." && "${BIN[$v]}/_build/default/bin/bsc" -o "$OUT/$m" --src-root examples "examples/$m" >/dev/null 2>&1); done
-  printf '%s: ' $v; escript "$HERE/count_guards.escript" "$OUT"
+  printf '%s emitted abstr : ' $v; escript "$HERE/count_guards.escript" "$OUT"
+  printf '%s compiled beam : ' $v; escript "$HERE/count_beam_tests.escript" "$OUT"
 done

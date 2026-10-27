@@ -1,0 +1,18 @@
+eunit over compiler/test/*_tests.erl, OTP 25, shim lexer (columns=1). Failing-test lines per build:
+baseline: 635 failing (of ~1495 test functions; causes not individually triaged; one seen: generated code calling maps:iterator/2, absent in OTP 25)
+A1: 635 failing (of ~1495 test functions; causes not individually triaged; one seen: generated code calling maps:iterator/2, absent in OTP 25)
+A2: 635 failing (of ~1495 test functions; causes not individually triaged; one seen: generated code calling maps:iterator/2, absent in OTP 25)
+B1: 634 failing (of ~1495 test functions; causes not individually triaged; one seen: generated code calling maps:iterator/2, absent in OTP 25)
+B2: 635 failing (of ~1495 test functions; causes not individually triaged; one seen: generated code calling maps:iterator/2, absent in OTP 25)
+B3: 635 failing (of ~1495 test functions; causes not individually triaged; one seen: generated code calling maps:iterator/2, absent in OTP 25)
+--- diff of failing sets, baseline vs A1
+identical
+--- diff of failing sets, baseline vs A2
+identical
+--- diff of failing sets, baseline vs B1
+89d88
+< cli_tests: a_previous_runs_fixture_cannot_enter_this_runs_source_index_test
+--- diff of failing sets, baseline vs B2
+identical
+--- diff of failing sets, baseline vs B3
+identical

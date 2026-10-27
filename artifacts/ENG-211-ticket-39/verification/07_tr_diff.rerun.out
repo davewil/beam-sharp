@@ -1,0 +1,13 @@
+wrap    vs 'Wrap'   erl= 4 bs= 4 SAME
+hit     vs 'Hit'    erl= 2 bs= 2 SAME
+spin    vs 'Spin'   erl= 9 bs= 9 SAME
+sign    vs 'Sign'   erl= 0 bs= 0 SAME
+size_   vs 'Size'   erl= 0 bs= 0 SAME
+clicks  vs 'Clicks' erl= 3 bs= 3 SAME
+RESULT: no annotation difference on this OTP (otp 25)
+
+--- self-test: differ must fire when the optimizer's types really are stripped (erlc +no_type_opt vs bsc Day01)
+clicks  vs 'Clicks' erl= 0 bs= 3 DIFFERENT
+   only in erlang: {}
+   only in bsc   : {'{type,{t_integer,{-99,99}}}': 1, '{type,{t_integer,any}}': 1, '{type,{t_integer,{-1,1}}}': 1}
+RESULT: annotation gap reproduced (otp 25)

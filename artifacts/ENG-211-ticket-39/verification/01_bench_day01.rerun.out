@@ -1,0 +1,12 @@
+Erlang             6770   min   17.95 med   18.63 rel  1.02x
+Elixir             6770   min   17.64 med   22.51 rel  1.00x
+beam-sharp(shim)   6770   min   18.05 med   21.16 rel  1.02x
+answers agree: 6770
+Erlang             6770   min   18.85 med   21.80 rel  1.03x
+Elixir             6770   min   18.55 med   21.27 rel  1.02x
+beam-sharp(shim)   6770   min   18.22 med   21.32 rel  1.00x
+answers agree: 6770
+Erlang             6770   min   21.63 med   26.06 rel  1.19x
+Elixir             6770   min   21.24 med   21.70 rel  1.17x
+beam-sharp(shim)   6770   min   18.13 med   21.45 rel  1.00x
+answers agree: 6770

@@ -28,6 +28,10 @@ bs@type_atoms() ->
         andalso
         N =< 255 ->
     'Big'(N).
+'TotalFn'() ->
+    fun 'Total'/1.
+'BigFn'() ->
+    fun 'Big'/1.
 FOUND 1 clause-guard lists for 'Total'
 FOUND 1 clause-guard lists for 'Big'
 FOUND 1 clause-guard lists for 'BigOf'

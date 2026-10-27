@@ -1,0 +1,10 @@
+wrap: instruction sequences IDENTICAL (12 tuples)
+hit: instruction sequences IDENTICAL (9 tuples)
+spin: instruction sequences IDENTICAL (49 tuples)
+sign: DIFFER
+ erl:  {test,is_ne_exact,{f,N},[{x,0},{integer,0}]}. {test,is_lt,{f,N},[{integer,0},{x,0}]}. {move,{integer,1},{x,0}}. return. {test,is_lt,{f,N},[{x,0},{integer,0}]}. {move,{integer,-1},{x,0}}. return. 
+ bsc:  {test,is_lt,{f,N},[{x,0},{integer,0}]}. {move,{integer,-1},{x,0}}. return. {move,{integer,1},{x,0}}. return. 
+size_: DIFFER
+ erl:  {test,is_ge,{f,N},[{x,0},{integer,0}]}. return. {gc_bif,'-',{f,N},1,[{x,0}],{x,0}}. return. 
+ bsc:  {test,is_lt,{f,N},[{x,0},{integer,0}]}. {gc_bif,'-',{f,N},1,[{x,0}],{x,0}}. return. return. 
+clicks: instruction sequences IDENTICAL (61 tuples)

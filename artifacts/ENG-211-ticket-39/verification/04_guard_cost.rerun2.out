@@ -1,0 +1,10 @@
+va   beam= 1328B  is_ge/lt tests in spin: 1  body instr lines: 27
+va2  beam= 1328B  is_ge/lt tests in spin: 1  body instr lines: 27
+vb   beam= 1332B  is_ge/lt tests in spin: 2  body instr lines: 28
+vc   beam= 1328B  is_ge/lt tests in spin: 1  body instr lines: 27
+vd   beam= 1344B  is_ge/lt tests in spin: 3  body instr lines: 29
+va   min   17.69 ms  median   21.35 ms  rel-min 1.009  rel-median 1.000
+va2  min   17.99 ms  median   21.55 ms  rel-min 1.026  rel-median 1.010
+vb   min   19.07 ms  median   21.78 ms  rel-min 1.088  rel-median 1.020
+vc   min   17.95 ms  median   21.36 ms  rel-min 1.024  rel-median 1.001
+vd   min   17.53 ms  median   21.06 ms  rel-min 1.000  rel-median 0.987

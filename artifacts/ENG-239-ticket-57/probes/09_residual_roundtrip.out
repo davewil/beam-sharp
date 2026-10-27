@@ -1,0 +1,18 @@
+=========== baseline
+the declaration itself is refused: opaque_refinement at {2,1} (residual never reachable)
+=========== A1
+clauses given: F(0) only; checker verdict + rendered text:
+m.bs:3:1: error: F is not exhaustive
+  no clause matches:
+    F(>= -10 and <= -1) -> ...
+    F(>= 1 and <= 10) -> ...
+
+pasted back as relational patterns: accepted
+=========== B2
+clauses given: F(0) only; checker verdict + rendered text:
+m.bs:3:1: error: F is not exhaustive
+  no clause matches:
+    F(>= -10 and <= -1) -> ...
+    F(>= 1 and <= 10) -> ...
+
+pasted back as relational patterns: accepted

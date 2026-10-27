@@ -1,0 +1,7 @@
+d                   tr-operands=6 var_info=11 instr-lines=56 beam-bytes=1324
+nt   +no_type_opt   tr-operands=0 var_info=0 instr-lines=58 beam-bytes=1376
+ns   +no_ssa_opt    tr-operands=0 var_info=0 instr-lines=59 beam-bytes=1264
+d   min   17.62 ms  median   21.47 ms  p90   24.15  rel-min 1.000
+d2  min   17.94 ms  median   21.78 ms  p90   23.11  rel-min 1.018
+nt  min   18.88 ms  median   22.73 ms  p90   24.99  rel-min 1.072
+ns  min   18.48 ms  median   22.47 ms  p90   25.46  rel-min 1.049

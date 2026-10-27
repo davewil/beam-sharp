@@ -1,0 +1,20 @@
+order erl,erl2,ex,bsc
+erl   min  17.57 med  20.68  rel-min 1.016
+erl2  min  17.69 med  20.51  rel-min 1.023
+ex    min  17.29 med  20.40  rel-min 1.000
+bsc   min  17.40 med  20.07  rel-min 1.006
+order bsc,ex,erl2,erl
+bsc   min  17.17 med  20.81  rel-min 1.000
+ex    min  17.33 med  21.46  rel-min 1.009
+erl2  min  17.59 med  21.49  rel-min 1.024
+erl   min  17.64 med  21.48  rel-min 1.027
+order erl,bsc,erl2,ex
+erl   min  17.50 med  21.15  rel-min 1.007
+bsc   min  17.55 med  20.97  rel-min 1.009
+erl2  min  17.69 med  21.11  rel-min 1.018
+ex    min  17.38 med  21.20  rel-min 1.000
+order bsc,erl,ex,erl2
+bsc   min  17.21 med  20.63  rel-min 1.000
+erl   min  17.63 med  20.92  rel-min 1.024
+ex    min  17.34 med  20.88  rel-min 1.007
+erl2  min  17.57 med  21.13  rel-min 1.021

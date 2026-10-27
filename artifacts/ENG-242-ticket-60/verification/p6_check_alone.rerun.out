@@ -1,0 +1,2 @@
+OTP 25  N=100  458.7 ns per visible_to check (empty loop 2.1 ns; 2 prefixes, insider)
+OTP 25  N=10000  477.1 ns per visible_to check (empty loop 3.1 ns; 2 prefixes, insider)

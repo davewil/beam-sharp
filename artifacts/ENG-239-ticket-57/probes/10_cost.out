@@ -1,0 +1,36 @@
+=========== baseline
+words: e_int=7 e_neg(e_int)=14
+check/1 us/call  `>=5 and <=100`:        152.2
+parse+lower us/call `>=5 and <=100`:     18.4
+parse+lower us/call `>=-5 and <=100`:    9.8
+=========== A1
+words: e_int=7 e_neg(e_int)=14
+check/1 us/call  `>=5 and <=100`:        154.1
+parse+lower us/call `>=5 and <=100`:     12.0
+parse+lower us/call `>=-5 and <=100`:    10.8
+check/1 us/call  `>=-5 and <=100`:        82.9
+=========== B2
+words: e_int=7 e_neg(e_int)=14
+check/1 us/call  `>=5 and <=100`:        139.0
+parse+lower us/call `>=5 and <=100`:     17.5
+parse+lower us/call `>=-5 and <=100`:    14.1
+check/1 us/call  `>=-5 and <=100`:        111.7
+check/1 us/call  `>=2+3 and <=10*10`:     105.7
+=========== baseline
+words: e_int=7 e_neg(e_int)=14
+check/1 us/call  `>=5 and <=100`:        129.2
+parse+lower us/call `>=5 and <=100`:     17.5
+parse+lower us/call `>=-5 and <=100`:    11.0
+=========== A1
+words: e_int=7 e_neg(e_int)=14
+check/1 us/call  `>=5 and <=100`:        138.9
+parse+lower us/call `>=5 and <=100`:     19.8
+parse+lower us/call `>=-5 and <=100`:    21.9
+check/1 us/call  `>=-5 and <=100`:        127.4
+=========== B2
+words: e_int=7 e_neg(e_int)=14
+check/1 us/call  `>=5 and <=100`:        138.4
+parse+lower us/call `>=5 and <=100`:     19.6
+parse+lower us/call `>=-5 and <=100`:    13.2
+check/1 us/call  `>=-5 and <=100`:        134.4
+check/1 us/call  `>=2+3 and <=10*10`:     134.6

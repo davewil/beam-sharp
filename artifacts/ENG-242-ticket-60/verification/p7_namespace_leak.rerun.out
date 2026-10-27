@@ -1,0 +1,4 @@
+H1 naive patch (module-branch only): outsider using Shop -> ['Shop.Orders',
+                                                             'Shop.Reports']
+H2 children filtered: outsider -> ['Shop.Reports'] ; insider 'Shop.Orders.Total' -> ['Shop.Orders',
+                                                                                     'Shop.Reports']
