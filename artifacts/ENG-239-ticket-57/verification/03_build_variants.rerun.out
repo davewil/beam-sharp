@@ -1,0 +1,8 @@
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[A1] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[A2] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[B1] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[B2] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}

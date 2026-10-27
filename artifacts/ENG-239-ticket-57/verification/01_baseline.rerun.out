@@ -1,0 +1,25 @@
+OTP 25
+refinement AST: {e_op,{2,1},
+                      '>=',
+                      {e_var,{2,1},value},
+                      {e_neg,{2,1},{e_int,{2,1},5}}}
+pattern AST:    [[{p_rel,{3,1},'<=',-1}],[{p_wild,{4,1}}]]
+pattern program under bs_check: accepted
+--- table ---
+value >= -5                        {crashed,error,{opaque_refinement,{2,1}}}
+value >= -5 and value <= 5         {crashed,error,{opaque_refinement,{2,1}}}
+value >= 1 or value <= -1          {crashed,error,{opaque_refinement,{2,1}}}
+value <= 3 or value >= 10          accepted
+value != 0                         accepted
+value != -1                        {crashed,error,{opaque_refinement,{2,1}}}
+-5 <= value                        {crashed,error,{opaque_refinement,{2,1}}}
+value >= 2 + 3                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= 1 - 2                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= -(-5)                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= 2 * 3                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= -2 * 3                    {crashed,error,{opaque_refinement,{2,1}}}
+value >= 7 / 2                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= 1 / 0                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= -5.0                      {crashed,error,{opaque_refinement,{2,1}}}
+value >= 0 - 5                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= 5 % 3                     {crashed,error,{opaque_refinement,{2,1}}}

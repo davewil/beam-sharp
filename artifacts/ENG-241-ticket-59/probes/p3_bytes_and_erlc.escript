@@ -11,8 +11,8 @@
 compile_src(Name, Src, Opts) ->
     Path = filename:join(tmp(), atom_to_list(Name) ++ ".erl"),
     ok = file:write_file(Path, Src),
-    {ok, Name, Bin} = compile:file(Path, [binary, return_errors | Opts]),
-    {ok, Name, Asm} = compile:file(Path, ['S', binary, return_errors | Opts]),
+    {ok, Name, Bin} = compile:file(Path, [binary, return_errors, {outdir, tmp()} | Opts]),
+    {ok, Name, Asm} = compile:file(Path, ['S', binary, return_errors, {outdir, tmp()} | Opts]),
     {Bin, Asm}.
 
 tmp() -> D = filename:join(os:getenv("TMPDIR", "/tmp"), "p3_" ++ os:getpid()), filelib:ensure_dir(D ++ "/x"), D.

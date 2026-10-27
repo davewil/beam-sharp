@@ -1,0 +1,18 @@
+--- /tmp/claude-0/-home-user-beam-sharp/e165fddb-d743-5cdb-816c-e9e70eb257c6/scratchpad/bsc/src/bs_emit.erl	2026-10-27 23:10:12.470108281 +0000
++++ /tmp/claude-0/-home-user-beam-sharp/e165fddb-d743-5cdb-816c-e9e70eb257c6/scratchpad/bscB/src/bs_emit.erl	2026-10-27 23:21:09.728798558 +0000
+@@ -280,13 +280,11 @@
+                     {Var, Pat1} = ensure_var(Pat, I, Line),
+                     {Pat1, [tag_test(Var, Tag, Line)]}
+             end;
+-        none when Public ->
++        none ->
+             case kind_only(TypeExpr, Ctx) of
+                 float -> float_guard(Pat, I, Line);
+                 _     -> int_guard(Pat, TypeExpr, Accept, I, Line, Ctx)
+-            end;
+-        none ->
+-            {Pat, []}
++            end
+     end.
+ 
+ %% A public `float` parameter is tested with `is_float/1`, so an `int` from

@@ -1,1 +1,5 @@
 tag tests in bsc Spin: 2  beam bytes: 1920
+bsc RecLoop (private Spin, tag test emitted)     min   76.27 ms  med  133.88  rel-min 1.279
+erl hand: with tag test (control)                min   79.46 ms  med  136.15  rel-min 1.333
+erl hand: no tag test                            min   60.02 ms  med  107.28  rel-min 1.007
+erl hand: no tag test (noise control)            min   59.62 ms  med  106.36  rel-min 1.000

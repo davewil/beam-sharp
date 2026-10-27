@@ -1,0 +1,6 @@
+{ok,"./bs_lexer.erl",[]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+{ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+
+15
+OTP 25
