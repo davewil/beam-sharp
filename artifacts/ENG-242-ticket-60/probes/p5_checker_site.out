@@ -1,0 +1,13 @@
+OTP 25
+H1 unpatched: insider accepted / outsider accepted
+H2 dir A: insider accepted / outsider {rejected,
+                                       {not_visible_to,'Shop.Orders',
+                                        'Other.X',1}}
+H3 dir B: Other.X may_use [Shop.Reports]: import Shop.Reports accepted / import Shop.Orders {rejected,
+                                                                                             {not_in_may_use,
+                                                                                              'Shop.Orders',
+                                                                                              'Other.X',
+                                                                                              1}}
+H4 cost: one import_env of 10 imports, mean over 2000 reps (ns per import)
+  N=100  base 16128.4   dirA 20873.3   (insider)
+  N=1000  base 183700.6   dirA 159848.2   (insider)

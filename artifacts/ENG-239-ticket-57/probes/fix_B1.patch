@@ -1,0 +1,28 @@
+--- src/bs_check.erl	2026-10-27 23:12:41.687246660 +0000
++++ v_B1/src/bs_check.erl	2026-10-27 23:16:23.444410778 +0000
+@@ -5151,8 +5151,10 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) when element(1, R) =:= e_int; element(1, R) =:= e_neg; element(1, R) =:= e_op ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when element(1, L) =:= e_int; element(1, L) =:= e_neg; element(1, L) =:= e_op ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -5165,6 +5167,12 @@
+ comparison(_) ->
+     unknown.
+ 
++
++%% SCRATCH (ticket 57 probe): a comparand that is a literal integer expression.
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_neg, _, E}) -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int(_) -> error.
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

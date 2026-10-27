@@ -1,0 +1,9 @@
+OTP 25; started at boot: [stdlib,kernel]
+  lists -> [115,116,100,108,105,98] expected [115,116,100,108,105,98] ok
+  ets -> [115,116,100,108,105,98] expected [115,116,100,108,105,98] ok
+  erlang -> [46] expected preloaded MISMATCH
+  crypto -> [99,114,121,112,116,111] expected [99,114,121,112,116,111] ok
+  ssl -> [115,115,108] expected [115,115,108] ok
+  httpc -> [105,110,101,116,115] expected [105,110,101,116,115] ok
+  'Elixir.String' -> [101,108,105,120,105,114] expected [101,108,105,120,105,114] ok
+  'Elixir.Req' -> absent expected absent ok

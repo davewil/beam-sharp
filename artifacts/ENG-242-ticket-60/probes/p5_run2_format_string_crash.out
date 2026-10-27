@@ -1,0 +1,15 @@
+OTP 25
+H1 unpatched: insider accepted / outsider accepted
+H2 dir A: insider accepted / outsider {rejected,
+                                       {not_visible_to,'Shop.Orders',
+                                        'Other.X',1}}
+H3 dir B: Other.X may_use [Shop.Reports]: import Shop.Reports accepted / import Shop.Orders {rejected,
+                                                                                             {not_in_may_use,
+                                                                                              'Shop.Orders',
+                                                                                              'Other.X',
+                                                                                              1}}
+H4 cost: one import_env of 10 imports, mean over 2000 reps (ns per import)
+{"init terminating in do_boot",{badarg,[{io,format,["  N=~w  base ~.0f   dirA ~.0f   (insider)~n",[100,1.809350e+04,2.168260e+04]],[{file,"io.erl"},{line,99},{error_info,#{cause=>{device,put_chars},module=>erl_stdlib_errors}}]},{lists,foreach_1,2,[{file,"lists.erl"},{line,1442}]},{erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},{erl_eval,exprs,6,[{file,"erl_eval.erl"},{line,136}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
+init terminating in do_boot ({badarg,[{io,format,[[_],[_]],[{_},{_},{_}]},{lists,foreach_1,2,[{_},{_}]},{erl_eval,do_apply,7,[{_},{_}]},{erl_eval,exprs,6,[{_},{_}]},{init,start_it,1,[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
+
+Crash dump is being written to: erl_crash.dump...done

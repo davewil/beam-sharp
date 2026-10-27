@@ -1,0 +1,10 @@
+d   min   19.85 ms  median   24.05 ms  p90   27.02  rel-min 1.032
+d2  min   19.33 ms  median   23.34 ms  p90   26.12  rel-min 1.005
+nt  min   19.24 ms  median   24.97 ms  p90   28.35  rel-min 1.000
+ns  min   21.64 ms  median   24.95 ms  p90   27.24  rel-min 1.125
+
+d   min   20.73 ms  median   24.45 ms  p90   26.54  rel-min 1.042
+d2  min   19.90 ms  median   24.73 ms  p90   27.02  rel-min 1.000
+nt  min   23.34 ms  median   25.65 ms  p90   27.83  rel-min 1.172
+ns  min   21.22 ms  median   25.88 ms  p90   28.66  rel-min 1.066
+

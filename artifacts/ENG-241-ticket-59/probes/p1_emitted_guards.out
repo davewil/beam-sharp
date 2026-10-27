@@ -1,0 +1,42 @@
+bs@type_atoms() ->
+    ['Id', 'Kind', 'P59.Order', 'Total'].
+'SumTotals'([]) ->
+    0;
+'SumTotals'([O | Rest]) ->
+    'Total'(O) + 'SumTotals'(Rest).
+'Total'(O) when map_get('Kind', O) =:= 'P59.Order' ->
+    map_get('Total', O).
+'SumBig'([]) ->
+    0;
+'SumBig'([X | Rest]) ->
+    'Big'(X) + 'SumBig'(Rest).
+'Big'(Bs@r1) when Bs@r1 >= 9 ->
+    1;
+'Big'(Bs@r1)
+    when
+        Bs@r1 >= 0
+        andalso
+        Bs@r1 =< 8 ->
+    0.
+'TotalOf'(O) when map_get('Kind', O) =:= 'P59.Order' ->
+    'Total'(O).
+'BigOf'(N)
+    when
+        is_integer(N)
+        andalso
+        N >= 0
+        andalso
+        N =< 255 ->
+    'Big'(N).
+FOUND 1 clause-guard lists for 'Total'
+FOUND 1 clause-guard lists for 'Big'
+FOUND 1 clause-guard lists for 'BigOf'
+FOUND 1 clause-guard lists for 'TotalOf'
+FOUND 1 clause-guard lists for 'SumTotals'
+FOUND 1 clause-guard lists for 'SumBig'
+CHECK Total (private) has tag test: observed=true expected=true ok
+CHECK Big (private) has is_integer: observed=false expected=false ok
+CHECK BigOf (exported) has is_integer: observed=true expected=true ok
+CHECK TotalOf (exported) has tag test: observed=true expected=true ok
+CHECK SumTotals (exported list<Order>) has any element test: observed=false expected=false ok
+CHECK SumBig (exported list<Octet>) has any element test: observed=false expected=false ok

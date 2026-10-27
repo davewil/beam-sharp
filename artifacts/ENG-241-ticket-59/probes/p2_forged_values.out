@@ -1,0 +1,28 @@
+== (a) record tag, real bsc output
+$ bsc P59 SumTotals [{ Kind = :'P59.Order', Id = 1, Total = 5 }]
+5
+  -> exit 0
+$ bsc P59 SumTotals [{ Kind = :'Other.Thing', Id = 1, Total = 5 }]
+crashed: error:function_clause
+  -> exit 1
+$ bsc P59 TotalOf { Kind = :'Other.Thing', Id = 1, Total = 5 }
+crashed: error:function_clause
+  -> exit 1
+== (a') counterfactual: Total/1's guard stripped from bsc's own .abstr
+stripped SumTotals(forged) = 5
+== (b) int kind
+$ bsc P59 SumBig [3, 100]
+1
+  -> exit 0
+$ bsc P59 SumBig [100.5]
+1
+  -> exit 0
+$ bsc P59 SumBig [300]
+1
+  -> exit 0
+$ bsc P59 BigOf 100.5
+crashed: error:function_clause
+  -> exit 1
+$ bsc P59 BigOf 300
+crashed: error:function_clause
+  -> exit 1

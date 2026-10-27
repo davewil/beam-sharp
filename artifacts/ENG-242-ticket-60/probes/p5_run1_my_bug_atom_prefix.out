@@ -1,0 +1,11 @@
+OTP 25
+H1 unpatched: insider accepted / outsider accepted
+H2 dir A: insider {rejected,badarg} / outsider {rejected,badarg}
+H3 dir B: Other.X may_use [Shop.Reports]: import Shop.Reports {rejected,
+                                                               badarg} / import Shop.Orders {rejected,
+                                                                                             badarg}
+H4 cost: one import_env of 10 imports, mean over 2000 reps (ns per import)
+{"init terminating in do_boot",{badarg,[{erlang,'++',['Shop.Orders',"."],[{error_info,#{module=>erl_erts_errors}}]},{bs_check_a,'-visible_to/4-fun-0-',2,[{file,"bs_check_a.erl"},{line,5245}]},{lists,any,2,[{file,"lists.erl"},{line,1291}]},{bs_check_a,visible_to,4,[{file,"bs_check_a.erl"},{line,5245}]},{bs_check_a,add_import,7,[{file,"bs_check_a.erl"},{line,497}]},{lists,foldl,3,[{file,"lists.erl"},{line,1350}]},{run,'-main/0-lc$^1/1-1-',5,[{file,"run.erl"},{line,26}]},{timer,tc,1,[{file,"timer.erl"},{line,235}]}]}}
+init terminating in do_boot ({badarg,[{erlang,++,[Shop.Orders,[_]],[{_}]},{bs_check_a,-visible_to/4-fun-0-,2,[{_},{_}]},{lists,any,2,[{_},{_}]},{bs_check_a,visible_to,4,[{_},{_}]},{bs_check_a,add_import,7,[{_},{_}]},{lists,foldl,3,[{_},{_}]},{run,-main/0-lc$^1/1-1-,5,[{_},{_}]},{timer,tc,1,[{_},{_}]}]})
+
+Crash dump is being written to: erl_crash.dump...done

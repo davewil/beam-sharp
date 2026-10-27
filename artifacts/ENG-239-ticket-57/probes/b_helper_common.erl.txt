@@ -1,0 +1,4 @@
+
+%% SCRATCH (ticket 57 probe): a comparand that is a literal integer expression.
+const_int({e_int, _, K}) -> {ok, K};
+const_int({e_neg, _, E}) -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;

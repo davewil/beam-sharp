@@ -1,0 +1,6 @@
+bin(F, A, B) ->
+    case {const_int(A), const_int(B)} of
+        {{ok, X}, {ok, Y}} -> try {ok, F(X, Y)} catch error:badarith -> error end;   %% a zero divisor stays unreadable
+        _                  -> error
+    end.
+

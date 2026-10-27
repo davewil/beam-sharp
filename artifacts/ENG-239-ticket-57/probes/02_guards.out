@@ -1,0 +1,8 @@
+OTP 25
+head: n >= 0 / n < 0             accepted
+head: n >= -1 / n < -1           {refused,[inexhaustive]}
+head: n != -1 / n == -1          {refused,[inexhaustive]}
+head: n >= 1 - 2 / n < 1 - 2     {refused,[inexhaustive]}
+head: n >= 2 + 3 / n < 2 + 3     {refused,[inexhaustive]}
+arm : n >= 0 / n < 0             accepted
+arm : n >= -1 / n < -1           {refused,[switch_inexhaustive]}

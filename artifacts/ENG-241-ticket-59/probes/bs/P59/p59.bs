@@ -1,0 +1,27 @@
+module P59
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+// exported, elements of the list are never tested by any exported-boundary guard
+public int SumTotals(list<Order> os)
+SumTotals([]) -> 0
+SumTotals([o, ..rest]) -> Total(o) + SumTotals(rest)
+
+int Total(Order o)
+Total(o) -> o.Total
+
+public int SumBig(list<Octet> xs)
+SumBig([]) -> 0
+SumBig([x, ..rest]) -> Big(x) + SumBig(rest)
+
+int Big(Octet n)
+Big(>= 9) -> 1
+Big(>= 0 and <= 8) -> 0
+
+// the direct form: exported function taking the record / octet itself
+public int TotalOf(Order o)
+TotalOf(o) -> Total(o)
+
+public int BigOf(Octet n)
+BigOf(n) -> Big(n)

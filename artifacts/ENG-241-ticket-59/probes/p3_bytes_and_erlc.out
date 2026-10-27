@@ -1,0 +1,14 @@
+
+OTP 25
+BYTES tag_none   Code=86 file=652
+BYTES tag_guard  Code=98 file=700
+BYTES int_none   Code=101 file=648
+BYTES int_guard  Code=110 file=680
+DELTA tag guard Code bytes: 12   (recorded: +14)
+DELTA is_integer x2 Code bytes: 9   (recorded: +3..5 each)
+ASM is_integer, element of a list       f: 0 test(s)   g: 1 test(s)
+ASM is_integer, no inline               f: 1 test(s)   g: 0 test(s)
+ASM is_integer, +inline                 f: 1 test(s)   g: gone test(s)
+ASM is_integer, {inline_size,0}         f: 1 test(s)   g: 0 test(s)
+ASM tag test,   no inline               f: 1 test(s)   g: 1 test(s)
+ASM tag test,   +inline                 f: 1 test(s)   g: 1 test(s)

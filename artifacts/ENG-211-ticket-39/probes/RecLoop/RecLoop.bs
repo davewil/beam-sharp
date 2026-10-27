@@ -1,0 +1,13 @@
+module RecLoop
+
+record Acc { Total: int, Count: int }
+
+private Acc Spin(Acc a, int left)
+Spin(a, 0)    -> a
+Spin(a, left) -> Spin(a with { Total = a.Total + left, Count = a.Count + 1 }, left - 1)
+
+public int Run(int n)
+Run(n) -> Total(Spin(Acc{ Total = 0, Count = 0 }, n))
+
+private int Total(Acc a)
+Total(a) -> a.Total

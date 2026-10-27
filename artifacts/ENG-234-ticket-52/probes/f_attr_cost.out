@@ -1,0 +1,10 @@
+OTP 25 (+no_debug_info)
+m0   file= 652 B  (+  0 vs none)  Attr chunk= 40 B  attributes=undefined
+m1   file= 684 B  (+ 32 vs none)  Attr chunk= 70 B  attributes=[{req}]
+m3   file= 704 B  (+ 52 vs none)  Attr chunk= 90 B  attributes=[{req},
+                                                                {jason},
+                                                                {finch}]
+m1v  file= 700 B  (+ 48 vs none)  Attr chunk= 81 B  attributes=[{req,
+                                                                 <<"~> 0.5">>}]
+loaded m1 during read? false
+compile:file min/median/max us m0={2408,3115,294256} m3={2544,3287,6807}

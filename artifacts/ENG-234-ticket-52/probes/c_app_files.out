@@ -1,0 +1,41 @@
+### rebar3 rebar 3.19.0 on Erlang/OTP 25 Erts 13.2.2.5
+--- rebar3 compile (expect no warning about Elixir.Req):
+[0;32m===> Verifying dependencies...
+[0m[0;32m===> Analyzing applications...
+[0m[0;32m===> Compiling rb
+[0m
+--- ebin/rb.app:
+{application,rb,
+             [{description,"rb"},
+              {vsn,"0.1.0"},
+              {registered,[]},
+              {applications,[kernel,stdlib]},
+              {env,[]},
+              {modules,[rb]}]}.
+--- rebar3 xref:
+[0m[0;32m===> Running cross reference analysis...
+[0m[0;31m===> [1msrc/rb.erl:3: Warning: rb:go/0 calls undefined function Elixir.Req:new/1 (Xref)
+
+[0m[0m
+
+### mix Mix 1.14.0 (compiled with Erlang/OTP 24)
+--- mix compile:
+==> dep1
+Compiling 1 file (.ex)
+Generated dep1 app
+==> mx
+Compiling 1 file (.ex)
+warning: Absent.Thing.run/1 is undefined (module Absent.Thing is not available or is yet to be defined)
+  lib/mx.ex:2: Mx.go/0
+Generated mx app
+--- _build mx.app:
+{application,mx,
+             [{applications,[kernel,stdlib,elixir,logger,eex,dep1]},
+              {description,"mx"},
+              {modules,['Elixir.Mx']},
+              {registered,[]},
+              {vsn,"0.1.0"}]}.
+
+### xref API directly (OTP 25)
+undefined_function_calls: [{{rb,go,0},{'Elixir.Req',new,1}}]
+H3 HOLDS

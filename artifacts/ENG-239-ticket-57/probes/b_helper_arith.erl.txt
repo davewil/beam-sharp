@@ -1,0 +1,5 @@
+const_int({e_op, _, '+', A, B}) -> bin(fun(X, Y) -> X + Y end, A, B);
+const_int({e_op, _, '-', A, B}) -> bin(fun(X, Y) -> X - Y end, A, B);
+const_int({e_op, _, '*', A, B}) -> bin(fun(X, Y) -> X * Y end, A, B);
+const_int({e_op, _, '/', A, B}) -> bin(fun(X, Y) -> X div Y end, A, B);
+const_int({e_op, _, '%', A, B}) -> bin(fun(X, Y) -> X rem Y end, A, B);
