@@ -1,0 +1,18 @@
+OTP 25
+parse  f(-5) -> a.              clause head: [{op,1,'-',{integer,1,5}}]
+parse  f(X) when X >= -5 -> a.  guard      : [[{op,1,'>=',
+                                                {var,1,'X'},
+                                                {op,1,'-',{integer,1,5}}}]]
+compile f(1+2) -> a.                                 accepted
+compile f(-5) -> a.                                  accepted
+compile f(Y+2) -> a.                                 {refused,
+                                                      [{{3,4},
+                                                        erl_lint,
+                                                        illegal_pattern}]}
+compile f(1 - -2) -> a.                              accepted
+compile f(7 div 2) -> a.                             accepted
+compile f(1 div 0) -> a.                             {refused,
+                                                      [{{3,5},
+                                                        erl_lint,
+                                                        illegal_pattern}]}
+core: f(X) when X >= -5 + 1  ->  erlang:'>='(X, -4)   (a literal, no '+' call)

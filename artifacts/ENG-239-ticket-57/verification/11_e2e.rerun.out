@@ -1,0 +1,20 @@
+=========== baseline
+P1 {bsc_refused,[return_not_declared,inexhaustive]}
+P2 Div(10) -> {error,badarith}
+P3 {declaration_refused,opaque_refinement,{2,1}}
+=========== A1
+P1 Back()={ok,-1} Band(-1)={ok,high} Band(-2)={ok,low} Band(0)={ok,high}
+P2 {bsc_refused,[divide_by_zero]}
+P3 Clamp(-99)={ok,-10} Clamp(4)={ok,4} Clamp(99)={ok,10}
+=========== A2
+P1 {bsc_refused,[return_not_declared,inexhaustive]}
+P2 Div(10) -> {error,badarith}
+P3 {bsc_refused,[return_not_declared,return_not_declared]}
+=========== B2
+P1 {bsc_refused,[return_not_declared]}
+P2 Div(10) -> {error,badarith}
+P3 {bsc_refused,[return_not_declared]}
+=========== B3
+P1 Back()={ok,-1} Band(-1)={ok,high} Band(-2)={ok,low} Band(0)={ok,high}
+P2 {bsc_refused,[divide_by_zero]}
+P3 Clamp(-99)={ok,-10} Clamp(4)={ok,4} Clamp(99)={ok,10}

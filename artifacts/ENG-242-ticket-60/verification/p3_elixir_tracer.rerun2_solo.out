@@ -3,3 +3,5 @@ Elixir 1.14.0 / OTP 25
 {"outside", {:rejected, "Elixir.Other.Peek may not name Shop.Orders.Internal"}}
 {"outside, no tracer", :ok}
 N=100: no tracer median 1326928 us, tracer median 1394012 us
+N=1000: no tracer median 16769658 us, tracer median 16560934 us
+exit=0

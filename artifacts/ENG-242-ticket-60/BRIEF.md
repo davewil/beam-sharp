@@ -29,9 +29,8 @@ RECORDED, not re-executed (`bs_check.erl:509-520`). The ticket cites an older li
 
 Two facts from reading the source change the shape of the problem:
 
-- **`using` is the only way to name another module.** `qualified_module/3` refuses a module with no
-  `using` entry (`module_not_imported`, `bs_check.erl:4557-4572`). One checkpoint therefore covers
-  qualified calls too. RECORDED, not re-executed end to end.
+- **`using` is the only way to name another module's *functions*, but not its *types*.** `qualified_module/3` refuses a call to a module with no
+  `using` entry (`module_not_imported`, `bs_check.erl:4557-4572`), so one checkpoint covers qualified calls. **CORRECTION (verifier, measured):** `imported_types` (`bs_check.erl:1320ff`) puts every World module's types into the type env under fully qualified names regardless of `using` (checker run: `imported=[]`, env still holds `'Shop.Orders.Order'`). An `add_import` check therefore does not cover types; Option 2's delta also needs a type-env filter, and its cost is understated below.
 - **`using` has two branches, not one.** `add_import/7` (`bs_check.erl:497-507`) sends a module path to
   `add_module_import` and a namespace path (`using Shop`) to `add_namespace_import`. A check at the
   module branch alone leaks. See probe p7 below.
@@ -124,9 +123,7 @@ filesystem path, because the checker already treats a namespace that way: `child
     same outsider compiled when no tracer was set. Added compile time was inside noise (N=100: 2.26 s
     vs 2.21 s; N=1000: 22.2 s vs 22.6 s, median of 3). That shows a caller-side subtree check is cheap
     in a real compiler; it says nothing about B#'s own cost beyond p6.
-- **Strongest counterargument:** it adds a clause to the module header, and the sixteenth-keyword
-  budget is the thing ticket 22 closed to avoid spending (RECORDED, not re-executed:
-  `wayfinder/issues/22-how-opinionated.md`, "the sixteenth keyword is not spent"). The word could be
+- **Strongest counterargument:** it adds a clause to the module header, and ticket 22 declined to spend a sixteenth keyword on its own (different) marker (`22-how-opinionated.md:22`; the verifier found no standing keyword budget there, and line 189 cites keyword precedent). The word could be
   a contextual clause rather than a keyword, but that is a lexer question I did not test. A second
   weakness: a prefix match makes a rename of `Shop.Pricing` a silent narrowing of every list that
   mentions it.
@@ -205,3 +202,13 @@ Each probe states its hypothesis at the top and has an observation that can fail
 to produce a preferred result; every fix above repaired a defect in the probe's own code and kept
 the failed run's output. A verifier should re-run p1, p3, p5, p6 and p7 and read each
 fix against that rule.
+
+
+## Verification status
+Independently re-run: `verification/VERIFIER.md`. p1, p2, p5 (H1), p6, p7 reproduce; p4 inconclusive (403). Caveats to read with the numbers:
+- p3's timing overhead is noise (contended +30% at N=100, solo +5% / -1%); it cannot see a sub-ms check. Read it as 'no visible cost', not as a measurement.
+- p5 H2/H3 are unit tests of the author's own patch (expectation implied by the code); p7 H1 and p3 'outside rejected' are confirmations that could not fail. Option 3's `may_use` is hand-placed in the Self World entry, not where a real caller list would live.
+- The cost comparison is fair (same harness) but uninformative: `import_env`'s table rebuild (14 us at N=100, 2.1 ms at N=10000) swamps a 0.5 us check.
+- Not addressed: `import_env` has three lenient-mode callers (368/381/1568) plus a strict one (322); a `not_visible_to` would also fire in `--api` and producer passes. Transitive type leakage through exported signatures is untouched.
+- The '11 phrasings' grep has no saved command; the verifier's own grep found no demand entry either (weak evidence either way).
+The recommendation (Option 1, build nothing now) stands and is strengthened by the type-env finding.

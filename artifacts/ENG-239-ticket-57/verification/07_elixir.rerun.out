@@ -1,0 +1,14 @@
+Elixir 1.14.0 on OTP 25
+quoted -5             {:-, [line: 1], [5]}
+quoted x >= -5        {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+quoted x >= -5 + 1    {:>=, [line: 1], [{:x, [line: 1], nil}, {:+, [line: 1], [{:-, [line: 1], [5]}, 1]}]}
+quoted - -5           {:-, [line: 1], [{:-, [line: 1], [5]}]}
+compile def f(-5)                            :accepted
+compile def f(x) when x >= -5 + 1            :accepted
+compile def f(x + 2)                         {:refused, CompileError, "nofile:1: cannot invoke remote function :erlang.+/2 inside a match"}
+compile def f(1 + 2)                         {:refused, CompileError, "nofile:1: cannot invoke remote function :erlang.+/2 inside a match"}
+warning: the call to //2 will fail with ArithmeticError
+  nofile:1
+
+compile def f(x) when x >= 1 / 0             :accepted
+erlang forms of P6 guard: [[[{:op, 1, :>=, {:var, 1, :_x@1}, {:op, 1, :+, {:op, 1, :-, {:integer, 1, 5}}, {:integer, 1, 1}}}]]]
