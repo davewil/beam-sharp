@@ -1,0 +1,39 @@
+--- emitted .abstr clause of Next (guard as bsc writes it)
+14:{function,0,'Next',1,
+15-    [{clause,
+16-         {6,1},
+17-         [{var,{6,1},'O'}],
+18-         [[{op,{6,1},
+19-               'andalso',
+20-               {call,
+21-                   {6,1},
+22-                   {remote,{6,1},{atom,{6,1},erlang},{atom,{6,1},is_integer}},
+23-                   [{var,{6,1},'O'}]},
+24-               {op,{6,1},
+25-                   'andalso',
+26-                   {op,{6,1},'>=',{var,{6,1},'O'},{integer,{6,1},0}},
+27-                   {op,{6,1},'=<',{var,{6,1},'O'},{integer,{6,1},255}}}}]],
+28-         [{op,{6,1},'+',{var,{6,1},'O'},{integer,{6,1},1}}]}]}.
+--- asm for Next and Bump
+{function, 'Next', 1, 4}.
+  {label,3}.
+    {line,[{location,"/home/user/beam-sharp/artifacts/ENG-211-ticket-39/probes/Octets/Octets.bs",
+                     6}]}.
+    {func_info,{atom,'Octets'},{atom,'Next'},1}.
+  {label,4}.
+    {test,is_integer,{f,3},[{x,0}]}.
+    {test,is_ge,{f,3},[{tr,{x,0},{t_integer,any}},{integer,0}]}.
+    {test,is_ge,{f,3},[{integer,255},{tr,{x,0},{t_integer,any}}]}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+
+{function, 'Bump', 1, 6}.
+  {label,5}.
+    {line,[{location,"/home/user/beam-sharp/artifacts/ENG-211-ticket-39/probes/Octets/Octets.bs",
+                     9}]}.
+    {func_info,{atom,'Octets'},{atom,'Bump'},1}.
+  {label,6}.
+    {'%',{var_info,{x,0},[{type,{t_integer,any}}]}}.
+    {gc_bif,'+',{f,0},1,[{tr,{x,0},{t_integer,any}},{integer,1}],{x,0}}.
+    return.
+

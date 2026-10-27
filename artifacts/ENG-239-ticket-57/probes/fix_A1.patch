@@ -1,5 +1,5 @@
 --- src/bs_parser.yrl	2026-10-27 23:12:41.688683318 +0000
-+++ v_A1/src/bs_parser.yrl	2026-10-27 23:15:34.850726707 +0000
++++ v_A1/src/bs_parser.yrl	2026-10-27 23:18:05.831714892 +0000
 @@ -945,6 +945,7 @@
  %% A negated float literal is the literal; anything else is the BEAM's unary
  %% minus, typed by its operand (F51).

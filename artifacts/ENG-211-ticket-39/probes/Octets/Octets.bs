@@ -1,0 +1,12 @@
+module Octets
+
+type Octet = int where value >= 0 and value <= 255
+
+public int Next(Octet o)
+Next(o) -> o + 1
+
+private int Bump(Octet o)
+Bump(o) -> o + 1
+
+public int ViaPrivate(Octet o)
+ViaPrivate(o) -> Bump(o)

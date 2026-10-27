@@ -62,7 +62,7 @@ check-and-refuse, check-and-warn, or record only. 4. The spelling (a keyword is 
 `using` block; this ticket is the last one that would touch it. RECORDED (`wayfinder/issues/50-…md` Decisions
 entry; `106-…md` Decisions entry).
 
-Sub-decision 2 has direct evidence, below: every neighbour that *checks* this at compile time checks the name only.
+Sub-decision 2 has direct evidence, below: the one neighbour measured that checks this at compile time (Mix) checks the name only. Rebar3, Elm and Gleam were not observed doing so (see VERIFIER.md).
 
 ## What a compile-time check can cheaply do (MEASURED, OTP 25, `probes/b_check_cost.sh`, `g_owning_app.sh`)
 
@@ -83,7 +83,7 @@ All hypotheses held except H5, which was falsified for the failing case.
   as a module→app lookup here).
 - `kernel` and `stdlib` are the only OTP apps started at boot (`g_owning_app.sh`); `crypto`, `ssl`, `inets`
   modules resolve to apps that are *not* started, so a rule exempting "OTP" wholesale would be wrong; exempting
-  `kernel`/`stdlib`/`preloaded` is what the data supports. **Surprise:** `:erlang`, the module most FFI blocks name,
+  `kernel`/`stdlib`/`preloaded` is what the data supports. **Note:** `:erlang`, the module most FFI blocks name,
   returns the atom `preloaded` from `code:which`, not a path. My first run mis-derived `"."` for it
   (`g_owning_app.run1.out`, kept); any check needs that special case.
 - **Cost in the artefact**, if provenance is emitted as a beam attribute (`probes/f_attr_cost.sh`, `+no_debug_info`):
@@ -162,7 +162,7 @@ an app field; one check beside `foreign_rets_decidable/2` (`bs_check.erl:636`, R
 | module found? | under the declared app? | result |
 |---|---|---|
 | yes | yes | silent |
-| yes | **no** (under another app) | **error**: names both apps (measured derivable) |
+| yes | **no** (under another app) | **error**: names both apps (derivable by design; not probed: the fixture takes app names from directories the author created) |
 | no | — | **warning**: `Req` not on the code path; the declaration says app `req` |
 | a non-`kernel`/`stdlib`/`preloaded` module with no `from` | — | **error**: names the app it was found under, if found |
 
@@ -173,7 +173,7 @@ says *which package to install*. Mix makes the same choice (warning, not error).
 - **Evidence:** Mix's check is the same shape and name-only (MEASURED `d_elixir_tracer.sh`); the repo's own
   bindings show the repetition cost: `51a-code-path/Elx/elx.bs` has 2 blocks for 1 app (`String`, `Enum`, both
   `elixir`), `Req/req.bs` 2 blocks for 2 apps (RECORDED count, `grep` of `using :'Elixir`). Cost of the check:
-  ~0.3 ms per present module, ~2.8 ms per absent one (OTP 25, 40 entries; more entries on a real `ERL_LIBS`).
+  ~0.3 ms per present module, about 2-3 ms per absent one (re-runs: 1.75-2.8 ms; present 0.22-0.66 ms) (OTP 25, 40 entries; more entries on a real `ERL_LIBS`).
 - **Strongest counterargument:** repetition. A binding of Req with `Req`, `Req.Request`, `Req.Test` repeats
   `from :req` three times, which is the write-cost the ticket flagged; and the declaration names the app that owns
   the *called module*, not the applications the program must *start* at run time (51 measured `ensure_all_started`
@@ -199,7 +199,7 @@ owner (the Mix wording measured above); each listed app must satisfy `code:lib_d
   removes the repetition; also it can list an app the program needs without naming one of its modules (the
   `ensure_all_started` gap above).
 - **Strongest counterargument:** a B# module is a directory with sibling function files, and a `using` in one file
-  reaches its siblings (ENG-440, RECORDED, not re-executed), so the list has one home (`index.bs`) far from the
+  reaches its siblings (ENG-440 as cited by the ticket author; no source for it exists in the repo, so treat as unconfirmed), so the list has one home (`index.bs`) far from the
   `using` it justifies; and it adds a new top-level declaration where Option 2 only widens one that exists. A reader of the `using` block
   no longer sees the provenance at the call, which is the thing the ticket wants visible to the spec.
 
@@ -218,7 +218,7 @@ choose 2 because `using` is the one place the source already names a foreign thi
 because only a declaration can name a package when the module is missing, and because the repetition measured in
 the repo's bindings is two blocks per app, not a pattern that outweighs that. If David finds the repetition
 unpleasant on reading a Req binding, Option 3 is the same check at the Mix/OTP placement and nothing in the
-evidence rules it out. **Version: no.** Mix and rebar3 (MEASURED) record names only; a version is resolution, which 51
+evidence rules it out. **Version: no.** Mix and rebar3's generated `.app` files (MEASURED; lockfiles and `mix.exs` requirements were not examined) record names only; a version is resolution, which 51
 refused. This is a recommendation, not a decision.
 
 ## Not verified / limits
@@ -244,3 +244,7 @@ refused. This is a recommendation, not a decision.
 | `e_elm.sh` | Elm's missing dependency | partial; registry blocked |
 | `f_attr_cost.sh` | beam attribute size / readability | held; compile-time delta inconclusive |
 | `g_owning_app.sh` | which app owns modules `using` names | held after fixing my `preloaded` handling (`.run1.out` kept) |
+
+
+## Verification status
+Independently re-run: see `verification/VERIFIER.md`. All 7 probes reproduce. Weak: `e_elm` (Elm stops on missing `elm/core` first, so neither hypothesis was tested), b's wrong-app check (fixture tautology). The measured evidence does not discriminate Option 2 from Option 3; that choice is design judgement plus the Mix precedent. `f` used `+no_debug_info`, bsc uses `debug_info`; verifier rebuilt with it and the byte deltas are unchanged.

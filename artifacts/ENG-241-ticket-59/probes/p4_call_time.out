@@ -21,3 +21,13 @@ GUARD   tag guard vs none          median delta = 8.83 ns/call
 NOISE   int A vs A' (identical)   median delta = -0.13 ns/call
 GUARD   is_integer vs none         median delta = -0.65 ns/call
 --- run 3
+TIME t_a   min=19.04 ns/call  median=34.00 ns/call
+TIME t_a2  min=17.70 ns/call  median=32.43 ns/call
+TIME t_g   min=27.26 ns/call  median=45.33 ns/call
+TIME i_a   min=12.51 ns/call  median=13.91 ns/call
+TIME i_a2  min=11.62 ns/call  median=13.66 ns/call
+TIME i_g   min=11.87 ns/call  median=13.86 ns/call
+NOISE   tag A vs A' (identical)   median delta = -1.57 ns/call
+GUARD   tag guard vs none          median delta = 11.34 ns/call
+NOISE   int A vs A' (identical)   median delta = -0.26 ns/call
+GUARD   is_integer vs none         median delta = -0.05 ns/call

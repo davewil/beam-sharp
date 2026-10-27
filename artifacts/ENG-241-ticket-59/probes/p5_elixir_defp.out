@@ -1,0 +1,11 @@
+pub(forged)      : {:raised, FunctionClauseError}
+pub_bare(forged) : {:raised, FunctionClauseError}
+big(100.5)       : {:ok, 1}
+compiled heads: [
+  priv: "\#{'__struct__' := 'Elixir.P5.Foo', v := _v@1}",
+  pub: "\#{'__struct__' := 'Elixir.P5.Foo'} = _f@1"
+]
+CHECK pub refuses forged map: ok
+CHECK pub_bare (private callee) refuses forged map: ok
+CHECK spec'd integer param does NOT refuse a float: ok
+CHECK both heads carry the same struct test: ok

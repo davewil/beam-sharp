@@ -1,5 +1,5 @@
 --- src/bs_parser.yrl	2026-10-27 23:12:41.688683318 +0000
-+++ v_A2/src/bs_parser.yrl	2026-10-27 23:15:59.099485378 +0000
++++ v_A2/src/bs_parser.yrl	2026-10-27 23:18:30.361742338 +0000
 @@ -218,7 +218,7 @@
  %% The predicate is an ordinary expression, read back by the same
  %% `alternatives/1` a guard goes through, so a refinement and a guard cannot

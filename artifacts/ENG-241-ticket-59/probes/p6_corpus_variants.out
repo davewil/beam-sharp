@@ -1,0 +1,15 @@
+A = as shipped; B = kind test on private too; C = tag test exported-only
+patch B:
+283c283
+< none when Public ->
+---
+> none ->
+287,289c287
+< end;
+< none ->
+< {Pat, []}
+---
+> end
+patch C:
+275a276
+>         {ok, _} when not Public -> {Pat, []};

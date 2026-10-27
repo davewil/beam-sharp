@@ -2,3 +2,15 @@ bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
 [A1] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
 bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
 [A2] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[B1] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[B2] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+bs_parser.yrl: Warning: conflicts: 6 shift/reduce, 0 reduce/reduce
+[B3] {ok,"bs_parser.erl",[{"bs_parser.yrl",[{none,yecc,{conflicts,6,0}}]}]}
+  10 /home/user/beam-sharp/artifacts/ENG-239-ticket-57/probes/fix_A1.patch
+  22 /home/user/beam-sharp/artifacts/ENG-239-ticket-57/probes/fix_A2.patch
+  28 /home/user/beam-sharp/artifacts/ENG-239-ticket-57/probes/fix_B1.patch
+  39 /home/user/beam-sharp/artifacts/ENG-239-ticket-57/probes/fix_B2.patch
+  47 /home/user/beam-sharp/artifacts/ENG-239-ticket-57/probes/fix_B3.patch
+ 146 total

@@ -1,11 +1,11 @@
 tag tests in bsc Spin: 2  beam bytes: 1836
-{"init terminating in do_boot",{undef,[{bench_rec,main,[],[]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
-init terminating in do_boot ({undef,[{bench_rec,main,[],[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
-
-Crash dump is being written to: erl_crash.dump...done
+bsc RecLoop (private Spin, tag test emitted)     min   90.51 ms  med  173.98  rel-min 1.148
+erl hand: with tag test (control)                min   95.69 ms  med  155.16  rel-min 1.213
+erl hand: no tag test                            min   92.29 ms  med  130.05  rel-min 1.170
+erl hand: no tag test (noise control)            min   78.88 ms  med  133.78  rel-min 1.000
 
 tag tests in bsc Spin: 2  beam bytes: 1836
-{"init terminating in do_boot",{undef,[{bench_rec,main,[],[]},{init,start_em,1,[]},{init,do_boot,3,[]}]}}
-init terminating in do_boot ({undef,[{bench_rec,main,[],[]},{init,start_em,1,[]},{init,do_boot,3,[]}]})
-
-Crash dump is being written to: erl_crash.dump...done
+bsc RecLoop (private Spin, tag test emitted)     min   85.92 ms  med  160.97  rel-min 1.238
+erl hand: with tag test (control)                min  102.68 ms  med  151.11  rel-min 1.480
+erl hand: no tag test                            min   73.34 ms  med  123.66  rel-min 1.057
+erl hand: no tag test (noise control)            min   69.40 ms  med  129.32  rel-min 1.000

@@ -9,4 +9,4 @@ W=/tmp/claude-0/-home-user-beam-sharp/e165fddb-d743-5cdb-816c-e9e70eb257c6/scrat
 erl -noshell -pa $W/ebin -eval 'bsc:main(["-o","'$O'","'$HERE'/RecLoop"]),halt().'
 erlc -o $O "$HERE/recloop_erl.erl" "$HERE/bench_rec.erl"
 (cd $O && erlc +from_abstr -S RecLoop.abstr && echo "tag tests in bsc Spin: $(sed -n "/function, 'Spin'/,/^\$/p" RecLoop.S | grep -c "atom,'RecLoop.Acc'}\]")  beam bytes: $(stat -c%s RecLoop.beam)")
-erl -noshell -pa $O -s bench_rec main
+erl -noshell -pa $O -eval "bench_rec:main([])"

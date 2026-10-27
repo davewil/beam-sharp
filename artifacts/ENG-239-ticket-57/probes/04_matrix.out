@@ -30,11 +30,14 @@ value >= -5 and value <= 5           {crashed,error,{opaque_refinement,{2,1}}}
 value >= 0 and value <= 5            {residual,[{1,5}]}
 value >= -2 * 3 and value <= 2 + 3   {crashed,error,{opaque_refinement,{2,1}}}
 value != -1                          {crashed,error,{opaque_refinement,{2,1}}}
-value >= -(-5) and value <= 7        {crashed,error,{opaque_refinement,{2,1}}}
+value >= -3 and value <= -(-5)       {crashed,error,{opaque_refinement,{2,1}}}
 -- a body literal: NonPos F() -> -1 and Neg G() -> -5 (baseline types `-N` as int?) --
 NonPos F() -> -1                     {refused,[return_not_declared]}
 Pos F() -> 1 (control)               accepted
 NonPos F() -> 0 - 1                  {refused,[return_not_declared]}
+-- a zero divisor spelled -0 (F26 refuses a provably-zero divisor) --
+F(n) -> n / -0                       accepted
+F(n) -> n / 0 (control)              {refused,[divide_by_zero]}
 -- must not change: a float comparand, a variable comparand, a zero divisor --
 value >= -5.0                        {crashed,error,{opaque_refinement,{2,1}}}
 value >= value                       {crashed,error,{opaque_refinement,{2,1}}}
@@ -73,11 +76,14 @@ value >= -5 and value <= 5           {residual,[{1,5}]}
 value >= 0 and value <= 5            {residual,[{1,5}]}
 value >= -2 * 3 and value <= 2 + 3   {crashed,error,{opaque_refinement,{2,1}}}
 value != -1                          {residual,[{1,pos_inf}]}
-value >= -(-5) and value <= 7        {refused,[vacuous_clause,inexhaustive]}
+value >= -3 and value <= -(-5)       {residual,[{1,5}]}
 -- a body literal: NonPos F() -> -1 and Neg G() -> -5 (baseline types `-N` as int?) --
 NonPos F() -> -1                     accepted
 Pos F() -> 1 (control)               accepted
 NonPos F() -> 0 - 1                  {refused,[return_not_declared]}
+-- a zero divisor spelled -0 (F26 refuses a provably-zero divisor) --
+F(n) -> n / -0                       {refused,[divide_by_zero]}
+F(n) -> n / 0 (control)              {refused,[divide_by_zero]}
 -- must not change: a float comparand, a variable comparand, a zero divisor --
 value >= -5.0                        {crashed,error,{opaque_refinement,{2,1}}}
 value >= value                       {crashed,error,{opaque_refinement,{2,1}}}
@@ -116,11 +122,14 @@ value >= -5 and value <= 5           {residual,[{1,5}]}
 value >= 0 and value <= 5            {residual,[{1,5}]}
 value >= -2 * 3 and value <= 2 + 3   {crashed,error,{opaque_refinement,{2,1}}}
 value != -1                          {residual,[{1,pos_inf}]}
-value >= -(-5) and value <= 7        {crashed,error,{opaque_refinement,{2,1}}}
+value >= -3 and value <= -(-5)       {crashed,error,{opaque_refinement,{2,1}}}
 -- a body literal: NonPos F() -> -1 and Neg G() -> -5 (baseline types `-N` as int?) --
 NonPos F() -> -1                     {refused,[return_not_declared]}
 Pos F() -> 1 (control)               accepted
 NonPos F() -> 0 - 1                  {refused,[return_not_declared]}
+-- a zero divisor spelled -0 (F26 refuses a provably-zero divisor) --
+F(n) -> n / -0                       accepted
+F(n) -> n / 0 (control)              {refused,[divide_by_zero]}
 -- must not change: a float comparand, a variable comparand, a zero divisor --
 value >= -5.0                        {crashed,error,{opaque_refinement,{2,1}}}
 value >= value                       {crashed,error,{opaque_refinement,{2,1}}}
@@ -159,11 +168,14 @@ value >= -5 and value <= 5           {residual,[{1,5}]}
 value >= 0 and value <= 5            {residual,[{1,5}]}
 value >= -2 * 3 and value <= 2 + 3   {crashed,error,{opaque_refinement,{2,1}}}
 value != -1                          {residual,[{1,pos_inf}]}
-value >= -(-5) and value <= 7        {refused,[vacuous_clause,inexhaustive]}
+value >= -3 and value <= -(-5)       {residual,[{1,5}]}
 -- a body literal: NonPos F() -> -1 and Neg G() -> -5 (baseline types `-N` as int?) --
 NonPos F() -> -1                     {refused,[return_not_declared]}
 Pos F() -> 1 (control)               accepted
 NonPos F() -> 0 - 1                  {refused,[return_not_declared]}
+-- a zero divisor spelled -0 (F26 refuses a provably-zero divisor) --
+F(n) -> n / -0                       accepted
+F(n) -> n / 0 (control)              {refused,[divide_by_zero]}
 -- must not change: a float comparand, a variable comparand, a zero divisor --
 value >= -5.0                        {crashed,error,{opaque_refinement,{2,1}}}
 value >= value                       {crashed,error,{opaque_refinement,{2,1}}}
@@ -202,11 +214,60 @@ value >= -5 and value <= 5           {residual,[{1,5}]}
 value >= 0 and value <= 5            {residual,[{1,5}]}
 value >= -2 * 3 and value <= 2 + 3   {residual,[{1,5}]}
 value != -1                          {residual,[{1,pos_inf}]}
-value >= -(-5) and value <= 7        {refused,[vacuous_clause,inexhaustive]}
+value >= -3 and value <= -(-5)       {residual,[{1,5}]}
 -- a body literal: NonPos F() -> -1 and Neg G() -> -5 (baseline types `-N` as int?) --
 NonPos F() -> -1                     {refused,[return_not_declared]}
 Pos F() -> 1 (control)               accepted
 NonPos F() -> 0 - 1                  {refused,[return_not_declared]}
+-- a zero divisor spelled -0 (F26 refuses a provably-zero divisor) --
+F(n) -> n / -0                       accepted
+F(n) -> n / 0 (control)              {refused,[divide_by_zero]}
+-- must not change: a float comparand, a variable comparand, a zero divisor --
+value >= -5.0                        {crashed,error,{opaque_refinement,{2,1}}}
+value >= value                       {crashed,error,{opaque_refinement,{2,1}}}
+value >= 1 / 0                       {crashed,error,{opaque_refinement,{2,1}}}
+value >= 1 % 0                       {crashed,error,{opaque_refinement,{2,1}}}
+value >= (-5) + value                {crashed,error,{opaque_refinement,{2,1}}}
+=================== B3 ===================
+--- refinement table ---
+value >= -5                        accepted
+value >= -5 and value <= 5         accepted
+value >= 1 or value <= -1          accepted
+value <= 3 or value >= 10          accepted
+value != 0                         accepted
+value != -1                        accepted
+-5 <= value                        accepted
+value >= 2 + 3                     accepted
+value >= 1 - 2                     accepted
+value >= -(-5)                     accepted
+value >= 2 * 3                     accepted
+value >= -2 * 3                    accepted
+value >= 7 / 2                     accepted
+value >= 1 / 0                     {crashed,error,{opaque_refinement,{2,1}}}
+value >= -5.0                      {crashed,error,{opaque_refinement,{2,1}}}
+value >= 0 - 5                     accepted
+value >= 5 % 3                     accepted
+--- guards/arms ---
+head: n >= 0 / n < 0             accepted
+head: n >= -1 / n < -1           accepted
+head: n != -1 / n == -1          accepted
+head: n >= 1 - 2 / n < 1 - 2     accepted
+head: n >= 2 + 3 / n < 2 + 3     accepted
+arm : n >= 0 / n < 0             accepted
+arm : n >= -1 / n < -1           accepted
+-- residual interval of the refinement (clauses cover <= 0; residual should be the rest of T) --
+value >= -5 and value <= 5           {residual,[{1,5}]}
+value >= 0 and value <= 5            {residual,[{1,5}]}
+value >= -2 * 3 and value <= 2 + 3   {residual,[{1,5}]}
+value != -1                          {residual,[{1,pos_inf}]}
+value >= -3 and value <= -(-5)       {residual,[{1,5}]}
+-- a body literal: NonPos F() -> -1 and Neg G() -> -5 (baseline types `-N` as int?) --
+NonPos F() -> -1                     accepted
+Pos F() -> 1 (control)               accepted
+NonPos F() -> 0 - 1                  {refused,[return_not_declared]}
+-- a zero divisor spelled -0 (F26 refuses a provably-zero divisor) --
+F(n) -> n / -0                       {refused,[divide_by_zero]}
+F(n) -> n / 0 (control)              {refused,[divide_by_zero]}
 -- must not change: a float comparand, a variable comparand, a zero divisor --
 value >= -5.0                        {crashed,error,{opaque_refinement,{2,1}}}
 value >= value                       {crashed,error,{opaque_refinement,{2,1}}}

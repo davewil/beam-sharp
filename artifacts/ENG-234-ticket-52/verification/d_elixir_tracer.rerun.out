@@ -1,0 +1,17 @@
+### undeclared: mix Mix 1.14.0 (compiled with Erlang/OTP 24)
+Compiling 1 file (.ex)
+warning: EEx.eval_string/1 defined in application :eex is used by the current application but the current application does not depend on :eex. To fix this, you must do one of:
+  1. If :eex is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
+  2. If :eex is a dependency, make sure it is listed under "def deps" in your mix.exs
+  3. In case you don't want to add a requirement to :eex, you may optionally skip this warning by adding [xref: [exclude: [EEx]]] to your "def project" in mix.exs
+  lib/p.ex:2: P.render/0
+warning: Absent.Thing.run/1 is undefined (module Absent.Thing is not available or is yet to be defined)
+  lib/p.ex:3: P.gone/0
+Generated p app
+applications,[kernel,stdlib,elixir]
+### declared: mix Mix 1.14.0 (compiled with Erlang/OTP 24)
+Compiling 1 file (.ex)
+warning: Absent.Thing.run/1 is undefined (module Absent.Thing is not available or is yet to be defined)
+  lib/p.ex:3: P.gone/0
+Generated p app
+applications,[kernel,stdlib,elixir,eex]

@@ -1,0 +1,23 @@
+OTP 25, code path entries: 40
+code:which('Elixir.Req') = /tmp/claude-0/-home-user-beam-sharp/e165fddb-d743-5cdb-816c-e9e70eb257c6/scratchpad/verify52/tmp.KAtQOpWKTz/libs/fakereq-0.7.3/ebin/Elixir.Req.beam
+  ok   H1 which finds it, not loaded
+  ok   H1 path names app dir
+code:lib_dir(fakereq) = "/tmp/claude-0/-home-user-beam-sharp/e165fddb-d743-5cdb-816c-e9e70eb257c6/scratchpad/verify52/tmp.KAtQOpWKTz/libs/fakereq-0.7.3"
+  ok   H2 lib_dir present
+  ok   H2 lib_dir absent -> bad_name
+  ok   H4 which absent -> non_existing
+consult .app applications = [kernel,stdlib,eex]
+  ok   H3 consult sees deps incl. eex
+application:load(fakereq) = ok ; get_key = {ok,[kernel,stdlib,eex]}
+  ok   H3 load ok, not started
+  ok   H3 get_key applications
+  ok   H6 claim app=fakereq for Elixir.Req ok
+  ok   H6 claim app=fakereq for Elixir.Other REFUSED (found under otherapp)
+cost:
+  code:which present                             655.81 us/call (N=2000, warm)
+  code:which absent (scans whole path)          2812.40 us/call (N=2000, warm)
+  code:lib_dir/1                                  10.32 us/call (N=2000, warm)
+  file:consult of .app                           950.01 us/call (N=2000, warm)
+  application:get_key (already loaded)             1.47 us/call (N=2000, warm)
+  application:unload+load (one cold-ish)         981.00 us
+  first code:which (this process)               577.00 us

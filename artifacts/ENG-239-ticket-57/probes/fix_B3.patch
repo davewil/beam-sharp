@@ -1,0 +1,47 @@
+--- src/bs_check.erl	2026-10-27 23:12:41.687246660 +0000
++++ v_B3/src/bs_check.erl	2026-10-27 23:19:55.795687016 +0000
+@@ -2960,6 +2960,7 @@
+ %% F67: unary `-` refuses an operand with no numeric part, as binary `-` does,
+ %% and over an uninhabited operand is uninhabited: `none` is a subtype of
+ %% `float`, so it answered `float` and the return check refused that.
++type_of({e_neg, _, {e_int, _, N}}, _S, _C) -> {bs_types:range(-N, -N), []};
+ type_of({e_neg, L, E}, S, C) ->
+     {Ty, D} = type_of(E, S, C),
+     case operand_verdict(Ty, C) of
+@@ -5151,8 +5152,10 @@
+         Constraint  -> [[Constraint]]
+     end.
+ 
+-comparison({e_op, _, Op, {e_var, _, V}, {e_int, _, K}}) -> int_cmp(Op, V, K);
+-comparison({e_op, _, Op, {e_int, _, K}, {e_var, _, V}}) -> int_cmp(flip(Op), V, K);
++comparison({e_op, _, Op, {e_var, _, V}, R}) when element(1, R) =:= e_int; element(1, R) =:= e_neg; element(1, R) =:= e_op ->
++    case const_int(R) of {ok, K} -> int_cmp(Op, V, K); error -> unknown end;
++comparison({e_op, _, Op, L, {e_var, _, V}}) when element(1, L) =:= e_int; element(1, L) =:= e_neg; element(1, L) =:= e_op ->
++    case const_int(L) of {ok, K} -> int_cmp(flip(Op), V, K); error -> unknown end;
+ comparison({e_op, _, '==', {e_var, _, V}, {e_atom, _, A}}) ->
+     {V, {include, bs_types:atom_lit(A)}};
+ comparison({e_op, _, '!=', {e_var, _, V}, {e_atom, _, A}}) ->
+@@ -5165,6 +5168,23 @@
+ comparison(_) ->
+     unknown.
+ 
++
++%% SCRATCH (ticket 57 probe): a comparand that is a literal integer expression.
++const_int({e_int, _, K}) -> {ok, K};
++const_int({e_neg, _, E}) -> case const_int(E) of {ok, K} -> {ok, -K}; error -> error end;
++const_int({e_op, _, '+', A, B}) -> bin(fun(X, Y) -> X + Y end, A, B);
++const_int({e_op, _, '-', A, B}) -> bin(fun(X, Y) -> X - Y end, A, B);
++const_int({e_op, _, '*', A, B}) -> bin(fun(X, Y) -> X * Y end, A, B);
++const_int({e_op, _, '/', A, B}) -> bin(fun(X, Y) -> X div Y end, A, B);
++const_int({e_op, _, '%', A, B}) -> bin(fun(X, Y) -> X rem Y end, A, B);
++const_int(_) -> error.
++bin(F, A, B) ->
++    case {const_int(A), const_int(B)} of
++        {{ok, X}, {ok, Y}} -> try {ok, F(X, Y)} catch error:badarith -> error end;   %% a zero divisor stays unreadable
++        _                  -> error
++    end.
++
++
+ int_cmp('>',  V, K) -> {V, {include, bs_types:range(K + 1, pos_inf)}};
+ int_cmp('>=', V, K) -> {V, {include, bs_types:range(K, pos_inf)}};
+ int_cmp('<',  V, K) -> {V, {include, bs_types:range(neg_inf, K - 1)}};

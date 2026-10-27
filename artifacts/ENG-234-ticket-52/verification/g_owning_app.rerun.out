@@ -1,0 +1,9 @@
+OTP 25; started at boot: [stdlib,kernel]
+  lists -> "stdlib" expected "stdlib" ok
+  ets -> "stdlib" expected "stdlib" ok
+  erlang -> preloaded expected preloaded ok
+  crypto -> "crypto" expected "crypto" ok
+  ssl -> "ssl" expected "ssl" ok
+  httpc -> "inets" expected "inets" ok
+  'Elixir.String' -> "elixir" expected "elixir" ok
+  'Elixir.Req' -> absent expected absent ok
