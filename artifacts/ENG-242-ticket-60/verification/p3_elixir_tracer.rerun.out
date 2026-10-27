@@ -1,0 +1,4 @@
+Elixir 1.14.0 / OTP 25
+{"inside", :ok}
+{"outside", {:rejected, "Elixir.Other.Peek may not name Shop.Orders.Internal"}}
+{"outside, no tracer", :ok}

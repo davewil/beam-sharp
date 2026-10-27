@@ -22,11 +22,11 @@ main(_) ->
   [io:format("compile ~-44s ~p~n", [Body, Show(Try(N, Body, []))]) ||
      {N, Body} <- [{"p1", "f(1+2) -> a."}, {"p2", "f(-5) -> a."}, {"p3", "f(Y+2) -> a."},
                    {"p4", "f(1 - -2) -> a."}, {"p5", "f(7 div 2) -> a."}, {"p6", "f(1 div 0) -> a."}]],
-  Core = fun(Body) ->
-           {ok, _, C} = compile:file(Dir ++ "/core.erl", [binary, to_core, no_copt_ssa] ++ []), C, Body end,
   ok = file:write_file(Dir ++ "/core.erl", "-module(core).\n-export([f/1]).\nf(X) when X >= -5 + 1 -> a;\nf(_) -> b.\n"),
-  {ok, _, C} = compile:file(Dir ++ "/core.erl", [binary, to_core, return]),
-  CoreTxt = lists:flatten(core_pp:format(C)),
-  io:format("core of  f(X) when X >= -5 + 1:~n~s~n", [string:trim(CoreTxt)]),
-  _ = Core,
+  {ok, _, C, _} = compile:file(Dir ++ "/core.erl", [binary, to_core, return]),
+  %% the guard's call is erlang:'>='(X, Literal): read the literal out of the first clause
+  {c_module, _, _, _, _, Defs} = C,
+  [Fun | _] = [F || {{c_var, _, {f, 1}}, F} <- Defs],
+  {c_fun, _, _, {c_case, _, _, [{c_clause, _, _, {c_call, _, _, _, [_, {c_literal, _, Lit}]}, _} | _]}} = Fun,
+  io:format("core: f(X) when X >= -5 + 1  ->  erlang:'>='(X, ~p)   (a literal, no '+' call)~n", [Lit]),
   ok.

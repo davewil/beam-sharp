@@ -1,0 +1,5 @@
+Elixir 1.14.0 / OTP 25
+Module.ParallelChecker moduledoc chunk (:hidden = @moduledoc false): :hidden
+its exports: [__info__: 1, all_exports: 2, emit_warnings: 1, fetch_export: 4]
+Kernel.Utils moduledoc chunk: :hidden
+called hidden fn: no error: :ok

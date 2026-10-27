@@ -18,4 +18,4 @@ skipped (does not compile under all three on OTP 25): exemplars
 compared modules: Aliasing Counter Escalate Fib Foreign Frame Intake Interop Label Ledger Levels Math Names Parcel Pipeline Queue Readings Shop Stats Stream Wire
 A: modules=22 tag_tests=9 is_integer=48 is_float=6 code_bytes=9599
 B: modules=22 tag_tests=9 is_integer=67 is_float=6 code_bytes=9599
-C: 
+C: modules=22 tag_tests=9 is_integer=48 is_float=6 code_bytes=9599
