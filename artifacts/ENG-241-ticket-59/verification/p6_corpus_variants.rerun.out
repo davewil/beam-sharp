@@ -13,3 +13,4 @@ patch B:
 patch C:
 275a276
 >         {ok, _} when not Public -> {Pat, []};
+skipped (does not compile under all three on OTP 25): Signalbox

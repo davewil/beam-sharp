@@ -130,7 +130,7 @@ two-line change in `guard_one/7` (the `none when Public` shape: private → no t
 **Option A, then C's second half through ticket 59.** The gate is one command on the real toolchain, it can produce
 a defect worth fixing (a real `{tr}` difference to chase) or retire the number, and it costs no compiler work. Do **not** do B before
 `07` runs on 28.5: on OTP 25, range guards are not a type channel, so B's whole payoff is unmeasured. Treat the ceiling claim in
-ticket §2 as refuted at emission level and correct it in the ticket when it is next edited.
+ticket §2's thesis as *not needed to explain anything on OTP 25* (declarations never reach the optimizer, and there is no gap here). The checker itself, where the thesis lives, was not tested.
 
 ## Not verified / limits
 
@@ -143,7 +143,7 @@ ticket §2 as refuted at emission level and correct it in the ticket when it is 
 - `05`'s Erlang sides are hand-written equivalents, not bsc output; only the `RecLoop` row is bsc-emitted.
 - `-spec` inertness (`03` c1) is the *compiler's* behaviour on OTP 25; `dialyzer` use of the spec is untouched.
 
-## Probe index (all under `probes/`, each `.sh` runnable alone after `00`)
+## Probe index (all under `probes/`, `08` depends on `07`'s output dir; all scripts hard-code the author's scratchpad paths)
 
 | id | question | hypothesis falsified? |
 |---|---|---|
@@ -156,3 +156,14 @@ ticket §2 as refuted at emission level and correct it in the ticket when it is 
 | `06_public_boundary.sh` | does bsc's public range guard reach the optimizer? | no: operand stays `any` (OTP 25) |
 | `07_tr_diff.sh` (+`.py`) | does bsc lose `{tr}` vs Erlang? | **H7 falsified on OTP 25**; self-test fires; **re-run on 28.5 first** |
 | `08_wrapper_erased.sh` | is bsc's `is_integer` foreign wrapper erased? | yes for Wrap/Hit/Spin/Clicks |
+
+
+## Verification status
+Independently re-run: `verification/VERIFIER.md`. All probes reproduce on OTP 25.3. The shim (lexer columns only) cannot bias emitted code: rewriting every column in `.abstr` left the Code chunk md5 identical. Corrections from the verifier, which supersede the numbers above:
+- **No time gap on OTP 25 stands**, measured better by the verifier's interleaved harness (`verification/ilv.erl`, four run orders, byte-identical renamed Erlang copy as control): 0-2.7% spread across Erlang, Elixir and bsc, bsc not slower. The author's own harness spread up to 1.29x on identical-class code, so the '~5% noise at min' above is wrong for it; trust `ilv.erl`, not `bench4`.
+- **02** is not just 'inconclusive': `+no_type_opt` was 3-7% slower at min in 3/3 reruns. That is evidence against annotations causing a 20% gap.
+- **04**: the verifier measured +5-9% at min (about 0-2% median) for `when Left > 0`, not +11-13%; read the +11-13% as the high end. Redundant and true-but-unknown guards are about 0.
+- **05**: the tag test cost +29-32% at min and +16-27% at median over 3 reruns (noise control within 3%), stronger than stated.
+- **07** `{tr}` equality is real (the `+no_type_opt` control fires on Wrap, Hit, Spin, Clicks); Sign and Size are 0=0 and uninformative. The ticket's `{0,99}` annotation exists only on OTP 28, so it cannot appear here.
+- Citation fix: Wrap's inferred ranges come from the `Day01.S` that `07` builds, not '01 asm'. Absolute beam sizes depend on the build path; only the +20 B and +4 B deltas reproduce.
+Recommendation A (re-run 07 and 01 on OTP 28.5, using `ilv.erl` as template) stands.
