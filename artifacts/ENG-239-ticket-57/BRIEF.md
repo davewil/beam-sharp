@@ -42,7 +42,7 @@ so it is *not* asked here.
    | the same pair as `switch` arms | **refused `switch_inexhaustive`** |
 
    The author sees "your clauses are not exhaustive" for two clauses that are. The guard is silently credited
-   nothing (`bs_check.erl:5127`), which is the *right* refusal reported in the wrong words.
+   nothing (`bs_check.erl:5125-5126`), which is the *right* refusal reported in the wrong words.
 3. **A negative literal in a *body* is typed `int`.** `type_of({e_neg,…})` returns `bs_types:int()`
    (`bs_check.erl:2963-2973`). MEASURED, `04_matrix.out` / `11_e2e.out`: with `type NonPos = int where value <= 0`,
    `NonPos Back() -> -1` is refused `return_not_declared` **even though the type is writable and `-1` is in it**.
@@ -150,7 +150,7 @@ still `switch_inexhaustive`, `NonPos F() -> -1` still refused, `n / -0` still co
 `-(-5)` still refused, and `P3` (`Clamp`) is refused with two `return_not_declared` (`04_matrix.out`,
 `11_e2e.out`).
 
-**Strongest counterargument:** none that survives the measurements as an end state. Its one merit is that it
+**Strongest counterargument:** none that survives the measurements as an end state (caveat from the verifier: this variant is a minimal strawman, built to supply the one piece the end-to-end probe showed missing, so its green is by construction, and its `-(-5)` refusal is a patch artefact). Its one merit is that it
 touches only the refinement (smallest blast radius), but the defect is shared with guards and body typing, so
 this option delivers a type you can declare and cannot use. I list it because the ticket names it, not because the
 evidence favours it.
@@ -207,3 +207,14 @@ parses `-N` today; the gap was only the refinement declaration (`09_residual_rou
 | `09_residual_roundtrip.sh` + `roundtrip.erl` | ticket 38's residual: printed text and paste-back | `09_residual_roundtrip.out` |
 | `10_cost.sh` + `cost.erl` | `check/1` and parse timing, AST words | `10_cost.out` |
 | `11_e2e.sh` + `e2e.erl` | check, real `bs_emit`, compile, load, run; `n / -0` | `11_e2e.out` |
+
+
+## Verification status
+Independently re-run: `verification/VERIFIER.md`. Probes 00-04, 06, 07, 09, 11 reproduce byte-identically; 05 reproduces 635 failures with identical sets across six builds; 08 gives the expected 403; 10 differs only in timing. All patches apply to pristine `compiler/src`; the shim differs only in `TokenLoc`/`adjust_col`. The four findings stand and none reads a column. Corrections and caveats:
+- **Finding 4 is wider:** `n / (1 - 1)` and `n / (0 - 0)` are still accepted under every variant, including Option 1. The parser fold closes only the literal `-0` spelling.
+- **Option 1 side effect:** `(-1) => 0` goes from a parse error to a lambda parameter that reaches the checker.
+- **Elixir evidence is split:** a guard `-5 + 1` stays unfolded, but `def f(-5)` compiles to a folded `{:integer,_,-5}` pattern, so Elixir folds literals in patterns (like B#'s pattern rule) and not in guard expressions.
+- **Regression claim is weak:** the 635 failures are mostly CLI-driven (no escript, OTP 25, shim), including 10 of 36 F51 float tests and the residual-text tests, so the comparison cannot see diagnostics or floats. `05_regression_diff.txt` is not produced by `05_regression.sh`. B1's one-test difference did not recur (flake). Run `bin/verify.sh` on OTP 28.5 before trusting any variant.
+- The shown ±100 `Delta` program was never run end to end (the probe used ±10). The residual round trip was hand-typed. The cost range omits 83-146 us readings. Patch sizes: Option 2's patch is 20 lines, not 'about 12'.
+- The shim could matter outside these findings: `bs_check.erl:114` keys notes by line and column.
+Recommendation (Option 1, parser fold) stands, with the arithmetic-fold question deferred.
