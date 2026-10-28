@@ -76,13 +76,17 @@ it.
 
 ## Decisions entry
 
+<!-- This ticket's entry. Read whole, here; the map (ENG-165) carries one line. -->
+
 ```decisions-entry
 - [A type variable beside another type in a union](issues/119-a-type-variable-beside-another-type-in-a-union.md)
-  — **a type variable could be any kind a caller picks, so it shares every guard bucket, and a union
-  that puts one bare beside a type no pattern reaches is refused at the declaration**: `T | int`
+  — **a type variable could be any kind a caller picks, so it shares every guard bucket, and a
+  signature whose union puts one bare beside a type no pattern reaches is refused**: `T | int`
   and `T | atom` are refused alike, by F36's *"no clause head can tell"* rule. A member a pattern
   reaches still stands beside a variable, so `option<T>` (`T | :nothing`) and `result<T, E>`
-  (`T | (:error, E)`) are unchanged. Raised 2026-10-25 by the ENG-881 fix, which had kept the
+  (`T | (:error, E)`) are unchanged. A parametric alias is judged where a signature uses it,
+  as every parametric alias is: `type Either<T> = T | int` is not refused on its own. Raised 2026-10-25 by the ENG-881 fix, which had kept the
   atom bucket the old singleton-atom encoding gave a variable; resolved 2026-10-28 by David,
-  generics kept ([27](issues/27-parametric-polymorphism.md)).
+  generics kept ([27](issues/27-parametric-polymorphism.md)). Built — F45, under
+  [ENG-881](https://linear.app/davewil/issue/ENG-881).
 ```

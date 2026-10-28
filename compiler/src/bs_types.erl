@@ -1548,15 +1548,16 @@ head_reach(T) ->
             end
     end.
 
+every_bucket() -> [atom, int, float, tuple, list, map, bin, pid, port, reference, 'fun'].
+
 %% Disjoint BEAM guard buckets can be distinguished without patterns. Requires
 %% constituents/1 output with absent or inhabited buckets; this shallow check
 %% cannot determine whether nested types are empty.
 guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
-guard_buckets(#{recvar := _}) -> [atom, int, float, tuple, list, map, bin, pid, port,
-                                  reference, 'fun'];
+guard_buckets(#{recvar := _}) -> every_bucket();
 %% A variable could be any kind a caller picks, so it shares every bucket, as a
 %% back-reference does: `T | int` is refused as `T | atom` is (ticket 119).
-guard_buckets(#{vars := [_ | _]}) -> guard_buckets(recvar('$var'));
+guard_buckets(#{vars := [_ | _]}) -> every_bucket();
 guard_buckets(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
                 maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
     [atom  || As =/= {finite, []}] ++

@@ -202,7 +202,7 @@ all three reach past ENG-295's priced *"no new diagnostic"* line — that line p
 algorithm, and these are rules the tickets that own the feature had decided.
 
 **The corrected signature prints the declaration.** `line_of/2` writes `<T, E>` after the
-name, so `T | int Pick<T>(T a, T b)` pastes back and parses.
+name, so `option<T> Pick<T>(T a, T b)` pastes back and parses.
 
 **The world carries `polys`.** `bsc:build/4` stores `polys_of/2` beside `exports`;
 `import_env/4` keys the templates as `qual_table/1` keys the signatures, so an imported call

@@ -214,7 +214,23 @@ a_variable_beside_int_in_a_signature_is_refused_test() ->
     bad_rc(Out),
     has(Out, "no clause head can tell `int` from `T`").
 
-%% A member a pattern reaches is told apart: `option<T>` stands.
+%% The program that settled ticket 119: a `T` that is an `int` at run time
+%% would be taken by the `int` clause, so the parameter is refused.
+a_variable_beside_int_in_a_parameter_is_refused_test() ->
+    Out = run_cli_src("module D\n"
+                      "private string Show<T>(T | int v)\n"
+                      "Show(int n) -> \"the int member\"\n"
+                      "Show(v)     -> \"the T member\"\n"),
+    bad_rc(Out),
+    has(Out, "no clause head can tell `int` from `T`").
+
+%% A member a pattern reaches is told apart: `option<T>` and `result<T, E>`
+%% stand.
+a_variable_beside_an_error_tuple_in_a_signature_stands_test() ->
+    ?assertEqual([], errors("module U\n"
+                            "private result<T, string> G<T>(T x)\n"
+                            "G(x) -> x\n")).
+
 a_variable_beside_a_literal_in_a_signature_stands_test() ->
     ?assertEqual([], errors(union_return_src("T | :nothing"))).
 
