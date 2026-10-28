@@ -1,8 +1,8 @@
 # 119 — Can a clause head tell a type variable from an `int`?
 
 Type: grilling
-Status: open — [ENG-926](https://linear.app/davewil/issue/ENG-926). Raised 2026-10-25 by the
-fix for [ENG-881](https://linear.app/davewil/issue/ENG-881)
+Status: resolved 2026-10-28 — [ENG-926](https://linear.app/davewil/issue/ENG-926). Raised
+2026-10-25 by the fix for [ENG-881](https://linear.app/davewil/issue/ENG-881); one question
 Blocked by: —
 
 ## Why this is raised
@@ -50,3 +50,39 @@ refused for.
 
 **Recommendation: refused.** It is the same reason `T | atom` is refused, applied to every bucket
 and not only the one the old encoding happened to use.
+
+## Answer
+
+David, 2026-10-28: *"refuse T | int, keep generics"*. Asked first whether generics were a good
+idea at all; the answer kept [27](27-parametric-polymorphism.md)'s decision and placed the
+ambiguity in the untagged union, not the variable. The case that settled it, run on `1429fdc1`:
+
+```csharp
+module D
+
+public string Wrapped(int n)
+Wrapped(n) -> Wrap(n)
+
+private string Wrap<T>(T x)
+Wrap(x) -> Show(x)          // x arrives at Show as the T member
+
+private string Show<T>(T | int v)
+Show(int n) -> "the int member"
+Show(v)     -> "the T member"
+```
+
+`Wrapped(5)` prints `"the int member"`: the checker reads the value as `T`, the `int` clause takes
+it.
+
+## Decisions entry
+
+```decisions-entry
+- [A type variable beside another type in a union](issues/119-a-type-variable-beside-another-type-in-a-union.md)
+  — **a type variable could be any kind a caller picks, so it shares every guard bucket, and a union
+  that puts one bare beside a type no pattern reaches is refused at the declaration**: `T | int`
+  and `T | atom` are refused alike, by F36's *"no clause head can tell"* rule. A member a pattern
+  reaches still stands beside a variable, so `option<T>` (`T | :nothing`) and `result<T, E>`
+  (`T | (:error, E)`) are unchanged. Raised 2026-10-25 by the ENG-881 fix, which had kept the
+  atom bucket the old singleton-atom encoding gave a variable; resolved 2026-10-28 by David,
+  generics kept ([27](issues/27-parametric-polymorphism.md)).
+```

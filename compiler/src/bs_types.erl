@@ -1554,12 +1554,9 @@ head_reach(T) ->
 guard_buckets(#{mu := _} = T) -> guard_buckets(unfold(T));
 guard_buckets(#{recvar := _}) -> [atom, int, float, tuple, list, map, bin, pid, port,
                                   reference, 'fun'];
-%% A variable sits in the atom bucket, where its singleton-atom encoding put it
-%% before ENG-881, so the unions a signature may write are unchanged: `T | int`
-%% is accepted and `T | atom` refused. Which buckets a variable belongs in is for
-%% ticket 119 (ENG-926) to decide.
-guard_buckets(#{vars := [_ | _]} = T) ->
-    [atom | lists:delete(atom, guard_buckets(T#{vars => []}))];
+%% A variable could be any kind a caller picks, so it shares every bucket, as a
+%% back-reference does: `T | int` is refused as `T | atom` is (ticket 119).
+guard_buckets(#{vars := [_ | _]}) -> guard_buckets(recvar('$var'));
 guard_buckets(#{atoms := As, ints := Is, floats := Fl, tuples := Ts, lists := Ls,
                 maps := Ms, bins := Bs, opaques := Os, funs := Fs}) ->
     [atom  || As =/= {finite, []}] ++

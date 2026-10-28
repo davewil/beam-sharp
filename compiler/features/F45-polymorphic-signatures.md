@@ -150,9 +150,10 @@ comprehension over a six-tuple yields nothing on a seven-tuple and reports no er
 puts each at `bs_types:tvar(V)`, a part of the algebra of its own: disjoint from every written
 type and contained in whatever holds all of `term`. Until
 [ENG-881](https://linear.app/davewil/issue/ENG-881) it was the singleton atom `:'T'`, which
-`atom` absorbed, so `G<T>(T x, list<atom> ys) -> [x, ..ys]` passed as `list<atom>`; a
-variable is still in the atom guard bucket that encoding gave it, pending
-[ticket 119](../../wayfinder/issues/119-a-type-variable-beside-another-type-in-a-union.md). The
+`atom` absorbed, so `G<T>(T x, list<atom> ys) -> [x, ..ys]` passed as `list<atom>`. A
+variable shares every guard bucket, so a union putting one beside a type no pattern reaches
+(`T | int`, `T | atom`) is refused
+([ticket 119](../../wayfinder/issues/119-a-type-variable-beside-another-type-in-a-union.md)). The
 callee table, `exports_of/2` and the emitter's `-spec` use the erased one: ticket 37 measured
 (M4, H2) that an argument is refused **exactly** when it escapes the parameter's maximal
 extent, so `arg_diags/7`'s containment against the extent is the whole of the argument check

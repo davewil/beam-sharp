@@ -202,16 +202,21 @@ a_template_hole_over_a_variable_is_refused_test() ->
     bad_rc(Out),
     has(Out, "a hole in G's template holds T").
 
-%% A signature that writes a variable beside another type is judged as it was
-%% while a variable was a singleton atom: `T | int` stands, `T | atom` is
-%% refused, now because no clause head can tell them apart.
+%% Ticket 119: a variable could be any kind a caller picks, so no clause head
+%% can tell it from a type a pattern does not reach, whichever kind that is.
 union_return_src(Ret) ->
     "module U\n"
     "private " ++ Ret ++ " G<T>(T x)\n"
     "G(x) -> x\n".
 
-a_variable_beside_int_in_a_signature_stands_test() ->
-    ?assertEqual([], errors(union_return_src("T | int"))).
+a_variable_beside_int_in_a_signature_is_refused_test() ->
+    Out = run_cli_src(union_return_src("T | int")),
+    bad_rc(Out),
+    has(Out, "no clause head can tell `int` from `T`").
+
+%% A member a pattern reaches is told apart: `option<T>` stands.
+a_variable_beside_a_literal_in_a_signature_stands_test() ->
+    ?assertEqual([], errors(union_return_src("T | :nothing"))).
 
 a_variable_beside_atom_in_a_signature_is_refused_test() ->
     Out = run_cli_src(union_return_src("T | atom")),
