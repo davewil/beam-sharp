@@ -1,0 +1,30 @@
+== erl_a vs erl_b (copy control)
+ebin/erl_a.beam: 116 instrs;  ebin/erl_b.beam: 116 instrs
+identical as-is (incl. type annotations): true
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 8
+Type chunk bytes: 116 vs 116
+== erl_a vs strip_a
+ebin/erl_a.beam: 116 instrs;  ebin/strip_a.beam: 116 instrs
+identical as-is (incl. type annotations): false
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 0
+Type chunk bytes: 116 vs 26
+== strip_a vs strip_b (copy control)
+ebin/strip_a.beam: 116 instrs;  ebin/strip_b.beam: 116 instrs
+identical as-is (incl. type annotations): true
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 0 vs 0
+Type chunk bytes: 26 vs 26
+== erl_a vs strip_tr (only {tr} stripped)
+ebin/erl_a.beam: 116 instrs;  ebin/strip_tr.beam: 116 instrs
+identical as-is (incl. type annotations): false
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 0
+Type chunk bytes: 116 vs 26
+== erl_a vs strip_vi (only var_info comments stripped)
+ebin/erl_a.beam: 116 instrs;  ebin/strip_vi.beam: 116 instrs
+identical as-is (incl. type annotations): true
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 8
+Type chunk bytes: 116 vs 116

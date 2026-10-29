@@ -1,0 +1,11 @@
+emu_flavor=jit otp=25 answers=[{inl_a,6725},
+                               {inls_a,6725},
+                               {inl_b,6725},
+                               {inls_b,6725},
+                               {erl_a,6725}]
+variant           min ms    med ms    p90 ms    max ms  min rel  med rel
+inl_a             10.002    10.237    11.117    15.717   1.000x   1.000x
+inls_a            12.530    12.856    14.565    19.488   1.253x   1.256x
+inl_b              9.987    10.230    11.034    34.474   0.998x   0.999x
+inls_b            12.526    12.848    14.846    20.952   1.252x   1.255x
+erl_a             17.688    18.139    21.579    32.226   1.768x   1.772x

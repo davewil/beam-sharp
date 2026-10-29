@@ -1,0 +1,24 @@
+== erl_a vs sh_op
+../a/ebin/erl_a.beam: 116 instrs;  sh_op.beam: 112 instrs
+identical as-is (incl. type annotations): false
+identical after dropping {tr,..} annotations: false
+{tr,..} operands: 8 vs 8
+Type chunk bytes: 116 vs 116
+== erl_a vs sh_remote
+../a/ebin/erl_a.beam: 116 instrs;  sh_remote.beam: 112 instrs
+identical as-is (incl. type annotations): false
+identical after dropping {tr,..} annotations: false
+{tr,..} operands: 8 vs 8
+Type chunk bytes: 116 vs 116
+== erl_a vs sh_spec
+../a/ebin/erl_a.beam: 116 instrs;  sh_spec.beam: 112 instrs
+identical as-is (incl. type annotations): false
+identical after dropping {tr,..} annotations: false
+{tr,..} operands: 8 vs 8
+Type chunk bytes: 116 vs 116
+== erl_a vs sh_guard
+../a/ebin/erl_a.beam: 116 instrs;  sh_guard.beam: 112 instrs
+identical as-is (incl. type annotations): false
+identical after dropping {tr,..} annotations: false
+{tr,..} operands: 8 vs 8
+Type chunk bytes: 116 vs 116

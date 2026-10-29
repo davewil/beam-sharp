@@ -1,0 +1,5 @@
+b_const    spin/4           [{t_integer,{-99,99}},{t_integer,any}]
+b_unk_a    spin/4           [{untyped,{x,0}},{t_integer,any}]
+b_kind_a   spin/4           [{t_integer,any},{t_integer,any}]
+b_guard_a  spin/4           [{t_integer,any},{t_integer,any}]
+b_band_a   spin/4           [{t_integer,{-99,127}},{t_integer,any}]

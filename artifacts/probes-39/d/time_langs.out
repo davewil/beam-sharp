@@ -1,0 +1,13 @@
+emu_flavor=jit otp=25 answers=[{erl_a,6725},
+                               {erl_inl,6725},
+                               {bench_gleam,6725},
+                               {'Elixir.BenchEx',6725},
+                               {sh_remote,6725},
+                               {sh_remote_inl,6725}]
+variant           min ms    med ms    p90 ms    max ms  min rel  med rel
+erl_a             17.624    18.113    19.303    26.353   1.000x   1.000x
+erl_inl           10.001    10.162    10.684    16.181   0.567x   0.561x
+bench_gleam       10.712    11.405    12.618    15.631   0.608x   0.630x
+Elixir.BenchEx    17.317    17.739    19.053    23.093   0.983x   0.979x
+sh_remote         17.539    18.044    19.305    22.342   0.995x   0.996x
+sh_remote_inl     11.039    11.477    12.788    17.246   0.626x   0.634x

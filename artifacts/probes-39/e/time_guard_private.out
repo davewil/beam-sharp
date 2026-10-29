@@ -1,0 +1,9 @@
+emu_flavor=jit otp=25 answers=[{e_base_a,6725},
+                               {e_guard_a,6725},
+                               {e_base_b,6725},
+                               {e_guard_b,6725}]
+variant           min ms    med ms    p90 ms    max ms  min rel  med rel
+e_base_a          17.504    18.173    20.901    28.996   1.000x   1.000x
+e_guard_a         17.357    18.017    21.047    26.605   0.992x   0.991x
+e_base_b          17.706    18.380    21.034    27.546   1.012x   1.011x
+e_guard_b         17.471    18.129    21.134    43.332   0.998x   0.998x

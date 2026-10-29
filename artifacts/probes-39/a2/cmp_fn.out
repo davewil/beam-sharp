@@ -1,0 +1,36 @@
+== erl_a vs sh_op (per function)
+wrap       8 vs   8 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+hit       10 vs  10 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+spin      26 vs  26 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+clicks    29 vs  29 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+part_two   7 vs   7 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+== erl_a vs sh_remote (per function)
+wrap       8 vs   8 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+hit       10 vs  10 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+spin      26 vs  26 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+clicks    29 vs  29 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+part_two   7 vs   7 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+== erl_a vs sh_spec (per function)
+wrap       8 vs   8 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+hit       10 vs  10 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+spin      26 vs  26 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+clicks    29 vs  29 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+part_two   7 vs   7 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+== erl_a vs sh_guard (per function)
+wrap       8 vs   8 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+hit       10 vs  10 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+spin      26 vs  26 instrs  identical-with-annotations=true  identical-ignoring-{tr}=true
+clicks    29 vs  29 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+part_two   7 vs   7 instrs  identical-with-annotations=false  identical-ignoring-{tr}=false
+== sh_op vs sh_remote (whole module)
+identical as-is (incl. type annotations): true
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 8
+== sh_op vs sh_spec (whole module)
+identical as-is (incl. type annotations): true
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 8
+== sh_op vs sh_guard (whole module)
+identical as-is (incl. type annotations): true
+identical after dropping {tr,..} annotations: true
+{tr,..} operands: 8 vs 8
