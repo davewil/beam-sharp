@@ -12,7 +12,7 @@ value whose runtime shape nobody checked reach a private function?* The ticket f
 as "exported or not". The probes say exported-ness is a proxy that is exact at parameter depth 0
 and wrong at depth 1 and for funs (section 3, P3). The int-kind test is the second question and
 follows from the first, because the two tests answer the same "did anyone check?" question
-(F24 §2 says so itself).
+(my framing; F24 §2 does not say this, it says only "Exported only, by 18 §4").
 
 Follow-ons, not asked yet: (b) whether the int test should widen to private functions;
 (c) whether `boundary_guards/5` should carry one scope rule instead of two.
@@ -24,7 +24,7 @@ branch (line 283) feeds `float_guard` and `int_guard`. `tag_test/3` is line 590 
 
 Premises I checked against the ticket text:
 
-- "+14 bytes, flat in field count" for the tag test: **flat confirmed, magnitude +12 here** (P1).
+- "+14 bytes, flat in field count" for the tag test: **flat in bytes confirmed, magnitude +12 here** (P1). Not flat in runtime: the verifier measured +15 ns at a 61-key record (hash map) vs +5 ns at 2 keys.
 - "+3-5 bytes for is_integer": **+5 here**, the top edge (P1).
 - "the same code un-exported has the test elided entirely" (18, cost section): **true only if
   read as "the emitter does not emit it".** If it means erlc removes a guard that is in the
@@ -69,7 +69,7 @@ private int Total(Order o) -> o.Amount;
 public int Sum(Order o)            -> Total(o);          // A: depth 0
 public int First(list<Order> os)   -> os switch { [h, ..] => Total(h), [] => 0 };   // B: from a collection
 public int Owed(Basket b)          -> Total(b.Primary);  // C: field of a guarded record
-public fun<Order, int> Handler()   -> Total;             // D: private fn leaves as a value (75)
+public fun<Order, int> Handler()   -> Total;             // D: private fn leaves as a value (75). UNVERIFIED in B#; Erlang model only
 ```
 
 A foreign caller passes `Quote{Amount: "free"}` (wrong identity AND wrong payload type). Erlang
@@ -80,7 +80,7 @@ models of what `bs_emit` produces (P3, MEASURED-HERE; bsc output itself RECORDED
 | `Sum(forged)` | `function_clause` at `Sum` | same |
 | `First([forged])` | **returns `<<"free">>`** | `function_clause` |
 | `Owed(Basket{forged})` | **returns `<<"free">>`** | `function_clause` |
-| `Handler()(forged)` | **returns `<<"free">>`** | `function_clause` |
+| `Handler()(forged)` (D, Erlang model only; whether B# allows this is unverified) | **returns `<<"free">>`** | `function_clause` |
 | `First([Order-tagged, bad payload])` | returns `<<"free">>` | returns `<<"free">>` |
 | every valid input | passes | passes |
 
@@ -120,7 +120,7 @@ Which holes are already scheduled to close at the exported boundary (RECORDED):
 %% guard_one/8: the `none when Public ->` clause becomes `none ->`
 ```
 - Compiler delta: delete one guard. Corpus: 66 explicit private sigs, 12 with a bare `int`.
-  F24.6 ("private Inner unguarded") flips, and `IntOnly` at bs_emit.erl:181 (comment at 172-176
+  F24.6 ("private Inner unguarded") flips, and `IntOnly` at bs_emit.erl:181 (comment at 176-180
   comment: "or a checked B# call site does when it is private") must be rewritten.
 - Evidence: P2c says erlc removes a redundant private `is_integer` when every caller proves it,
   so the int half is near-free at machine level where the exported caller is guarded (P2c a),
@@ -192,3 +192,7 @@ All under `/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d24394
 - P4 Gleam: `cd p4/gl && gleam build`, copy `build/dev/erlang/probe/_gleam_artefacts/probe.erl` to `p4/gebin/probe.erl`, `erlc -o gebin`, `erlc gl_forge.erl && erl -noshell -pa gebin -s gl_forge main -s init stop`
 - P4 Elixir: `cd p4 && elixir ex.exs`
 - Corpus: `grep -rhE "^\s*private .*[(, ]($(paste -sd'|' records.txt)) [a-z]" compiler/examples --include=*.bs | wc -l`
+
+## 8. Verification
+
+`/home/user/beam-sharp/artifacts/verification-59.md`: an independent verifier reproduced the probes; conclusions hold. Corrections applied above: the F24 §2 misattribution, citation 176-180, the runtime (not byte) non-flatness at 61 keys, and D labelled Erlang-model only. The verifier's own model, built with bsc's real compile options, reproduced the leak for list element, tuple element, guarded-record field and map value. Recommendation re-checked and kept: it rests on B and C, which the verifier reproduced, not on D. The recommendation's cost caveat now includes the 61-key case.
