@@ -1,0 +1,8 @@
+def->defp %Order{}   forged(__struct__:Quote){:raised, FunctionClauseError}
+def->defp %Order{}   plain map w/ :amount   {:raised, FunctionClauseError}
+def->defp %Order{}   valid                  {:returned, 1}
+def->defp bare var   plain map              {:returned, "free"}
+def->defp bare var   forged struct          {:returned, "free"}
+pub_first([forged]) -> defp pattern         {:raised, FunctionClauseError}
+enforce_keys: struct!(Order, [])            {:raised, ArgumentError}
+enforce_keys bypass via %{__struct__:}      {:raised, KeyError}

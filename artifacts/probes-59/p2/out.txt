@@ -1,0 +1,15 @@
+emu_flavor=jit otp=25 schedulers=4
+== record (tag test)
+u1  unguarded      local   min=11.515  median=13.167  max=16.093 ns/op
+u2  unguarded(ctl) local   min=11.369  median=13.102  max=18.943 ns/op
+gtag guarded       local   min=16.818  median=20.170  max=27.789 ns/op
+u1  unguarded      remote  min=11.714  median=12.779  max=17.905 ns/op
+u2  unguarded(ctl) remote  min=11.812  median=12.713  max=18.703 ns/op
+gtag guarded       remote  min=17.124  median=20.616  max=27.877 ns/op
+== int (is_integer)
+i1  unguarded      local   min=9.046  median=9.623  max=11.735 ns/op
+i2  unguarded(ctl) local   min=9.171  median=10.313  max=16.916 ns/op
+gint guarded       local   min=8.847  median=9.329  max=11.912 ns/op
+i1  unguarded      remote  min=8.745  median=9.254  max=22.987 ns/op
+i2  unguarded(ctl) remote  min=8.704  median=9.444  max=12.672 ns/op
+gint guarded       remote  min=9.091  median=9.983  max=11.722 ns/op

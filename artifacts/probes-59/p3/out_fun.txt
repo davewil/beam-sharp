@@ -1,0 +1,12 @@
+exported-only, fun escapes : <<"free">>
+every-function, fun escapes: {'EXIT',
+                              {function_clause,
+                               [{forge_fun,tot_g,
+                                 [#{'Amount' => <<"free">>,
+                                    'Kind' => 'Shop.Quote'}],
+                                 [{file,"forge_fun.erl"},{line,7}]},
+                                {forge_fun,main,0,
+                                 [{file,"forge_fun.erl"},{line,12}]},
+                                {init,start_em,1,[]},
+                                {init,do_boot,3,[]}]}}
+control, valid via fun      : 1

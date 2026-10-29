@@ -1,0 +1,4 @@
+none_a     min=11.786 median=13.330 max=19.236 ns/op
+none_b     min=11.985 median=13.795 max=18.050 ns/op
+ex_only    min=17.854 median=18.578 max=28.857 ns/op
+every_fn   min=23.709 median=25.423 max=33.949 ns/op

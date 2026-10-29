@@ -1,0 +1,11 @@
+--- forged = #{'Amount' => <<"free">>,'Kind' => 'Shop.Quote'}
+A exported-only   Sum(forged)                  {error,function_clause}
+B exported-only   First([forged])              {returned,<<"free">>}
+C exported-only   Owed(Basket{forged})         {returned,<<"free">>}
+B every-function  First([forged])              {error,function_clause}
+C every-function  Owed(Basket{forged})         {error,function_clause}
+--- negative controls (valid input must pass under every option)
+A exported-only   Sum(good)                    {returned,42}
+B exported-only   First([good])                {returned,42}
+B every-function  First([good])                {returned,42}
+C every-function  Owed(Basket{good})           {returned,42}

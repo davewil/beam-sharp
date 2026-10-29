@@ -1,0 +1,20 @@
+pub_total(forged tuple)            <<"free">>
+pub_total(not even a tuple)        {'EXIT',
+                                    {badarg,
+                                     [{erlang,element,
+                                       [3,foo],
+                                       [{error_info,
+                                         #{module => erl_erts_errors}}]},
+                                      {probe,pub_total,1,
+                                       [{file,"src/probe.gleam"},{line,16}]},
+                                      {gl_forge,'-main/0-fun-0-',2,
+                                       [{file,"gl_forge.erl"},{line,4}]},
+                                      {gl_forge,main,0,
+                                       [{file,"gl_forge.erl"},{line,7}]},
+                                      {init,start_em,1,[]},
+                                      {init,do_boot,3,[]}]}}
+pub_total(wrong tag, right arity)  2
+pub_total(valid order)             2
+first([forged payload])            <<"free">>
+pub_int(1.5)                       2.5
+pub_secret(forged opaque)          <<"x">>

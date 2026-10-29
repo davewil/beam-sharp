@@ -1,0 +1,16 @@
+N      variant                    beam stripped     Code   instrs
+1      none                        788      332       80        2
+1      tag_guard                   832      360       92        4
+1      tag_pattern                 844      371       98        5
+1      is_integer_only             812      332       86        3
+1      int_unguarded_ctl           792      324       81        2
+5      none                        804      350       80        2
+5      tag_guard                   848      378       92        4
+5      tag_pattern                 860      389       98        5
+5      is_integer_only             828      350       86        3
+5      int_unguarded_ctl           808      342       81        2
+20     none                        868      419       80        2
+20     tag_guard                   916      447       92        4
+20     tag_pattern                 924      458       98        5
+20     is_integer_only             892      419       86        3
+20     int_unguarded_ctl           876      412       81        2

@@ -1,0 +1,14 @@
+a_int_proved       default   module-wide: is_integer_tests=1  tag_tests=0
+a_int_proved       +inline   module-wide: is_integer_tests=1  tag_tests=0
+b_int_unproved     default   module-wide: is_integer_tests=1  tag_tests=0
+b_int_unproved     +inline   module-wide: is_integer_tests=1  tag_tests=0
+c_int_mixed        default   module-wide: is_integer_tests=2  tag_tests=0
+c_int_mixed        +inline   module-wide: is_integer_tests=2  tag_tests=0
+d_tag_proved       default   module-wide: is_integer_tests=0  tag_tests=2
+d_tag_proved       +inline   module-wide: is_integer_tests=0  tag_tests=2
+e_tag_unproved     default   module-wide: is_integer_tests=0  tag_tests=1
+e_tag_unproved     +inline   module-wide: is_integer_tests=0  tag_tests=1
+f_tag_built        default   module-wide: is_integer_tests=0  tag_tests=1
+f_tag_built        +inline   module-wide: is_integer_tests=0  tag_tests=1
+g_tag_pattern      default   module-wide: is_integer_tests=0  tag_tests=1
+g_tag_pattern      +inline   module-wide: is_integer_tests=0  tag_tests=1
