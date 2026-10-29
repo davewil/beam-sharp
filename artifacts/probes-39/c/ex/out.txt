@@ -1,3 +1,14 @@
-** (MatchError) no match of right hand side value: {:error, :beam_lib, {:file_error, 'Elixir.BenchEx.beam', :enoent}}
-    ex/ex_probe.exs:2: (file)
-    (elixir 1.14.0) lib/code.ex:1245: Code.require_file/2
+--- spin/4
+spin(_pos@1, __step@1, 0, _zeros@1) ->
+    {_pos@1, _zeros@1};
+spin(_pos@1, _step@1, _left@1, _zeros@1) ->
+    _next@1 = wrap(_pos@1 + _step@1),
+    spin(_next@1, _step@1, _left@1 - 1, _zeros@1 + hit(_next@1)).
+
+--- wrap/1
+wrap(_n@1) ->
+    (_n@1 rem 100 + 100) rem 100.
+
+specs emitted: [__info__: 1]
+compile attrs: [{:attribute, 1, :compile, [:no_auto_import]}]
+{tr,..} operands per fn: [{:spin, 4, 4}, {:wrap, 1, 3}]
