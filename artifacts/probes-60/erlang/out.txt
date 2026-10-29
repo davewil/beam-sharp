@@ -1,0 +1,38 @@
+## erlc (calls to non-exported / outside friend compile silently?)
+erlc rc=0
+## runtime
+charge(1) -> 2
+bad(1) -> {'EXIT',{undef,[{shop_orders_internal,hidden,[1],[]},
+                          {erl_eval,do_apply,7,
+                                    [{file,"erl_eval.erl"},{line,744}]},
+                          {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,480}]},
+                          {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,282}]},
+                          {erl_eval,expr_list,7,
+                                    [{file,"erl_eval.erl"},{line,961}]},
+                          {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,454}]},
+                          {erl_eval,exprs,6,
+                                    [{file,"erl_eval.erl"},{line,136}]},
+                          {init,start_it,1,[]}]}}
+apply non-exported: {'EXIT',
+                        {undef,
+                            [{shop_orders_internal,hidden,[1],[]},
+                             {erl_eval,do_apply,7,
+                                 [{file,"erl_eval.erl"},{line,744}]},
+                             {erl_eval,expr,6,
+                                 [{file,"erl_eval.erl"},{line,480}]},
+                             {erl_eval,expr,6,
+                                 [{file,"erl_eval.erl"},{line,282}]},
+                             {erl_eval,expr_list,7,
+                                 [{file,"erl_eval.erl"},{line,961}]},
+                             {erl_eval,expr,6,
+                                 [{file,"erl_eval.erl"},{line,454}]},
+                             {erl_eval,exprs,6,
+                                 [{file,"erl_eval.erl"},{line,136}]},
+                             {init,start_it,1,[]}]}}
+## xref friend pass
+module edges: [{shop_billing,shop_orders_internal},
+               {shop_orders,shop_orders_internal},
+               {shop_orders_internal,shop_orders_internal}]
+undefined_function_calls: [{{shop_billing,bad,1},
+                            {shop_orders_internal,hidden,1}}]
+friend violations: [{shop_billing,shop_orders_internal}]

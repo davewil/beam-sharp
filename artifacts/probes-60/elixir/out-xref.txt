@@ -1,0 +1,17 @@
+lib/shop/billing.ex (runtime)
+lib/shop/orders.ex (runtime)
+Tracked files: 3 (nodes)
+Compile dependencies: 0 (edges)
+Exports dependencies: 0 (edges)
+Runtime dependencies: 2 (edges)
+Cycles: 0
+
+Top 3 files with most outgoing dependencies:
+  * lib/shop/orders.ex (1)
+  * lib/shop/billing.ex (1)
+  * lib/shop/orders/internal.ex (0)
+
+Top 3 files with most incoming dependencies:
+  * lib/shop/orders/internal.ex (2)
+  * lib/shop/orders.ex (0)
+  * lib/shop/billing.ex (0)

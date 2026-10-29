@@ -1,0 +1,10 @@
+## erlc ea.erl (export_all)
+ea.erl:2:2: Warning: export_all flag enabled - all functions will be exported
+%    2| -compile(export_all).
+%     |  ^
+
+rc=0
+## erlc ea2.erl (export_all + nowarn_export_all)
+rc=0
+non -export fn via export_all: ok
+opaque is plain tuple at runtime: {t,1}

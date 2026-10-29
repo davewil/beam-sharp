@@ -1,0 +1,13 @@
+code path entries: 44
+erlang 25, schedulers online 4
+code:which(existing mod, hot)                        min      2.65 us   median      2.98 us
+code:which(existing Elixir mod)                      min   1617.48 us   median   1823.41 us
+code:which(MISSING mod: scans whole path)            min   1543.25 us   median   2025.84 us
+code:lib_dir(ssl) (app-name check, present)          min      1.92 us   median      2.29 us
+code:lib_dir(req) (app-name check, missing)          min      1.57 us   median      1.78 us
+lib_dir + filelib:is_file(<app>.app) present         min     21.70 us   median     24.19 us
+code:where_is_file("ssl.app") present                min    400.86 us   median    493.55 us
+code:where_is_file("req.app") missing                min   1623.91 us   median   2090.19 us
+path-parse module->app (which + split)               min   1449.13 us   median   1663.53 us
+algo B: read every .app on path (consult)            min  17732.40 us   median  19021.80 us
+algo B2: read ONE .app (consult ssl.app)             min    393.20 us   median    450.00 us

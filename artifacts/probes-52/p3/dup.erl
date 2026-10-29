@@ -1,0 +1,1 @@
+-module(dup). -export([who/0]). who() -> ok.

@@ -1,0 +1,5 @@
+"/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs/appb/ebin/dup.beam"
+["/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs/appa/../orphan/ebin",
+ "/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs/appa/../liar/ebin",
+ "/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs/appa/../appb/ebin",
+ "/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs/appa/../appa/ebin"]

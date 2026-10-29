@@ -1,0 +1,19 @@
+### C control: :ssl added to extra_applications (negative control: ssl warning must vanish)
+0
+### D: widget_core only reachable via ERL_LIBS, NOT in deps
+warning: Widget.Thing.new/1 defined in application :widget_core is used by the current application but the current application does not depend on :widget_core. To fix this, you must do one of:
+
+  1. If :widget_core is part of Erlang/Elixir, you must include it under :extra_applications inside "def application" in your mix.exs
+
+  2. If :widget_core is a dependency, make sure it is listed under "def deps" in your mix.exs
+
+  3. In case you don't want to add a requirement to :widget_core, you may optionally skip this warning by adding [xref: [exclude: [Widget.Thing]]] to your "def project" in mix.exs
+
+  lib/app.ex:2: App.a/0
+
+warning: Ghost.Nothing.f/0 is undefined (module Ghost.Nothing is not available or is yet to be defined)
+  lib/app.ex:3: App.b/0
+
+Generated app app
+(end D)
+### E: nonexistent module as ERL_LIBS-less :ghost_erl call

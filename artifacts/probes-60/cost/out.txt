@@ -1,0 +1,8 @@
+N  edges  restricted  edge_driven_us(min/med)  allpairs_us(min/med)  allpairs_pairs  violations
+10  80  3  179/243  234/245  90  0
+100  800  33  1853/1963  26635/27533  9900  211
+1000  8000  333  19481/19890  3352274/4522647  999000  2607
+-- control: same sizes, NO restricted modules (rule has nothing to test)
+10  80  0  136/146  189/192  90  0
+100  800  0  1455/1498  21206/21594  9900  0
+1000  8000  0  15335/16268  2177097/2389291  999000  0

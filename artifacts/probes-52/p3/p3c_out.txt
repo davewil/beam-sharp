@@ -1,0 +1,13 @@
+ERL_LIBS="/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs:/usr/lib/elixir/lib"
+dup      which=.../appb/ebin/dup.beam get_application=undefined app_by_path_parse=appb
+orph     which=.../orphan/ebin/orph.beam get_application=undefined app_by_path_parse=orphan
+unlisted which=.../liar/ebin/unlisted.beam get_application=undefined app_by_path_parse=liar
+--- candidate algorithm B: scan every .app on the path and ask who DECLARES the module
+apps_declaring(dup) = [appa,appb]
+apps_declaring(orph) = []
+apps_declaring(unlisted) = []
+apps_declaring(lists) = [stdlib]
+apps_declaring('Elixir.Mix.Task') = [mix]
+apps_declaring(erlang) = [erts]
+--- does load order decide which dup wins?
+code:which(dup) = "/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/libs/appb/ebin/dup.beam"

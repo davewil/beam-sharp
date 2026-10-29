@@ -1,0 +1,4 @@
+modules=87 module_edges=735 load_ms=1057 query_ms=78 check_ms=4
+modules=87 module_edges=735 load_ms=908 query_ms=54 check_ms=3
+modules=87 module_edges=735 load_ms=881 query_ms=66 check_ms=3
+lists abstract_code: raw_abstract_v1

@@ -1,0 +1,24 @@
+Compiling 3 files (.ex)
+warning: Shop.Orders.Internal.hidden/1 is undefined or private. Did you mean:
+
+      * via_hidden/1
+
+  lib/shop/billing.ex:3: Shop.Billing.bad/1
+
+Generated proj app
+docs: {:docs_v1, 2, :elixir, "text/markdown", :hidden, %{},
+ [
+   {{:function, :recompute, 1}, 3, ["recompute(x)"], :hidden, %{}},
+   {{:function, :via_hidden, 1}, 6, ["via_hidden(x)"], :none, %{}}
+ ]}
+runtime call to @moduledoc false module: 2
+exports: [__info__: 1, via_hidden: 1, module_info: 0, module_info: 1, recompute: 1]
+runtime defp call: %UndefinedFunctionError{
+  module: Shop.Orders.Internal,
+  function: :hidden,
+  arity: 1,
+  reason: nil,
+  message: nil
+}
+lib/shop/billing.ex (runtime)
+lib/shop/orders.ex (runtime)

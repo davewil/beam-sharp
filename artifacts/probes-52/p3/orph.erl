@@ -1,0 +1,1 @@
+-module(orph). -export([f/0]). f() -> ok.

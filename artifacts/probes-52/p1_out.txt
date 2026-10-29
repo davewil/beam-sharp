@@ -1,0 +1,82 @@
+call a module that exists nowhere                       {'EXIT',
+                                                         {undef,
+                                                          [{'Elixir.Req',new,
+                                                            [[]],
+                                                            []},
+                                                           {p1_missing,main,
+                                                            0,
+                                                            [{file,
+                                                              "p1_missing.erl"},
+                                                             {line,5}]},
+                                                           {erl_eval,
+                                                            do_apply,7,
+                                                            [{file,
+                                                              "erl_eval.erl"},
+                                                             {line,744}]},
+                                                           {erl_eval,exprs,6,
+                                                            [{file,
+                                                              "erl_eval.erl"},
+                                                             {line,136}]},
+                                                           {init,start_it,1,
+                                                            []},
+                                                           {init,start_em,1,
+                                                            []},
+                                                           {init,do_boot,3,
+                                                            []}]}}
+same via apply                                          {'EXIT',
+                                                         {undef,
+                                                          [{'Elixir.Req',new,
+                                                            [[]],
+                                                            []},
+                                                           {p1_missing,main,
+                                                            0,
+                                                            [{file,
+                                                              "p1_missing.erl"},
+                                                             {line,6}]},
+                                                           {erl_eval,
+                                                            do_apply,7,
+                                                            [{file,
+                                                              "erl_eval.erl"},
+                                                             {line,744}]},
+                                                           {erl_eval,exprs,6,
+                                                            [{file,
+                                                              "erl_eval.erl"},
+                                                             {line,136}]},
+                                                           {init,start_it,1,
+                                                            []},
+                                                           {init,start_em,1,
+                                                            []},
+                                                           {init,do_boot,3,
+                                                            []}]}}
+code:which                                              non_existing
+code:ensure_loaded                                      {error,nofile}
+code:is_loaded                                          false
+code:lib_dir(req)                                       {error,bad_name}
+application:load(req)                                   {error,
+                                                         {"no such file or directory",
+                                                          "req.app"}}
+application:ensure_all_started(req)                     {error,
+                                                         {req,
+                                                          {"no such file or directory",
+                                                           "req.app"}}}
+application:get_application(Elixir.Req)                 undefined
+erlang:function_exported (module not loaded)            false
+exit reason of process                                  {undef,
+                                                         [{'Elixir.Req',new,
+                                                           [[]],
+                                                           []}]}
+code:lib_dir(fakeapp) after add path                    "/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/fakelibs/fakeapp"
+=ERROR REPORT==== 29-Oct-2026::23:10:50.550088 ===
+Error in process <0.79.0> with exit value:
+{undef,[{'Elixir.Req',new,[[]],[]}]}
+
+application:load(fakeapp)                               ok
+application:ensure_all_started(fakeapp)                 {error,
+                                                         {ghostdep,
+                                                          {"no such file or directory",
+                                                           "ghostdep.app"}}}
+application:load(ghostdep)                              {error,
+                                                         {"no such file or directory",
+                                                          "ghostdep.app"}}
+control: after fixing .app, ensure_all_started          {ok,[fakeapp]}
+code:which(module named in .app but no beam)            non_existing

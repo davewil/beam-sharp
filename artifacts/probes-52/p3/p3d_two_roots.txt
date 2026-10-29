@@ -1,0 +1,4 @@
+A first:
+/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/rootA/appa/ebin/dup.beam
+B first:
+/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/rootB/appb/ebin/dup.beam

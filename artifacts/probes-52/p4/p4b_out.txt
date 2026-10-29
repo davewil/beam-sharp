@@ -1,0 +1,8 @@
+base       beam bytes 668  attrs []
+withattr   beam bytes 720  attrs [{bs_requires,[{req,'Elixir.Req'}]}]
+withattr3  beam bytes 772  attrs [{bs_requires,
+                                      [{req,'Elixir.Req'},
+                                       {jason,'Elixir.Jason'},
+                                       {finch,'Elixir.Finch'}]}]
+module_info(attributes) = [{vsn,[137549047316989891276613790402904798947]},
+                           {bs_requires,[{req,'Elixir.Req'}]}]

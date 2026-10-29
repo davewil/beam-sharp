@@ -1,0 +1,33 @@
+### A: import widget, NOT in gleam.toml [dependencies]
+  Resolving versions
+  Compiling app
+error: Unknown module
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p2_gleam/app/src/app.gleam:1:1
+  │
+1 │ import widget
+  │ ^^^^^^^^^^^^^
+
+No module has been found with the name `widget`.
+
+error: Unknown module
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p2_gleam/app/src/app.gleam:4:24
+  │
+4 │ pub fn main() -> Int { widget.answer() + ghost() }
+  │                        ^^^^^^
+
+No module has been found with the name `widget`.
+
+exit=1
+### B: declare path dependency
+  Resolving versions
+  Compiling widget
+  Compiling app
+   Compiled in 0.45s
+exit=0
+### C: @external to ghost_mod:f -- compile-time knowledge?
+   Compiled in 0.00s
+{'EXIT',{undef,[{ghost_mod,f,[],[]},
+                {app,main,0,[{file,"src/app.gleam"},{line,7}]},
+                {erl_eval,do_apply,7,[{file,"erl_eval.erl"},{line,744}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,480}]},
+                {erl_eval,expr,6,[{file,"erl_eval.erl"},{line,282}]},

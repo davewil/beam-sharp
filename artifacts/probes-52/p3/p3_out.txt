@@ -1,0 +1,25 @@
+module                       lib_dir-by get_app    code:which tail                   
+'Elixir.Kernel'            elixir             undefined                elixir/ebin/Elixir.Kernel.beam
+'Elixir.Enum'              elixir             undefined                elixir/ebin/Elixir.Enum.beam
+'Elixir.Logger'            logger             undefined                logger/ebin/Elixir.Logger.beam
+'Elixir.Mix.Task'          mix                undefined                mix/ebin/Elixir.Mix.Task.beam
+'Elixir.Mix'               mix                undefined                mix/ebin/Elixir.Mix.beam
+'Elixir.ExUnit.Case'       ex_unit            undefined                ex_unit/ebin/Elixir.ExUnit.Case.beam
+'Elixir.EEx.Engine'        eex                undefined                eex/ebin/Elixir.EEx.Engine.beam
+'Elixir.IEx'               iex                undefined                iex/ebin/Elixir.IEx.beam
+'Elixir.Mix.Tasks.Compile' mix                undefined                mix/ebin/Elixir.Mix.Tasks.Compile.beam
+lists                      stdlib-4.3.1.3     {ok,stdlib}              stdlib-4.3.1.3/ebin/lists.beam
+ets                        stdlib-4.3.1.3     {ok,stdlib}              stdlib-4.3.1.3/ebin/ets.beam
+erlang                     preloaded          undefined                preloaded
+gen_server                 stdlib-4.3.1.3     {ok,stdlib}              stdlib-4.3.1.3/ebin/gen_server.beam
+ssl                        ssl-10.9.1.3       undefined                ssl-10.9.1.3/ebin/ssl.beam
+ssl_cipher                 ssl-10.9.1.3       undefined                ssl-10.9.1.3/ebin/ssl_cipher.beam
+'OTP-PUB-KEY'              public_key-1.13.3. undefined                public_key-1.13.3.2/ebin/OTP-PUB-KEY.beam
+pubkey_cert                public_key-1.13.3. undefined                public_key-1.13.3.2/ebin/pubkey_cert.beam
+otp_internal               stdlib-4.3.1.3     {ok,stdlib}              stdlib-4.3.1.3/ebin/otp_internal.beam
+init                       preloaded          undefined                preloaded
+prim_file                  preloaded          undefined                preloaded
+--- erts: has an app?
+code:lib_dir(erts)="/usr/lib/erlang/lib/erts-13.2.2.5"  application:load(erts)=ok
+--- is get_application only for LOADED apps? (logger/mix not loaded yet)
+get_application('Elixir.Mix.Task') before load: undefined

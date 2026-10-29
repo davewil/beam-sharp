@@ -1,0 +1,18 @@
+## A (no dep)
+warning: :ssl.start/0 defined in application :ssl is used by the current application but the current application does no
+warning: Ghost.Nothing.f/0 is undefined (module Ghost.Nothing is not available or is yet to be defined)
+warning: Widget.Thing.new/1 is undefined (module Widget.Thing is not available or is yet to be defined)
+## B (path dep)
+warning: :ssl.start/0 defined in application :ssl is used by the current application but the current application does no
+warning: Ghost.Nothing.f/0 is undefined (module Ghost.Nothing is not available or is yet to be defined)
+## C control: ssl in extra_applications
+warning: Ghost.Nothing.f/0 is undefined (module Ghost.Nothing is not available or is yet to be defined)
+warning: Widget.Thing.new/1 is undefined (module Widget.Thing is not available or is yet to be defined)
+## D widget only via ERL_LIBS, not in deps
+warning: :ssl.start/0 defined in application :ssl is used by the current application but the current application does no
+warning: Widget.Thing.new/1 defined in application :widget_core is used by the current application but the current appli
+warning: Ghost.Nothing.f/0 is undefined (module Ghost.Nothing is not available or is yet to be defined)
+## C2 same-_build reuse (shows the staleness): run C twice
+warning: :ssl.start/0 defined in application :ssl is used by the current application but the current application does no
+warning: Ghost.Nothing.f/0 is undefined (module Ghost.Nothing is not available or is yet to be defined)
+warning: Widget.Thing.new/1 is undefined (module Widget.Thing is not available or is yet to be defined)

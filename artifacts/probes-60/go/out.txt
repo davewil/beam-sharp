@@ -1,0 +1,8 @@
+## go build ./orders
+rc=0
+## go build ./orders/tests
+rc=0
+## go build ./billing
+package example.com/shop/billing
+	billing/b.go:2:8: use of internal package example.com/shop/orders/internal/pricing not allowed
+rc=1

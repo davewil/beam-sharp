@@ -1,0 +1,1 @@
+-module(withattr). -export([f/1]). -bs_requires([{req, 'Elixir.Req'}]). f(X) -> 'Elixir.Req':new(X).

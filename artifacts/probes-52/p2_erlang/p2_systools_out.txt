@@ -1,0 +1,4 @@
+release with appa (applications=[kernel,stdlib]): {ok,systools_make,
+                                                   [{warning,missing_sasl}]}
+release with appc needing ghostdep: {error,systools_make,
+                                     {undefined_applications,[ghostdep]}}

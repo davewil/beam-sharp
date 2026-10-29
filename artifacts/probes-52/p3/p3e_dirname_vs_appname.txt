@@ -1,0 +1,4 @@
+lib_dir(dirname)="/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/renamed/dirname"
+lib_dir(realname)={error,bad_name}
+load(realname)=ok
+get_all_key={ok,"1"}

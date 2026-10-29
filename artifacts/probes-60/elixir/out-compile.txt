@@ -1,0 +1,8 @@
+Compiling 3 files (.ex)
+warning: Shop.Orders.Internal.hidden/1 is undefined or private. Did you mean:
+
+      * via_hidden/1
+
+  lib/shop/billing.ex:3: Shop.Billing.bad/1
+
+Generated proj app

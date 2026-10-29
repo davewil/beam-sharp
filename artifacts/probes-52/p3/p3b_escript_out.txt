@@ -1,0 +1,6 @@
+embedded emb: which="/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/es/emb.es/emb.beam"
+get_application(emb)=undefined
+lib_dir by name emb: {error,bad_name}
+code:get_path has escript entry: ["/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/p3/es/emb.es"]
+is_loaded: false ensure_loaded: {module,emb}
+escript:script_name "es/emb.es"
