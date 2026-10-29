@@ -16,7 +16,7 @@ main() ->
   {Pid, Ref} = spawn_monitor(fun() -> 'Elixir.Req':new([]) end),
   receive {'DOWN', Ref, _, Pid, R} -> p("exit reason of process", R) end,
   %% fake app on a path: .app lists a dependency that does not exist
-  Base = "/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52/fakelibs",
+  Base = filename:join(filename:dirname(filename:absname(code:which(?MODULE))), "fakelibs"),
   ok = filelib:ensure_dir(Base ++ "/fakeapp/ebin/x"),
   ok = file:write_file(Base ++ "/fakeapp/ebin/fakeapp.app",
      "{application,fakeapp,[{vsn,\"1.0.0\"},{modules,[]},{registered,[]},{applications,[kernel,stdlib,ghostdep]}]}.\n"),

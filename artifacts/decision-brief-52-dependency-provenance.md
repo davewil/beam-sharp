@@ -38,7 +38,7 @@ nothing below says what `bsc` does today beyond the RECORDED rows.
 | 2a | `p2_erlang/proj` `p2_rebar3_out.txt` | Does Erlang tooling check provenance at compile time? | `rebar3 compile` exit 0 for a call to a nonexistent `'Elixir.Req':new/1`. `rebar3 xref` flags that module (exit 1) and does **not** flag `ssl:start()` from an app absent from `applications`. xref checks module existence, not app declaration |
 | 2b | `p2_erlang/rel` `p2_systools_out.txt` | Where is `.app` `applications` enforced? | Release build only: `systools:make_script` → `{error,systools_make,{undefined_applications,[ghostdep]}}`; control with all apps present: `{ok,…}`. Cite `sasl/src/systools_make.erl:813-817,1357`. Never at compile of a `.erl` |
 | 2c | `p2_elixir/run.sh` `p2_run_sh_out.txt` | What does Mix do? | **Does exactly the ticket's idea, as a warning (exit 0).** Module found on the path, app not in deps/`extra_applications`: `Widget.Thing.new/1 defined in application :widget_core is used by the current application but the current application does not depend on :widget_core`. Module not found anywhere: a different, weaker warning (`Ghost.Nothing.f/0 is undefined (module … is not available or is yet to be defined)`). Control: `extra_applications: [:logger,:ssl]` removes the `:ssl` warning. Mix Elixir sources are not installed: behavioural only |
-| 2d | same | Is Mix's check stable? | **No, in this version.** Reusing one `_build` for identical inputs changed the output (case C2: `:ssl` warned although declared). `run.sh` therefore deletes `_build` per case. Inference only: Mix reads a cached app spec |
+| 2d | same | Is Mix's check stale on a reused `_build`? | **Only when `mix.exs` is unchanged on disk.** My fixture steers `mix.exs` through env vars (`EXTRA`, `WITH_DEP`), so Mix sees no edit. The verifier showed that touching `mix.exs` between runs gives the correct result, and that the generated `app.app` is rewritten correctly, so my "Mix reads a cached app spec" guess was only half right and Mix is not shown to be unstable. `run.sh` deletes `_build` per case. Cause of the stale warning: unexplained |
 | 2e | same | `Mix.Task.run` (module in app `mix`, not declared) | Produced **no** warning. Unexplained; I did not chase it |
 | 2f | `p2_gleam` `p2_gleam_out.txt` | Gleam | `import widget` with no `[dependencies]` entry: **hard error** `Unknown module`. Path dep `widget = { path = "../widget" }`: builds. `@external(erlang,"ghost_mod","f")`: **compiles, no check**, runtime `undef`. So Gleam's FFI is exactly today's `using :atom {…}`: unchecked. gleam.toml holds name and version/path; stdlib sources not installed, behavioural |
 | 3a | `p3/p3_map.erl` `p3_out.txt` | Ticket premise: Elixir module name ≠ application name | **Confirmed, and no prefix rule recovers it.** `Elixir.Kernel`, `Elixir.Enum` → app `elixir`; `Elixir.Mix.Task`, `Elixir.Mix.Tasks.Compile` → `mix`; `Elixir.Logger` → `logger`; `Elixir.ExUnit.Case` → `ex_unit`; `Elixir.EEx.Engine` → `eex`. Erlang too: `OTP-PUB-KEY` → `public_key`. **Req and Jason are not installed and the proxy blocks hex, so the ticket's `Elixir.Req` → `req` example was NOT tested.** I built `Widget.Thing` in app `widget_core` to get a real mismatch (2c) |
@@ -48,7 +48,7 @@ nothing below says what `bsc` does today beyond the RECORDED rows.
 | 3e | same | Beam with no `.app`; beam not listed in its `.app` | Path parse invents an app name from the directory (`orphan`, `liar`). `.app` scan returns `[]` for both |
 | 3f | `p3/p3_map.erl` | Preloaded modules | `erlang`, `init`, `prim_file`: `code:which` → `preloaded`, no path. Only the `.app` scan answers (`erlang` → `[erts]`) |
 | 3g | `p3e_dirname_vs_appname.txt` | `code:lib_dir/1` key | Keyed on **directory name**, not `.app` name: dir `dirname` holding `realname.app` → `lib_dir(realname)` = `{error,bad_name}` while `application:load(realname)` = `ok`. Cite `kernel/src/code_server.erl:1015`. mix and rebar3 name dirs after the app, so this bites only hand-laid trees |
-| 4 | `p4/p4_cost.erl` `p4_out.txt` (rerun in `p4_out_rerun.txt`) | Cost on a 44-entry path, min of 7×200 runs | `code:lib_dir(App)`: **1.5-1.9 µs**. `code:which(Mod)` unloaded, present or missing: **1.5-1.7 ms** (scans the path every call). `code:where_is_file("req.app")`: 0.34 ms present, 1.7 ms missing. One `file:consult` of an `.app`: 0.35 ms. Full `.app` scan: **13-16 ms**. Noise: medians run up to 30% over the minimum on a 4-core shared box. All are free next to a compile |
+| 4 | `p4/p4_cost.erl` `p4_out.txt` (rerun in `p4_out_rerun.txt`) | Cost on a 44-entry path, min of 7×200 runs | `code:lib_dir(App)`: **1.5-1.9 µs** (verifier measured 2.8-3.4 µs). `code:which(Mod)` unloaded, present or missing: **1.5-1.7 ms** (scans the path every call). `code:where_is_file("req.app")`: 0.34 ms present, 1.7 ms missing. One `file:consult` of an `.app`: 0.35 ms. Full `.app` scan: **13-18 ms** (rerun file 17.7 ms; verifier 15.4 ms). Noise: medians run up to 30% over the minimum on a 4-core shared box. All are free next to a compile |
 | 4b | `p4/p4b.erl` `p4b_out.txt` | Cost of carrying the names into the `.beam` as `-bs_requires([{req,'Elixir.Req'}])` | 668 → 720 bytes for one entry, 772 for three (about 52 bytes each); readable through `beam_lib:chunks(…,[attributes])` and `module_info(attributes)`. Hand-written Erlang attribute, not what `bsc` would emit |
 | R1 | RECORDED `wayfinder/issues/51-…md` (Answer) | `ERL_LIBS` alone reaches Req 0.7.3 with no compiler change; `ensure_all_started(:req)` brought up 16 apps | **Not re-run** (no Req, no network) |
 | R2 | RECORDED `wayfinder/issues/50-…md` | A record-typed foreign return type-checks and then `function_clause`s at run time | **Not re-run** (no `bsc`). Relevant because a missing dep and a wrong declaration are both "accepted, then crash" |
@@ -59,9 +59,18 @@ nothing below says what `bsc` does today beyond the RECORDED rows.
   keyed on directory name (3g). The form that matches the `.app` name is `code:where_is_file("<app>.app")` (0.3-1.7 ms).
 - "Name is checkable, version is resolution": **supported.** The only version the BEAM exposes is the `.app` `vsn`
   string (read in 0.35 ms); comparing it to a range is a semver parser, which is resolution-shaped.
-- **The check the ticket wants (does the app that owns this module match the declared `app:`) is unsound** in four measured
-  cases: preloaded (3f), escript-embedded (3c), duplicate (3d), no-`.app` or unlisted (3e). **The check "the module is
-  present" is sound** in all of them, because it asks the question the call asks.
+- **The ownership check (does the app that owns this module match the declared name) has real and constructed failures.**
+  Demonstrated on real artefacts: preloaded modules (3f), escript-embedded modules (3c), and, per the verifier's survey of
+  1669 real OTP and Elixir beams, 31 beams in no `.app` `modules` list (asn1 20, diameter 8, erts 3). Constructed by me only:
+  duplicate module in two apps (3d), orphan beam with no `.app` (3e), dir name != app name (3g). The survey found 0
+  duplicates and 0 dir/app mismatches, and an `.app`-scan mapping was correct for 98% of real beams. So the ownership check
+  is usually right and unreliable at known edges; it is not "unsound in four real layouts".
+- **The module-present check is NOT sound under `bsc`.** `bsc` is an escript: inside it `code:which` of a module bundled in
+  `bsc` returns a path (3c) while a plain VM says `non_existing`. A check running in `bsc`'s VM can pass `using :bs_check {…}`
+  for a module the target program will not have, and sees `bsc`'s code path, not the program's. It also cannot know the
+  run-time `ERL_LIBS`.
+- `application:get_application/1` (3b) is useless only for **unloaded** apps; the verifier found it agrees with the `.app`
+  scan on 1638 of 1638 single-declared beams after `application:load`. I did not test that, and my dismissal stands untested.
 - **Neighbours split name from version.** Erlang: `applications` (names) in `.app.src`, versions in `rebar.config`.
   Elixir: `extra_applications` (names) vs `deps` (names and versions). Gleam: one `[dependencies]` table with ranges.
   None records the application *per foreign call site*. They all record it once per project.
@@ -70,7 +79,7 @@ nothing below says what `bsc` does today beyond the RECORDED rows.
 
 ## 3. Options
 
-Written as B# programs. The `using` spellings are illustrative and unchecked against the lexer.
+Written as B# programs. The spellings were checked against the lexer after verification: an app name must be an atom literal (`:req`); `in` is an existing keyword, `requires` is not.
 
 ### Option A: nothing in the source; `bsc` checks only the module
 
@@ -106,10 +115,10 @@ property (the source alone says what to install) is not delivered. It also can n
 ```csharp
 module Shop.Fetch
 
-using :'Elixir.Req' in req {
+using :'Elixir.Req' in :req {
     term new(list<(atom, term)> opts)
 }
-using :'Elixir.Req.Request' in req {
+using :'Elixir.Req.Request' in :req {
     term put_header(term req, binary k, binary v)
 }
 using :lists {                       // OTP: stdlib is implied, no application written
@@ -120,13 +129,12 @@ public term Build(binary token)
 Build(token) -> :'Elixir.Req.Request'.put_header(:'Elixir.Req'.new([]), "authorization", token)
 ```
 
-Refused: `using :'Elixir.Req' in reqq { … }` when `reqq.app` is not found: `application 'reqq' (named at line 3) not found`.
+Refused: `using :'Elixir.Req' in :reqq { … }` when `reqq.app` is not found: `application 'reqq' (named at line 3) not found`.
 
-**Compiler delta:** grammar `foreign_decl -> 'using' atom_lit 'in' atom_lit '{' …` (an optional third element of the
+**Compiler delta:** grammar `foreign_decl -> 'using' atom_lit 'in' atom_lit '{' …` (an `atom_lit` needs a leading colon, `bs_lexer.xrl:125`, so the app is `:req`, not `req`; `in` is already a keyword, `bs_lexer.xrl:54`; `requires` is not) (an optional third element of the
 `{foreign, Line, Mod, Sigs}` tuple, which `bs_check.erl:620,638,1076,1114` all pattern-match, so each needs touching);
 a pass doing `code:where_is_file("req.app")` per distinct app (0.34-1.7 ms); optional emission of the pairs as a
-`-bs_requires` attribute (52 bytes each, row 4b). Do **not** add an ownership check ("module belongs to app"): 3c-3f
-show it would be wrong or ambiguous in four real layouts.
+`-bs_requires` attribute (52 bytes each, row 4b). Do **not** add a hard ownership check ("module belongs to app"): it fails on preloaded, escript-embedded and unlisted modules (31 of 1669 real beams), and is ambiguous on duplicates (not seen in real trees). A warning-level check would be right about 98% of the time.
 
 **Strongest counterargument:** repetition, and the repetition can disagree. Two blocks on one application means two
 `in req`, and nothing stops `in req` on one and `in reqq` on the other, which the compiler cannot call wrong because
@@ -139,8 +147,8 @@ the `in req` stays, since "unused dependency" needs module-to-app mapping.
 ```csharp
 module Shop.Fetch
 
-requires req                          // name only; no version, no range
-requires jason
+requires :req                         // name only; no version, no range
+requires :jason
 
 using :'Elixir.Req' {
     term new(list<(atom, term)> opts)
@@ -153,7 +161,7 @@ using :'Elixir.Req.Request' {
 `index.bs` already holds the directory's shared `using` lines (LANGUAGE.md:187), so a module directory states its needs
 once in `index.bs`, and the per-file spelling is the exception.
 
-Refused: `requires req` with no `req.app` on the path: `application 'req' not found (required at line 3)`.
+Refused: `requires :req` with no `req.app` on the path: `application 'req' not found (required at line 3)`.
 
 **Compiler delta:** one new declaration `{requires, Line, App}` in the parser (like `using_decl`, `bs_parser.yrl:185`,
 which already "introduces no name"); the same `where_is_file` pass, run per `requires`, not per block; an
@@ -163,8 +171,8 @@ pattern matches stay as they are. This is the only option that reads like Erlang
 `extra_applications`.
 
 **Strongest counterargument:** the `requires` line and the `using` blocks that need it can drift apart, and the
-compiler cannot join them (the module-to-app mapping is unsound, 3c-3f). A reader at `using :'Elixir.Req.Request'`
-sees no app and scrolls up. A new keyword is added to a language that has just removed machinery (CLAUDE.md, 2026-09-05).
+compiler cannot join them (the module-to-app mapping fails at known edges, 3c-3f, so a join would warn wrongly on a minority). A reader at `using :'Elixir.Req.Request'`
+sees no app and scrolls up. A new keyword is added. (CLAUDE.md 2026-09-05 concerns removing the tracking layer, not language features; it argues restraint only generally.)
 A forgotten `requires` is not detected unless the module check from A is also run.
 
 ### Sub-decisions 2 and 3, under B or C
@@ -178,8 +186,7 @@ A forgotten `requires` is not detected unless the module check from A is also ru
 
 ## 4. Recommendation
 
-Option C, name only, with two diagnostics: **module absent** (from A, sound) and **application absent**, both warnings.
-No ownership check. Emit the names as a `.beam` attribute only if a consumer exists; there is none today, so I would not
+Option C, name only, with two warnings: **application absent** (`where_is_file("<app>.app")`) and, optionally, **module absent**, with the caveat that the module check runs in `bsc`'s own VM and so can give a false "present" for modules bundled in `bsc`. No hard ownership check. Re-evaluated after the verifier's real-world frequencies: the frequencies weaken the case against an ownership *warning* (it would be right ~98%), but they do not change C vs B, because the choice between them rests on repetition and drift, which no probe measured. C stands, with lower confidence than I first stated. Emit the names as a `.beam` attribute only if a consumer exists; there is none today, so I would not
 build that yet.
 
 ## 5. Limitations
@@ -196,6 +203,10 @@ build that yet.
 - **Unproven:** how a clean-room fleet's environment is set up; whether `ERL_LIBS` exists at `bsc` compile time there;
   whether any consumer of a `-bs_requires` attribute would exist.
 
+## Verification
+
+Independent verifier: `/home/user/beam-sharp/artifacts/verification-52.md`. Every measured output reproduced (modulo a timestamp and benchmark noise). Corrections applied above: Mix "unstable" (2d) restated as `mix.exs`-mtime tracking; module-present check no longer called sound; mapping failures split into real vs constructed with the verifier's 1669-beam survey; `in :req` / `requires :req` lexing fixed; benchmark ranges widened; `p1_missing.erl` no longer hard-codes the scratchpad; `p3/mkfix.sh` now builds `rootA`/`rootB`/`renamed`. Not changed: probe outputs. The `get_all_key={ok,"1"}` line in `p3e_dirname_vs_appname.txt` came from an unrecorded command and does not reproduce; the other lines do. Probes 1b, 2b and 2f are weak evidence for the thesis (they test OTP and Gleam behaviour, not provenance ownership).
+
 ## 6. Probe index
 
 From `/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/52` (or `/home/user/beam-sharp/artifacts/probes-52`; `.beam` and `_build` are not kept):
@@ -209,7 +220,8 @@ p2_elixir/run.sh
 (cd p3 && erlc p3_map.erl && erl -noshell -pa . -eval 'p3_map:main(),halt().')
 (cd p3 && ./mkfix.sh && escript es/emb.es)
 (cd p3 && erlc p3c_fixtures.erl && ERL_LIBS=$PWD/libs:/usr/lib/elixir/lib erl -noshell -pa . -eval 'p3c_fixtures:main(),halt().')
-(cd p3 && ERL_LIBS=$PWD/rootA:$PWD/rootB erl -noshell -eval 'io:format("~s~n",[code:which(dup)]),halt().')   # then swap
+(cd p3 && ./mkfix.sh  # builds rootA, rootB, renamed
+      ERL_LIBS=$PWD/rootA:$PWD/rootB erl -noshell -eval 'io:format("~s~n",[code:which(dup)]),halt().')   # then swap
 (cd p3 && ERL_LIBS=$PWD/renamed erl -noshell -eval 'io:format("~p ~p~n",[code:lib_dir(dirname),code:lib_dir(realname)]),halt().')
 (cd p4 && erlc p4_cost.erl && erl -noshell -pa . -eval 'p4_cost:main(),halt().')
 (cd p4 && erlc p4b.erl base.erl && erl -noshell -eval 'p4b:main(),halt().')

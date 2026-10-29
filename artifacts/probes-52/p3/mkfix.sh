@@ -33,3 +33,10 @@ main([Out]) ->
   ok = escript:create(Out, [shebang, {emu_args,"-escript main main"}, {archive, Z}]).
 EOE
 escript es/mk.escript es/emb.es
+# p3d: two roots each holding one app that contains `dup` (self-building; previously hand-made)
+rm -rf rootA rootB; mkdir -p rootA/appa/ebin rootB/appb/ebin
+erlc -o rootA/appa/ebin dup.erl; erlc -o rootB/appb/ebin dup.erl
+cp libs/appa/ebin/appa.app rootA/appa/ebin/; cp libs/appb/ebin/appb.app rootB/appb/ebin/
+# p3e: dir name != app name
+rm -rf renamed; mkdir -p renamed/dirname/ebin
+echo '{application,realname,[{description,"d"},{vsn,"1"},{modules,[]},{registered,[]},{applications,[kernel,stdlib]}]}.' > renamed/dirname/ebin/realname.app
