@@ -4,6 +4,8 @@ B exported-only   First([forged])              {returned,<<"free">>}
 C exported-only   Owed(Basket{forged})         {returned,<<"free">>}
 B every-function  First([forged])              {error,function_clause}
 C every-function  Owed(Basket{forged})         {error,function_clause}
+--- limit: right tag, wrong payload (tag test cannot see it, under ANY option)
+B every-function  First([tag-ok,bad payload])  {returned,<<"free">>}
 --- negative controls (valid input must pass under every option)
 A exported-only   Sum(good)                    {returned,42}
 B exported-only   First([good])                {returned,42}
