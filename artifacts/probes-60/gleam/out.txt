@@ -1,0 +1,24 @@
+## A: other package imports lib/internal/helper (internal_modules) and calls @internal api.secret
+   │
+10 │ fn hidden(x: Int) -> Int {
+   │ ^^^^^^^^^^^^^^^^^^^^^^^^ This private function is never used
+
+Hint: You can safely remove it.
+
+  Compiling app_internal
+   Compiled in 0.40s
+rc=0
+## B (control): other package calls a NON-pub fn
+error: Unknown module value
+  ┌─ /tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/60/gleam/app/src/app.gleam:4:7
+  │
+4 │   api.hidden(3)
+  │       ^^^^^^
+
+The module `lib/open/api` does not have a `hidden` value.
+## interface export: internal hidden?
+{'lib': ['total'], 'lib/open/api': ['open']}
+## generated erl exports
+-export([total/1]).
+-export([recompute/1]).
+-export([secret/1, open/1]).
