@@ -8,3 +8,5 @@ Probe 57 (negative literals in refinements). Run `./run_all.sh` (OTP 25 + yecc; 
 - erl/ : Erlang parse/lint/core/beam of `X >= -5`, `X >= 2-7`, patterns `-5`, `2-7`
 - ex/, ex_out.txt, ex_abstract_out.txt : Elixir AST and erlang abstract code
 - gl/gleam_neg.erl (+ neg/src/neg.gleam) : Gleam generated Erlang
+- real/real.escript, real/real_out.txt : the UNMODIFIED repo bs_types.erl + bs_check.erl compiled with `erlc +export_all` on OTP 25 (no source edit), bs_check:refine(int, Pred, 1) called on the real yecc parser's ASTs (base/g2/g1c)
+- gl/neg2 + gl/gleam_dneg_out.txt : Gleam `n >= - -5` -> syntax error

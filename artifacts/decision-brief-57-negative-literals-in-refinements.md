@@ -12,8 +12,8 @@ The ticket says `value >= -5` reaches the checker as `{e_op,'>=',{e_var,value},{
     value >= -5  ->  {e_op,1,'>=',{e_var,1,value},{e_neg,1,{e_int,1,5}}}
 
 `bs_check:comparison/1` (`bs_check.erl:5154-5155`) matches only `{e_int,_,K}`, so `{e_neg,..}` is still
-unreadable and the refusal still stands (RECORDED in ticket/38b, not re-run — bsc cannot be built here; the
-`comparison` modelled below is transcribed from those lines). But the fix has a **cheaper third site the ticket
+unreadable and the refusal still stands (now MEASURED-HERE against the real checker, probe 12: the unmodified `bs_check.erl`/`bs_types.erl` compile on OTP 25 with `erlc +export_all`;
+only `bsc` as a whole cannot be built, because its lexer needs OTP 27 leex). But the fix has a **cheaper third site the ticket
 does not list**: `negate/2` already folds a negated *float* literal (`-0.0` -> literal, `:947`). Folding an *int*
 literal there is one clause. There is no parser-conflict cost and no change to what `refinement` accepts.
 
@@ -38,7 +38,8 @@ literal there is one clause. There is no parser-conflict cost and no change to w
 | 7 | `neglit.escript` -> `neglit_out.txt` | emitter safe with negative `e_int` | `{integer,1,-5}`, `{op,'-',{integer,5}}` and `{op,'-',2,7}` all compile with no warnings to the same `is_ge ... {integer,-5}`. `bs_emit.erl:917` already receives negative `e_int` from `rel_expr` (`:669`, from `int_lit`) | MEASURED-HERE |
 | 8 | `erl/` (`ast_out.txt`, `e.S`, `p.S`) | Erlang | parser keeps `{op,1,'-',{integer,1,5}}` (`erl_parse.yrl:240` expr, `:270` pat_expr, `:519-520` prefix_op). Patterns accept constant arithmetic (`erl_lint.erl:1904-1907`, evaluated by `erl_eval:partial_eval`, `v3_core.erl:2057-2059`): `f(2-7)`, `f(- -3)` become `select_val -5`, `3`. Guards fold in the optimiser: `X >= 2 - 7` and `X >= - -5` -> `is_ge ... -5` / `5` (`sys_core_fold.erl:842-855` fold_call) | MEASURED-HERE |
 | 9 | `ex/`, `ex_out.txt`, `ex_abstract_out.txt` | Elixir 1.14 | `Code.string_to_quoted("x >= -5")` = `{:>=,_,[x,{:-,_,[5]}]}`: a general `:-` node, `-5` pattern -> `{:integer,6,-5}` (folded), guard `x >= -5` stays `{:op,_,:-,{:integer,5}}` (left to erlc), `x in -5..5` -> `{:integer,8,-5}`. No Elixir sources installed: behavioural evidence only | MEASURED-HERE |
-| 10 | `gl/gleam_neg.erl` | Gleam 1.12 | `-5` is a literal in both patterns and guards (`N@1 >= -5`), `2 - 7` is emitted as arithmetic `N@1 >= (2 - 7)`, `- -5` is a **syntax error** ("operator has no value on its right side"), `-n` on a variable is allowed. Hex unreachable; built with empty deps | MEASURED-HERE |
+| 10 | `gl/gleam_neg.erl` | Gleam 1.12 | `-5` is a literal in both patterns and guards (`N@1 >= -5`), `2 - 7` is emitted as arithmetic `N@1 >= (2 - 7)`, `- -5` is a **syntax error** ("operator has no value on its right side"; saved: `gl/neg2/src/neg.gleam`, `gl/gleam_dneg_out.txt`), `-n` on a variable is allowed. Hex unreachable; built with empty deps | MEASURED-HERE |
+| 12 | `real/real.escript` -> `real/real_out.txt` | the REAL `bs_check:refine(int, Pred, 1)` on the real parser's ASTs | base: rows 1-3, `-5 <= value`, `- -5`, `2 - 7`, `-x` raise `opaque_refinement`; rows 4-5 accepted. g2 (and g1c): `>= -5` = `int >= -5`, Delta = `-5..5`, row 3 = `int <= -1 \| int >= 1`; `- -5` = `int >= 5` (g1c refused); `2 - 7`, `-x` still refused. Agrees cell for cell with the model. Does not cover the `c1/c2/c3` checker readers (not repo code) | MEASURED-HERE (unmodified sources, no patch) |
 | 11 | Elm | — | Elm: not probed (not installed) | — |
 
 ### Matrix (probe 6, MODEL). Columns = parser variant / checker reader. Only the distinguishing columns shown
@@ -73,7 +74,7 @@ type Bad   = int where value >= -x                      // always refused; A rep
 Sign(n) when n <= -1 -> :neg                            // A: guard still unread (no coverage credit). B, C: read
 ```
 
-**A. Narrow the refinement grammar (ticket option 1, g1).** Compiler delta: replace `refinement -> expr_low`
+**A. Narrow the refinement grammar (ticket option 1, g1).** *Full cost.* The g1 I built admits only `lident op int_lit`; that is a floor, not the whole bill. `comparison/1` also reads atom and string comparands (`value == :ok`, F68, `bs_check.erl:5156-5164`), so a faithful narrow grammar must enumerate every comparand kind the checker reads, and gain a production each time the checker does — the drift the `expr_low` rule exists to avoid. Add the three new syntax errors, the changed `opaque_refinement` test, and the guards left unfixed. Compiler delta: replace `refinement -> expr_low`
 (`bs_parser.yrl:221`) with ~10 lines (`ref_or/ref_and/ref_cmp/ref_op`, using `int_lit`); no checker change.
 Evidence: 0 conflicts added (probe 2). Costs measured: `2 - 7`, `-x`, `WellFormed(value)` become *syntax* errors (probes 3, 5),
 so `opaque_refinement` can no longer fire for them and test `intervals_tests.erl:46-53` changes kind; guards stay unfixed (probe 4).
@@ -87,16 +88,21 @@ Evidence: matrix; guards fixed too, because guards share `alternatives/1`. Gramm
 
 **C. Fold at the parser action (`negate/2` + int clause; g2) — not in the ticket.** Compiler delta: one line beside `bs_parser.yrl:947`:
 `negate(_L, {e_int, IL, N}) -> {e_int, IL, -N};`. Mirrors the float fold already there. Evidence: 0 conflicts, rows 1-3 accepted, guards fixed, `- -5` -> `5`, `-x` still `e_neg` -> refused as before, emission identical (probes 2, 3, 7).
-Side effect to decide: `to_match`/`to_param` (`yrl:885, 933`) take `{e_int,..}`, so `(-5, a) = pair` and `fn (-5) => ..` become legal — as `(-1.5, a) = p` already is. That matches patterns (`int_lit`), but is a surface change nobody asked for.
+**Typing side effect (verifier finding 3; source-read, not measured):** `type_of({e_int,_,N})` is the singleton `range(N,N)` (`bs_check.erl:2956`); `type_of({e_neg,..})` is `int` (`:2963-2972`). After the fold every written `-5` is the singleton `-5..-5` instead of `int`. Upside: `Take(-5)` for a `Delta` parameter is accepted (today `int` is not a subtype of `-100..100`). Cost: inference, residuals and diagnostic text for any expression containing a literal negative change, and F2's closed-residual rule (a catch-all after a fully covered singleton is an error) can newly fire. The 1000+ test suite was not run to see what moves.
+Also decide: `to_match`/`to_param` (`yrl:885, 933`) take `{e_int,..}`, so `(-5, a) = pair` and `fn (-5) => ..` become legal — as `(-1.5, a) = p` already is. That matches patterns (`int_lit`), but is a surface change nobody asked for.
 *Strongest counterargument:* it only reads `-5`; `2 - 7` stays refused with a message that still says "comparisons on `value`". If David wants any arithmetic, C is not enough. A two-literal `0 - 5` is unrelated to the parser fold.
+
+## Verification
+
+Independent re-run: `artifacts/verification-57.md` — all probes byte-identical, no circularity found in probes 1-5, 7-9; it supplied the real-checker run (now probe 12), flagged the missing Gleam `- -5` evidence (added), the understated cost of A and the singleton typing under C (both added). Its citation nit: 38b is `wayfinder/prototypes/38b_divisor_expressiveness.sh:71-77`, a script, not a ticket.
 
 ## Recommendation
 
-C for the ticket's stated need (signed domains and writable residuals: rows 1-3, guards too), with the `opaque_refinement` text amended to say the bound is an integer literal. It is the smallest delta, adds zero conflicts, keeps one grammar for guards and refinements, and the float precedent is already in the file. Add B/c1 only if `-5` must also survive `e_neg` reaching the checker by other routes (none found). Do not choose A: it leaves the guard half open. Arithmetic folding (c2/c3) has no demonstrated user; ask for one first.
+C for the ticket's stated need (signed domains and writable residuals: rows 1-3, guards too), with the `opaque_refinement` text amended to say the bound is an integer literal. It is the smallest delta, adds zero conflicts, keeps one grammar for guards and refinements, and the float precedent is already in the file. Add B/c1 only if `-5` must also survive `e_neg` reaching the checker by other routes (none found). Do not choose A: it leaves the guard half open and must track the checker's comparand kinds. The recommendation survives the verification, with C's singleton-typing change now a named risk to check against the test suite before landing. Arithmetic folding (c2/c3) has no demonstrated user; ask for one first.
 
 ## Limitations
 
-- bsc cannot be built here; "refused today" for rows 1-3 is RECORDED (ticket, 38b `:73-77`), not re-run. The checker readers and interval algebra are my own model; a real `bs_types` may differ (e.g. `norm`, empty-refinement errors were not modelled).
+- `bsc` as a whole cannot be built here (lexer needs OTP 27 leex). `bs_check`/`bs_types` alone do run (probe 12), so rows 1-3 refusal is measured. The `c1/c2/c3` readers and probe 6's interval algebra are my own model, not repo code.
 - `bs_lexer` was not usable (OTP 27 leex); ASTs come from hand-made tokens. A lexer bug (e.g. `-5` lexed as one token) would not show; `bs_lexer.xrl:180` emits `-` separately.
 - yecc reported 6 conflicts for the baseline, F53's recorded 5 is stale; the OTP 25 yecc count may differ from OTP 28.
 - Test impact of A and C on the 1000+ test suite was not run. Elm not probed. Elixir/Gleam evidence is behavioural.
