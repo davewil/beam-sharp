@@ -18,8 +18,8 @@ Follow-ons, not asked yet: (b) whether the int test should widen to private func
 (c) whether `boundary_guards/5` should carry one scope rule instead of two.
 
 Where the asymmetry lives (RECORDED, `compiler/src/bs_emit.erl`):
-`guard_one/8` lines 280-300. The record branch (line 283) never reads `Public`. The `none when Public`
-branch (line 291) feeds `float_guard` and `int_guard`. `tag_test/3` is line 590 and emits
+`guard_one/8` lines 274-289. The record branch (line 276) never reads `Public`. The `none when Public`
+branch (line 283) feeds `float_guard` and `int_guard`. `tag_test/3` is line 590 and emits
 `map_get('Kind', X) == Tag` as a head guard.
 
 Premises I checked against the ticket text:
@@ -104,7 +104,7 @@ Which holes are already scheduled to close at the exported boundary (RECORDED):
 
 **Option 1. Both guards exported-only.** Tag test joins the int test.
 ```
-// compiler delta, bs_emit.erl guard_one/8 line 283
+// compiler delta, bs_emit.erl guard_one/8 line 276
 {ok, Tag} when Public -> ...      %% add the guard; a clause {ok,_} (private) -> {Pat, []}
 ```
 - Compiler delta: one clause plus a test pinning F3.9's wording. `Public` is already threaded.
@@ -115,12 +115,12 @@ Which holes are already scheduled to close at the exported boundary (RECORDED):
   18 states the guarantee as "never silently". Option 1 breaks it at B today and cannot repair B
   by 46's own rule. The ticket's "too narrow is a silent hole" is this row.
 
-**Option 2. Both guards on every function.** Drop `when Public` at line 291 too.
+**Option 2. Both guards on every function.** Drop `when Public` at line 283.
 ```
 %% guard_one/8: the `none when Public ->` clause becomes `none ->`
 ```
 - Compiler delta: delete one guard. Corpus: 66 explicit private sigs, 12 with a bare `int`.
-  F24.6 ("private Inner unguarded") flips, and `is_int_only` at bs_emit.erl:~176 (IntOnly
+  F24.6 ("private Inner unguarded") flips, and `IntOnly` at bs_emit.erl:181 (comment at 172-176
   comment: "or a checked B# call site does when it is private") must be rewritten.
 - Evidence: P2c says erlc removes a redundant private `is_integer` when every caller proves it,
   so the int half is near-free at machine level where the exported caller is guarded (P2c a),
