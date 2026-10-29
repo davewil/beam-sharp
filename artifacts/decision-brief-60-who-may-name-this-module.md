@@ -6,13 +6,13 @@ Probes: `artifacts/probes-60/` (map in its `README.md`). Repo HEAD read: `c07bb7
 ## Premises in the ticket that the evidence contradicts
 
 1. **"C#'s `internal` ... a subtree is not what `internal` means anywhere else."** Go's `internal/` is
-   exactly a directory-subtree rule, compiler-enforced (probe 5, MEASURED-HERE). `internal` is a false
+   exactly a directory-subtree rule, enforced by the go command's loader (probe 5, MEASURED-HERE). `internal` is a false
    friend against C# but a true friend against Go. The borrow-heuristic survey must say so.
 2. **`add_module_import/5` at `bs_check.erl:407-425`.** At HEAD the function is `add_module_import/3`
    at `bs_check.erl:509-523`. Commit `0b761f6` ("measured at") is not in this shallow clone, so the old
    line numbers cannot be checked. The substance holds: it reads only `exports` and `types` of the callee.
 3. **24 §2 says `RecomputeTotal/1` lands `unclassified` because "every function in an aggregate is
-   exported today".** F12 was amended 2026-08-17 (`F12-public-and-private.md:7-12`): an unmarked
+   exported today".** F12 was amended 2026-08-17 (`F12-public-and-private.md:11`): an unmarked
    signature is now **private**. A private helper in the same module is already unnameable from a test
    in another module (`private_callee`, `bs_check.erl:4470`). The residual 24 cares about is narrower:
    a helper that is `public` because a *sibling module* needs it, and so is nameable by everyone.
@@ -23,7 +23,7 @@ Probes: `artifacts/probes-60/` (map in its `README.md`). Repo HEAD read: `c07bb7
    *module-level* rule, which is sub-decision 3 below.
 
 No hit for `internal`, `friend`, `sealed`, `visible_to` in `CONTEXT.md` (zero lines). In tickets the
-only hits are `22:133,435`, `60:19,31-34`, `F12:185`, and `41:490` which draws `Internal/` as an
+hits *in the module-visibility sense* are `22:133,435`, `60:19,31-34`, `F12:185`, and `41:490` which draws `Internal/` as an
 example sub-module directory (F15:217-231 then corrected "sub-module" to mean a *file*, so that line
 is a stale illustration, but it means a directory called `Internal` already appears in a ticket).
 
@@ -48,14 +48,14 @@ dependency list (`using` lines "are its dependency list", 41 decisions entry, `L
 
 | # | Probe (dir under `probes-60/`) | Claim | Result | Label |
 |---|---|---|---|---|
-| 1 | `gleam/run.sh` | Gleam `internal_modules` + `@internal` stop another package | **No.** `app_internal` (path-dep on `lib`) imports `lib/internal/helper` and calls an `@internal` fn: compiles, rc 0, no warning. Generated `.erl` exports `recompute/1`, `secret/1` as ordinary exports. `export package-interface` and `docs build` omit them. Control: calling a non-`pub` fn is a hard error ("does not have a `hidden` value"). | MEASURED-HERE (path dependency only; hex dependency not probed) |
+| 1 | `gleam/run.sh` | Gleam `internal_modules` + `@internal` stop another package | **No.** `app_internal` (path-dep on `lib`) imports `lib/internal/helper` and calls an `@internal` fn: compiles, rc 0, no warning. Generated `.erl` exports `recompute/1`, `secret/1` as ordinary exports. `export package-interface` and `docs build` omit them. Control: calling a non-`pub` fn is a hard error ("does not have a `hidden` value"). | MEASURED-HERE (path dependency; verifier reproduced with a `git` dependency, also unenforced; hex not probed). The control tests private visibility, not `internal_modules`: it shows the harness can go red, nothing more. |
 | 2 | `elixir/run.sh` | `@moduledoc false` restricts naming | **No.** `Shop.Billing` calls `Shop.Orders.Internal.recompute/1`: no warning, runs, returns 2. Docs show `:hidden`. Calling an absent/`defp` fn is a *warning*, not an error (1.14), runtime `UndefinedFunctionError`. `mix xref callers` lists both callers. | MEASURED-HERE (no Elixir sources installed; behaviour only) |
 | 3 | `erlang/run.sh` | Enforcement is compile-time only | `erlc` accepts a call to a non-exported fn (rc 0). Runtime: `undef` with `[{shop_orders_internal,hidden,[1],[]},...]` (also via `apply/3`). The "friend" violation `shop_billing:charge/1` runs fine, returns 2. `error_handler:undefined_function/3` is the runtime gate (`kernel/src/error_handler.erl:39-46`): export-or-nothing, per module. | MEASURED-HERE |
-| 3b | `erlang/friend.escript` | A caller-side pass over beams is implementable | xref `"ME"` query yields module edges; 8-line rule reports `{shop_billing,shop_orders_internal}` as the only violation, plus xref's own `undefined_function_calls`. Needs `+debug_info`; without it xref returned `[]` silently (first run). | MEASURED-HERE |
-| 3c | `erlang/xref_time.escript` | Price of that pass on real beams | `/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin`: 87 modules, 735 module edges. Load 0.73–1.06 s (3 runs: 1057, 908, 881 ms), edge query 54–78 ms, prefix test over all edges 3–4 ms. Dominated by loading beams, not by the rule. | MEASURED-HERE |
+| 3b | `erlang/friend.escript` | A caller-side pass over beams is implementable | xref `"ME"` query yields module edges; 8-line rule (hard-codes the `_internal` suffix and the fixture is named to match, so the violation is fixture-matched: it shows xref exposes module edges, not that a real rule is expressible) reports `{shop_billing,shop_orders_internal}` as the only violation, plus xref's own `undefined_function_calls`. Needs `+debug_info`; without it xref returned `[]` silently (first run). | MEASURED-HERE |
+| 3c | `erlang/xref_time.escript` | Price of that pass on real beams | `/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin`: 87 modules, 735 module edges. Load 0.88–1.06 s in my 3 recorded runs (1057, 908, 881 ms); the verifier saw 0.94–1.67 s over 5 runs (machine variance), edge query 54–78 ms, prefix test over all edges 3–4 ms. Dominated by loading beams, not by the rule. | MEASURED-HERE |
 | 3d | `erlang/attrs/run.sh` | Attribute escape hatches | `-compile(export_all)` warns (`erl_lint.erl:258-259`); `nowarn_export_all` silences it; `-opaque` is a plain `{t,1}` at runtime. `-ignore_xref` is not in any OTP 25 source here (rebar3 feature) — not probed. | MEASURED-HERE |
-| 5 | `go/run.sh` | A subtree rule exists, enforced, and admits a test dir inside the subtree | `shop/orders/internal/pricing` imported from `orders` and from `orders/tests`: builds. From sibling `billing`: `use of internal package ... not allowed`, rc 1. | MEASURED-HERE (go 1.24.7; not in the brief's survey list, added because it is installed) |
-| 4 | `cost/model.escript` | Subtree check cost shape | See below. A MODEL in Erlang, **not** `bsc`. | MEASURED-HERE (model) |
+| 5 | `go/run.sh` | A subtree rule exists, enforced, and admits a test dir inside the subtree | `shop/orders/internal/pricing` imported from `orders` and from `orders/tests`: builds. From sibling `billing`: `use of internal package ... not allowed`, rc 1. | MEASURED-HERE. Enforced by the `go` command's package loader, not the compiler: the verifier compiled a "refused" package with `go tool compile` and a hand-built importcfg, rc 0. bsc is both loader and checker, so no such bypass unless `--api`/lenient mode skips it (go 1.24.7; not in the brief's survey list, added because it is installed) |
+| 4 | `cost/model.escript` | Subtree check cost shape | See below. A MODEL in Erlang, **not** `bsc`; linear-in-edges is true by construction (it iterates edges), and the all-pairs baseline is a strawman quadratic by construction. Treat as "no reason to fear", not evidence of bsc cost. | MEASURED-HERE (model) |
 | 6 | `bs_check.erl:4566`, `:509`, `bsc.erl:227-239` | One site; where scope data would live | World entry map is built at `bsc.erl:227-239` (`exports`, `private`, `types`...). No `scope` key exists. | RECORDED-NOT-RERUN (bsc cannot be built here) |
 
 **Cost model (probe 4).** Synthetic dotted module trees, 8 `using` edges per module, every third module
@@ -200,7 +200,7 @@ edit it as easily as it can create a directory.
   can carry a module-level declaration without a parser change.
 - The cost model is Erlang over synthetic names, not `bsc` over real World maps. It shows shape
   (linear in `using` edges) and not the real constant.
-- Gleam probed on a path dependency only; a hex dependency might differ (unreachable offline).
+- Gleam: path and git dependencies unenforced; a hex dependency might differ (unreachable offline).
 - Elixir internals not citable (no sources installed). Elm: not probed (not installed).
 - Go was probed, though not on the assigned survey list.
 - `0b761f6` not in the shallow clone, so the ticket's "measured at" line numbers are unverifiable.
@@ -219,3 +219,13 @@ sh $S/go/run.sh                           # GOPROXY=off, GOCACHE under the scrat
 escript $S/cost/model.escript             # ~40 s; the all-pairs N=1000 row dominates
 ```
 Scratchpad originals: `/tmp/claude-0/-home-user-beam-sharp/e462f18b-47b0-5059-896d-359d243949c1/scratchpad/probes/60/`.
+
+## Verification
+
+Independent verifier report: `artifacts/verification-60.md`. All probes reproduced exactly (xref load range
+differed with machine variance). It found and this brief now corrects: the F12 cite (line 11), the "only
+hits" grep wording, the unsupported 0.73 s figure, "compiler-enforced" for Go (it is the go command), the
+weak Gleam control, and the fixture-matched `friend.escript` and by-construction cost model. It also
+confirmed the Go subtree rule with an independent probe and the Gleam non-enforcement with a git dependency.
+Recommendation re-checked: it rests on the Go precedent and the single `using` check site, not on the cost
+model, so it stands as a lean, not a proof.
