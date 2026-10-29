@@ -1,0 +1,92 @@
+module 'e' ['g'/1,
+	    'h'/1,
+	    'k'/1,
+	    'module_info'/0,
+	    'module_info'/1,
+	    'p'/1]
+    attributes [%% Line 1
+		'file' =
+		    %% Line 1
+		    [{[101|[46|[101|[114|[108]]]]],1}]]
+'g'/1 =
+    %% Line 3
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'g',1}}] ) of
+	      <X>
+		  when let <_2> =
+			call 'erlang':'>='
+			    (( _0
+			       -| [{'function',{'g',1}}] ), -5)
+		    in  let <_3> =
+			    call 'erlang':'=<'
+				(( _0
+				   -| [{'function',{'g',1}}] ), 5)
+			in  call 'erlang':'and'
+				(_2, _3) ->
+		  'in'
+	      %% Line 4
+	      <_5> when 'true' ->
+		  'out'
+	    end
+	    -| [{'function',{'g',1}}] )
+      -| [{'function',{'g',1}}] )
+'p'/1 =
+    %% Line 5
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'p',1}}] ) of
+	      <-5> when 'true' ->
+		  'm5'
+	      %% Line 6
+	      <_2> when 'true' ->
+		  'o'
+	    end
+	    -| [{'function',{'p',1}}] )
+      -| [{'function',{'p',1}}] )
+'h'/1 =
+    %% Line 7
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'h',1}}] ) of
+	      <X>
+		  when call 'erlang':'>='
+			(( _0
+			   -| [{'function',{'h',1}}] ),
+			 -5) ->
+		  'ok'
+	      %% Line 8
+	      <_3> when 'true' ->
+		  'no'
+	    end
+	    -| [{'function',{'h',1}}] )
+      -| [{'function',{'h',1}}] )
+'k'/1 =
+    %% Line 9
+    ( fun (_0) ->
+	  ( case ( _0
+		   -| [{'function',{'k',1}}] ) of
+	      <X>
+		  when call 'erlang':'>='
+			(( _0
+			   -| [{'function',{'k',1}}] ),
+			 5) ->
+		  'ok'
+	      %% Line 10
+	      <_4> when 'true' ->
+		  'no'
+	    end
+	    -| [{'function',{'k',1}}] )
+      -| [{'function',{'k',1}}] )
+'module_info'/0 =
+    ( fun () ->
+	  call 'erlang':'get_module_info'
+	      ('e')
+      -| [{'function',{'module_info',0}}] )
+'module_info'/1 =
+    ( fun (_0) ->
+	  call 'erlang':'get_module_info'
+	      ('e', ( _0
+		      -| [{'function',{'module_info',1}}] ))
+      -| [{'function',{'module_info',1}}] )
+end

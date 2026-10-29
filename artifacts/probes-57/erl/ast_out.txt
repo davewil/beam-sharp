@@ -1,0 +1,21 @@
+{function,1,g,1,
+          [{clause,1,
+                   [{var,1,'X'}],
+                   [[{op,1,'>=',{var,1,'X'},{op,1,'-',{integer,1,5}}}]],
+                   [{atom,1,a}]}]}
+{function,1,p,1,[{clause,1,[{op,1,'-',{integer,1,5}}],[],[{atom,1,b}]}]}
+{function,1,q,1,
+          [{clause,1,
+                   [{var,1,'X'}],
+                   [[{op,1,'>=',
+                         {var,1,'X'},
+                         {op,1,'-',{integer,1,2},{integer,1,7}}}]],
+                   [{atom,1,c}]}]}
+{function,1,r,1,
+          [{clause,1,
+                   [{var,1,'X'}],
+                   [[{op,1,'>=',
+                         {var,1,'X'},
+                         {op,1,'-',{op,1,'-',{integer,1,5}}}}]],
+                   [{atom,1,d}]}]}
+-- unoptimised core (no_copt) written

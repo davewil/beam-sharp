@@ -1,0 +1,168 @@
+##### base
+value >= -5                      {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_int,1,5}}}
+value >= -5 and value <= 5       {e_op,1,'and',
+                                  {e_op,1,'>=',
+                                   {e_var,1,value},
+                                   {e_neg,1,{e_int,1,5}}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,5}}}
+value >= 1 or value <= -1        {e_op,1,'or',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,1}},
+                                  {e_op,1,'<=',
+                                   {e_var,1,value},
+                                   {e_neg,1,{e_int,1,1}}}}
+value >= - -5                    {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_neg,1,{e_int,1,5}}}}
+value >= 2 - 7                   {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,2},{e_int,1,7}}}
+value >= -( 5 )                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_int,1,5}}}
+value >= -x                      {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_var,1,x}}}
+value <= 3 or value >= 10        {e_op,1,'or',
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,3}},
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,10}}}
+value != 0                       {e_op,1,'!=',{e_var,1,value},{e_int,1,0}}
+-5 <= value                      {e_op,1,'<=',
+                                     {e_neg,1,{e_int,1,5}},
+                                     {e_var,1,value}}
+value >= 0 - 5                   {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,0},{e_int,1,5}}}
+value >= -5 * 2                  {e_op,1,'>=',
+                                  {e_var,1,value},
+                                  {e_neg,1,
+                                   {e_op,1,'*',{e_int,1,5},{e_int,1,2}}}}
+value >= 3 - -5                  {e_op,1,'>=',
+                                  {e_var,1,value},
+                                  {e_op,1,'-',
+                                   {e_int,1,3},
+                                   {e_neg,1,{e_int,1,5}}}}
+value >= -5 + 1                  {e_op,1,'>=',
+                                  {e_var,1,value},
+                                  {e_op,1,'+',
+                                   {e_neg,1,{e_int,1,5}},
+                                   {e_int,1,1}}}
+value >= -2147483648             {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_int,1,2147483648}}}
+value >= - 0                     {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_int,1,0}}}
+##### g1
+value >= -5                      {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}}
+value >= -5 and value <= 5       {e_op,1,'and',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,5}}}
+value >= 1 or value <= -1        {e_op,1,'or',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,1}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,-1}}}
+value >= - -5                    {error,
+                                     {1,g1_p,["syntax error before: ","'-'"]}}
+value >= 2 - 7                   {error,
+                                     {1,g1_p,["syntax error before: ","'-'"]}}
+value >= -( 5 )                  {error,
+                                     {1,g1_p,["syntax error before: ","'('"]}}
+value >= -x                      {error,
+                                     {1,g1_p,["syntax error before: ",["x"]]}}
+value <= 3 or value >= 10        {e_op,1,'or',
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,3}},
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,10}}}
+value != 0                       {e_op,1,'!=',{e_var,1,value},{e_int,1,0}}
+-5 <= value                      {e_op,1,'<=',{e_int,1,-5},{e_var,1,value}}
+value >= 0 - 5                   {error,
+                                     {1,g1_p,["syntax error before: ","'-'"]}}
+value >= -5 * 2                  {error,
+                                     {1,g1_p,["syntax error before: ","'*'"]}}
+value >= 3 - -5                  {error,
+                                     {1,g1_p,["syntax error before: ","'-'"]}}
+value >= -5 + 1                  {error,
+                                     {1,g1_p,["syntax error before: ","'+'"]}}
+value >= -2147483648             {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_int,1,-2147483648}}
+value >= - 0                     {e_op,1,'>=',{e_var,1,value},{e_int,1,0}}
+##### g1c
+value >= -5                      {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}}
+value >= -5 and value <= 5       {e_op,1,'and',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,5}}}
+value >= 1 or value <= -1        {e_op,1,'or',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,1}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,-1}}}
+value >= - -5                    {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_int,1,-5}}}
+value >= 2 - 7                   {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,2},{e_int,1,7}}}
+value >= -( 5 )                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_int,1,5}}}
+value >= -x                      {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_var,1,x}}}
+value <= 3 or value >= 10        {e_op,1,'or',
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,3}},
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,10}}}
+value != 0                       {e_op,1,'!=',{e_var,1,value},{e_int,1,0}}
+-5 <= value                      {e_op,1,'<=',{e_int,1,-5},{e_var,1,value}}
+value >= 0 - 5                   {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,0},{e_int,1,5}}}
+value >= -5 * 2                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'*',{e_int,1,-5},{e_int,1,2}}}
+value >= 3 - -5                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,3},{e_int,1,-5}}}
+value >= -5 + 1                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'+',{e_int,1,-5},{e_int,1,1}}}
+value >= -2147483648             {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_int,1,-2147483648}}
+value >= - 0                     {e_op,1,'>=',{e_var,1,value},{e_int,1,0}}
+##### g2
+value >= -5                      {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}}
+value >= -5 and value <= 5       {e_op,1,'and',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,5}}}
+value >= 1 or value <= -1        {e_op,1,'or',
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,1}},
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,-1}}}
+value >= - -5                    {e_op,1,'>=',{e_var,1,value},{e_int,1,5}}
+value >= 2 - 7                   {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,2},{e_int,1,7}}}
+value >= -( 5 )                  {e_op,1,'>=',{e_var,1,value},{e_int,1,-5}}
+value >= -x                      {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_neg,1,{e_var,1,x}}}
+value <= 3 or value >= 10        {e_op,1,'or',
+                                  {e_op,1,'<=',{e_var,1,value},{e_int,1,3}},
+                                  {e_op,1,'>=',{e_var,1,value},{e_int,1,10}}}
+value != 0                       {e_op,1,'!=',{e_var,1,value},{e_int,1,0}}
+-5 <= value                      {e_op,1,'<=',{e_int,1,-5},{e_var,1,value}}
+value >= 0 - 5                   {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,0},{e_int,1,5}}}
+value >= -5 * 2                  {e_op,1,'>=',
+                                  {e_var,1,value},
+                                  {e_neg,1,
+                                   {e_op,1,'*',{e_int,1,5},{e_int,1,2}}}}
+value >= 3 - -5                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'-',{e_int,1,3},{e_int,1,-5}}}
+value >= -5 + 1                  {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_op,1,'+',{e_int,1,-5},{e_int,1,1}}}
+value >= -2147483648             {e_op,1,'>=',
+                                     {e_var,1,value},
+                                     {e_int,1,-2147483648}}
+value >= - 0                     {e_op,1,'>=',{e_var,1,value},{e_int,1,0}}

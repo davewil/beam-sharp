@@ -1,0 +1,13 @@
+base_p {ok,[{module,1,'M'},
+            {type_refined,1,'Email',
+                          {t_builtin,int},
+                          {e_call,1,'WellFormed',[{e_var,1,value}]}}]}
+g1_p   {error,{1,g1_p,["syntax error before: ",["'WellFormed'"]]}}
+g2_p   {ok,[{module,1,'M'},
+            {type_refined,1,'Email',
+                          {t_builtin,int},
+                          {e_call,1,'WellFormed',[{e_var,1,value}]}}]}
+g1c_p  {ok,[{module,1,'M'},
+            {type_refined,1,'Email',
+                          {t_builtin,int},
+                          {e_call,1,'WellFormed',[{e_var,1,value}]}}]}

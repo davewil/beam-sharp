@@ -1,0 +1,19 @@
+x >= -5        {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [5]}]}
+-5             {:-, [line: 1], [5]}
+x in -5..5     {:in, [line: 1], [{:x, [line: 1], nil}, {:.., [line: 1], [{:-, [line: 1], [5]}, 5]}]}
+x >= 2 - 7     {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [2, 7]}]}
+x >= - -5      {:>=, [line: 1], [{:x, [line: 1], nil}, {:-, [line: 1], [{:-, [line: 1], [5]}]}]}
+-x             {:-, [line: 1], [{:x, [line: 1], nil}]}
+- 5            {:-, [line: 1], [5]}
+-(5)           {:-, [line: 1], [5]}
+{:in, :out, :ok, :no, :m5, :in, :out}
+** (FunctionClauseError) no function clause matching in anonymous fn/1 in :elixir_compiler_0.__FILE__/1    
+    
+    The following arguments were given to anonymous fn/1 in :elixir_compiler_0.__FILE__/1:
+    
+        # 1
+        {:error, :beam_lib, {:file_error, '.beam', :enoent}}
+    
+    q.exs:16: anonymous fn/1 in :elixir_compiler_0.__FILE__/1
+    q.exs:16: (file)
+    (elixir 1.14.0) lib/code.ex:1245: Code.require_file/2

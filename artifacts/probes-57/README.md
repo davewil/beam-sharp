@@ -1,0 +1,10 @@
+Probe 57 (negative literals in refinements). Run `./run_all.sh` (OTP 25 + yecc; Elixir 1.14 for ex/; gleam binary for gl/).
+- conflicts.escript/conflicts_out.txt : yecc shift/reduce counts, real bs_parser.yrl vs 3 grammar variants (var/*.yrl built by mkvariants.py)
+- parse_var.escript/variants_ast_out.txt, parse_out.txt : the REAL yecc-generated bs_parser fed hand-made token lists (bs_lexer needs OTP 27 leex, not used) -> exact ASTs
+- guard.escript/guard_out.txt : the same literal in a GUARD under each grammar variant
+- opaque.escript/opaque_out.txt : `WellFormed(value)` refinement under each grammar (intervals_tests.erl:46-53)
+- model.escript/model_out.txt : MODEL (not bsc) of bs_check comparison/1 under 4 comparand readers x 4 parsers; AST sizes; signed residual
+- neglit.escript/neglit_out.txt : erlc accepts {integer,L,-5} and {op,'-',..} identically (bs_emit.erl:917, 1067)
+- erl/ : Erlang parse/lint/core/beam of `X >= -5`, `X >= 2-7`, patterns `-5`, `2-7`
+- ex/, ex_out.txt, ex_abstract_out.txt : Elixir AST and erlang abstract code
+- gl/gleam_neg.erl (+ neg/src/neg.gleam) : Gleam generated Erlang

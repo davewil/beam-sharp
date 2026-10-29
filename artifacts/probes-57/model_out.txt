@@ -1,0 +1,26 @@
+refinement                   base/cur    base/c1     base/c2     base/c3     g1/cur      g1/c1       g1/c2       g1/c3       g2/cur      g2/c1       g2/c2       g2/c3       g1c/cur     g1c/c1      g1c/c2      g1c/c3     
+value >= -5                  REFUSED     >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5          % ticket row 1
+value >= -5 and value <= 5   REFUSED     -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5       -5..5         % ticket row 2 = type Delta
+value >= 1 or value <= -1    REFUSED     <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1    % ticket row 3
+value <= 3 or value >= 10    <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10  <=3 | >=10    % ticket row 4
+value != 0                   <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1  <=-1 | >=1    % ticket row 5
+-5 <= value                  REFUSED     >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5        >=-5          % flipped
+value >= - -5                REFUSED     REFUSED     >=5         >=5         SYNTAX      SYNTAX      SYNTAX      SYNTAX      >=5         >=5         >=5         >=5         REFUSED     >=5         >=5         >=5           % double negation
+value >= 2 - 7               REFUSED     REFUSED     >=-5        >=-5        SYNTAX      SYNTAX      SYNTAX      SYNTAX      REFUSED     REFUSED     >=-5        >=-5        REFUSED     REFUSED     >=-5        >=-5          % type Off
+value >= 0 - 5               REFUSED     REFUSED     >=-5        >=-5        SYNTAX      SYNTAX      SYNTAX      SYNTAX      REFUSED     REFUSED     >=-5        >=-5        REFUSED     REFUSED     >=-5        >=-5          % 0 - 5
+value >= -5 * 2              REFUSED     REFUSED     >=-10       >=-10       SYNTAX      SYNTAX      SYNTAX      SYNTAX      REFUSED     REFUSED     >=-10       >=-10       REFUSED     REFUSED     >=-10       >=-10         % neg of product
+value >= 10 / 3              REFUSED     REFUSED     >=3         REFUSED     SYNTAX      SYNTAX      SYNTAX      SYNTAX      REFUSED     REFUSED     >=3         REFUSED     REFUSED     REFUSED     >=3         REFUSED       % int division
+value >= -x                  REFUSED     REFUSED     REFUSED     REFUSED     SYNTAX      SYNTAX      SYNTAX      SYNTAX      REFUSED     REFUSED     REFUSED     REFUSED     REFUSED     REFUSED     REFUSED     REFUSED       % non-constant
+value >= -( 5 )              REFUSED     >=-5        >=-5        >=-5        SYNTAX      SYNTAX      SYNTAX      SYNTAX      >=-5        >=-5        >=-5        >=-5        REFUSED     >=-5        >=-5        >=-5          % parenthesised
+
+-- AST size in words (erts_debug:flat_size) of `value >= -5 and value <= 5`
+  base     38 words
+  g1       34 words
+  g2       34 words
+  g1c      34 words
+
+-- signed residual: subtract(-10..10, 0)
+  -10..-1 | 1..10
+  as refinement it needs: value >= -10 and value <= -1 or value >= 1 and value <= 10
+  that residual spelled as a refinement under cur: opaque ; under c1: -10..-1 | 1..10
+  c1 round-trip equals residual: true

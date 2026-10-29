@@ -1,0 +1,9 @@
+{integer,1,-5} (G2/g1c)            warnings=[]  is_ge=[{test,is_ge,
+                                                        {f,3},
+                                                        [{x,0},{integer,-5}]}]
+{op,1,'-',{integer,1,5}} (e_neg)   warnings=[]  is_ge=[{test,is_ge,
+                                                        {f,3},
+                                                        [{x,0},{integer,-5}]}]
+{op,'-',2,7} (arith)               warnings=[]  is_ge=[{test,is_ge,
+                                                        {f,3},
+                                                        [{x,0},{integer,-5}]}]
