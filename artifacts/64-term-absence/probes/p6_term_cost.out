@@ -1,0 +1,9 @@
+V                                    bare {ok,V}  delta  ext_sz+
+atom                                    0      3      3        7   {some,V}=3
+small int                               0      3      3        7   {some,V}=3
+binary <<"hello">> (heap bin)           6      9      3        7   {some,V}=9
+binary 100B (refc, off-heap)            6      9      3        7   {some,V}=9
+5-elem list                            10     13      3        7   {some,V}=13
+nested map                             28     31      3        7   {some,V}=31
+existing {ok,_} tuple (reuse)           3      6      3        7   {some,V}=6
+ASSERT delta == 3 words (arity word + tag slot + value slot) and {some,V} == {ok,V}: holds

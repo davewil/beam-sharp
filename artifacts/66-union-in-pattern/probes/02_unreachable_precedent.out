@@ -1,0 +1,48 @@
+== erlc shadowed clause ==
+02_src/shadow.erl:5:1: Warning: this clause cannot match because a previous clause at line 4 always matches
+%    5| f(#{'Kind' := 'T.A'}) -> a2;
+%     | ^
+rc=0
+PASS  erlc shadowed: exit 0 (observed=0)
+PASS  erlc shadowed: warning emitted (observed=1)
+== erlc +warnings_as_errors shadowed ==
+compile: warnings being treated as errors
+02_src/shadow.erl:5:1: this clause cannot match because a previous clause at line 4 always matches
+%    5| f(#{'Kind' := 'T.A'}) -> a2;
+%     | ^
+rc=1
+PASS  erlc opt-in strict: exit nonzero (observed=nonzero)
+== erlc clause outside the -spec (exemplar 5 shape) ==
+
+rc=0
+PASS  erlc vacuous-vs-spec: exit 0 (observed=0)
+PASS  erlc vacuous-vs-spec: NO warning (compiler does not read -spec) (observed=0)
+== dialyzer clause outside the -spec ==
+  Checking whether the PLT /tmp/p66.plt is up-to-date... yes
+  Proceeding with analysis... done in 0m0.13s
+done (passed successfully)
+rc=0
+PASS  dialyzer default flags: SILENT on a clause outside the spec (claim under test) (observed=0/0)
+-- with -Wunderspecs --
+  Checking whether the PLT /tmp/p66.plt is up-to-date... yes
+  Proceeding with analysis... done in 0m0.11s
+done (passed successfully)
+rc=0
+(informational: whatever -Wunderspecs said is recorded above; it is about the SPEC being narrower than the code, not a vacuous clause)
+== Elixir 1.14.0 shadowed clause ==
+warning: this clause cannot match because a previous clause at line 2 always matches
+  /home/user/beam-sharp/artifacts/66-union-in-pattern/probes/02_src/shadow.ex:3
+rc=0
+PASS  elixirc shadowed: exit 0 (observed=0)
+PASS  elixirc shadowed: warning (observed=1)
+== Elixir 1.14.0 shadowed, --warnings-as-errors ==
+warning: this clause cannot match because a previous clause at line 2 always matches
+  /home/user/beam-sharp/artifacts/66-union-in-pattern/probes/02_src/shadow.ex:3
+
+Compilation failed due to warnings while using the --warnings-as-errors option
+rc=1
+PASS  elixirc strict: exit nonzero (observed=nonzero)
+== Elixir 1.14.0 clause outside @spec ==
+
+rc=0
+PASS  elixirc vacuous-vs-spec: exit 0, no warning (observed=0/0)

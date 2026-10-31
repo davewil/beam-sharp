@@ -1,0 +1,5 @@
+o.Id                    {:raised, CompileError}
+o."Id"                  {:ok, 7}
+o[:Id]                  {:ok, 7}
+Map.fetch!(o, :Id)      {:ok, 7}
+%{Id: i} = o; i         {:ok, 7}

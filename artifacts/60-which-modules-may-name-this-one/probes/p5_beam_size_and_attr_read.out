@@ -1,0 +1,5 @@
+N=1000 modules x 10 fns
+baseline        avg 799.6 bytes/beam, compile 1412.2 ms total
+module-level attr  +32.0 bytes/beam, compile 1297.4 ms total
+per-fn attr (10 fns) +248.0 bytes/beam, compile 1299.5 ms total
+read attribute back from 1000 beams: 8.0 ms (8.0 us each)

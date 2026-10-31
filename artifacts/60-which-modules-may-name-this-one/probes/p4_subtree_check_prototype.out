@@ -1,0 +1,15 @@
+N=101 modules, 508 edges, 9 planted-or-random violations
+  EDGE check 2.43 ms (matches truth: true)
+  SITE check 23.67 ms over 4040 call sites (matches truth: true)
+  negative control ShopX.G0.Spy -> Shop.Top (internal_to Shop) flagged (must be true): true
+  mutant naive-string-prefix agrees with truth (must be false: ShopX and Shop.G10-vs-Shop.G1 escape it): false
+N=1001 modules, 5106 edges, 108 planted-or-random violations
+  EDGE check 21.66 ms (matches truth: true)
+  SITE check 385.14 ms over 40040 call sites (matches truth: true)
+  negative control ShopX.G0.Spy -> Shop.Top (internal_to Shop) flagged (must be true): true
+  mutant naive-string-prefix agrees with truth (must be false: ShopX and Shop.G10-vs-Shop.G1 escape it): false
+N=10001 modules, 51045 edges, 1048 planted-or-random violations
+  EDGE check 275.93 ms (matches truth: true)
+  SITE check 3803.28 ms over 400040 call sites (matches truth: true)
+  negative control ShopX.G0.Spy -> Shop.Top (internal_to Shop) flagged (must be true): true
+  mutant naive-string-prefix agrees with truth (must be false: ShopX and Shop.G10-vs-Shop.G1 escape it): false

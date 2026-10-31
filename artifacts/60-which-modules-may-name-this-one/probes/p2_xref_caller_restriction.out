@@ -1,0 +1,12 @@
+N=100 modules (+10 internal cores); erlc total 275.1 ms
+xref add_directory 21.8 ms; query ME 6.8 ms; edges=110
+planted violations=10, found by xref+subtree filter=10, equal=true
+native-language restriction (ME || (Mod) shop_g0_core, callee-restricted) returned 11 edges in 0.1 ms (callers of one core)
+N=1000 modules (+100 internal cores); erlc total 1753.8 ms
+xref add_directory 113.4 ms; query ME 12.0 ms; edges=1100
+planted violations=100, found by xref+subtree filter=100, equal=true
+native-language restriction (ME || (Mod) shop_g0_core, callee-restricted) returned 11 edges in 0.2 ms (callers of one core)
+N=3000 modules (+300 internal cores); erlc total 4863.2 ms
+xref add_directory 446.4 ms; query ME 46.2 ms; edges=3300
+planted violations=300, found by xref+subtree filter=300, equal=true
+native-language restriction (ME || (Mod) shop_g0_core, callee-restricted) returned 11 edges in 0.3 ms (callers of one core)

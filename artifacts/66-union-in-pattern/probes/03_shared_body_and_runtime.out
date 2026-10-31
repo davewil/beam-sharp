@@ -1,0 +1,22 @@
+otp 25, schedulers online 4, jit=jit
+
+A. body copies in asm (N=20 members; B = phash2 calls in one body)
+B=1   expected-if-one-body=1    [{dup,20},
+                                 {guard_semi,1},
+                                 {guard_orelse,1},
+                                 {outline,1}]
+B=8   expected-if-one-body=8    [{dup,160},
+                                 {guard_semi,8},
+                                 {guard_orelse,8},
+                                 {outline,8}]
+
+B. run-time, 20 members, 100000 outer iterations x 20 inputs per rep, 25 reps (microseconds)
+B    variant             min    median       max  spread%
+1    dup               74977     77752    116327     53.2
+1    guard_semi        71981     74036    122697     68.5
+1    guard_orelse      70543     75057    122013     68.6
+1    outline           71977     75971    136104     84.4
+8    dup              432847    565542    694684     46.3
+8    guard_semi       472412    551883    661289     34.2
+8    guard_orelse     466575    563071    697956     41.1
+8    outline          436136    554608    626420     34.3

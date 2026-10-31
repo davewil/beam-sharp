@@ -1,0 +1,11 @@
+  unicode:unicode_binary/0 (prim_file.erl:78:38)
+ done in 0m2.35s
+done (passed successfully)
+  Checking whether the PLT erts.plt is up-to-date... yes
+  Proceeding with analysis...
+p4_spec.erl:21:9: The pattern 
+          {'error', _} can never match the type 
+          {'ok', _}
+ done in 0m0.13s
+done (warnings were emitted)
+dialyzer exit=2

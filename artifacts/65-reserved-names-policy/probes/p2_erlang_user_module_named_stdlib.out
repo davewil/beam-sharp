@@ -1,0 +1,64 @@
+OTP 25
+=== A: erlc each (does the compiler object to the name?)
+erlc lists exit=0
+erlc maps exit=0
+erlc string exit=0
+=== B: add user dir to the FRONT of the path, then query: which file does the code server use; can we load_file?
+lists: module_loaded=true sticky=true which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam"
+  code:load_file(lists) -> {error,sticky_directory}
+  after: exports has marker? false
+=ERROR REPORT==== 30-Oct-2026::23:10:06.155809 ===
+Can't load module 'lists' that resides in sticky dir
+
+maps: module_loaded=true sticky=true which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/maps.beam"
+  code:load_file(maps) -> {error,sticky_directory}
+  after: exports has marker? false
+=ERROR REPORT==== 30-Oct-2026::23:10:06.156542 ===
+Can't load module 'maps' that resides in sticky dir
+
+string: module_loaded=true sticky=true which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/string.beam"
+  code:load_file(string) -> {error,sticky_directory}
+  after: exports has marker? false
+=ERROR REPORT==== 30-Oct-2026::23:10:06.157270 ===
+Can't load module 'string' that resides in sticky dir
+
+=== C: purge+load_binary of the user's bytes (the 'force it' path)
+load_binary(lists) -> {error,sticky_directory}
+=ERROR REPORT==== 30-Oct-2026::23:10:06.372707 ===
+Can't load module 'lists' that resides in sticky dir
+
+load_binary(maps) -> {error,sticky_directory}
+=ERROR REPORT==== 30-Oct-2026::23:10:06.381725 ===
+Can't load module 'maps' that resides in sticky dir
+
+load_binary(string) -> {error,sticky_directory}
+=== D: 'release-like' path: fresh VM started with -pa user (user first) and -pz (user last); which one do lists/maps/string resolve to?
+--- erl -pa user
+{"Kernel pid terminated",logger,{badarg,[{ets,lookup,[ac_tab,{env,kernel,error_logger_format_depth}],[{error_info,#{cause=>id,module=>erl_stdlib_errors}}]},{app
+Kernel pid terminated (logger) ({badarg,[{ets,lookup,[ac_tab,{_}],[{_}]},{application_controller,get_env,2,[{_},{_}]},{error_logger,get_format_depth,0,[{_},{_}]
+
+Crash dump is being written to: erl_crash.dump...done
+   vm exit status: 1
+--- erl -pz user
+lists which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/lists.beam"  has marker=false  sticky=true
+maps which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/maps.beam"  has marker=false  sticky=true
+string which="/usr/lib/erlang/lib/stdlib-4.3.1.3/ebin/string.beam"  has marker=false  sticky=true
+lists:reverse([1,2]) works? [2,1]
+   vm exit status: 0
+=== E: boot-script/release-like: -mode embedded (loads everything at boot from the release's own path list)
+(no logger present) unexpected logger message: {log,error,"Error in process ~p with exit value:~n~p~n",[<0.198.0>,{badarg,[{ets,lookup,[ac_tab,{env,kernel,error
+{"Kernel pid terminated",logger,{badarg,[{ets,lookup,[ac_tab,{env,kernel,error_logger_format_depth}],[{error_info,#{cause=>id,module=>erl_stdlib_errors}}]},{app
+Kernel pid terminated (logger) ({badarg,[{ets,lookup,[ac_tab,{_}],[{_}]},{application_controller,get_env,2,[{_},{_}]},{error_logger,get_format_depth,0,[{_},{_}]
+
+   vm exit status: 1
+=== F: -compile(no_auto_import) / auto-import: a user module named like a BIF-bearing module? (erlang is the only auto-import source)
+erlc exit=0
+user/erlang_clash2.erl:3:8: ambiguous call of overridden pre R14 auto-imported BIF length/1
+ - use erlang:length/1 or "-compile({no_auto_import,[length/1]})." to resolve name clash
+%    3| t() -> length([1,2]).
+%     |        ^
+
+erlc (no no_auto_import, local length/1 defined+auto-imported call) exit=1
+=== G: control for D/E: -pa with a dir holding only a harmless module (proves the boot crash in D is the shadowing, not -pa)
+harmless:x() = ok
+   vm exit status: 0

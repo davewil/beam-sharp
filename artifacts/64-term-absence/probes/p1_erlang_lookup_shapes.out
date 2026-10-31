@@ -1,0 +1,18 @@
+maps:find(k,M)  [absent]                         -> error
+maps:find(k,M)  [stored nothing]                 -> {ok,nothing}
+maps:find(k,M)  [stored error]                   -> {ok,error}
+maps:get(k,M,nothing) [absent]                   -> nothing
+maps:get(k,M,nothing) [stored nothing]           -> nothing
+maps:get(k,M,undefined) [absent]                 -> undefined
+maps:get(k,M,undefined) [stored undefined]       -> undefined
+proplists:get_value(k,L) [absent]                -> undefined
+proplists:get_value(k,L) [stored undefined]      -> undefined
+dict:find(k,D)  [absent]                         -> error
+dict:find(k,D)  [stored nothing]                 -> {ok,nothing}
+ASSERT untagged maps:get/3: absent == stored-nothing                            holds
+ASSERT untagged maps:get/3 (undefined): absent == stored-undefined              holds
+ASSERT proplists:get_value/2: absent == stored-undefined                        holds
+ASSERT maps:find/2: absent /= stored-nothing                                    holds
+ASSERT maps:find/2: absent /= stored-error                                      holds
+ASSERT dict:find/2: absent /= stored-nothing                                    holds
+ASSERT maps:find/2 absent is bare atom error (the atom a map<string,term> may s holds

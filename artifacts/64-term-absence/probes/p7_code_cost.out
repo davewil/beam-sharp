@@ -1,0 +1,24 @@
+beam bytes:   bare=1912  tagged=2056
+instructions in run/1:   bare=205  tagged=225
+-- ops per site in run/1 (histogram of opcode names, bare then tagged) --
+[bare]
+     59 {move
+     40 {call
+     21 {test_heap
+     20 {test
+     20 {put_tuple2
+     20 {put_list
+     20 {jump
+      1 {init_yregs
+[tagged]
+     59 {move
+     40 {call
+     21 {test_heap
+     20 {test
+     20 {put_tuple2
+     20 {put_list
+     20 {jump
+     20 {get_tuple_element
+run/1 x200000 us (sorted, 5 reps): bare=[85235,89531,91881,92450,94684] tagged=[99996,102199,102872,121587,130397]
+median: bare=91881 tagged=102872 ratio=1.12
+ASSERT holds: tagged instructions >= bare

@@ -1,0 +1,31 @@
+--- control (erlc rc=0)
+    
+--- acronym_collision (erlc rc=1)
+    acronym_collision.erl:6:1: function get_id/1 already defined
+    %    6| get_id(X) -> 'GetId'(X).
+    %     | ^
+    
+    acronym_collision.erl:3:2: Warning: function get_id/1 already exported
+    %    3| -export(['GetID'/1, 'GetId'/1, get_id/1, get_id/1]).
+    %     |  ^
+--- module_info_collision (erlc rc=1)
+    module_info_collision.erl:5:1: function module_info/0 already defined
+    %    5| module_info() -> 'ModuleInfo'().
+    %     | ^
+    
+    module_info_collision.erl:3:2: Warning: function module_info/0 already exported
+    %    3| -export(['ModuleInfo'/0, module_info/0]).
+    %     |  ^
+--- callback_double_define (erlc rc=1)
+    callback_double_define.erl:9:1: function init/1 already defined
+    %    9| init(S) -> {ok, S}.
+    %     | ^
+--- callback_ok (erlc rc=0)
+    
+--- arity_distinct (erlc rc=0)
+    
+--- export_missing (erlc rc=1)
+    export_missing.erl:3:2: function new/1 undefined
+    %    3| -export(['New'/1, new/1]).
+    %     |  ^
+ALL ASSERTIONS HELD

@@ -1,0 +1,37 @@
+--- Map.fetch/2 ---
+Fetches the value for a specific `key` in the given `map`.
+
+If `map` contains the given `key` then its value is returned in the shape of `{:ok, value}`.
+If `map` doesn't contain `key`, `:error` is returned.
+
+Inlined by the compiler.
+
+## Examples
+
+    iex> Map.fetch(%{a: 1}, :a)
+    {:ok, 1}
+    iex> Map.fetch(%{a: 1}, :b)
+    :error
+
+
+--- Map.get/3 ---
+Gets the value for a specific `key` in `map`.
+
+If `key` is present in `map` then its value `value` is
+returned. Otherwise, `default` is returned.
+
+If `default` is not provided, `nil` is used.
+
+## Examples
+
+    iex> Map.get(%{}, :a)
+    nil
+    iex> Map.get(%{a: 1}, :a)
+    1
+    iex> Map.get(%{a: 1}, :b)
+    nil
+    iex> Map.get(%{a: 1}, :b, 3)
+    3
+
+
+ASSERT docs mention default/nil semantics: holds

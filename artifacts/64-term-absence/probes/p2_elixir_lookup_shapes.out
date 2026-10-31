@@ -1,0 +1,24 @@
+Map.fetch absent                                -> :error
+Map.fetch stored nil                            -> {:ok, nil}
+Map.fetch stored :nothing                       -> {:ok, :nothing}
+Map.fetch stored :error                         -> {:ok, :error}
+Map.get/2 absent                                -> nil
+Map.get/2 stored nil                            -> nil
+Map.get/3 default :nothing, absent              -> :nothing
+Map.get/3 default :nothing, stored :nothing     -> :nothing
+Access.get absent                               -> nil
+Access.get stored nil                           -> nil
+Keyword.get absent                              -> nil
+Keyword.get stored nil                          -> nil
+Keyword.fetch absent                            -> :error
+Keyword.fetch stored nil                        -> {:ok, nil}
+Map.has_key? absent                             -> false
+Map.has_key? stored nil                         -> true
+ASSERT Map.get/2: absent == stored nil                               holds
+ASSERT Access.get: absent == stored nil                              holds
+ASSERT Keyword.get: absent == stored nil                             holds
+ASSERT Map.get/3 default :nothing: absent == stored :nothing         holds
+ASSERT Map.fetch: absent /= stored nil                               holds
+ASSERT Map.fetch: absent /= stored :error                            holds
+ASSERT Keyword.fetch: absent /= stored nil                           holds
+ASSERT Map.has_key? separates absent from stored nil                 holds

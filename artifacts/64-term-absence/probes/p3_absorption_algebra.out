@@ -1,0 +1,35 @@
+option<int>                                              success=integer()                          failure='nothing'              absorbed=false cofinite-atom-top=false
+                                                         T|F prints as 'nothing' | integer()
+option<atom>                                             success=atom()                             failure='nothing'              absorbed=true  cofinite-atom-top=true
+                                                         T|F prints as atom()
+option<term>                                             success=any()                              failure='nothing'              absorbed=true  cofinite-atom-top=true
+                                                         T|F prints as any()
+option<option<int>>                                      success='nothing' | integer()              failure='nothing'              absorbed=true  cofinite-atom-top=false
+                                                         T|F prints as 'nothing' | integer()
+option<bool>                                             success=boolean()                          failure='nothing'              absorbed=false cofinite-atom-top=false
+                                                         T|F prints as 'false' | 'nothing' | 'true'
+result<int, binary>                                      success=integer()                          failure={'error',binary()}     absorbed=false cofinite-atom-top=false
+                                                         T|F prints as integer() | {'error',binary()}
+result<int, term>      [E = term]                        success=integer()                          failure={'error',_}            absorbed=false cofinite-atom-top=false
+                                                         T|F prints as integer() | {'error',_}
+result<atom, term>     [E = term]                        success=atom()                             failure={'error',_}            absorbed=false cofinite-atom-top=true
+                                                         T|F prints as atom() | {'error',_}
+result<term, binary>   [T = term]                        success=any()                              failure={'error',binary()}     absorbed=true  cofinite-atom-top=true
+                                                         T|F prints as any()
+result<term, term>                                       success=any()                              failure={'error',_}            absorbed=true  cofinite-atom-top=true
+                                                         T|F prints as any()
+result<(atom,binary),binary>                             success={atom(),binary()}                  failure={'error',binary()}     absorbed=true  cofinite-atom-top=false
+                                                         T|F prints as {atom(),binary()}
+result<tuple, atom>                                      success=tuple()                            failure={'error',atom()}       absorbed=true  cofinite-atom-top=false
+                                                         T|F prints as tuple()
+result<result<int,term>, term>  [nested, E = term]       success=integer() | {'error',_}            failure={'error',_}            absorbed=true  cofinite-atom-top=false
+                                                         T|F prints as integer() | {'error',_}
+result<result<int,atom>, binary> [nested, distinct E]    success=integer() | {'error',atom()}       failure={'error',binary()}     absorbed=false cofinite-atom-top=false
+                                                         T|F prints as integer() | {'error',atom() | binary()}
+(:ok, term) | :absent  [48 tagged]                       success={'ok',_}                           failure='absent'               absorbed=false cofinite-atom-top=false
+                                                         T|F prints as 'absent' | {'ok',_}
+
+rows F31's predicate refuses (absorbed=true) with NO cofinite atom top (rule d would accept):
+  ["option<option<int>>","result<(atom,binary),binary>","result<tuple, atom>",
+   "result<result<int,term>, term>  [nested, E = term]"]
+RULE (d) REFUTED by 4 row(s)

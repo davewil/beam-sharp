@@ -1,0 +1,83 @@
+B    variant         N |     beam stripped  asm_ins  core_ln sel_val      opts
+1    dup             2 |      912      504       53      116       1   default
+1    dup             5 |     1072      559       77      176       1   default
+1    dup            10 |     1376      652      117      276       1   default
+1    dup            20 |     1960      821      197      476       1   default
+1    guard_semi      2 |      884      494       45      104       1   default
+1    guard_semi      5 |      908      509       45      122       1   default
+1    guard_semi     10 |      952      536       45      152       1   default
+1    guard_semi     20 |     1040      588       45      212       1   default
+1    guard_orelse    2 |      888      498       45      128       1   default
+1    guard_orelse    5 |      912      511       45      188       1   default
+1    guard_orelse   10 |      956      536       45      288       1   default
+1    guard_orelse   20 |     1044      590       45      488       1   default
+1    outline         2 |      916      512       48      106       1   default
+1    outline         5 |      936      526       48      118       1   default
+1    outline        10 |      984      557       48      138       1   default
+1    outline        20 |     1072      607       48      178       1   default
+8    dup             2 |     1276      607      113      270       1   default
+8    dup             5 |     2008      770      227      561       1   default
+8    dup            10 |     3320     1022      417     1046       1   default
+8    dup            20 |     5856     1517      797     2016       1   default
+8    guard_semi      2 |     1064      559       75      181       1   default
+8    guard_semi      5 |     1088      574       75      199       1   default
+8    guard_semi     10 |     1140      604       75      229       1   default
+8    guard_semi     20 |     1228      652       75      289       1   default
+8    guard_orelse    2 |     1064      559       75      205       1   default
+8    guard_orelse    5 |     1088      574       75      265       1   default
+8    guard_orelse   10 |     1140      604       75      365       1   default
+8    guard_orelse   20 |     1228      653       75      565       1   default
+8    outline         2 |     1092      576       78      183       1   default
+8    outline         5 |     1116      590       78      195       1   default
+8    outline        10 |     1168      621       78      215       1   default
+8    outline        20 |     1264      676       78      255       1   default
+32   dup             2 |     2560      909      305      798       1   default
+32   dup             5 |     5212     1412      707     1881       1   default
+32   dup            10 |     9972     2373     1377     3686       1   default
+32   dup            20 |    19156     4385     2717     7296       1   default
+32   guard_semi      2 |     1700      725      171      445       1   default
+32   guard_semi      5 |     1724      738      171      463       1   default
+32   guard_semi     10 |     1800      764      171      493       1   default
+32   guard_semi     20 |     1888      812      171      553       1   default
+32   guard_orelse    2 |     1704      728      171      469       1   default
+32   guard_orelse    5 |     1728      744      171      529       1   default
+32   guard_orelse   10 |     1804      766      171      629       1   default
+32   guard_orelse   20 |     1892      816      171      829       1   default
+32   outline         2 |     1732      741      174      447       1   default
+32   outline         5 |     1756      758      174      459       1   default
+32   outline        10 |     1832      782      174      479       1   default
+32   outline        20 |     1928      839      174      519       1   default
+1    dup             2 |      952      504       53      116       1  no_share
+1    dup             5 |     1112      559       77      176       1  no_share
+1    dup            10 |     1416      652      117      276       1  no_share
+1    dup            20 |     2000      821      197      476       1  no_share
+8    dup             2 |     1316      607      113      270       1  no_share
+8    dup             5 |     2048      770      227      561       1  no_share
+8    dup            10 |     3360     1022      417     1046       1  no_share
+8    dup            20 |     5896     1517      797     2016       1  no_share
+32   dup             2 |     2600      909      305      798       1  no_share
+32   dup             5 |     5252     1412      707     1881       1  no_share
+32   dup            10 |    10012     2373     1377     3686       1  no_share
+32   dup            20 |    19196     4385     2717     7296       1  no_share
+
+LEAST-SQUARES SLOPE per added union member (bytes of stripped .beam | asm instructions)
+B=1   dup               17.6 bytes/member     8.00 ins/member
+B=1   guard_semi         5.2 bytes/member     0.00 ins/member
+B=1   guard_orelse       5.2 bytes/member     0.00 ins/member
+B=1   outline            5.3 bytes/member     0.00 ins/member
+B=8   dup               50.3 bytes/member    38.00 ins/member
+B=8   guard_semi         5.2 bytes/member     0.00 ins/member
+B=8   guard_orelse       5.3 bytes/member     0.00 ins/member
+B=8   outline            5.6 bytes/member     0.00 ins/member
+B=32  dup              194.5 bytes/member   134.00 ins/member
+B=32  guard_semi         4.9 bytes/member     0.00 ins/member
+B=32  guard_orelse       4.9 bytes/member     0.00 ins/member
+B=32  outline            5.4 bytes/member     0.00 ins/member
+B=1   dup+no_share_opt     17.6 bytes/member     8.00 ins/member
+B=8   dup+no_share_opt     50.3 bytes/member    38.00 ins/member
+B=32  dup+no_share_opt    194.5 bytes/member   134.00 ins/member
+
+DERIVED VERDICTS (computed from the numbers above)
+B=1   dup slope 17.6 vs guard_semi 5.2: dup COSTS MORE THAN guard_semi; dup compiled with no_share_opt 17.6: identical, so erlc's own block-sharing (beam_ssa_share) does NOT rescue the duplicated clause bodies here
+B=8   dup slope 50.3 vs guard_semi 5.2: dup COSTS MORE THAN guard_semi; dup compiled with no_share_opt 50.3: identical, so erlc's own block-sharing (beam_ssa_share) does NOT rescue the duplicated clause bodies here
+B=32  dup slope 194.5 vs guard_semi 4.9: dup COSTS MORE THAN guard_semi; dup compiled with no_share_opt 194.5: identical, so erlc's own block-sharing (beam_ssa_share) does NOT rescue the duplicated clause bodies here

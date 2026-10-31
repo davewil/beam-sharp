@@ -1,0 +1,19 @@
+=== A: precedence by path order
+-pa d1 -pa d2                            -> Json:who()=d2 which=d2/Json.beam
+-pa d2 -pa d1                            -> Json:who()=d1 which=d1/Json.beam
+-pz d1 -pz d2                            -> Json:who()=d1 which=d1/Json.beam
+-pa d1 -pz d2                            -> Json:who()=d1 which=d1/Json.beam
+-pz d1 -pa d2                            -> Json:who()=d2 which=d2/Json.beam
+=== B: code:clash/0 with both on the path (the tool that reports exactly this)
+** d2/Json.beam hides d1/Json.beam
+** Found 1 name clashes in code paths 
+=== C: both versions loaded in one VM: second load_binary of same name; old-code limit
+load1 {module,'Json'}
+who after load1: d1
+load2 {module,'Json'} (replaces; d1 becomes old code)
+who after load2: d2; old code present: true
+load3 (third, old code not purged) {module,'Json'}
+soft_purge true
+=== D: release assembly - two applications that both contain module 'Json'
+{error,systools_make,
+       {duplicate_modules,[{{'Json',a1,"a1/ebin"},{'Json',a2,"a2/ebin"}}]}}

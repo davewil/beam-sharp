@@ -1,0 +1,51 @@
+module directories: 49
+bs files: 89   distinct public names: 106
+
+== rule naive_underscore_before_every_upper
+   corpus collisions: []
+   reserved-name hits: []
+   samples: [{"New","new"},
+             {"GetId","get_id"},
+             {"GetID","get_i_d"},
+             {"HTTPGet","h_t_t_p_get"},
+             {"ParseURL","parse_u_r_l"},
+             {"Pay","pay"},
+             {"ToJson","to_json"},
+             {"V2Parse","v2_parse"},
+             {"Get_Id","get__id"}]
+
+== rule acronym_aware_snake
+   corpus collisions: []
+   reserved-name hits: []
+   samples: [{"New","new"},
+             {"GetId","get_id"},
+             {"GetID","get_id"},
+             {"HTTPGet","http_get"},
+             {"ParseURL","parse_url"},
+             {"Pay","pay"},
+             {"ToJson","to_json"},
+             {"V2Parse","v2_parse"},
+             {"Get_Id","get_id"}]
+
+== rule lower_first_only
+   corpus collisions: []
+   reserved-name hits: []
+   samples: [{"New","new"},
+             {"GetId","getId"},
+             {"GetID","getID"},
+             {"HTTPGet","hTTPGet"},
+             {"ParseURL","parseURL"},
+             {"Pay","pay"},
+             {"ToJson","toJson"},
+             {"V2Parse","v2Parse"},
+             {"Get_Id","get_Id"}]
+
+control planted GetID/GetId under acronym rule: [{planted,"get_id",
+                                                  ["GetID","GetId"]}]
+control planted ModuleInfo reserved hit: ["ModuleInfo"]
+naive rule GetID/GetId -> [{"GetID","get_i_d"},{"GetId","get_id"}] (distinct, but ugly)
+
+assertions (non-vacuous, controls fire, recommended rule clean on corpus): [true,
+                                                                            true,
+                                                                            true,
+                                                                            true]

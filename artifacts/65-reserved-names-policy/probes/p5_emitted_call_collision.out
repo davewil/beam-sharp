@@ -1,0 +1,63 @@
+=== A: only stdlib List.beam on path
+  shipped-design caller  : [3,2,1]
+  F62 (as built) caller  : [3,2,1]
+  user List:Length([a])  : {'EXIT',
+                            {undef,
+                             [{'List','Length',[[a]],[]},
+                              {erl_eval,do_apply,7,
+                               [{file,"erl_eval.erl"},{line,744}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,480}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,282}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,283}]},
+                              {erl_eval,expr_list,7,
+                               [{file,"erl_eval.erl"},{line,961}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,454}]},
+                              {erl_eval,exprs,6,
+                               [{file,"erl_eval.erl"},{line,136}]}]}}
+=== B: user List.beam FIRST (user shadows the shipped module by path order): shipped-design caller breaks, F62 caller does not
+  shipped-design caller  : {'EXIT',
+                            {undef,
+                             [{'List','Reverse',[[1,2,3]],[]},
+                              {erl_eval,do_apply,7,
+                               [{file,"erl_eval.erl"},{line,744}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,480}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,282}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,283}]},
+                              {erl_eval,expr_list,7,
+                               [{file,"erl_eval.erl"},{line,961}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,454}]},
+                              {erl_eval,exprs,6,
+                               [{file,"erl_eval.erl"},{line,136}]}]}}
+  F62 (as built) caller  : [3,2,1]
+  user List:Length([a])  : 1001
+=== C: stdlib first: the USER's own calls to List:Length now break instead
+  shipped-design caller  : [3,2,1]
+  F62 (as built) caller  : [3,2,1]
+  user List:Length([a])  : {'EXIT',
+                            {undef,
+                             [{'List','Length',[[a]],[]},
+                              {erl_eval,do_apply,7,
+                               [{file,"erl_eval.erl"},{line,744}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,480}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,282}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,283}]},
+                              {erl_eval,expr_list,7,
+                               [{file,"erl_eval.erl"},{line,961}]},
+                              {erl_eval,expr,6,
+                               [{file,"erl_eval.erl"},{line,454}]},
+                              {erl_eval,exprs,6,
+                               [{file,"erl_eval.erl"},{line,136}]}]}}
+=== D: is there any diagnostic at all? code:clash/0 (diagnostic offered by the VM; whether any build tool calls it is UNPROBED)
+** user/List.beam hides stdlib/List.beam
+** Found 1 name clashes in code paths 

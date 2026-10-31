@@ -1,0 +1,22 @@
+  Checking whether the PLT /tmp/tmp.2lz01xYP6Z/plt is up-to-date... yes
+  Proceeding with analysis...
+dm.erl:10:1: Function bad_pascal/0 has no local return
+dm.erl:10:25: The call dm:'Total'
+         ('not_an_int') will never return since the success typing is 
+         (number()) -> 
+          number() and the contract is 
+          (integer()) -> integer()
+dm.erl:11:1: Function bad_alias/0 has no local return
+dm.erl:11:23: The call dm:total
+         ('not_an_int') will never return since it differs in the 1st argument from the success typing arguments: 
+         (integer())
+dm.erl:12:1: Function bad_alias2/0 has no local return
+dm.erl:12:24: The call dm:total2
+         ('not_an_int') will never return since the success typing is 
+         (integer()) -> 
+          integer() and the contract is 
+          (integer()) -> integer()
+ done in 0m0.14s
+done (warnings were emitted)
+OBSERVED: bad_alias -> reported
+OBSERVED: bad_alias2 -> reported

@@ -1,0 +1,8 @@
+exported fn called by unrelated module -> pub
+unexported fn called by unrelated module -> undef
+callee exports: [{pub,0},{module_info,0},{module_info,1}]
+scanned 263 source files, friend/visible-to style hits: ["/usr/lib/erlang/lib/compiler-8.2.6.3/src/beam_ssa_pre_codegen.erl"]
+-friend([...]) attribute: compiler accepted it silently as opaque attribute; warnings=[]
+attribute kept in beam but ignored by loader: {friend,[stranger]}
+stranger-like call to attr:f() from shell process -> 1
+ASSERTIONS HELD: BEAM enforces export-or-not only; no caller restriction

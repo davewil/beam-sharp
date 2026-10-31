@@ -1,0 +1,16 @@
+--- .bs files (excluding _build):
+163
+--- module declarations: 121, bare (undotted): 112
+--- planned/candidate qualifiers, as named in tickets (grep evidence):
+83:to allow OTP's modules and refuse B# ones. Each new qualifier (`String`, `Int`, `Process`,
+190:took it (ticket 67 Q6): a user module whose short name is `Enum`, `String`, `Int`, `Process`,
+36:Compiler delta: `Binary` joins `bs_check:reserved_qualifiers()`; two entries in F32's signature
+45:Compiler delta, under "only C#'s": `Task` is a reserved qualifier (ticket 65). `Async` lowers to
+396:  Without it, `xs |> Stream.Map(f)` is a user-level generic call and degrades to `[any()]` per §2's
+--- corpus modules whose WHOLE name is in the CURRENT set (must be none: the compiler refuses them):
+--- corpus modules whose WHOLE name is in the PLANNED/candidate set (would be refused after those land):
+Stream /home/user/beam-sharp/compiler/examples/Stream/stream.bs
+--- (control) names near the planned set that are NOT matches, to show the filter is exact:
+Queue /home/user/beam-sharp/compiler/examples/Queue/queue.bs
+Math /home/user/beam-sharp/compiler/examples/Math/math.bs
+Atom /home/user/beam-sharp/compiler/bin/fixtures/residual/Atom/Atom.bs

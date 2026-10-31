@@ -1,0 +1,14 @@
+# MUTATION: Shop.erl with 'New' renamed to 'NewX' -> probe 1 must go red
+:Shop."Which"(%{Kind: :"Shop.Order"})               {:ok, :order}
+:Shop.NoSuch(1)                                     :syntax_error
+:Shop."NoSuch"(1)                                   {:raised, UndefinedFunctionError}
+
+--- assertions (observed vs observed; nothing hard-coded as a result) ---
+FAIL  reference apply/3 returns a map (harness sanity)
+PASS  control: nonexistent fn via dot syntax is NOT ok
+PASS  control: nonexistent fn via quoted syntax is NOT ok
+FAIL  every New-spelling that returned ok returned the same map as apply/3
+
+OBSERVED :Shop.New(1)      -> :syntax_error
+OBSERVED :Shop."New"(1)  -> {:raised, UndefinedFunctionError}
+exit=1

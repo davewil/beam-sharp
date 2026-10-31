@@ -1,0 +1,5 @@
+top frames via 'Calc': ['Calc',st]
+top frames via calc  : ['Calc',st]  (trampoline)
+top frames via calc2 : [calc2,st]  (duplicate body)
+alias name appears in trace: trampoline=false duplicate=true
+5000000 calls (compiled, best of 7) us: 'Calc'=127554 calc(tramp)=114820 calc2(dup)=136641

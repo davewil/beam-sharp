@@ -1,0 +1,9 @@
+tail call   : modules on stack seen by callee = [callee6,erl_eval,erl_eval,
+                                                 escript,erl_eval,escript,
+                                                 escript,init]
+non-tail    : modules on stack seen by callee = [callee6,caller_body,erl_eval,
+                                                 erl_eval,escript,erl_eval,
+                                                 escript,escript]
+caller visible in tail position: false ; in body position: true
+ns/call: plain=321.4  with stacktrace caller-check=871.3  (ratio 2.7x)
+FINDING: runtime caller check is blind to tail callers

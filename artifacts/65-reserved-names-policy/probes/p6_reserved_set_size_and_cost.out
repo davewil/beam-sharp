@@ -1,0 +1,15 @@
+reserved qualifiers (bs_check:reserved_qualifiers/0): 4  (['List','Map',
+                                                           'Term','Float'])
+protocol names also refused as module names (protocol_table keys): ['Enumerable']
+standard_table rows: 30  by qualifier: [{'Float',1},
+                                        {'List',16},
+                                        {'Map',12},
+                                        {'Term',1}]
+distinct bare module names refused today: 5
+
+tree: 1000 modules, distinct 1000, whole-name collisions with a name of the real set: 0
+N=     4 reserved | per 1000-module tree: lists:member     12.0 us | map      7.2 us | sets     15.4 us | hits 1
+N=    16 reserved | per 1000-module tree: lists:member     36.9 us | map     17.3 us | sets     20.7 us | hits 1
+N=   100 reserved | per 1000-module tree: lists:member    192.4 us | map     13.1 us | sets     25.6 us | hits 1
+N=  1000 reserved | per 1000-module tree: lists:member   3527.1 us | map      9.6 us | sets     19.4 us | hits 1
+N= 10000 reserved | per 1000-module tree: lists:member  16255.8 us | map      8.5 us | sets     16.7 us | hits 1

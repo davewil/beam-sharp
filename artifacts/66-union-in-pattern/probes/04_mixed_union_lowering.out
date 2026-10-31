@@ -1,0 +1,16 @@
+reference (dup):
+  #{'Id' => 1,'Kind' => 'T.A'} -> {u,1}
+  #{'Id' => 2,'Kind' => 'T.B'} -> {u,2}
+  #{'Id' => 3,'Kind' => 'T.E'} -> {err,function_clause}
+  #{'Id' => 4} -> {err,function_clause}
+  none -> none
+  other -> {err,function_clause}
+  7 -> {err,function_clause}
+  1.5 -> {err,function_clause}
+  "s" -> {err,function_clause}
+  {t} -> {err,function_clause}
+  [] -> {err,function_clause}
+  <<"b">> -> {err,function_clause}
+lowering ga: agrees on all 12 inputs
+lowering gb: agrees on all 12 inputs
+lowering gc: agrees on all 12 inputs

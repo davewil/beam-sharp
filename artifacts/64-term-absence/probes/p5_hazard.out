@@ -1,0 +1,15 @@
+key          truth     untag-opt  untag-res  tagged    
+retry        present   missing    ok         present   
+status       present   present    ok         present   
+upstream     present   present    failed     present   
+user_id      present   present    ok         present   
+locale       present   present    ok         present   
+usr_id       missing   missing    failed     missing   
+
+untagged option misreads : [<<"retry">>]
+untagged result misreads (present value read as failure, or absent read as ok): [<<"upstream">>]
+tagged misreads            : []
+Has+Get misreads           : []
+typo key usr_id under tagged => absent (same answer as a legitimately absent optional key)
+get_or(retry, nothing)=nothing  get_or(absent key, nothing)=nothing  (equal: true)
+ASSERT (untagged misreads exist; tagged and Has+Get have none): holds

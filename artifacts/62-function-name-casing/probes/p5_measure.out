@@ -1,0 +1,81 @@
+OTP 25  (bsc compiles with [debug_info]; this probe does too)
+
+## sizes: whole .beam bytes and chunk bytes (beam_lib:all_chunks)
+  N=10    plain      beam=2136     ExpT=160    AtU8=197    Code=822     Dbgi=592     Attr=40     LocT=4     StrT=0    LitT=37    
+  N=10    tramp      beam=2664     ExpT=280    AtU8=318    Code=987     Dbgi=715     Attr=40     LocT=4     StrT=0    LitT=37    
+  N=10    tramp_spec beam=2728     ExpT=280    AtU8=318    Code=987     Dbgi=780     Attr=40     LocT=4     StrT=0    LitT=37    
+  N=10    dup        beam=3292     ExpT=280    AtU8=318    Code=1612    Dbgi=717     Attr=40     LocT=4     StrT=0    LitT=37    
+  N=100   plain      beam=13272    ExpT=1240   AtU8=1278   Code=8102    Dbgi=2287    Attr=40     LocT=4     StrT=0    LitT=37    
+  N=100   tramp      beam=18456    ExpT=2440   AtU8=2570   Code=9797    Dbgi=3283    Attr=40     LocT=4     StrT=0    LitT=37    
+  N=100   tramp_spec beam=18984    ExpT=2440   AtU8=2570   Code=9797    Dbgi=3810    Attr=40     LocT=4     StrT=0    LitT=37    
+  N=100   dup        beam=25232    ExpT=2440   AtU8=2570   Code=16172   Dbgi=3688    Attr=40     LocT=4     StrT=0    LitT=37    
+  N=1000  plain      beam=127756   ExpT=12040  AtU8=12979  Code=83548   Dbgi=18827   Attr=40     LocT=4     StrT=0    LitT=37    
+  N=1000  tramp      beam=183684   ExpT=24040  AtU8=26872  Code=102861  Dbgi=29545   Attr=40     LocT=4     StrT=0    LitT=37    
+  N=1000  tramp_spec beam=187704   ExpT=24040  AtU8=26872  Code=102861  Dbgi=33566   Attr=40     LocT=4     StrT=0    LitT=37    
+  N=1000  dup        beam=257356   ExpT=24040  AtU8=26872  Code=172518  Dbgi=33564   Attr=40     LocT=4     StrT=0    LitT=37    
+
+## fresh-VM load: atoms-added, code-memory-delta bytes, load microseconds (median of 15 fresh VMs)
+  N=10    plain      atoms+324   codemem+8848     load_us(median)=477    exports=13 runs=15
+  N=10    tramp      atoms+334   codemem+11848    load_us(median)=530    exports=23 runs=15
+  N=10    tramp_spec atoms+334   codemem+11848    load_us(median)=449    exports=23 runs=15
+  N=10    dup        atoms+334   codemem+16008    load_us(median)=551    exports=23 runs=15
+  N=100   plain      atoms+414   codemem+81480    load_us(median)=1060   exports=103 runs=15
+  N=100   tramp      atoms+514   codemem+111480   load_us(median)=1328   exports=203 runs=15
+  N=100   tramp_spec atoms+514   codemem+111480   load_us(median)=1361   exports=203 runs=15
+  N=100   dup        atoms+514   codemem+153080   load_us(median)=1768   exports=203 runs=15
+  N=1000  plain      atoms+1314  codemem+725880   load_us(median)=8804   exports=1003 runs=15
+  N=1000  tramp      atoms+2314  codemem+1034072  load_us(median)=11750  exports=2003 runs=15
+  N=1000  tramp_spec atoms+2314  codemem+1034072  load_us(median)=12221  exports=2003 runs=15
+  N=1000  dup        atoms+2314  codemem+1450072  load_us(median)=16686  exports=2003 runs=15
+
+## abstract-format export attribute and asm for N=2
+plain      {attribute,1,export,
+                      [{'CalcTotal1',1},{'CalcTotal2',1},{bs@type_atoms,0}]}
+tramp      {attribute,1,export,
+                      [{'CalcTotal1',1},
+                       {'CalcTotal2',1},
+                       {calc_total1,1},
+                       {calc_total2,1},
+                       {bs@type_atoms,0}]}
+asm exports: [{'CalcTotal1',1},
+              {bs@type_atoms,0},
+              {calc_total1,1},
+              {module_info,0},
+              {module_info,1}]
+
+-- 'CalcTotal1'/1
+[{label,1},
+ {func_info,{atom,'ShopM'},{atom,'CalcTotal1'},1},
+ {label,2},
+ {test,is_map,{f,1},[{x,0}]},
+ {get_map_elements,{f,1},
+                   {tr,{x,0},{t_map,any,any}},
+                   {list,[{atom,'Kind'},{x,2},{atom,'Id'},{x,1}]}},
+ {test,is_eq_exact,{f,1},[{x,2},{atom,'Shop.Order'}]},
+ {get_map_elements,{f,3},
+                   {tr,{x,0},{t_map,any,any}},
+                   {list,[{atom,'Total'},{x,0}]}},
+ {test,is_lt,{f,3},[{integer,1},{x,0}]},
+ {gc_bif,'+',{f,0},2,[{x,0},{integer,1}],{x,0}},
+ {test_heap,3,2},
+ {put_tuple2,{x,0},{list,[{x,1},{x,0}]}},
+ {label,3},
+ {test_heap,3,2},
+ {put_tuple2,{x,0},{list,[{x,1},{integer,0}]}}]
+
+-- bs@type_atoms/0
+[{label,4},
+ {func_info,{atom,'ShopM'},{atom,bs@type_atoms},0},
+ {label,5},
+ {move,{literal,['Shop.Order']},{x,0}}]
+
+-- calc_total1/1
+[{label,6},
+ {func_info,{atom,'ShopM'},{atom,calc_total1},1},
+ {label,7},
+ {call_only,1,{f,2}}]
+
+ASSERT OK: calc_total1/1 compiles to call_only (tail jump)
+
+## assertions
+N=1000 plain<tramp<dup bytes: 127756 < 183684 < 257356 -> true

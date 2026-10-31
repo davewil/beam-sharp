@@ -1,0 +1,27 @@
+OTP 25
+=== A: user type with a built-in's name, default options
+t1.erl:3:2: type map() is a builtin type; it cannot be redefined
+%    3| -type map() :: {my, map}.          % redefine built-in map/0
+%     |  ^
+
+exit=1
+=== B: same, with -compile(no_auto_import_types).  READ: it compiles, but lint says the user type is UNUSED although -spec f(map()) uses the name => the use site still resolved to the built-in (declaration allowed, shadowing not achieved).  Inference from the warning, not a separate test.
+t2.erl:4:2: Warning: type map() is unused
+%    4| -type map() :: {my, map}.          % redefine built-in map/0
+%     |  ^
+
+exit=0
+=== C: a type that is NOT built in (control, must compile)
+exit=0
+=== D: the same type name twice (control: the other error class, redefine_type)
+t4.erl:4:2: type mymap() already defined
+%    4| -type mymap() :: b.
+%     |  ^
+
+t4.erl:3:2: Warning: type mymap() is unused
+%    3| -type mymap() :: a.
+%     |  ^
+
+exit=1
+=== E: does the option show up in the installed lint source? (not an assumption)
+2986:        not member(no_auto_import_types, St0#lint.compile) of

@@ -1,0 +1,32 @@
+Elixir 1.14.0 (compiled with Erlang/OTP 24)
+--- A: redefine Map in a script, then call Map.get and Map.update!/3 (the call the ticket says the checker made)
+warning: redefining module Map (current version loaded from /usr/lib/elixir/bin/../lib/elixir/ebin/Elixir.Map.beam)
+  a.exs:1
+
+Map.get after clobber: :mine_not_stdlibs
+Map.update!/3 still exported: false
+code.which(Map): []
+exports of Map now: 4
+Enum.into: %{a: 1}
+RESCUED: function Map.new/1 is undefined or private
+** (EXIT from #PID<0.96.0>) an exception was raised:
+    ** (UndefinedFunctionError) function Map.new/1 is undefined or private
+        (elixir 1.14.0) Map.new([])
+        (elixir 1.14.0) lib/module/parallel_checker.ex:373: Module.ParallelChecker.cache_from_module_map/2
+        (elixir 1.14.0) lib/module/parallel_checker.ex:68: anonymous fn/5 in Module.ParallelChecker.spawn/3
+
+Logger - error: {removed_failing_handler,'Elixir.Logger'}
+exit=0
+--- B: same, but compiled with elixirc (the path the type checker runs on) and a struct using Map functions
+warning: redefining module Map (current version loaded from /usr/lib/elixir/bin/../lib/elixir/ebin/Elixir.Map.beam)
+  b.ex:1
+
+
+== Compilation error in file b.ex ==
+** (UndefinedFunctionError) function Map.new/2 is undefined or private
+    (elixir 1.14.0) Map.new([], #Function<39.72324062/1 in Code.Formatter.state/2>)
+    (elixir 1.14.0) lib/code/formatter.ex:203: Code.Formatter.state/2
+    (elixir 1.14.0) lib/code/formatter.ex:172: Code.Formatter.to_algebra/2
+elixirc exit=1
+--- C: does the stdlib's own Map.update!/3 exist at all in this Elixir? (control, no clobber)
+true

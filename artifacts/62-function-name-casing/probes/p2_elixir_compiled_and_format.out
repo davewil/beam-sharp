@@ -1,0 +1,16 @@
+compiled modules: [Caller]
+compiler warnings: ""
+results: [
+  %{Id: 1, Kind: :"Shop.Order", Total: 0},
+  %{Id: 2, Kind: :"Shop.Order", Total: 500},
+  %{Id: 3, Kind: :"Shop.Order", Total: 0},
+  %{Id: 4, Kind: :"Shop.Order", Total: 0},
+  %{Id: 5, Kind: :"Shop.Order", Total: 0}
+]
+
+format :Shop."New"(1)  ->  :Shop."New"(1)
+format :Shop.New(1)  ->  RAISED SyntaxError
+Macro.to_string(quoted) -> :Shop."New"(1)
+quoted AST            -> {{:., [line: 1], [:Shop, :New]}, [line: 1], [1]}
+
+assertions: [true, true, true, true, true, true]

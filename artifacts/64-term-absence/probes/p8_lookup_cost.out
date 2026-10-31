@@ -1,0 +1,14 @@
+small hit    maps:find/2 (tagged)              16694 us / 1e6
+small hit    maps:get/3 (untagged)             15488 us / 1e6
+small hit    is_key + get (Has then Get)       21582 us / 1e6
+small miss   maps:find/2 (tagged)              17919 us / 1e6
+small miss   maps:get/3 (untagged)             40558 us / 1e6
+small miss   is_key + get (Has then Get)       16124 us / 1e6
+large hit    maps:find/2 (tagged)              20283 us / 1e6
+large hit    maps:get/3 (untagged)             11074 us / 1e6
+large hit    is_key + get (Has then Get)       29754 us / 1e6
+large miss   maps:find/2 (tagged)              15275 us / 1e6
+large miss   maps:get/3 (untagged)             13796 us / 1e6
+large miss   is_key + get (Has then Get)       18164 us / 1e6
+ratio is_key+get / find on large hit: 1.47
+ASSERT holds

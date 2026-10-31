@@ -1,0 +1,7 @@
+stranger calls @moduledoc-false / @doc-false fns -> result: {42, 1}
+compiler diagnostics for the stranger module: ""
+fetch_docs (modules compiled in-memory have no docs chunk): :module_not_found
+moduledoc marker: {:none, 0}
+Helper exports (defp absent): [__info__: 1, module_info: 0, module_info: 1, recompute: 1, via_secret: 1]
+defp called remotely: {UndefinedFunctionError, :secret}
+ASSERTIONS HELD: Elixir hides from docs (convention) and defp from linking; no caller-aware diagnostic
