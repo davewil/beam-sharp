@@ -121,8 +121,10 @@ Done when: one issue is chosen and the sentence naming the rule that chose it is
 
 ## 5. Claim and route
 
-Claim in both trackers before any work: Linear state `In Progress`, assignee `me`; for a map
-ticket, also `Status: claimed` in its repo file. Then name the route by kind:
+Claim in both trackers before any work: run `agent-claim ENG-NNN`, which sets the Linear state and
+assignee and records who holds the issue; for a map ticket, also `Status: claimed` in its repo
+file. Read the exit code: 0 holds it; 5 means run it again; 1, 2, 3 or 4 means stop, do not work
+on the issue, and report the message. Then name the route by kind:
 
 | Kind | Route |
 |---|---|
