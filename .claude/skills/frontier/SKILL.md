@@ -123,8 +123,10 @@ Done when: one issue is chosen and the sentence naming the rule that chose it is
 
 Claim in both trackers before any work: run `agent-claim ENG-NNN`, which sets the Linear state and
 assignee and records who holds the issue; for a map ticket, also `Status: claimed` in its repo
-file. Read the exit code: 0 holds it; 5 means run it again; 1, 2, 3 or 4 means stop, do not work
-on the issue, and report the message. Then name the route by kind:
+file. Read the exit code: 0 holds it; 5 means run it again; 1 is an error, so run it once more
+only if the message says to, otherwise report it, and never start work before an exit 0; 2, 3, 4
+or anything else means stop, do not work on the issue, and report the message. The claim is held
+by this session, so the route David types next must run in this same session. Then name the route by kind:
 
 | Kind | Route |
 |---|---|
