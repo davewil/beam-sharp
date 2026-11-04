@@ -69,3 +69,65 @@ the source declares.
 **Sequence it with [ticket 50](50-naming-a-foreign-struct.md)**, which asks how a foreign *struct* is
 named. Both are questions about what an FFI declaration carries, and answering them apart risks two
 extensions to the same construct designed by different sessions.
+
+## Round 1 — 2026-11-04
+
+Checked against the compiler at `7815d9a`. Not built: this sandbox has OTP 25 and could not build
+the pinned 28.5, so the compiler facts below are read from `bs_parser.yrl:170` and `bsc.erl`, and
+the one probe that ran is `prototypes/52a-app-presence/run.sh` on OTP 25 (evidence in
+[research/52](../research/52-dependency-provenance.md)). The ticket reproduces: nothing in the
+source or the compiler mentions an application, and no later ticket settles it (ticket 50 settled
+only that a foreign struct is a `map<atom, term>`; ticket 51 settled that `ERL_LIBS` and rebar3 carry
+the path). One correction to the ticket text: the `[external: elixir, app: req]` attribute it
+sketches is not in the language; the foreign form today is `using :'Elixir.Req' { … }`.
+
+The program, as it compiles today:
+
+```csharp
+module Fetch
+
+using :'Elixir.Req' {
+    term new(list<(atom, term)> opts)
+}
+
+public term Client() -> new([(:base_url, "https://example.test")])
+```
+
+`bsc fetch.bs` succeeds on any machine. On one whose `ERL_LIBS` has no `req`, `Fetch.Client()` dies
+with `error:undef` on `'Elixir.Req':new/1`, and the `.bs` file records nothing that would have said
+why.
+
+**Q1. Does a `using :mod { … }` block name the application its module comes from, so that `bsc`
+refuses it when that application is not on the code path?**
+
+Under yes, the block carries the application's name, by name only, no version:
+
+```csharp
+using :'Elixir.Req' :req {
+    term new(list<(atom, term)> opts)
+}
+```
+
+With `req` on `ERL_LIBS` it compiles as before. Without it:
+
+```
+fetch.bs:3: error: application `req` is not on the code path
+  `using :'Elixir.Req' :req` declares that this module needs it. Set ERL_LIBS to a
+  directory holding `req/ebin`, or build with rebar3 so `_build/default/lib` has it.
+```
+
+Under no, the block stays as it is: it compiles anywhere and fails with `error:undef` at the call.
+
+Compiler delta under yes: a `foreign_decl` rule taking a second `atom_lit`, so `bs_parser.yrl`
+yields `{foreign, Line, Module, App, Sigs}` (App `undefined` when omitted, so every existing block
+still parses); one check in `bs_check.erl` that calls `code:lib_dir(App)` and raises a new
+`{app_not_on_path, App}` through `bs_diag`; the `tree-sitter-beam-sharp` grammar mirrors the extra
+atom; LANGUAGE.md states it with a gated block. Nothing is emitted: the app name is erased, so no
+`.beam` changes. The spelling above is a placeholder and is not what is being asked.
+
+Recommended: yes — the destination is a spec an agent fleet builds blind, and a program whose
+dependencies live only in the builder's environment cannot be handed over.
+
+Not asked, and follow only from a yes: whether the name is required or optional, whether it is
+written once per module rather than per block, and whether a version may ever appear.
+
