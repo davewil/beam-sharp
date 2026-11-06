@@ -69,3 +69,71 @@ stopped at its own boundary.
 - **[Ticket 58](58-refined-int-admits-a-float.md)** / [F24](../../compiler/features/F24-boundary-kind.md)
   — inherited it rather than fixing it, and says so in §3.
 - **Ticket 26 §1** — the two-tier record guard and the *"no body ever checks"* argument.
+
+## Round 1 — 2026-11-06
+
+Reproduced on `HEAD` `631b597` with a `bsc` built from `compiler/src` (OTP 28.5, the pinned
+version). Probe and raw output: [research/59-boundary-guard-scope.md](../research/59-boundary-guard-scope.md).
+The asymmetry the ticket describes still stands; `bs_emit:guard_one/7` (line 264 ff.) is unchanged
+in shape.
+
+### The program
+
+```
+module Guard
+
+record Order { Id: int, Total: int }
+type Octet = int where value >= 0 and value <= 255
+
+public int Public(Order o)
+Public(Order o) -> Inner(o)
+
+public int PublicByte(Octet n)
+PublicByte(int n) -> InnerByte(n)
+
+int Inner(Order o)
+Inner(Order o) -> o.Total
+
+int InnerByte(Octet n)
+InnerByte(int n) -> n
+```
+
+It compiles. What it emits today:
+
+| function | exported | boundary guard emitted |
+|---|---|---|
+| `Public(Order o)` | yes | record tag: head matches `#{'Kind' := 'Guard.Order'} = O` |
+| `Inner(Order o)` | **no** | record tag: **the same** `#{'Kind' := 'Guard.Order'} = O` |
+| `PublicByte(Octet n)` | yes | `is_integer(N) andalso N >= 0 andalso N =< 255` |
+| `InnerByte(Octet n)` | **no** | none (only the clause's own `is_integer(N)` for the `int` head) |
+
+So `Inner` is guarded and `InnerByte` is not, though both are private and both are reached only
+from checked B# call sites. Ticket 18 §4 says the guard is on the exported function.
+
+### The question
+
+**Does the record tag test follow ticket 18 §4 and apply to exported functions only?**
+
+### What each answer does to the program
+
+**Yes — exported only.** `Public` and `PublicByte` emit exactly what they emit now. `Inner`
+becomes `Inner(O) -> erlang:map_get('Total', O)` with no `'Kind'` match in its head. The program
+compiles either way; the change is in the emitted head of `Inner` alone.
+The compiler must gain: `guard_one/7`'s record branch (`{ok, Tag}`) gains the `Public` test the
+`none when Public` branch already has; a new test asserting a private function's head carries no
+`'Kind'` match (none exists today; `boundary_kind_tests.erl:88` covers only the int guard). Nothing else: no symbol-table entry, no new pass.
+
+**No — every function.** The record tag stays on `Inner`, and by the same reasoning the int, float
+and range guards move to every function: `InnerByte` gains
+`N >= 0 andalso N =< 255`. The program compiles; `InnerByte` grows by the range test on every
+call. The compiler must gain: remove `when Public` from the `none ->` branch of `guard_one/7` and
+drop the `Public` argument from `boundary_guards/6`; rewrite `a_private_function_is_not_guarded_test`
+(`boundary_kind_tests.erl:88`) and `a_private_function_carries_no_range_guard_test`
+(`boundary_range_tests.erl:122`) to assert the opposite; and ticket 18 §4 / F24 §3 / F37.5 each
+get the "exported" sentence amended, which a ticket must decide before a feature builds it.
+
+### Recommended answer
+
+Yes, exported only: a private function is reached only from call sites the checker has already
+typed, so its guard re-tests a fact site 1 has proved, and 18 §4 already chose function-local
+analysis for exactly that reason.
