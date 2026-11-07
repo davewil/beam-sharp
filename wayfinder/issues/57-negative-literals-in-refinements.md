@@ -107,3 +107,78 @@ better than the answer did. The first reading was also wrong and nearly shipped:
 both happened to contain a negative literal *and* to be disjoint unions, and "the checker cannot do
 a disjoint union" fits both. `int where value <= 3 or value >= 10` is the probe that separates
 them, and it is accepted.
+
+## Round 1 — 2026-11-07
+
+Reproduced at `HEAD` `bd75ace` on **OTP 25** (the sandbox; the repo pins 28.5) with a scratch build of
+`compiler/src`; probes and raw output in
+[research/57-negative-literals.md](../research/57-negative-literals.md). Still open, and no later
+ticket touches it (grep of `wayfinder/issues/` and `compiler/features/` for 57 / ENG-239 finds only
+ticket 38). **Two things have moved since the ticket was written:**
+
+- `-5` no longer reaches the checker as `{e_op,'-',{e_int,0},{e_int,5}}`. The parser now builds
+  `{e_neg, L, E}` (`bs_parser.yrl:591`, `negate/2` at :947), and `negate/2` **already folds a
+  negated float literal into a float literal** (:948). Integers are the one literal it leaves as a node.
+- The defect reaches **guards**, not only refinements, and there it is silent. Both go through
+  `alternatives/1` → `comparison/1` (`bs_check.erl:5136`, `5154`), which reads only `{e_int,_,K}`.
+
+### The program
+
+```csharp
+module Sign
+
+public atom Sign(int n)
+Sign(n) when n <= -1 -> :neg
+Sign(0) -> :zero
+Sign(n) when n >= 1 -> :pos
+```
+
+Today it is refused, and the clause the author wrote is the one that is "missing":
+
+```
+Sign.bs:3:1: error: Sign is not exhaustive
+  no clause matches:
+    Sign(<= -1) -> ...
+```
+
+The same function written with patterns, `Sign(<= -1) -> :neg` and `Sign(>= 1) -> :pos`, compiles. And the
+refinement the ticket opened with is still refused:
+
+```csharp
+type Delta = int where value >= -100 and value <= 100     // error: not a predicate the checker can read
+```
+
+### The question
+
+**Is a comparand in a refinement or guard a literal with an optional sign, or any constant integer
+expression?**
+
+The ticket asked "grammar or checker?", and the float precedent answers where a sign is read: in the
+parser, as a literal. Narrowing the grammar was never the cost (a refinement stays an `expr`; `negate/2`
+returns a literal node, not a different production). What is left to decide is the reach, and it is
+observable:
+
+```csharp
+type Band = int where value >= 2 + 3
+```
+
+### What each answer does to the program
+
+**A literal with an optional sign.** `Sign` and `Delta` compile, and `n <= -1` in a guard is read and
+credits coverage. `Band` stays refused with `opaque_refinement`.
+The compiler must gain: one clause in `bs_parser.yrl`, `negate(_L, {e_int, IL, I}) -> {e_int, IL, -I};`
+beside the float clause at :948. No checker change, no symbol-table entry, no new pass.
+Measured with exactly that clause in a scratch parser: `Delta` and `Sign` compile, `Band` is still
+refused.
+
+**Any constant integer expression.** `Sign` and `Delta` compile, and so does `Band` (`value >= 5`).
+The compiler must gain: a new `bs_check:const_int/1` folding `e_neg`, `+`, `-`, `*` over `e_int`
+(and a rule for `/` and `%`: truncation, and a zero divisor, which ticket 38 refuses elsewhere),
+called from both `comparison/1` clauses at :5154-5155; the guard path shares it, so a guard such as
+`n >= 2 + 3` becomes readable at the same time; and a test per operator. It also needs the answer to
+"where it stops" written down before it is built — a ticket's job, not a feature's.
+
+### Recommended answer
+
+A literal with an optional sign: patterns already say `int_lit` (`bs_parser.yrl:471-472`), the float
+precedent already folds the sign in the parser, and it is one clause that leaves no fold to specify.
