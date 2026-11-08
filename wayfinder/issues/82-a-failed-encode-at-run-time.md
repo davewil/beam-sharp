@@ -73,6 +73,76 @@ and an answer that keeps it makes the walk the thing that produces it.
 - `compiler/features/F50-to-json.md` records the shape as provisional and links here.
 - Two tests pin it today, F50.8's pair in `to_json_tests`, and they are the tests that change.
 
+## Round 1 — 2026-11-08
+
+Measured on Erlang/OTP 28 (built from `otp_src_28.5`, the pinned release) with rebar3 3.27.0 and an
+unmodified `compiler/` at `8bf1516`. The probes are in
+[the research file](../research/82-failed-encode.md). Ticket 74 (resolved 2026-09-19) settled the
+*channel* site, not this one: its answer is "crash, and a refused value never enters the channel",
+and it names 82 as the sibling it did not decide.
+
+### The program
+
+An order service puts an `Order` on the wire. The record arrives from Erlang or Elixir, so the head
+guards its tag only (F3.9) and the body is where an undeclared field can first be seen.
+
+```csharp
+module Orders
+
+record Line  { Sku: string, Qty: int }
+record Order { Id: int, Total: int, Lines: list<Line> }
+
+public string OrderBody(Order o)
+OrderBody(o) -> ToJson<Order>(o)
+```
+
+Today, an `Order` map carrying an undeclared `Cost` inside a line:
+
+```
+crashed: to_json {Kind = :'ValidationError', Expected = "Qty | Sku",
+                  Path = [".Lines", "[0]", ".Cost"], Reason = :unknown_key}
+```
+
+The reader learns which field, at which path, and why. A wrong tag on the same entry point crashes
+bare, and by the head, not the encoder:
+
+```
+crashed: error:function_clause
+```
+
+`bs_emit:json_form/2` (`compiler/src/bs_emit.erl:1889`) is the one site: the validator runs, and its
+`{error, E}` clause is `erlang:error({to_json, E})`.
+
+### The question
+
+**When `ToJson<T>` is handed a value its type does not admit, does the crash carry the
+`ValidationError`, or is it a bare `function_clause`?**
+
+Alone. The depth of the guard (Q2 above) follows from it and is not asked here. Returning a
+`result` is not on the table: it changes ticket 77's `string` signature, so it would reopen 77.
+
+### Under each answer
+
+**Carry the `ValidationError`.** The program above compiles unchanged and crashes as shown. Nothing
+to build; the work that remains is to delete "provisional" from `F50-to-json.md` and link this
+entry from it.
+
+**Bare `function_clause`.** The program compiles unchanged and crashes with `error:function_clause`
+for the `Cost` input, the same as a wrong tag does. The `Path` and `Reason` are gone from the
+reader's view although `ValidateAs<Order>` still computes them. The compiler gains:
+
+- in `bs_emit:json_form/2`, the error clause becomes `erlang:error(function_clause)` and the
+  `EV` variable is dropped;
+- F50.8's two tests in `to_json_tests` change their expected reason from `{to_json, #{...}}` to
+  `function_clause`;
+- `F50-to-json.md` loses its "provisional" paragraph and its "crash reason" bullet.
+
+The deep validator walk stays either way (Q2), so the bare form saves no run-time work. It only
+removes information.
+
+**Recommended:** carry the `ValidationError`, because the walk already computes the reason and
+dropping it makes the one crash that names a field indistinguishable from a wrong tag.
+
 ## Decisions entry
 
 <!-- Written when this ticket resolves. -->
