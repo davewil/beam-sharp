@@ -150,3 +150,81 @@ above that no module prefix, including Elixir's own, changes the call syntax.
 David in the room. §3 means there is a contract every foreign caller depends on which no document
 states — so whatever this ticket decides, the tag's spelling stops being an implementation detail
 and becomes something the spec owes a section.
+
+## Round 1 — 2026-11-10
+
+Measured on Erlang/OTP 28.5 (built from `otp_src_28.5`, the pinned release) with rebar3 3.27.0,
+Elixir 1.19.5 and gleam 1.18.1, against an unmodified `compiler/` at `68a4f3f`. The probes are in
+[the research file](../research/62-the-outbound-abi.md) and are printed by
+[`62b`](../prototypes/62b_the_quoted_call.sh). `62a` was rerun and still reproduces.
+
+**One thing above is wrong, and it changes what is being asked.** *"Callers are pushed to
+`apply/3`"* is not what Elixir does: `62a` never tried the quoted remote call, and it works today.
+
+### The program
+
+An excerpt of `compiler/examples/Shop/shop.bs`, which is what was compiled:
+
+```csharp
+module Shop
+
+record Order { Id: int, Total: int }
+
+public Order New(int id)
+New(id) -> Order{ Id = id, Total = 0 }
+
+public Order Pay(Order o)
+Pay(o) -> o with { Total = 500 }
+```
+
+It compiles to `Shop.beam` exporting `'New'/1`, `'Pay'/1`, the file's six other public functions
+and `'bs@type_atoms'/0`. From an Elixir
+module compiled against that beam, today:
+
+```elixir
+def paid(id), do: id |> :Shop."New"() |> :Shop."Pay"()   # %{Kind: :"Shop.Order", Total: 500, Id: 1}
+def typo(id), do: :Shop."Nwe"(id)                        # warning: :Shop."Nwe"/1 is undefined or private
+def bare(id), do: :Shop.New(id)                          # SyntaxError
+def low(id),  do: :Shop.new(id)                          # UndefinedFunctionError at run time
+```
+
+The quoted form pipes, captures (`&:Shop."New"/1`), is checked by `elixirc` against the beam, and
+is left as written by the formatter (`Code.format_string!/1`). It is also how Elixir itself prints the function, in that warning and in a
+stack trace.
+
+### The question
+
+**Does `:Shop.new(1)` run?** That is: does a public B# function get a second, lowercase export for
+Elixir's unquoted call syntax.
+
+Alone. How the second name would be derived (`ToJson` to `toJson` or to `to_json`) follows a yes
+and is not asked here. Changing B#'s own function casing is not on the table: ticket 35 records that *"a beam-sharp
+function name is PascalCase by construction"*, in the lexer.
+
+### Under each answer
+
+**No.** The program compiles as it does today and `:Shop.new(1)` stays `UndefinedFunctionError`; an
+Elixir caller writes `:Shop."New"(1)`. The compiler gains nothing. `LANGUAGE.md` §12 line 3325
+changes from *"`apply(:Shop, :New, [1])  # the way in`"* to the quoted call, and this ticket closes.
+
+**Yes.** The program compiles unchanged and `Shop.beam` exports `new/1` and `pay/1` beside `'New'/1`
+and `'Pay'/1`. The compiler gains:
+
+- in `bs_emit:forms/1` (`bs_emit.erl:76`), one more `{Lower, Arity}` in the export list per author
+  export, and one emitted forwarder each, `new(A1) -> 'New'(A1).`, placed with the generated forms
+  that carry no `file` attribute. Measured by hand over `Shop`: 34 bytes per function;
+- a second `-spec` per export from `bs_emit:spec_attr/3`, or the lowercase name carries none;
+- a refusal in `bs_check` for two public names in one module that lower to the same atom at the
+  same arity, and for one that lowers onto a name the module already exports: `handle_call/3` from
+  `bs_otp:callback_name/3` in a `GenServer` module, `module_info/0,1`;
+- `bs_run:authors_exports/1` (`bs_run.erl:367`) filters the lowercase names, since the REPL banner
+  and the visibility tests read it as the list of what the author wrote;
+- the derivation rule, as the next question. It matters for 12 of the 96 distinct public names in
+  `compiler/examples` and for none of the other 84.
+
+A crash reached through the lowercase name is still reported under the other one, because the
+forwarder is a tail call: `:Shop.band(:x)` raises `no function clause matching in :Shop."Band"/1`.
+
+**Recommended:** no, because `:Shop."New"(1)` is ordinary Elixir that the compiler checks and the
+formatter keeps, and a second name would be the first casing rule in a language whose ticket 32
+entry reads *"There is no snake_case⇄PascalCase rule anywhere in the language."*
