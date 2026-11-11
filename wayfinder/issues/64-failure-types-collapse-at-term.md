@@ -72,3 +72,96 @@ Do not "fix" this by tagging `option<T>`'s success without first answering 1 —
 sound, and a change that makes `option<int>` more awkward to buy `option<term>` may be a bad trade.
 And do not treat the `(:ok, V) | :absent` shape from ticket 48 as the answer: it is one call site
 choosing a type that happens not to collapse.
+
+## Round 1 — 2026-11-11
+
+Measured on Erlang/OTP 28.5 (built from `otp_src_28.5`, the pinned release) with rebar3 3.27.0,
+against an unmodified `compiler/` at `cd080fa`. The probes are in
+[the research file](../research/64-failure-types-collapse-at-term.md) and are printed by
+[`64a`](../prototypes/64a_absent_at_term.sh).
+
+**Two things above have moved since 2026-09-06.** *"Leaves the author with nothing"* no longer
+holds: a tagged lookup over `maps:find/2` and `Map.Has` (F75) both compile and both report absence
+at a `term` value. And the refusal F31 and F36 built has a way round it that neither had a program
+for, because F45 shipped the polymorphic signature after them.
+
+### The program
+
+```csharp
+module Solved
+
+public string Trace(list<(string, term)> headers)
+Trace(hs) -> Find(hs, "x-trace") switch {
+    :nothing => "no trace header",
+    v        => "traced"
+}
+
+private option<T> Find<T>(list<(string, T)> xs, string key)
+Find([], _)                               -> :nothing
+Find([(k, v), ..rest], key) when k == key -> v
+Find([_, ..rest], key)                    -> Find(rest, key)
+```
+
+It compiles today with no diagnostic. The call solves `T` to `term`, its type is
+`term | :nothing`, which is `term`, and `bsc --api` prints `term` for a function that returns it.
+Run:
+
+```
+$ bsc Solved Trace '[("host", "a")]'
+"no trace header"
+$ bsc Solved Trace '[("x-trace", :nothing)]'
+"no trace header"
+```
+
+The second header is present. Write the same return type out, `public option<term> Trace(...)`,
+and line 3 is refused: *"`:nothing` is absorbed by `term` ... hint: tag it - (:some, term) |
+:nothing"*.
+
+This is also how `Map.?Get` will be typed. [Ticket 108](108-the-second-forms-spelling.md) gave the
+`?` form the return `option<V>`, and a standard row is typed as a call to a polymorphic function
+(F75), so `Map.?Get(headers, "x-trace")` over a `map<string, term>` goes through the same clause
+once ENG-324 builds it.
+
+### The question
+
+**Is the call `Find(hs, "x-trace")` refused, because it solves `option<T>` to `T = term`?**
+
+Alone. What the standard environment hands back for a lookup in a `map<string, term>` follows a
+yes and is not asked here.
+
+### Under each answer
+
+**Yes.** `Solved` is refused at line 4, at the call:
+
+```
+Solved.bs:4:14: error: `:nothing` is absorbed by `term`
+  in Trace, at the call to Find
+  Find returns `option<T>` and this call makes `T` `term`, so the
+  result IS `term` and the `:nothing` arm cannot tell an absent
+  header from one holding `:nothing`.
+```
+
+The same `Find` over a `list<(string, int)>` compiles as it does today. The compiler gains:
+
+- in `checked_call_typed/7`'s template clause (`bs_check.erl:4416`), a walk of the return template
+  `RetT` under the solution `Sub` that asks `absorbed/2` (`bs_check.erl:3415`) of each member of a
+  `{t_union, Ms}` against the others, before `subst_tpl/2` hands them to `bs_types:union/1`. It is
+  `collapse_members/4` at a call instead of a declaration;
+- one more `where` shape on the `absorbed_member` tag in `bs_diag.erl`, naming the call and the
+  variable, since the existing sentence says *"the type declared here"* and nothing is declared
+  at a call;
+- nothing in `bs_emit` or `bs_lower`: the check is on types and the emitted program is unchanged.
+
+`Map.?Get`, `Map.?Find`, `List.?First`, `?Last` and `?At` inherit the refusal at `term` when
+ENG-324 builds them, with no delta of their own. This ticket then holds one follow-up, what an
+author writes for that lookup, and today's answer to it is the `:maps.find` program in the research
+file.
+
+**No.** `Solved` compiles as it does today and prints what it prints today. The compiler gains
+nothing. Ticket 68's sentence, *"a written member that is not in the type is an error"*, gains the
+clause *"unless a call's solution removed it"*, `LANGUAGE.md` says so where `option<T>` is
+introduced, and `Map.?Get` over a `map<string, term>` ships returning `term`. This ticket closes.
+
+**Recommended:** yes, because the type the call produces is one the compiler already refuses when
+it is written out, and the program that slips past returns a wrong answer on a header that is
+there.
