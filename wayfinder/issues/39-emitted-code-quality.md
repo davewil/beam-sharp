@@ -129,3 +129,96 @@ and Gleam *beating* Erlang, because three of the four implementations carried a 
 did not. The corrected table is the one above; the wrong one is kept in `aoc/bench/README.md`
 because the failure mode — a plausible table that measures the author's coding style — is the one
 this ticket is most likely to repeat.
+
+## Round 1 — 2026-11-13
+
+Measured on Erlang/OTP 28.5 (built from `otp_src_28.5`, the pinned release) with rebar3 3.27.0,
+against an unmodified `compiler/` at `2e458ba`, **on x86_64 Linux, where the numbers above were
+taken on Apple Silicon**. The probes are in
+[the research file](../research/39-emitted-code-quality.md) and are printed by
+[`39a`](../prototypes/39a_the_hot_loop_today.sh).
+
+**The difference §1 observed is gone, and its cause was the export list.** At `18ca054` the
+language had no visibility marker, so every function in the benchmark was exported, and OTP's
+optimiser assumes nothing about the arguments of an exported function. F12 shipped
+`public`/`private` two days later, and `1243cab` marked the benchmark's helpers `private` the same
+day. Nobody re-ran the benchmark after that.
+
+### The program
+
+[`aoc/bench/Day01/bench_bs.bs`](../../aoc/bench/Day01/bench_bs.bs), as it stands today:
+
+```csharp
+private int Wrap(int n)
+Wrap(n) -> :erlang.rem(:erlang.rem(n, 100) + 100, 100)
+
+private int Hit(int pos)
+Hit(0) -> 1
+Hit(n) -> 0
+
+private (int, int) Spin(int pos, int step, int left, int zeros)
+Spin(pos, step, 0, zeros) -> (pos, zeros)
+Spin(pos, step, left, zeros) ->
+    var next = Wrap(pos + step)
+    Spin(next, step, left - 1, zeros + Hit(next))
+```
+
+What `Spin`'s recursive clause compiles to today. The operand that was a bare `{x,0}` in August
+carries the range:
+
+```erlang
+    {gc_bif,'+',
+            {f,0},
+            2,
+            [{tr,{x,0},{t_integer,{0,99}}},{tr,{x,1},{t_integer,{-1,1}}}],
+            {x,0}}.
+    {call,1,{f,4}}. % 'Wrap'/1
+```
+
+`Wrap`, `Hit`, `Spin`, `Clicks` and `PartTwo` are identical to `bench_erl.erl`'s assembly, operand
+types included (18 `t_integer` annotations in each module). `Sign` and `Size` differ because the
+two sources write them differently, and they run 4,732 times a run against `Spin`'s 673,364.
+
+Timed in one VM, best of six rounds of 25:
+
+| | min ms | rel |
+|---|---|---|
+| Erlang | 8.91 | 1.00x |
+| beam-sharp today | 9.02 | 1.01x |
+| the same source, every function `public` | 9.33 | 1.05x |
+| Erlang, `+no_type_opt` (no annotations at all) | 9.08 | 1.02x |
+| beam-sharp at `18ca054` | 9.10 | 1.02x |
+
+One implementation's own rounds spread by about 5%, so the last three rows are not separable from
+each other.
+
+**Two limits on this, stated before the question.** The 20% itself was not reproduced on this
+machine for any module: on x86_64 the August build is within the noise of Erlang, and so is Erlang
+with its annotations stripped. So the timing shows today's build level with Erlang, and it does
+not show that the missing annotations cost 20% on arm64. And nothing here measures records or
+dispatch, which §3.4 named and no benchmark has touched.
+
+### Q1. Is this ticket closed as no longer reproducing?
+
+### What each answer does
+
+**Yes.** The benchmark compiles as it does today and nothing in the compiler changes. The ticket's
+entry records the cause (an exported function's arguments are untyped to the optimiser; a
+`private` one's are inferred from its call sites) and that §3.3's *"can `bs_emit` supply what the
+analyser is missing"* was answered by F12 without anyone asking it. `aoc/bench/README.md` still
+says *"beam-sharp is ~20% slower"* in the present tense and gains a dated line saying which
+compiler that was.
+
+**No.** The ticket stays open, and the benchmark above is no longer its program, since it has no
+gap left to explain. The next round would have to bring a program in which the checker holds a
+type that reaches the optimiser by neither route measured here: not by call-site inference
+(`private`), and not by F24's head test (`public`, four `is_integer` tests per iteration of
+`Spin`, about 4%). The compiler gains nothing from this answer alone; what it would gain is that
+round's question.
+
+### Recommended answer
+
+Yes: the five functions on the hot path are now the same code as Erlang's, so there is no
+difference left for this ticket to explain, and a question about what else the checker could hand
+the optimiser needs its own program, which this benchmark is not.
+
