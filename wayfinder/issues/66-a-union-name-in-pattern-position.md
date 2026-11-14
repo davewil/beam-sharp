@@ -143,3 +143,115 @@ The same generalisation is asked from the other side by
 ([ENG-395](https://linear.app/davewil/issue/ENG-395)), which covers an alias to a part union and
 a refinement and explicitly does not re-ask the record union here. If either is answered as a
 rule about names, the other is inside it and the two resolve together.
+
+## Round 1 — 2026-11-14
+
+Measured on Erlang/OTP 28.5 (erts 16.4, built from `otp_src_28.5`, the pinned release) with rebar3
+3.27.0, against an unmodified `compiler/` at `f8fa100`. The probes are
+[`66a`](../prototypes/66a_union_name_in_pattern.sh) and
+[`66b`](../prototypes/66b_yes_target.erl); their full output is in
+[the research file](../research/66-a-union-name-in-pattern-position.md).
+
+**Every exemplar above still behaves as recorded at `6728799`.** No later ticket settles this one.
+[111](111-may-construction-name-a-union.md) refused a union name before `{` in **construction**,
+because there the name would have to *choose* a member. A pattern chooses nothing: it tests which
+member arrived. So 111's reason does not reach this question, and its entry does not claim to.
+
+### The program
+
+```csharp
+module Ledger
+
+record CardPaid { Id: int, Amount: int }
+record BankPaid { Id: int, Amount: int }
+record Refunded { Id: int, Amount: int }
+
+type Payment = CardPaid | BankPaid
+type Event   = CardPaid | BankPaid | Refunded
+
+public int Delta(Event e)
+
+Delta(Payment p)  -> p.Amount
+Delta(Refunded r) -> 0 - r.Amount
+```
+
+Today this is refused, `rc=1`:
+
+```
+l.bs:13:7: error: Payment is not a record, so it cannot name a pattern
+  only a `record` declaration mints the tag a type prefix matches on.
+  a part is named by the part itself, lowercase — one clause taking
+  `int` beside one taking `float`.
+  to constrain fields without naming a type, write `{ Field: ... }`.
+```
+
+What the program has to say instead, one clause per member with the body repeated, compiles
+today and emits:
+
+```erlang
+'Delta'(P = #{'Kind' := 'Ledger.CardPaid'}) -> map_get('Amount', P);
+'Delta'(P = #{'Kind' := 'Ledger.BankPaid'}) -> map_get('Amount', P);
+'Delta'(R = #{'Kind' := 'Ledger.Refunded'}) -> 0 - map_get('Amount', R).
+```
+
+**Q1. Does `Delta(Payment p)` compile, with `p` typed `Payment` and the clause matching
+exactly the members of `Payment`?**
+
+This is the gating question. Three of this ticket's four open items follow from it and are not
+asked here: how the residual prints (item 1), whether a union that mixes records with an atom
+also qualifies (item 2), and the collapse interaction (item 4). Item 3, whether exemplar 5's
+unreachable clause is an error, is independent and is left for its own round.
+
+### What each answer does
+
+**Yes.** The program above compiles. `p.Amount` checks as it already does when `Payment` is the
+declared input (exemplar 1, `rc=0`, emits one `map_get`). `Delta` emits one clause for the
+union, a map match that binds the tag and a guard that names the members:
+
+```erlang
+'Delta'(P = #{'Kind' := K}) when K =:= 'Ledger.CardPaid'; K =:= 'Ledger.BankPaid' ->
+    map_get('Amount', P);
+'Delta'(R = #{'Kind' := 'Ledger.Refunded'}) ->
+    0 - map_get('Amount', R).
+```
+
+`66b` is that module written by hand. It compiles under `+warnings_as_errors` on 28.5, returns
+5, 7 and -4 for the three members, and raises `function_clause` for a fourth record. Drop the
+`Refunded` clause and the exhaustiveness error is unchanged: `Delta(Refunded r) -> ...`.
+
+The compiler gains:
+
+- `bs_check:record_union_of/3`, beside `record_of/3` (`bs_check.erl:1860`). It resolves an
+  alias whose every member is a closed map with a singleton `Kind`, and returns the members'
+  tags. `record_pattern_type/3` (`bs_check.erl:4977`) calls it when `record_of/3` would raise
+  `not_a_record`, and types the pattern as the union of the members' open maps, so
+  exhaustiveness subtracts it with no new code.
+- In `bs_emit:desugar/2` (`bs_emit.erl:539`), a `p_rec` over such an alias becomes
+  `p_alias(V, p_map[{'Kind', p_var(K)}])` and hands up a guard `K =:= T1 orelse …`. The guard
+  goes through the channel `guard_one/7` (`bs_emit.erl:274`) already uses for `tag_test`, and
+  it is joined with `andalso` to any `when` the clause writes.
+- A field-constrained form, `Payment { Amount: 0 } p`, is refused until it is asked:
+  `pattern_field_unknown` already has the field list to say so.
+- The grammar takes no change. `Payment p` already parses, and the refusal is the checker's.
+- A gated `LANGUAGE.md` block holding the program above.
+
+**No.** The program stays refused, and the per-member spelling stays the idiom. The compiler
+gains one diagnostic. When the alias resolves to a union of records, `not_a_record` is
+replaced by a new tag, `union_in_pattern`, rendered in `bs_diag.erl` beside `not_a_record`
+(`bs_diag.erl:562`, `:1896`). It names the members and prints the clauses to paste:
+
+```
+error: Payment is a union, and a pattern names one record
+  write one clause per member:
+    Delta(CardPaid p) -> ...
+    Delta(BankPaid p) -> ...
+```
+
+`check-residual-pasteable.sh` would replay those lines, since it already replays every printed
+head.
+
+### Recommended answer
+
+Yes. The checker already types and subtracts the union, and the emitter already has a guard
+channel to test it in one clause. Refusing it costs every program one repeated body per member,
+and that cost grows with the union.
